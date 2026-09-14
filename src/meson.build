@@ -1,6 +1,12 @@
-codi_sources = files(
-  'main.vala',
+codi_model_sources = files(
+  'models/file-node.vala',
+  'models/file-tree.vala',
 )
+
+codi_sources = [
+  files('main.vala'),
+  codi_model_sources,
+]
 
 executable(
   'codi-gtk',
