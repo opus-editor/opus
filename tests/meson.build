@@ -25,3 +25,17 @@ file_tree_test = executable(
   dependencies: [glib_dep, gobject_dep, gio_dep],
 )
 test('file-tree', file_tree_test)
+
+interfaces_compile_test = executable(
+  'interfaces-compile-test',
+  [
+    'interfaces-compile-test.vala',
+    'fakes/fake-editor-view.vala',
+    'fakes/fake-file-tree-view.vala',
+    'fakes/fake-tab-bar-view.vala',
+    codi_model_sources,
+    codi_view_interface_sources,
+  ],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('interfaces-compile', interfaces_compile_test)

@@ -5,9 +5,15 @@ codi_model_sources = files(
   'models/workspace.vala',
 )
 
+codi_view_interface_sources = files(
+  'views/interfaces/editor-view.vala',
+  'views/interfaces/file-tree-view.vala',
+  'views/interfaces/tab-bar-view.vala',
+)
+
 codi_sources = files(
   'main.vala',
-) + codi_model_sources
+) + codi_model_sources + codi_view_interface_sources
 
 executable(
   'codi-gtk',
