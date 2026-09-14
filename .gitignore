@@ -1,0 +1,16 @@
+# Meson build output (out-of-source; generated C sources live here too)
+build/
+builddir/
+
+# Meson subprojects: keep the .wrap files, not the fetched sources
+subprojects/*/
+!subprojects/*.wrap
+
+# Planning
+sprint/
+
+# Editor / OS cruft
+.vscode/
+*.swp
+*.swo
+.DS_Store
