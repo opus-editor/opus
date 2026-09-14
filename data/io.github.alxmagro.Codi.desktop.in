@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Codi
+Comment=A lightweight source code editor
+Exec=codi-gtk %F
+Icon=accessories-text-editor
+Terminal=false
+Type=Application
+Categories=Development;TextEditor;
