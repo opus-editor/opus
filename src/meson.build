@@ -1,5 +1,7 @@
 codi_model_sources = files(
   'models/document.vala',
+  'models/file-node.vala',
+  'models/file-tree.vala',
   'models/workspace.vala',
 )
 
