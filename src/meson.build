@@ -11,9 +11,13 @@ codi_view_interface_sources = files(
   'views/interfaces/tab-bar-view.vala',
 )
 
+codi_controller_sources = files(
+  'controllers/file-tree-controller.vala',
+)
+
 codi_sources = files(
   'main.vala',
-) + codi_model_sources + codi_view_interface_sources
+) + codi_model_sources + codi_view_interface_sources + codi_controller_sources
 
 executable(
   'codi-gtk',
