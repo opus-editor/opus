@@ -1,5 +1,6 @@
 codi_sources = files(
   'main.vala',
+  'models/workspace.vala',
 )
 
 executable(
