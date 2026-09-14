@@ -1,0 +1,24 @@
+using Gtk 4.0;
+
+template $TabPill: Gtk.Box {
+  orientation: horizontal;
+  spacing: 4;
+  css-classes: ["tab-pill"];
+
+  Gtk.Label title_label {
+    ellipsize: end;
+    hexpand: true;
+    xalign: 0;
+    margin-start: 10;
+    margin-top: 6;
+    margin-bottom: 6;
+  }
+
+  Gtk.Button close_button {
+    icon-name: "window-close-symbolic";
+    css-classes: ["flat", "circular"];
+    tooltip-text: _("Close tab");
+    valign: center;
+    margin-end: 4;
+  }
+}
