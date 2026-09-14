@@ -148,6 +148,26 @@ private void test_reopening_same_path_activates_without_duplicating () throws Er
     }
 }
 
+private void test_reopening_preview_path_as_permanent_promotes_it () throws Error {
+    string path = make_temp_file ("content");
+
+    try {
+        var tab_bar_view = new FakeTabBarView ();
+        var editor_view = new FakeEditorView ();
+        var controller = new EditorController (tab_bar_view, editor_view);
+
+        controller.open (path, false);
+        assert_true (tab_bar_view.preview_flags[path]);
+
+        controller.open (path, true);
+
+        assert_true (tab_bar_view.open_paths.length == 1);
+        assert_false (tab_bar_view.preview_flags[path]);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
 private void test_close_clean_tab_closes_immediately () throws Error {
     string path = make_temp_file ("content");
 
@@ -307,6 +327,9 @@ int main (string[] args) {
     });
     Test.add_func ("/controllers/editor-controller/reopening_same_path_activates_without_duplicating", () => {
         run_test (() => test_reopening_same_path_activates_without_duplicating ());
+    });
+    Test.add_func ("/controllers/editor-controller/reopening_preview_path_as_permanent_promotes_it", () => {
+        run_test (() => test_reopening_preview_path_as_permanent_promotes_it ());
     });
     Test.add_func ("/controllers/editor-controller/close_clean_tab_closes_immediately", () => {
         run_test (() => test_close_clean_tab_closes_immediately ());

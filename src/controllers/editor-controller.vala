@@ -24,6 +24,9 @@ public class EditorController : Object {
     /** Opens `path`, as a preview tab or a permanent one, reusing an existing tab if already open. */
     public void open (string path, bool as_permanent) throws Error {
         if (documents.contains (path)) {
+            if (as_permanent) {
+                promote (documents[path]);
+            }
             activate (path);
             return;
         }
