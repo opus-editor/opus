@@ -1,0 +1,25 @@
+using Gtk 4.0;
+
+template $FileTreeRow: Gtk.Box {
+  orientation: horizontal;
+  spacing: 6;
+
+  Gtk.TreeExpander expander {
+    hexpand: true;
+
+    child: Gtk.Box {
+      orientation: horizontal;
+      spacing: 6;
+
+      Gtk.Image icon {
+        icon-name: "text-x-generic-symbolic";
+      }
+
+      Gtk.Label label {
+        xalign: 0;
+        ellipsize: end;
+        hexpand: true;
+      }
+    };
+  }
+}
