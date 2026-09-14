@@ -13,6 +13,7 @@ codi_view_interface_sources = files(
 
 codi_controller_sources = files(
   'controllers/file-tree-controller.vala',
+  'controllers/editor-controller.vala',
 )
 
 codi_sources = files(
