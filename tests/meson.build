@@ -4,3 +4,11 @@ trivial_test = executable(
   dependencies: [glib_dep, gobject_dep],
 )
 test('trivial', trivial_test)
+
+document_test = executable(
+  'document-test',
+  'models/document-test.vala',
+  document_sources,
+  dependencies: [glib_dep, gobject_dep],
+)
+test('document', document_test)

@@ -1,6 +1,10 @@
+document_sources = files(
+  'models/document.vala',
+)
+
 codi_sources = files(
   'main.vala',
-)
+) + document_sources
 
 executable(
   'codi-gtk',
