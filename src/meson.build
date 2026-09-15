@@ -1,4 +1,4 @@
-codi_model_sources = files(
+opus_model_sources = files(
   'models/document.vala',
   'models/file-node.vala',
   'models/file-tree.vala',
@@ -6,7 +6,7 @@ codi_model_sources = files(
   'models/workspace.vala',
 )
 
-codi_gtk_view_sources = files(
+opus_gtk_view_sources = files(
   'views/file-tree/_row.vala',
   'views/file-tree/index.vala',
   'views/tab-bar/_pill.vala',
@@ -15,20 +15,20 @@ codi_gtk_view_sources = files(
   'views/main-window/index.vala',
 )
 
-codi_controller_sources = files(
+opus_controller_sources = files(
   'controllers/file-tree-controller.vala',
   'controllers/editor-controller.vala',
   'controllers/main-controller.vala',
 )
 
-codi_sources = files(
+opus_sources = files(
   'main.vala',
-) + codi_model_sources + codi_gtk_view_sources + codi_controller_sources
+) + opus_model_sources + opus_gtk_view_sources + opus_controller_sources
 
 executable(
-  'codi-gtk',
-  codi_sources,
-  codi_resources,
+  'opus',
+  opus_sources,
+  opus_resources,
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep],
   install: true,
 )

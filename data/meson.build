@@ -20,9 +20,9 @@ blueprints = custom_target('blueprints',
   ],
 )
 
-codi_resources = gnome.compile_resources(
-  'codi-gtk-resources',
-  'io.github.alxmagro.Codi.gresource.xml',
+opus_resources = gnome.compile_resources(
+  'opus-resources',
+  'io.github.nowaos.Opus.gresource.xml',
   # Compiled .ui files land in the build dir; icons/ (a few app-bundled
   # symbolic icons that don't exist in the system icon theme) ships from the
   # source tree directly — both are listed here since compile_resources
@@ -32,7 +32,7 @@ codi_resources = gnome.compile_resources(
 )
 
 install_data(
-  'io.github.alxmagro.Codi.desktop.in',
+  'io.github.nowaos.Opus.desktop.in',
   rename: app_id + '.desktop',
   install_dir: get_option('datadir') / 'applications',
 )

@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Codi
+Name=Opus
 Comment=A lightweight source code editor
-Exec=codi-gtk %F
+Exec=opus %F
 Icon=accessories-text-editor
 Terminal=false
 Type=Application

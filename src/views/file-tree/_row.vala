@@ -21,7 +21,7 @@ public class FileTreeRow : Object {
     public signal void file_clicked (string path, bool open_permanent);
 
     public FileTreeRow () {
-        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/file-tree/_row.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/file-tree/_row.ui");
         box = (Gtk.Box) builder.get_object ("row");
         expander = (Gtk.TreeExpander) builder.get_object ("expander");
         icon = (Gtk.Image) builder.get_object ("icon");

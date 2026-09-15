@@ -1,4 +1,4 @@
-# codi-gtk
+# Opus
 
 Native GTK4 + Libadwaita source code editor, written in Vala. See
 [README.md](README.md) for the pitch.
@@ -8,7 +8,7 @@ Native GTK4 + Libadwaita source code editor, written in Vala. See
 ```shell
 meson setup builddir
 ninja -C builddir
-./builddir/src/codi-gtk
+./builddir/src/opus
 ```
 
 Rebuild after adding/removing a `.vala` file: `meson setup --reconfigure

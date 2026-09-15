@@ -9,7 +9,7 @@
 //     a-file.txt
 //     Z-file.txt
 private string make_fixture () throws Error {
-    var root_path = DirUtils.make_tmp ("codi-gtk-file-tree-test-XXXXXX");
+    var root_path = DirUtils.make_tmp ("opus-file-tree-test-XXXXXX");
 
     DirUtils.create (Path.build_filename (root_path, ".hidden-dir"), 0755);
     FileUtils.set_contents (Path.build_filename (root_path, ".hidden-file"), "");

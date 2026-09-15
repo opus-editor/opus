@@ -30,7 +30,7 @@ public class TabPill : Object {
     private bool modified = false;
 
     public TabPill () {
-        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/tab-bar/_pill.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/tab-bar/_pill.ui");
         box = (Gtk.Box) builder.get_object ("pill");
         title_label = (Gtk.Label) builder.get_object ("title_label");
         close_button = (Gtk.Button) builder.get_object ("close_button");

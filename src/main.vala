@@ -27,7 +27,7 @@ private static void open_workspace (Gtk.Application app, string root_path) {
     // own (it has no index.theme to read); without a match here it silently
     // falls through to the active theme's "image-missing" icon instead of
     // erroring, which is what actually happens if this path is wrong.
-    Gtk.IconTheme.get_for_display (Gdk.Display.get_default ()).add_resource_path ("/io/github/alxmagro/Codi/icons");
+    Gtk.IconTheme.get_for_display (Gdk.Display.get_default ()).add_resource_path ("/io/github/nowaos/Opus/icons");
 
     var session = new Session ();
     session.file_tree_view = new FileTreeView ();
@@ -59,7 +59,7 @@ int main (string[] args) {
     // Handling it ourselves keeps the folder argument going through
     // Workspace.resolve_root_path, as decided in the sprint spec, instead of
     // GLib's own GFile-based "open" semantics.
-    var app = new Adw.Application ("io.github.alxmagro.Codi", ApplicationFlags.HANDLES_COMMAND_LINE);
+    var app = new Adw.Application ("io.github.nowaos.Opus", ApplicationFlags.HANDLES_COMMAND_LINE);
 
     app.command_line.connect ((command_line) => {
         string[] argv = command_line.get_arguments ();

@@ -15,7 +15,7 @@ public class MainWindowView : Object {
     private Adw.Bin editor_bin;
 
     public MainWindowView (Gtk.Application app, Gtk.Widget sidebar, Gtk.Widget tab_bar, Gtk.Widget editor_pane) {
-        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/main-window/index.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/index.ui");
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         window_title = (Adw.WindowTitle) builder.get_object ("window_title");
         sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");

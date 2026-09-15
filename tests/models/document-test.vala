@@ -1,7 +1,7 @@
 private string make_temp_file (uint8[] bytes) {
     string path = Path.build_filename (
         Environment.get_tmp_dir (),
-        "codi-gtk-document-test-%u-%u".printf (Random.next_int (), Random.next_int ())
+        "opus-document-test-%u-%u".printf (Random.next_int (), Random.next_int ())
     );
 
     try {

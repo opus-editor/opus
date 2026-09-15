@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/io/github/alxmagro/Codi">
+  <gresource prefix="/io/github/nowaos/Opus">
     <file compressed="true">file-tree/_row.ui</file>
     <file compressed="true">tab-bar/_pill.ui</file>
     <file compressed="true">editor/index.ui</file>
     <file compressed="true">main-window/index.ui</file>
   </gresource>
-  <gresource prefix="/io/github/alxmagro/Codi/icons">
+  <gresource prefix="/io/github/nowaos/Opus/icons">
     <file alias="scalable/actions/git-symbolic.svg" compressed="true">icons/scalable/actions/git-symbolic.svg</file>
     <file alias="scalable/actions/code-symbolic.svg" compressed="true">icons/scalable/actions/code-symbolic.svg</file>
     <file alias="scalable/actions/chevron-right-symbolic.svg" compressed="true">icons/scalable/actions/chevron-right-symbolic.svg</file>

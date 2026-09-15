@@ -17,7 +17,7 @@ public class EditorView : Object {
     public signal void text_changed (string new_text);
 
     public EditorView () {
-        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/editor/index.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor/index.ui");
         root = (Gtk.ScrolledWindow) builder.get_object ("root");
         text_view = (Gtk.TextView) builder.get_object ("text_view");
         text_view.buffer.changed.connect (on_buffer_changed);

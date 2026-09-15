@@ -1,11 +1,11 @@
 project(
-  'codi-gtk', 'vala', 'c',
+  'opus', 'vala', 'c',
   version: '0.1.0',
   meson_version: '>= 1.0',
 )
 
-app_id = 'io.github.alxmagro.Codi'
-gettext_package = 'codi-gtk'
+app_id = 'io.github.nowaos.Opus'
+gettext_package = 'opus'
 
 glib_dep = dependency('glib-2.0')
 gobject_dep = dependency('gobject-2.0')

@@ -14,7 +14,7 @@ test: build
 
 # Run the app, optionally against a folder: `just run ~/some/project`.
 run *ARGS: build
-    ./builddir/src/codi-gtk {{ARGS}}
+    ./builddir/src/opus {{ARGS}}
 
 # Remove the build directory.
 clean:
