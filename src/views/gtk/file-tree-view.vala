@@ -28,6 +28,13 @@ public class FileTreeView : Object, IFileTreeView {
     }
 
     public void populate (FileNode root) {
+        // The gtk4 vapi types this constructor's create_func parameter as
+        // GLib.Object, but GTK's real C typedef (GtkTreeListModelCreateModelFunc)
+        // takes an untyped gpointer — a vapi imprecision, not a real ABI
+        // mismatch. GCC flags it as an incompatible-pointer-types warning that
+        // no combination of -Wno-incompatible-pointer-types, #pragma GCC
+        // diagnostic, or -std= reliably suppresses on this toolchain (verified);
+        // harmless and unavoidable short of hand-writing a raw extern binding.
         tree_model = new Gtk.TreeListModel (children_store (root), false, false, on_create_model);
         selection = new Gtk.SingleSelection (tree_model);
         list_view.model = selection;

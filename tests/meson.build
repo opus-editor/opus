@@ -53,6 +53,21 @@ editor_controller_test = executable(
 )
 test('editor-controller', editor_controller_test)
 
+main_controller_test = executable(
+  'main-controller-test',
+  [
+    'controllers/main-controller-test.vala',
+    'fakes/fake-editor-view.vala',
+    'fakes/fake-file-tree-view.vala',
+    'fakes/fake-tab-bar-view.vala',
+    codi_model_sources,
+    codi_view_interface_sources,
+    codi_controller_sources,
+  ],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('main-controller', main_controller_test)
+
 interfaces_compile_test = executable(
   'interfaces-compile-test',
   [

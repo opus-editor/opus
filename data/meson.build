@@ -1,6 +1,9 @@
 blueprints = custom_target('blueprints',
   input: files(
-    'ui/window.blp',
+    'ui/file-tree-row.blp',
+    'ui/tab-pill.blp',
+    'ui/editor-view.blp',
+    'ui/main-window.blp',
   ),
   output: '.',
   command: [

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/io/github/alxmagro/Codi">
-    <file compressed="true">ui/window.ui</file>
+    <file compressed="true">ui/file-tree-row.ui</file>
+    <file compressed="true">ui/tab-pill.ui</file>
+    <file compressed="true">ui/editor-view.ui</file>
+    <file compressed="true">ui/main-window.ui</file>
   </gresource>
 </gresources>
