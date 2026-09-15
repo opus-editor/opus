@@ -3,10 +3,12 @@
  *
  * Within each directory, children are ordered directories-first, then
  * alphabetically (case-insensitive). Hidden entries (dotfiles/dotdirs) are
- * included like any other entry — no filtering is applied.
+ * included like any other entry, except `.git` — never useful to browse or
+ * edit, so it's excluded outright rather than just hidden.
  */
 public class FileTree : Object {
     private const string ENTRY_ATTRIBUTES = FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE;
+    private const string EXCLUDED_ENTRY = ".git";
 
     public FileNode root { get; private set; }
 
@@ -24,6 +26,10 @@ public class FileTree : Object {
             var enumerator = file.enumerate_children (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);
             FileInfo? entry_info;
             while ((entry_info = enumerator.next_file ()) != null) {
+                if (entry_info.get_name () == EXCLUDED_ENTRY) {
+                    continue;
+                }
+
                 var child_path = Path.build_filename (path, entry_info.get_name ());
                 insert_sorted (node.children, build_node (child_path));
             }

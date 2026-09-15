@@ -86,6 +86,22 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/file-tree/excludes-git-directory", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            DirUtils.create (Path.build_filename (root_path, ".git"), 0755);
+            FileUtils.set_contents (Path.build_filename (root_path, ".git", "config"), "");
+
+            var tree = new FileTree (root_path);
+            assert (find_child (tree.root, ".git") == null);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/file-tree/walks-nested-directories", () => {
         string root_path = "";
         try {
