@@ -15,8 +15,25 @@ Rebuild after adding/removing a `.vala` file: `meson setup --reconfigure
 builddir` (Meson doesn't glob sources — every file must be listed in the
 nearest `meson.build`).
 
+Or via the `justfile` (`just --list` for the full set): `just build`,
+`just test`, `just run [folder]`, `just clean`.
+
 Toolchain this was written against: Vala 0.56, Meson 1.7, GTK4 4.18,
 Libadwaita 1.7.
+
+## Logging
+
+`Logger.warn`/`Logger.info` (`src/models/logger.vala`) print to stderr, gated
+by a runtime `-v`/`--verbose` flag (`just run -v`). In a `debug` buildtype
+(the default), Meson passes `--define=DEBUG` to valac and these calls do
+real work; in a `release` build the whole namespace body compiles to empty
+functions — calls stay in the source, but the logging is gone from the
+binary, not just silenced. Leave `Logger.warn (...)` calls in place rather
+than deleting them after debugging.
+
+Use sparingly: only at real points of interest (a signal crossing a
+Controller/View boundary, a decision branch worth tracing), never scattered
+across every function — it's a diagnostic tool, not routine narration.
 
 ## Testing
 
