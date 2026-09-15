@@ -1,0 +1,67 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.ApplicationWindow window {
+  default-width: 900;
+  default-height: 600;
+  // Matches Nautilus: the window itself carries the "view" background;
+  // a flat (non-raised) Adw.ToolbarView top bar paints no background of
+  // its own, so the window's shows through underneath it uninterrupted.
+  styles ["view"]
+
+  content: Adw.OverlaySplitView split_view {
+    sidebar: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        show-end-title-buttons: false;
+        decoration-layout: "close:";
+        title-widget: Adw.WindowTitle window_title {};
+      }
+
+      content: Adw.Bin sidebar_bin {};
+    };
+
+    content: Adw.ToolbarView {
+      top-bar-style: flat;
+
+      [top]
+      Adw.HeaderBar {
+        show-start-title-buttons: false;
+        show-end-title-buttons: false;
+
+        title-widget: Adw.ViewSwitcher {
+          stack: view_stack;
+          policy: wide;
+        };
+      }
+
+      content: Adw.ViewStack view_stack {
+        Adw.ViewStackPage {
+          name: "editor";
+          title: _("Editor");
+          icon-name: "code-symbolic";
+
+          child: Gtk.Box {
+            orientation: vertical;
+
+            Adw.Bin tab_bar_bin {}
+
+            Adw.Bin editor_bin {
+              vexpand: true;
+            }
+          };
+        }
+
+        Adw.ViewStackPage {
+          name: "git";
+          title: _("Git");
+          icon-name: "git-symbolic";
+
+          child: Adw.StatusPage {
+            title: _("Git integration coming soon");
+          };
+        }
+      };
+    };
+  };
+}

@@ -3,25 +3,33 @@
  * {@link Gtk.TreeExpander} wrapping them) the chevron used to expand or
  * collapse a directory. Recycled by the list view's factory, so the bound
  * {@link FileNode} is tracked on the instance rather than re-derived.
+ *
+ * Loads its widget tree via {@link Gtk.Builder} rather than a
+ * composite-template subclass — same pattern as EditorView/MainWindowView.
  */
-[GtkTemplate (ui = "/io/github/alxmagro/Codi/ui/file-tree-row.ui")]
-public class FileTreeRow : Gtk.Box {
-    [GtkChild]
-    private unowned Gtk.TreeExpander expander;
-    [GtkChild]
-    private unowned Gtk.Image icon;
-    [GtkChild]
-    private unowned Gtk.Label label;
+public class FileTreeRow : Object {
+    private Gtk.Box box;
+    private Gtk.TreeExpander expander;
+    private Gtk.Image icon;
+    private Gtk.Label label;
 
     private FileNode? node;
+
+    public Gtk.Widget widget { get { return box; } }
 
     /** A bound file (never a directory) was clicked `n_press` times in a row. */
     public signal void file_clicked (string path, bool open_permanent);
 
-    construct {
+    public FileTreeRow () {
+        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/file-tree/_row.ui");
+        box = (Gtk.Box) builder.get_object ("row");
+        expander = (Gtk.TreeExpander) builder.get_object ("expander");
+        icon = (Gtk.Image) builder.get_object ("icon");
+        label = (Gtk.Label) builder.get_object ("label");
+
         var click = new Gtk.GestureClick ();
         click.pressed.connect (on_pressed);
-        add_controller (click);
+        box.add_controller (click);
     }
 
     /** Binds this row to `list_row`/`bound_node`, recycled from a previous use. */
@@ -29,7 +37,8 @@ public class FileTreeRow : Gtk.Box {
         node = bound_node;
         expander.list_row = list_row;
         label.label = bound_node.name;
-        icon.icon_name = bound_node.is_directory ? "folder-symbolic" : "text-x-generic-symbolic";
+        icon.visible = !bound_node.is_directory;
+        icon.icon_name = "text-x-generic-symbolic";
     }
 
     /** Releases the row's data ahead of being recycled for another node. */
@@ -39,7 +48,12 @@ public class FileTreeRow : Gtk.Box {
     }
 
     private void on_pressed (int n_press, double x, double y) {
-        if (node == null || node.is_directory || n_press > 2) {
+        if (node == null || n_press > 2) {
+            return;
+        }
+
+        if (node.is_directory) {
+            expander.list_row.expanded = !expander.list_row.expanded;
             return;
         }
 

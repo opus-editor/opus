@@ -2,22 +2,17 @@ codi_model_sources = files(
   'models/document.vala',
   'models/file-node.vala',
   'models/file-tree.vala',
+  'models/logger.vala',
   'models/workspace.vala',
 )
 
-codi_view_interface_sources = files(
-  'views/interfaces/editor-view.vala',
-  'views/interfaces/file-tree-view.vala',
-  'views/interfaces/tab-bar-view.vala',
-)
-
 codi_gtk_view_sources = files(
-  'views/gtk/file-tree-row.vala',
-  'views/gtk/file-tree-view.vala',
-  'views/gtk/tab-pill.vala',
-  'views/gtk/tab-bar-view.vala',
-  'views/gtk/editor-view.vala',
-  'views/gtk/main-window-view.vala',
+  'views/file-tree/_row.vala',
+  'views/file-tree/index.vala',
+  'views/tab-bar/_pill.vala',
+  'views/tab-bar/index.vala',
+  'views/editor/index.vala',
+  'views/main-window/index.vala',
 )
 
 codi_controller_sources = files(
@@ -28,7 +23,7 @@ codi_controller_sources = files(
 
 codi_sources = files(
   'main.vala',
-) + codi_model_sources + codi_view_interface_sources + codi_gtk_view_sources + codi_controller_sources
+) + codi_model_sources + codi_gtk_view_sources + codi_controller_sources
 
 executable(
   'codi-gtk',

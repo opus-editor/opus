@@ -1,10 +1,10 @@
 /**
- * Real Gtk-backed {@link IEditorView}: a single {@link Gtk.TextView} whose
- * content swaps per active tab. An unreadable file is shown by replacing the
- * buffer with a placeholder message and making the view non-editable, rather
- * than by swapping in a different widget.
+ * Real Gtk-backed facade for the editor pane: a single {@link Gtk.TextView}
+ * whose content swaps per active tab. An unreadable file is shown by
+ * replacing the buffer with a placeholder message and making the view
+ * non-editable, rather than by swapping in a different widget.
  */
-public class EditorView : Object, IEditorView {
+public class EditorView : Object {
     private Gtk.ScrolledWindow root;
     private Gtk.TextView text_view;
 
@@ -13,8 +13,11 @@ public class EditorView : Object, IEditorView {
 
     public Gtk.Widget widget { get { return root; } }
 
+    /** The user edited the text; `new_text` is the buffer's full content. */
+    public signal void text_changed (string new_text);
+
     public EditorView () {
-        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/ui/editor-view.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/editor/index.ui");
         root = (Gtk.ScrolledWindow) builder.get_object ("root");
         text_view = (Gtk.TextView) builder.get_object ("text_view");
         text_view.buffer.changed.connect (on_buffer_changed);

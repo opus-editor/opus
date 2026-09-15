@@ -2,11 +2,19 @@
  * A single tab in the {@link TabBarView}'s row: a title, a close button
  * that's always clickable, and italic styling while the tab is a preview.
  * Selection and double-click are reported via signals; this widget knows
- * nothing about {@link ITabBarView} — TabBarView translates its signals into
- * that interface's, keyed by path.
+ * nothing about `TabBarView` — that class translates its signals into its
+ * own, keyed by path.
+ *
+ * Loads its widget tree via {@link Gtk.Builder} rather than a
+ * composite-template subclass — same pattern as EditorView/MainWindowView.
  */
-[GtkTemplate (ui = "/io/github/alxmagro/Codi/ui/tab-pill.ui")]
-public class TabPill : Gtk.Box {
+public class TabPill : Object {
+    private Gtk.Box box;
+    private Gtk.Label title_label;
+    private Gtk.Button close_button;
+
+    public Gtk.Widget widget { get { return box; } }
+
     /** Single click — makes this tab active. */
     public signal void selected ();
 
@@ -16,18 +24,17 @@ public class TabPill : Gtk.Box {
     /** The close button was clicked. Always emitted; the button is never disabled. */
     public signal void close_requested ();
 
-    [GtkChild]
-    private unowned Gtk.Label title_label;
-
-    [GtkChild]
-    private unowned Gtk.Button close_button;
-
     private static Pango.AttrList italic_attrs = build_italic_attrs ();
 
     private string base_label = "";
     private bool modified = false;
 
-    construct {
+    public TabPill () {
+        var builder = new Gtk.Builder.from_resource ("/io/github/alxmagro/Codi/tab-bar/_pill.ui");
+        box = (Gtk.Box) builder.get_object ("pill");
+        title_label = (Gtk.Label) builder.get_object ("title_label");
+        close_button = (Gtk.Button) builder.get_object ("close_button");
+
         var click = new Gtk.GestureClick ();
         click.pressed.connect ((n_press, x, y) => {
             if (n_press == 1) {
@@ -36,7 +43,7 @@ public class TabPill : Gtk.Box {
                 double_clicked ();
             }
         });
-        add_controller (click);
+        box.add_controller (click);
 
         close_button.clicked.connect (() => close_requested ());
     }
@@ -48,9 +55,9 @@ public class TabPill : Gtk.Box {
 
     public void set_active (bool active) {
         if (active) {
-            add_css_class ("active");
+            box.add_css_class ("active");
         } else {
-            remove_css_class ("active");
+            box.remove_css_class ("active");
         }
     }
 

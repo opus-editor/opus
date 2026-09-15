@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/io/github/alxmagro/Codi">
-    <file compressed="true">ui/file-tree-row.ui</file>
-    <file compressed="true">ui/tab-pill.ui</file>
-    <file compressed="true">ui/editor-view.ui</file>
-    <file compressed="true">ui/main-window.ui</file>
+    <file compressed="true">file-tree/_row.ui</file>
+    <file compressed="true">tab-bar/_pill.ui</file>
+    <file compressed="true">editor/index.ui</file>
+    <file compressed="true">main-window/index.ui</file>
+  </gresource>
+  <gresource prefix="/io/github/alxmagro/Codi/icons">
+    <file alias="scalable/actions/git-symbolic.svg" compressed="true">icons/scalable/actions/git-symbolic.svg</file>
+    <file alias="scalable/actions/code-symbolic.svg" compressed="true">icons/scalable/actions/code-symbolic.svg</file>
+    <file alias="scalable/actions/chevron-right-symbolic.svg" compressed="true">icons/scalable/actions/chevron-right-symbolic.svg</file>
+    <file alias="scalable/actions/chevron-down-symbolic.svg" compressed="true">icons/scalable/actions/chevron-down-symbolic.svg</file>
   </gresource>
 </gresources>

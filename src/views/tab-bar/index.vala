@@ -1,14 +1,31 @@
+/** What the user chose when asked about a tab with unsaved changes. */
+public enum DiscardChoice {
+    SAVE,
+    DISCARD,
+    CANCEL,
+}
+
 /**
- * Real Gtk-backed {@link ITabBarView}: a horizontal, scrollable row of
- * {@link TabPill}s, one per open file, keyed by path.
+ * Real Gtk-backed facade for the row of open-file tabs above the editor
+ * pane: a horizontal, scrollable row of {@link TabPill}s, one per open file,
+ * keyed by path.
  */
-public class TabBarView : Object, ITabBarView {
+public class TabBarView : Object {
     private Gtk.Box box;
     private Gtk.ScrolledWindow scrolled_window;
     private HashTable<string, TabPill> pills = new HashTable<string, TabPill> (str_hash, str_equal);
     private TabPill? active_pill = null;
 
     public Gtk.Widget widget { get { return scrolled_window; } }
+
+    /** A tab was clicked (single-click — makes it active). */
+    public signal void tab_selected (string path);
+
+    /** A tab's close control was clicked. */
+    public signal void tab_close_requested (string path);
+
+    /** A tab was double-clicked (promotes a preview tab to permanent). */
+    public signal void tab_double_clicked (string path);
 
     public TabBarView () {
         box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
@@ -27,7 +44,7 @@ public class TabBarView : Object, ITabBarView {
         pill.close_requested.connect (() => tab_close_requested (path));
 
         pills[path] = pill;
-        box.append (pill);
+        box.append (pill.widget);
     }
 
     public void remove_tab (string path) {
@@ -36,7 +53,7 @@ public class TabBarView : Object, ITabBarView {
             return;
         }
 
-        box.remove (pill);
+        box.remove (pill.widget);
         pills.remove (path);
         if (active_pill == pill) {
             active_pill = null;
