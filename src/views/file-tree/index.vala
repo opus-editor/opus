@@ -55,9 +55,10 @@ public class FileTreeView : Object {
         // child of listview (some internal wrapper sits between them, found
         // by testing with a visible color first rather than guessing twice).
         // Gtk.StyleContext.add_provider_for_display is deprecated since GTK
-        // 4.10 (removed in GTK 5); no replacement exists yet for registering
-        // a provider scoped to part of the app (checked the Vala bindings —
-        // Gtk.Widget exposes nothing equivalent).
+        // 4.10 (removed in GTK 5) with no replacement: GTK's own tracking
+        // issue lists it as still unresolved, proposed fix an open "move to
+        // GtkSettings?" question — https://gitlab.gnome.org/GNOME/gtk/-/issues/2603
+        // This warning is expected to stay until upstream picks one.
         var css_provider = new Gtk.CssProvider ();
         css_provider.load_from_string ("""
             listview.data-table row {
