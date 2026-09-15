@@ -5,13 +5,13 @@
  * close-with-unsaved-changes flow.
  */
 public class EditorController : Object {
-    private ITabBarView tab_bar_view;
-    private IEditorView editor_view;
+    private TabBarView tab_bar_view;
+    private EditorView editor_view;
 
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
     private string? active_path = null;
 
-    public EditorController (ITabBarView tab_bar_view, IEditorView editor_view) {
+    public EditorController (TabBarView tab_bar_view, EditorView editor_view) {
         this.tab_bar_view = tab_bar_view;
         this.editor_view = editor_view;
 

@@ -1,17 +1,17 @@
 /**
  * Builds the {@link FileTree} for a workspace root and drives an
- * {@link IFileTreeView} from it.
+ * {@link FileTreeView} from it.
  *
  * Re-emits the view's `file_activated` signal as its own, so callers (e.g.
- * a future `MainController`) never need to depend on `IFileTreeView`
+ * a future `MainController`) never need to depend on `FileTreeView`
  * directly to react to file activations.
  */
 public class FileTreeController : Object {
-    private IFileTreeView view;
+    private FileTreeView view;
 
     public signal void file_activated (string path, bool open_permanent);
 
-    public FileTreeController (IFileTreeView view, string root_path) throws Error {
+    public FileTreeController (FileTreeView view, string root_path) throws Error {
         this.view = view;
 
         var tree = new FileTree (root_path);
