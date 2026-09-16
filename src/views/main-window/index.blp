@@ -9,67 +9,72 @@ Adw.ApplicationWindow window {
   // its own, so the window's shows through underneath it uninterrupted.
   styles ["view"]
 
-  content: Adw.OverlaySplitView split_view {
-    sidebar: Adw.ToolbarView {
-      [top]
-      Adw.HeaderBar {
-        show-end-title-buttons: false;
-        decoration-layout: "close:";
-        title-widget: Adw.WindowTitle window_title {};
-      }
+  // Spans the whole window so a floating widget (e.g. a dragged tab's
+  // ghost, see show_floating() below) can be positioned anywhere on
+  // screen, not just within whichever narrower widget started the drag.
+  content: Gtk.Overlay floating_layer {
+    child: Adw.OverlaySplitView split_view {
+      sidebar: Adw.ToolbarView {
+        [top]
+        Adw.HeaderBar {
+          show-end-title-buttons: false;
+          decoration-layout: "close:";
+          title-widget: Adw.WindowTitle window_title {};
+        }
 
-      content: Adw.Bin sidebar_bin {};
-    };
+        content: Adw.Bin sidebar_bin {};
+      };
 
-    content: Adw.ToolbarView {
-      top-bar-style: flat;
+      content: Adw.ToolbarView {
+        top-bar-style: flat;
 
-      [top]
-      Adw.HeaderBar {
-        show-start-title-buttons: false;
-        show-end-title-buttons: false;
+        [top]
+        Adw.HeaderBar {
+          show-start-title-buttons: false;
+          show-end-title-buttons: false;
 
-        title-widget: Adw.ViewSwitcher {
-          stack: view_stack;
-          policy: wide;
+          title-widget: Adw.ViewSwitcher {
+            stack: view_stack;
+            policy: wide;
+          };
+        }
+
+        content: Adw.ViewStack view_stack {
+          Adw.ViewStackPage {
+            name: "editor";
+            title: _("Editor");
+            icon-name: "code-symbolic";
+
+            // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as
+            // a Gtk.WindowHandle (drag-to-move-the-window), which races
+            // against — and often wins over — the tab bar's own
+            // drag-to-reorder gesture. A plain Box has no such behavior.
+            // It also paints no background of its own, so the window's
+            // own "view" background (see the `styles ["view"]` above)
+            // shows through here the same as it does behind editor_bin,
+            // instead of "raised"'s opaque header-bar-colored one.
+            child: Gtk.Box {
+              orientation: vertical;
+
+              Adw.Bin tab_bar_bin {}
+              Gtk.Separator {}
+
+              Adw.Bin editor_bin {
+                vexpand: true;
+              }
+            };
+          }
+
+          Adw.ViewStackPage {
+            name: "git";
+            title: _("Git");
+            icon-name: "git-symbolic";
+
+            child: Adw.StatusPage {
+              title: _("Git integration coming soon");
+            };
+          }
         };
-      }
-
-      content: Adw.ViewStack view_stack {
-        Adw.ViewStackPage {
-          name: "editor";
-          title: _("Editor");
-          icon-name: "code-symbolic";
-
-          // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as a
-          // Gtk.WindowHandle (drag-to-move-the-window), which races against
-          // — and often wins over — the tab bar's own drag-to-reorder
-          // gesture. A plain Box has no such behavior. It also paints no
-          // background of its own, so the window's own "view" background
-          // (see the `styles ["view"]` above) shows through here the same
-          // as it does behind editor_bin, instead of "raised"'s opaque
-          // header-bar-colored one.
-          child: Gtk.Box {
-            orientation: vertical;
-
-            Adw.Bin tab_bar_bin {}
-            Gtk.Separator {}
-
-            Adw.Bin editor_bin {
-              vexpand: true;
-            }
-          };
-        }
-
-        Adw.ViewStackPage {
-          name: "git";
-          title: _("Git");
-          icon-name: "git-symbolic";
-
-          child: Adw.StatusPage {
-            title: _("Git integration coming soon");
-          };
-        }
       };
     };
   };

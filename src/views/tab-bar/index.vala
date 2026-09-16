@@ -25,6 +25,14 @@ public class TabBarView : Object {
     private TabPill? active_pill = null;
     private string? preview_path = null;
 
+    // The floating "held" copy of whichever pill is currently being
+    // dragged — see begin_drag_ghost() and TabGhost. Rendered by whoever
+    // owns the window (see the drag_ghost_* signals below), not by this
+    // view itself: a copy confined to this row's own bounds can't follow
+    // the pointer once it leaves the tab bar, the same way a real file
+    // manager's drag icon does.
+    private TabGhost? drag_ghost = null;
+
     public Gtk.Widget widget { get { return overlay; } }
 
     /** A tab was clicked (single-click — makes it active). */
@@ -38,6 +46,15 @@ public class TabBarView : Object {
 
     /** The preview tab was dragged (or displaced) away from the last position, so it's now permanent. */
     public signal void preview_demoted (string path);
+
+    /** A tab started being dragged: show `ghost` floating at `(x, y, width, height)`, in the window's own coordinates. */
+    public signal void drag_ghost_shown (Gtk.Widget ghost, int x, int y, int width, int height);
+
+    /** The dragged tab's ghost should move to `(x, y)`, in the window's own coordinates. */
+    public signal void drag_ghost_moved (int x, int y);
+
+    /** The drag ended (or was cancelled); remove the ghost. */
+    public signal void drag_ghost_hidden ();
 
     static construct {
         install_css ();
@@ -132,6 +149,25 @@ public class TabBarView : Object {
 
             .tab-bar-fade.end {
                 background: linear-gradient(to left, var(--view-bg-color), transparent);
+            }
+
+            .tab-drag-ghost {
+                border-radius: 6px;
+            }
+
+            .tab-drag-ghost-light {
+                background-color: #ebebeb;
+            }
+
+            .tab-drag-ghost-dark {
+                background-color: #333336;
+            }
+
+            /* The real pill being dragged — stays in place, invisible,
+             * showing just its empty slot ("hole") while the ghost above
+             * follows the pointer instead. */
+            .tab-pill.dragging {
+                opacity: 0;
             }
         """);
 
@@ -251,15 +287,18 @@ public class TabBarView : Object {
      * AdwTabBar uses for in-bar reordering (see AdwTabBox's drag_gesture).
      */
     private void setup_reorder_gesture (string path, TabPill pill) {
-        double start_x = 0;
-        double start_y = 0;
+        // Where within `pill.widget` the press landed — fixed for the
+        // whole drag, so the ghost keeps that same point glued under the
+        // pointer regardless of the pill's current size or position.
+        double press_x = 0;
+        double press_y = 0;
         var dragging = false;
 
         var drag = new Gtk.GestureDrag ();
         drag.set_button (Gdk.BUTTON_PRIMARY);
         drag.drag_begin.connect ((gesture, x, y) => {
-            start_x = x;
-            start_y = y;
+            press_x = x;
+            press_y = y;
             dragging = false;
         });
         drag.drag_update.connect ((gesture, offset_x, offset_y) => {
@@ -268,6 +307,7 @@ public class TabBarView : Object {
                     return;
                 }
                 dragging = true;
+                begin_drag_ghost (pill);
             }
 
             // Only claim once movement past GTK's drag threshold is
@@ -275,13 +315,109 @@ public class TabBarView : Object {
             // every press would swallow plain clicks meant for selection.
             gesture.set_state (Gtk.EventSequenceState.CLAIMED);
 
-            var point = Graphene.Point () { x = (float) (start_x + offset_x), y = (float) (start_y + offset_y) };
-            Graphene.Point box_point;
-            if (pill.widget.compute_point (box, point, out box_point)) {
-                reorder_towards (path, box_point.x, box_point.y);
+            // Not `offset_x`/`offset_y`: GtkGestureDrag reports those
+            // relative to `pill.widget`'s OWN current position, which
+            // reorder_towards changes mid-drag (moving it to a new
+            // sibling slot) — the reference point shifts under it,
+            // producing a visible jump. The pointer's raw surface
+            // position is unaffected by that, so it's what both the
+            // ghost and the reorder target are computed from instead.
+            double root_x, root_y;
+            if (!get_pointer_root_position (gesture, pill.widget, out root_x, out root_y)) {
+                return;
+            }
+
+            update_drag_ghost_position (root_x - press_x, root_y - press_y);
+
+            var root = pill.widget.get_root ();
+            if (root != null) {
+                var point = Graphene.Point () { x = (float) root_x, y = (float) root_y };
+                Graphene.Point box_point;
+                if (((Gtk.Widget) root).compute_point (box, point, out box_point)) {
+                    reorder_towards (path, box_point.x, box_point.y);
+                }
             }
         });
+        drag.drag_end.connect ((gesture, offset_x, offset_y) => end_drag_ghost (pill));
+        drag.cancel.connect ((gesture, sequence) => end_drag_ghost (pill));
         pill.widget.add_controller (drag);
+    }
+
+    /** `widget`'s (thus `gesture`'s) root, in the widget tree's own coordinates — from the current event's raw surface position, corrected for the surface's own offset from that root (window decoration shadows, etc). */
+    private bool get_pointer_root_position (Gtk.Gesture gesture, Gtk.Widget widget, out double x, out double y) {
+        x = 0;
+        y = 0;
+
+        var event = gesture.get_current_event ();
+        if (event == null) {
+            return false;
+        }
+
+        double surface_x, surface_y;
+        if (!event.get_position (out surface_x, out surface_y)) {
+            return false;
+        }
+
+        var native = widget.get_native ();
+        if (native == null) {
+            return false;
+        }
+
+        double transform_x, transform_y;
+        native.get_surface_transform (out transform_x, out transform_y);
+        x = surface_x - transform_x;
+        y = surface_y - transform_y;
+        return true;
+    }
+
+    /**
+     * Builds a {@link TabGhost} from `pill`'s current label/state and emits
+     * drag_ghost_shown so whoever owns the window shows it floating under
+     * the pointer for the rest of the drag: the real pill still swaps
+     * position in the row as the pointer crosses a neighbor (see
+     * reorder_towards), which alone reads as an abrupt jump rather than a
+     * drag — this copy is what makes it feel "held" instead.
+     */
+    private void begin_drag_ghost (TabPill pill) {
+        var root = pill.widget.get_root ();
+        if (root == null) {
+            return;
+        }
+
+        Graphene.Rect bounds;
+        if (!pill.widget.compute_bounds ((Gtk.Widget) root, out bounds)) {
+            return;
+        }
+
+        var ghost = new TabGhost (pill.file_name, pill.folder_name, pill.is_preview, pill.is_modified);
+        drag_ghost = ghost;
+
+        // `pill.widget` itself stays right where it is — still in `box`,
+        // still swapping position as reorder_towards runs below — just
+        // invisible, so the row shows an empty "hole" moving between tabs
+        // instead of doubling up with the ghost floating above it.
+        pill.widget.add_css_class ("dragging");
+
+        drag_ghost_shown (ghost.widget, (int) bounds.origin.x, (int) bounds.origin.y, (int) bounds.get_width (), (int) bounds.get_height ());
+    }
+
+    private void update_drag_ghost_position (double x, double y) {
+        if (drag_ghost == null) {
+            return;
+        }
+
+        drag_ghost_moved ((int) x, (int) y);
+    }
+
+    private void end_drag_ghost (TabPill pill) {
+        if (drag_ghost == null) {
+            return;
+        }
+
+        pill.widget.remove_css_class ("dragging");
+
+        drag_ghost = null;
+        drag_ghost_hidden ();
     }
 
     /** Moves `dragged_path`'s pill next to whichever pill is under `(box_x, box_y)`, before or after it. */

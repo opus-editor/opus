@@ -82,10 +82,13 @@ public class FileTreeView : Object {
         // This warning is expected to stay until upstream picks one.
         var css_provider = new Gtk.CssProvider ();
         css_provider.load_from_string ("""
+            /* 22px, matching VS Code's file explorer row height
+             * (ExplorerDelegate.ITEM_HEIGHT in its own source). */
             listview.data-table row {
-                padding-top: 2px;
-                padding-bottom: 2px;
-                min-height: 0px;
+                padding-top: 0;
+                padding-bottom: 0;
+                min-height: 22px;
+                border-radius: 4px;
             }
             treeexpander > expander {
                 -gtk-icon-source: -gtk-icontheme("chevron-right-symbolic");

@@ -9,6 +9,7 @@ opus_model_sources = files(
 opus_gtk_view_sources = files(
   'views/file-tree/_row.vala',
   'views/file-tree/index.vala',
+  'views/tab-bar/_ghost.vala',
   'views/tab-bar/_pill.vala',
   'views/tab-bar/index.vala',
   'views/editor/index.vala',

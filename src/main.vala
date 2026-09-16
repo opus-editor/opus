@@ -47,6 +47,18 @@ private static void open_workspace (Gtk.Application app, string root_path) {
         app, session.file_tree_view.widget, session.tab_bar_view.widget, session.editor_view.widget
     );
     session.window_view.set_folder_name (Path.get_basename (root_path));
+
+    // The tab bar's own widget can't host a dragged tab's floating ghost
+    // copy itself — it'd be confined to the tab bar's own bounds, unable
+    // to follow the pointer once it leaves that narrow strip — so it asks
+    // the window (which spans the whole screen area the ghost needs) to
+    // show it instead.
+    session.tab_bar_view.drag_ghost_shown.connect (
+        (ghost, x, y, width, height) => session.window_view.show_floating (ghost, x, y, width, height)
+    );
+    session.tab_bar_view.drag_ghost_moved.connect ((x, y) => session.window_view.move_floating (x, y));
+    session.tab_bar_view.drag_ghost_hidden.connect (() => session.window_view.hide_floating ());
+
     session.window_view.present ();
 
     app.set_data<Session> ("session", session);

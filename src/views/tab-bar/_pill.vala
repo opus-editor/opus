@@ -25,10 +25,18 @@ public class TabPill : Object {
     /** The close button was clicked. Always emitted; the button is never disabled. */
     public signal void close_requested ();
 
-    private string file_name = "";
-    private string folder_name = "";
-    private bool preview = false;
-    private bool modified = false;
+    // Read-only outside this class (see set_label/set_preview/set_modified
+    // for how they're set) — exposed so a ghost copy (see _ghost.vala) can
+    // be built with the same label/state without this pill needing to know
+    // dragging is even happening. Named is_preview/is_modified, not
+    // preview/modified: those would collide with the set_preview()/
+    // set_modified() methods below — a property named `preview` generates
+    // a `tab_pill_set_preview` accessor in C, same symbol the method
+    // already uses.
+    public string file_name { get; private set; default = ""; }
+    public string folder_name { get; private set; default = ""; }
+    public bool is_preview { get; private set; default = false; }
+    public bool is_modified { get; private set; default = false; }
 
     static construct {
         install_css ();
@@ -69,21 +77,21 @@ public class TabPill : Object {
     }
 
     public void set_preview (bool preview) {
-        this.preview = preview;
+        is_preview = preview;
         refresh_label ();
     }
 
     public void set_modified (bool modified) {
-        this.modified = modified;
+        is_modified = modified;
         refresh_label ();
     }
 
     private void refresh_label () {
         var file_part = Markup.escape_text (file_name);
-        if (modified) {
+        if (is_modified) {
             file_part = "%s •".printf (file_part);
         }
-        if (preview) {
+        if (is_preview) {
             file_part = "<i>%s</i>".printf (file_part);
         }
 
