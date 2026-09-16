@@ -2,10 +2,13 @@
  * Facade for the application's main window. Loads the window and its named
  * slots straight from the compiled Blueprint via {@link Gtk.Builder} — the
  * same way {@link EditorView} loads its widget tree, no composite-template
- * subclass needed — and composes the sidebar, tab-bar and editor-pane
- * widgets built elsewhere into those slots. Holds no controller logic of
- * its own; whoever wires the app hands it the real widgets and reacts to
- * their own controllers separately.
+ * subclass needed — and composes the sidebar and tab-bar widgets built
+ * elsewhere into those slots. The content pane itself is handed whatever
+ * widget the active tab owns via show_content(), rather than being wired to
+ * one fixed widget at construction — it doesn't assume that's always an
+ * {@link EditorView}. Holds no controller logic of its own; whoever wires
+ * the app hands it the real widgets and reacts to their own controllers
+ * separately.
  */
 public class MainWindowView : Object {
     private Adw.ApplicationWindow window;
@@ -13,19 +16,20 @@ public class MainWindowView : Object {
     private Gtk.Overlay floating_layer;
     private Adw.Bin sidebar_bin;
     private Adw.Bin tab_bar_bin;
-    private Adw.Bin editor_bin;
+    private Adw.Bin content_bin;
+    private Adw.StatusPage empty_state;
 
     private Gtk.Widget? floating_widget = null;
     private Gdk.Rectangle floating_rect;
 
-    public MainWindowView (Gtk.Application app, Gtk.Widget sidebar, Gtk.Widget tab_bar, Gtk.Widget editor_pane) {
+    public MainWindowView (Gtk.Application app, Gtk.Widget sidebar, Gtk.Widget tab_bar) {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/index.ui");
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         window_title = (Adw.WindowTitle) builder.get_object ("window_title");
         floating_layer = (Gtk.Overlay) builder.get_object ("floating_layer");
         sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
         tab_bar_bin = (Adw.Bin) builder.get_object ("tab_bar_bin");
-        editor_bin = (Adw.Bin) builder.get_object ("editor_bin");
+        content_bin = (Adw.Bin) builder.get_object ("content_bin");
 
         floating_layer.get_child_position.connect (on_get_floating_position);
 
@@ -50,12 +54,35 @@ public class MainWindowView : Object {
         window.application = app;
         sidebar_bin.child = sidebar;
         tab_bar_bin.child = tab_bar;
-        editor_bin.child = editor_pane;
+
+        empty_state = new Adw.StatusPage () {
+            title = _("No File Open"),
+            description = _("Select a file from the sidebar to start editing."),
+            icon_name = "document-open-symbolic",
+        };
+        // No tab open yet, so there's nothing to show in content_bin —
+        // stays on empty_state until show_content() says otherwise, rather
+        // than assuming there's always some editor-shaped widget to mount.
+        content_bin.child = empty_state;
     }
 
     /** Sets the header title to the open folder's name. */
     public void set_folder_name (string name) {
         window_title.title = name;
+    }
+
+    /**
+     * Shows `widget` — the active tab's own content, an {@link EditorView}'s
+     * today but not assumed to always be — in the content pane, replacing
+     * whatever was shown before.
+     */
+    public void show_content (Gtk.Widget widget) {
+        content_bin.child = widget;
+    }
+
+    /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes. */
+    public void show_empty_state () {
+        content_bin.child = empty_state;
     }
 
     /**

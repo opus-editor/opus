@@ -30,6 +30,6 @@ executable(
   'opus',
   opus_sources,
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep],
   install: true,
 )

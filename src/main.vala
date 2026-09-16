@@ -43,10 +43,19 @@ private static void open_workspace (Gtk.Application app, string root_path) {
     session.editor_controller = new EditorController (session.tab_bar_view, session.editor_view);
     session.main_controller = new MainController (session.file_tree_controller, session.editor_controller);
 
-    session.window_view = new MainWindowView (
-        app, session.file_tree_view.widget, session.tab_bar_view.widget, session.editor_view.widget
-    );
+    session.window_view = new MainWindowView (app, session.file_tree_view.widget, session.tab_bar_view.widget);
     session.window_view.set_folder_name (Path.get_basename (root_path));
+
+    // The editor's widget only belongs in the content pane while at least
+    // one tab is open — otherwise an empty-state placeholder takes its
+    // place (see MainWindowView.show_empty_state()).
+    session.editor_controller.has_open_tabs_changed.connect ((has_tabs) => {
+        if (has_tabs) {
+            session.window_view.show_content (session.editor_view.widget);
+        } else {
+            session.window_view.show_empty_state ();
+        }
+    });
 
     // The tab bar's own widget can't host a dragged tab's floating ghost
     // copy itself — it'd be confined to the tab bar's own bounds, unable

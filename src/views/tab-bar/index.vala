@@ -99,6 +99,12 @@ public class TabBarView : Object {
         fade_end = new_fade_indicator ("end", Gtk.Align.END);
 
         overlay = new Gtk.Overlay ();
+        // A row with zero tabs has no content to size itself against, so it
+        // collapses to 0px and the content-divider below it rides up next
+        // to the header. 31px is a real tab pill's own natural height
+        // (measured from a live render, not guessed) — pinning the row to
+        // it keeps the divider in place whether there are any tabs or not.
+        overlay.add_css_class ("tab-bar");
         overlay.set_child (scrolled_window);
         overlay.add_overlay (fade_start);
         overlay.add_overlay (fade_end);
@@ -139,6 +145,10 @@ public class TabBarView : Object {
     private static void install_css () {
         var css_provider = new Gtk.CssProvider ();
         css_provider.load_from_string ("""
+            .tab-bar {
+                min-height: 31px;
+            }
+
             .tab-bar-fade {
                 min-width: 48px;
             }

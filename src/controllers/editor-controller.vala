@@ -11,6 +11,9 @@ public class EditorController : Object {
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
     private string? active_path = null;
 
+    /** Whether at least one tab is open — whoever hosts the editor's widget uses this to hide it (an empty-state placeholder instead) when it's not. */
+    public signal void has_open_tabs_changed (bool has_tabs);
+
     public EditorController (TabBarView tab_bar_view, EditorView editor_view) {
         this.tab_bar_view = tab_bar_view;
         this.editor_view = editor_view;
@@ -59,6 +62,9 @@ public class EditorController : Object {
         document.is_preview = true;
         documents[path] = document;
         tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), true);
+        if (documents.size () == 1) {
+            has_open_tabs_changed (true);
+        }
         activate (path);
     }
 
@@ -67,6 +73,9 @@ public class EditorController : Object {
         document.is_preview = false;
         documents[path] = document;
         tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), false);
+        if (documents.size () == 1) {
+            has_open_tabs_changed (true);
+        }
         activate (path);
     }
 
@@ -94,7 +103,7 @@ public class EditorController : Object {
     private void show_in_editor (string path) {
         var document = documents[path];
         if (document.readable) {
-            editor_view.set_text (document.content);
+            editor_view.set_text (document.content, path);
             editor_view.clear_placeholder ();
         } else {
             editor_view.set_placeholder (_("This file can't be displayed."));
@@ -187,7 +196,11 @@ public class EditorController : Object {
 
         if (active_path == path) {
             active_path = null;
-            editor_view.set_text ("");
+            editor_view.set_text ("", path);
+        }
+
+        if (documents.size () == 0) {
+            has_open_tabs_changed (false);
         }
     }
 }

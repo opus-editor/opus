@@ -12,6 +12,7 @@ gobject_dep = dependency('gobject-2.0')
 gio_dep = dependency('gio-2.0')
 gtk_dep = dependency('gtk4')
 adwaita_dep = dependency('libadwaita-1')
+sourceview_dep = dependency('gtksourceview-5')
 
 gnome = import('gnome')
 i18n = import('i18n')

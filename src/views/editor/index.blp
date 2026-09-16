@@ -1,4 +1,5 @@
 using Gtk 4.0;
+using GtkSource 5;
 
 // GtkScrolledWindow is a final type in GTK4 (it can't be subclassed), so
 // EditorView doesn't use this as a composite template — it loads this as a
@@ -8,11 +9,12 @@ Gtk.ScrolledWindow root {
   hscrollbar-policy: automatic;
   vscrollbar-policy: automatic;
 
-  child: Gtk.TextView text_view {
+  child: GtkSource.View text_view {
     monospace: true;
     top-margin: 8;
     bottom-margin: 8;
     left-margin: 8;
     right-margin: 8;
+    show-line-numbers: true;
   };
 }

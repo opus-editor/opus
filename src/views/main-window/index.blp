@@ -51,7 +51,7 @@ Adw.ApplicationWindow window {
             // drag-to-reorder gesture. A plain Box has no such behavior.
             // It also paints no background of its own, so the window's
             // own "view" background (see the `styles ["view"]` above)
-            // shows through here the same as it does behind editor_bin,
+            // shows through here the same as it does behind content_bin,
             // instead of "raised"'s opaque header-bar-colored one.
             child: Gtk.Box {
               orientation: vertical;
@@ -61,7 +61,12 @@ Adw.ApplicationWindow window {
                 styles ["content-divider"]
               }
 
-              Adw.Bin editor_bin {
+              // Holds whatever the active tab shows — today always
+              // EditorView's widget, but not assumed to be: see
+              // show_editor()/show_empty_state() in index.vala. Starts (and
+              // returns to, once the last tab closes) an empty-state
+              // placeholder rather than an editor with nothing open in it.
+              Adw.Bin content_bin {
                 vexpand: true;
               }
             };
