@@ -50,6 +50,27 @@ public class FileTreeView : Object {
         // row than the list's default).
         list_view.add_css_class ("data-table");
 
+        // Two separate native GtkListView signals, deliberately not one:
+        // a Gtk.GestureClick of our own on each row (the original
+        // approach, in FileTreeRow) raced GtkListView's own built-in
+        // click gesture for row selection — that one sits above ours in
+        // the tree, so it *always* gets first (and sometimes exclusive)
+        // claim to the press, and our own row's gesture intermittently
+        // never fired at all. `single-click-activate` looked like a fix
+        // (one native signal instead of a competing gesture), but it does
+        // its own internal multi-click grouping before ever emitting
+        // `activate`, which swallows the second click of a real
+        // double-click — no reliable way to tell double- from
+        // single-click from `activate` alone in that mode.
+        //
+        // selection-changed is what actually fires reliably on every
+        // single click (it's what always moved the row highlight, even
+        // during the original bug), so it drives preview; `activate`,
+        // WITHOUT single-click-activate, is GTK's own native,
+        // battle-tested double-click recognizer, so it drives promotion.
+        // Neither one reimplements or races the other.
+        list_view.activate.connect (on_activate);
+
         // .data-table alone still isn't tight enough; trims it further.
         // Must be a descendant selector ("row", no ">") — row isn't a direct
         // child of listview (some internal wrapper sits between them, found
@@ -84,6 +105,7 @@ public class FileTreeView : Object {
     public void populate (FileNode root) {
         tree_model = tree_list_model_new_raw (children_store (root), false, false, on_create_model_raw, null, null);
         selection = new Gtk.SingleSelection (tree_model);
+        selection.selection_changed.connect (on_selection_changed);
         list_view.model = selection;
     }
 
@@ -144,10 +166,38 @@ public class FileTreeView : Object {
         return children_store (node);
     }
 
+    /** A single click (or the first click of a double-click) changed the selected row — see the comment above. */
+    private void on_selection_changed (uint position, uint n_items) {
+        if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+            return;
+        }
+
+        var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+        var node = (FileNode) list_row.item;
+
+        if (node.is_directory) {
+            list_row.expanded = !list_row.expanded;
+            return;
+        }
+
+        file_activated (node.path, false);
+    }
+
+    /** A row was double-clicked — see the comment above. Promotes a file to a permanent tab. */
+    private void on_activate (uint position) {
+        var list_row = (Gtk.TreeListRow) selection.get_item (position);
+        var node = (FileNode) list_row.item;
+
+        if (node.is_directory) {
+            return;
+        }
+
+        file_activated (node.path, true);
+    }
+
     private void on_setup (Object item) {
         var list_item = (Gtk.ListItem) item;
         var row = new FileTreeRow ();
-        row.file_clicked.connect ((path, open_permanent) => file_activated (path, open_permanent));
         // list_item.child only holds the Gtk.Widget; stash the FileTreeRow
         // facade that owns it so on_bind/on_unbind can get back to it.
         row.widget.set_data ("row", row);

@@ -1,9 +1,10 @@
 /**
- * A single tab in the {@link TabBarView}'s row: a title, a close button
- * that's always clickable, and italic styling while the tab is a preview.
- * Selection and double-click are reported via signals; this widget knows
- * nothing about `TabBarView` — that class translates its signals into its
- * own, keyed by path.
+ * A single tab in the {@link TabBarView}'s row: a title showing the
+ * file name and, smaller and italic, its parent folder name; a close button
+ * that's always clickable; and italic styling for the whole label while
+ * the tab is a preview. Selection and double-click are reported via
+ * signals; this widget knows nothing about `TabBarView` — that class
+ * translates its signals into its own, keyed by path.
  *
  * Loads its widget tree via {@link Gtk.Builder} rather than a
  * composite-template subclass — same pattern as EditorView/MainWindowView.
@@ -24,10 +25,14 @@ public class TabPill : Object {
     /** The close button was clicked. Always emitted; the button is never disabled. */
     public signal void close_requested ();
 
-    private static Pango.AttrList italic_attrs = build_italic_attrs ();
-
-    private string base_label = "";
+    private string file_name = "";
+    private string folder_name = "";
+    private bool preview = false;
     private bool modified = false;
+
+    static construct {
+        install_css ();
+    }
 
     public TabPill () {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/tab-bar/_pill.ui");
@@ -48,8 +53,10 @@ public class TabPill : Object {
         close_button.clicked.connect (() => close_requested ());
     }
 
-    public void set_label (string label) {
-        base_label = label;
+    /** `folder_name` is the file's immediate parent directory name, or "" if it has none. */
+    public void set_label (string file_name, string folder_name) {
+        this.file_name = file_name;
+        this.folder_name = folder_name;
         refresh_label ();
     }
 
@@ -62,7 +69,8 @@ public class TabPill : Object {
     }
 
     public void set_preview (bool preview) {
-        title_label.attributes = preview ? italic_attrs : null;
+        this.preview = preview;
+        refresh_label ();
     }
 
     public void set_modified (bool modified) {
@@ -71,12 +79,59 @@ public class TabPill : Object {
     }
 
     private void refresh_label () {
-        title_label.label = modified ? "%s •".printf (base_label) : base_label;
+        var file_part = Markup.escape_text (file_name);
+        if (modified) {
+            file_part = "%s •".printf (file_part);
+        }
+        if (preview) {
+            file_part = "<i>%s</i>".printf (file_part);
+        }
+
+        var text = file_part;
+        if (folder_name != "") {
+            text += " <span style=\"italic\" size=\"smaller\" alpha=\"50%%\">%s</span>".printf (Markup.escape_text (folder_name));
+        }
+
+        title_label.label = text;
     }
 
-    private static Pango.AttrList build_italic_attrs () {
-        var attrs = new Pango.AttrList ();
-        attrs.insert (Pango.attr_style_new (Pango.Style.ITALIC));
-        return attrs;
+    // Gtk.Button has no size-in-pixels API for icon buttons: the theme's
+    // default flat/circular button padding makes it much larger than the
+    // 24x24 close button in e.g. Nautilus's tabs. Forcing it down needs CSS.
+    private static void install_css () {
+        var css_provider = new Gtk.CssProvider ();
+        css_provider.load_from_string ("""
+            .tab-close-button {
+                min-width: 24px;
+                min-height: 24px;
+                padding: 0;
+            }
+
+            /* Dim inactive tabs instead of a second "selected" background
+             * color — one so close to the view-switcher's own would be more
+             * confusing than clarifying. */
+            .tab-pill:not(.active) {
+                opacity: 0.6;
+            }
+
+            /* Close button only shows on the active tab or on hover, not on
+             * every idle tab. */
+            .tab-pill .tab-close-button {
+                opacity: 0;
+            }
+
+            .tab-pill.active .tab-close-button,
+            .tab-pill:hover .tab-close-button {
+                opacity: 1;
+            }
+        """);
+
+        // Gtk.StyleContext.add_provider_for_display is deprecated since GTK
+        // 4.10 (removed in GTK 5) with no replacement — same unresolved
+        // upstream issue as the one cited in views/file-tree/index.vala:
+        // https://gitlab.gnome.org/GNOME/gtk/-/issues/2603
+        Gtk.StyleContext.add_provider_for_display (
+            Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
     }
 }

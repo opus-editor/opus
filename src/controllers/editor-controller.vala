@@ -19,6 +19,7 @@ public class EditorController : Object {
         tab_bar_view.tab_selected.connect (on_tab_selected);
         tab_bar_view.tab_double_clicked.connect (on_tab_double_clicked);
         tab_bar_view.tab_close_requested.connect ((path) => close_tab.begin (path));
+        tab_bar_view.preview_demoted.connect (on_preview_demoted);
     }
 
     /** Opens `path`, as a preview tab or a permanent one, reusing an existing tab if already open. */
@@ -57,7 +58,7 @@ public class EditorController : Object {
         var document = Document.load (path);
         document.is_preview = true;
         documents[path] = document;
-        tab_bar_view.add_tab (path, Path.get_basename (path), true);
+        tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), true);
         activate (path);
     }
 
@@ -65,8 +66,14 @@ public class EditorController : Object {
         var document = Document.load (path);
         document.is_preview = false;
         documents[path] = document;
-        tab_bar_view.add_tab (path, Path.get_basename (path), false);
+        tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), false);
         activate (path);
+    }
+
+    /** The tab-bar label's folder suffix: the file's immediate parent directory name, or "" if it has none. */
+    private string folder_name_of (string path) {
+        var folder_name = Path.get_basename (Path.get_dirname (path));
+        return folder_name == "." || folder_name == Path.DIR_SEPARATOR_S ? "" : folder_name;
     }
 
     private Document? find_preview () {
@@ -99,6 +106,14 @@ public class EditorController : Object {
         tab_bar_view.mark_preview (document.path, false);
     }
 
+    /** The tab bar already demoted the tab itself; just keep the model in sync. */
+    private void on_preview_demoted (string path) {
+        var document = documents[path];
+        if (document != null) {
+            document.is_preview = false;
+        }
+    }
+
     private void on_text_changed (string new_text) {
         if (active_path == null) {
             return;
@@ -113,8 +128,7 @@ public class EditorController : Object {
     }
 
     private void on_tab_selected (string path) {
-        active_path = path;
-        show_in_editor (path);
+        activate (path);
     }
 
     private void on_tab_double_clicked (string path) {

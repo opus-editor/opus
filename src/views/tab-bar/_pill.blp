@@ -6,8 +6,7 @@ Gtk.Box pill {
   css-classes: ["tab-pill"];
 
   Gtk.Label title_label {
-    ellipsize: end;
-    hexpand: true;
+    use-markup: true;
     xalign: 0;
     margin-start: 10;
     margin-top: 6;
@@ -16,7 +15,7 @@ Gtk.Box pill {
 
   Gtk.Button close_button {
     icon-name: "window-close-symbolic";
-    css-classes: ["flat", "circular"];
+    css-classes: ["flat", "circular", "tab-close-button"];
     tooltip-text: _("Close tab");
     valign: center;
     margin-end: 4;

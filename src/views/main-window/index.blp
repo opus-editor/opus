@@ -41,10 +41,19 @@ Adw.ApplicationWindow window {
           title: _("Editor");
           icon-name: "code-symbolic";
 
+          // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as a
+          // Gtk.WindowHandle (drag-to-move-the-window), which races against
+          // — and often wins over — the tab bar's own drag-to-reorder
+          // gesture. A plain Box has no such behavior. It also paints no
+          // background of its own, so the window's own "view" background
+          // (see the `styles ["view"]` above) shows through here the same
+          // as it does behind editor_bin, instead of "raised"'s opaque
+          // header-bar-colored one.
           child: Gtk.Box {
             orientation: vertical;
 
             Adw.Bin tab_bar_bin {}
+            Gtk.Separator {}
 
             Adw.Bin editor_bin {
               vexpand: true;
