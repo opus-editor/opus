@@ -57,7 +57,9 @@ Adw.ApplicationWindow window {
               orientation: vertical;
 
               Adw.Bin tab_bar_bin {}
-              Gtk.Separator {}
+              Gtk.Separator {
+                styles ["content-divider"]
+              }
 
               Adw.Bin editor_bin {
                 vexpand: true;

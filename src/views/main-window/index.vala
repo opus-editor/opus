@@ -29,6 +29,24 @@ public class MainWindowView : Object {
 
         floating_layer.get_child_position.connect (on_get_floating_position);
 
+        // GNOME Builder's own header/content divider (libpanel's
+        // panelframeheaderbar) mixes --border-color down to 60% instead of
+        // using it at full strength like Adwaita's default `separator`
+        // does — a visibly subtler line. Matches that here rather than
+        // hardcoding the hex it renders to, so it still tracks the accent
+        // and light/dark theme automatically.
+        var css_provider = new Gtk.CssProvider ();
+        css_provider.load_from_string ("""
+            separator.content-divider {
+                background: color-mix(in srgb, var(--border-color) 60%, transparent);
+            }
+        """);
+        // See views/tab-bar/_pill.vala for why add_provider_for_display
+        // despite the GTK 4.10 deprecation with no replacement.
+        Gtk.StyleContext.add_provider_for_display (
+            Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
+
         window.application = app;
         sidebar_bin.child = sidebar;
         tab_bar_bin.child = tab_bar;
