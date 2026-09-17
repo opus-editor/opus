@@ -122,6 +122,70 @@ public class FileTree : Object {
         return copied_node;
     }
 
+    /**
+     * Re-scans `node`'s own immediate children from disk — for an external
+     * change (e.g. a file created via Nautilus) to a directory this tree
+     * didn't make itself. An entry still present (same name, same
+     * directory-or-file kind) keeps its existing FileNode — and, for a
+     * directory, everything already loaded under it — rather than being
+     * rebuilt from scratch; only genuinely new entries go through
+     * build_node(), and ones no longer on disk are dropped. Preserving
+     * identity for anything unaffected matters here the same way it does
+     * for every other tree-mutating method — FileTreeView's own diffing
+     * (sync_store()) needs it to avoid collapsing unrelated expanded
+     * subfolders on every external change, not just the entry that
+     * actually changed.
+     */
+    public void rescan_children (FileNode node) throws Error {
+        var file = File.new_for_path (node.path);
+        var enumerator = file.enumerate_children (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);
+
+        var seen_names = new GenericArray<string> ();
+        FileInfo? entry_info;
+        while ((entry_info = enumerator.next_file ()) != null) {
+            var name = entry_info.get_name ();
+            if (name == EXCLUDED_ENTRY) {
+                continue;
+            }
+            seen_names.add (name);
+
+            var is_directory = entry_info.get_file_type () == FileType.DIRECTORY;
+            var existing = find_child_by_name (node.children, name);
+            if (existing != null) {
+                if (existing.is_directory == is_directory) {
+                    continue; // unchanged — keep the existing FileNode as-is
+                }
+                node.children.remove (existing); // same name, but a file replaced a directory or vice versa
+            }
+
+            insert_sorted (node.children, build_node (Path.build_filename (node.path, name)));
+        }
+
+        for (int i = node.children.length - 1; i >= 0; i--) {
+            if (!contains_string (seen_names, node.children[i].name)) {
+                node.children.remove_index (i);
+            }
+        }
+    }
+
+    private static FileNode? find_child_by_name (GenericArray<FileNode> children, string name) {
+        for (uint i = 0; i < children.length; i++) {
+            if (children[i].name == name) {
+                return children[i];
+            }
+        }
+        return null;
+    }
+
+    private static bool contains_string (GenericArray<string> array, string s) {
+        for (uint i = 0; i < array.length; i++) {
+            if (array[i] == s) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static bool is_self_or_descendant (FileNode node, FileNode candidate) {
         return candidate == node || candidate.path.has_prefix (node.path + "/");
     }

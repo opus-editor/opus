@@ -67,6 +67,9 @@ public class FileTreeView : Object {
      */
     public signal void file_activated (string path, bool open_permanent);
 
+    /** A directory's expanded state actually changed (not fired for a no-op re-assignment) — `expanded` true means its children are now visible. */
+    public signal void directory_expanded_changed (string path, bool expanded);
+
     /** A New File/Folder's inline name was confirmed — `is_directory` says which. */
     public signal void create_entry_requested (string parent_path, string name, bool is_directory);
 
@@ -195,7 +198,7 @@ public class FileTreeView : Object {
             }
 
             if (node.is_directory && !row.expanded && is_ancestor (node.path, path)) {
-                row.expanded = true;
+                set_expanded (row, node, true);
                 continue;
             }
 
@@ -207,6 +210,15 @@ public class FileTreeView : Object {
 
     private static bool is_ancestor (string dir_path, string target_path) {
         return target_path.has_prefix (dir_path + "/");
+    }
+
+    /** The single place `.expanded` is ever assigned — a plain `row.expanded = x` wouldn't tell anything an expand/collapse actually happened, and directory_expanded_changed needs to fire for exactly that, exactly once per real change (not a same-value re-assignment). */
+    private void set_expanded (Gtk.TreeListRow row, FileNode node, bool expanded) {
+        if (row.expanded == expanded) {
+            return;
+        }
+        row.expanded = expanded;
+        directory_expanded_changed (node.path, expanded);
     }
 
     private static ListStore children_store (FileNode node) {
@@ -247,7 +259,7 @@ public class FileTreeView : Object {
         var node = (FileNode) list_row.item;
 
         if (node.is_directory) {
-            list_row.expanded = !list_row.expanded;
+            set_expanded (list_row, node, !list_row.expanded);
             return;
         }
 
@@ -382,7 +394,7 @@ public class FileTreeView : Object {
 
             if (node.is_directory) {
                 var list_row = (Gtk.TreeListRow) tree_model.get_row (position);
-                list_row.expanded = !list_row.expanded;
+                set_expanded (list_row, node, !list_row.expanded);
             } else {
                 file_activated (node.path, false);
             }
@@ -456,9 +468,7 @@ public class FileTreeView : Object {
         uint row_position = 0;
         if (target != null && find_position (target.path, out row_position)) {
             var list_row = (Gtk.TreeListRow) tree_model.get_row (row_position);
-            if (!list_row.expanded) {
-                list_row.expanded = true;
-            }
+            set_expanded (list_row, target, true);
         }
 
         var store = stores_by_path[parent.path];

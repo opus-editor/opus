@@ -301,6 +301,86 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/file-tree/rescan-children/picks-up-a-file-added-externally", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, "added-externally.txt"), "");
+
+            tree.rescan_children (tree.root);
+
+            assert (find_child (tree.root, "added-externally.txt") != null);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/rescan-children/drops-a-node-for-a-file-removed-externally", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            FileUtils.remove (Path.build_filename (root_path, "a-file.txt"));
+
+            tree.rescan_children (tree.root);
+
+            assert (find_child (tree.root, "a-file.txt") == null);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/rescan-children/keeps-the-same-node-for-an-unaffected-entry", () => {
+        // Matters beyond just "no needless work": FileTreeView's own
+        // diffing (sync_store()) is identity-based, so a rescan that
+        // rebuilt every child fresh — even ones nothing happened to —
+        // would collapse any of their own already-expanded subfolders on
+        // every single external change, not just the one that actually
+        // happened.
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir_before = find_child (tree.root, "b-dir");
+            FileUtils.set_contents (Path.build_filename (root_path, "added-externally.txt"), "");
+
+            tree.rescan_children (tree.root);
+
+            assert (find_child (tree.root, "b-dir") == b_dir_before);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/rescan-children/replaces-a-node-whose-kind-changed", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var old_file = find_child (tree.root, "a-file.txt");
+            FileUtils.remove (old_file.path);
+            DirUtils.create (old_file.path, 0755);
+
+            tree.rescan_children (tree.root);
+
+            var replaced = find_child (tree.root, "a-file.txt");
+            assert (replaced != null);
+            assert (replaced != old_file);
+            assert (replaced.is_directory);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/file-tree/move-child/moves-a-file-on-disk-and-into-the-new-parent", () => {
         string root_path = "";
         try {
