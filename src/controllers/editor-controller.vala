@@ -13,6 +13,24 @@ public class EditorController : Object {
     private string? active_path = null;
     private int untitled_counter = 0;
 
+    // One entry per open tab that's backed by a real file on disk (never
+    // an untitled one — nothing to watch until it's actually saved
+    // somewhere) — lets a tab notice the file it was opened from being
+    // deleted (or moved away) by something other than Opus itself, unlike
+    // FileTreeController's own directory watching (sidebar-tree only,
+    // and only for expanded directories) which wouldn't otherwise catch
+    // this for a file outside — or simply not currently expanded within
+    // — the linked folder, or for a window with no folder linked at all.
+    private HashTable<string, FileMonitor> file_watches = new HashTable<string, FileMonitor> (str_hash, str_equal);
+
+    // Set right before this controller's own save()/save_as() writes to a
+    // path, consumed by the very next file-monitor event for it. A
+    // self-save produces a real filesystem event indistinguishable at the
+    // GIO level from an external change (confirmed directly: FileUtils.
+    // set_contents fires exactly one RENAMED event, nothing more) — this
+    // is the only way to tell the two apart.
+    private HashTable<string, bool> own_writes = new HashTable<string, bool> (str_hash, str_equal);
+
     /** Whether at least one tab is open — whoever hosts the editor's widget uses this to hide it (an empty-state placeholder instead) when it's not. */
     public signal void has_open_tabs_changed (bool has_tabs);
 
@@ -34,6 +52,7 @@ public class EditorController : Object {
         tab_bar_view.copy_path_requested.connect ((path) => tab_bar_view.copy_to_clipboard (path));
         tab_bar_view.copy_relative_path_requested.connect ((path) => tab_bar_view.copy_to_clipboard (relative_path (path)));
         tab_bar_view.new_file_requested.connect (new_untitled);
+        editor_view.reload_requested.connect (on_reload_requested);
     }
 
     /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" calls resolve against the new root. */
@@ -122,17 +141,27 @@ public class EditorController : Object {
         }
     }
 
+    /** Cancels every open tab's file watch — call before discarding this controller (the window closing), same reasoning as FileTreeController's own close(): an active Gio.FileMonitor's own IO source could otherwise keep this object alive indefinitely via its connected signal handler's closure. */
+    public void close () {
+        foreach (var monitor in file_watches.get_values ()) {
+            monitor.cancel ();
+        }
+        file_watches.remove_all ();
+    }
+
     private void open_preview (string path) throws Error {
         var existing_preview = find_preview ();
         if (existing_preview != null) {
             tab_bar_view.remove_tab (existing_preview.path);
             documents.remove (existing_preview.path);
+            stop_watching_file (existing_preview.path);
         }
 
         var document = Document.load (path);
         document.is_preview = true;
         documents[path] = document;
         tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), true);
+        start_watching_file (path);
         if (documents.size () == 1) {
             has_open_tabs_changed (true);
         }
@@ -144,10 +173,146 @@ public class EditorController : Object {
         document.is_preview = false;
         documents[path] = document;
         tab_bar_view.add_tab (path, Path.get_basename (path), folder_name_of (path), false);
+        start_watching_file (path);
         if (documents.size () == 1) {
             has_open_tabs_changed (true);
         }
         activate (path);
+    }
+
+    /**
+     * Watches `path` itself (not its containing directory) for it being
+     * deleted or moved away outside Opus — unlike FileTreeController's
+     * own directory watching (sidebar-tree only, and only for expanded
+     * directories), a tab needs to know regardless of whether any folder
+     * is even linked, or whether its own directory happens to be
+     * expanded in the tree right now. Untitled documents never call this
+     * — there's nothing on disk yet to watch.
+     */
+    private void start_watching_file (string path) {
+        try {
+            var monitor = File.new_for_path (path).monitor_file (FileMonitorFlags.WATCH_MOVES, null);
+            monitor.changed.connect ((file, other_file, event_type) => on_file_changed (path, other_file, event_type));
+            file_watches[path] = monitor;
+        } catch (Error e) {
+            warning ("failed to watch %s: %s", path, e.message);
+        }
+    }
+
+    private void stop_watching_file (string path) {
+        var monitor = file_watches[path];
+        if (monitor == null) {
+            return;
+        }
+        monitor.cancel ();
+        file_watches.remove (path);
+        own_writes.remove (path);
+    }
+
+    /**
+     * `path` itself was deleted, or came back. A plain direct write shows
+     * up as CREATED, but the common "write a temp file, then rename it
+     * into place" pattern most tools (including Document.save() itself)
+     * actually use — confirmed directly, not assumed: a real recreate at
+     * the same path came back as RENAMED with `other_file` pointing at
+     * this exact path, not CREATED — shows up as RENAMED instead, so
+     * both need checking to mean "it's back".
+     *
+     * Always just marks the tab deleted (dirty or not) — it never closes
+     * anything on its own. Whether *closing* the tab by hand afterwards
+     * (X/Ctrl+W) then asks for confirmation is already exactly
+     * document.dirty's own job in close_tab(), completely unaffected by
+     * is_deleted — nothing extra needed here for that.
+     *
+     * A RENAMED-onto-`path` event is ambiguous on its own: confirmed
+     * directly (not assumed) that FileUtils.set_contents — and most other
+     * editors' own "save", GNOME Text Editor's own EditorBufferMonitor
+     * included — always writes through a temp-file-then-atomic-rename,
+     * so a plain in-place resave by another program looks identical at
+     * the GIO level to a delete-then-recreate. Disambiguated by whether
+     * this document was already known deleted: if it was, the file just
+     * came back (mark not-deleted); if it wasn't, it was never gone —
+     * someone else just changed its content (the "File Has Changed on
+     * Disk" banner). A plain CHANGED (no rename — e.g. `>>` shell
+     * appends, or `dd`) is unambiguous and always means the latter.
+     */
+    private void on_file_changed (string path, File? other_file, FileMonitorEvent event_type) {
+        var document = documents[path];
+        if (document == null) {
+            return;
+        }
+
+        if (own_writes.remove (path)) {
+            return;
+        }
+
+        switch (event_type) {
+            case FileMonitorEvent.DELETED:
+            case FileMonitorEvent.MOVED_OUT:
+                mark_file_deleted (path, document, true);
+                break;
+            case FileMonitorEvent.CREATED:
+                mark_file_deleted (path, document, false);
+                break;
+            case FileMonitorEvent.RENAMED:
+                if (other_file == null || other_file.get_path () != path) {
+                    break;
+                }
+                if (document.is_deleted) {
+                    mark_file_deleted (path, document, false);
+                } else {
+                    mark_externally_modified (path, document);
+                }
+                break;
+            case FileMonitorEvent.CHANGED:
+                mark_externally_modified (path, document);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Shows the "File Has Changed on Disk" banner if `path` is the active tab — a background tab just remembers the flag on its Document until it's activated (see show_in_editor) or reloaded. */
+    private void mark_externally_modified (string path, Document document) {
+        document.is_externally_modified = true;
+        if (path == active_path) {
+            editor_view.set_change_banner_visible (true);
+        }
+    }
+
+    /** "Discard Changes and Reload" — always wins over in-memory content, dirty or not; the banner itself is already the user's confirmation. */
+    private void on_reload_requested () {
+        if (active_path == null) {
+            return;
+        }
+
+        var document = documents[active_path];
+        if (document == null) {
+            return;
+        }
+
+        try {
+            document.reload ();
+        } catch (Error e) {
+            warning ("failed to reload %s: %s", active_path, e.message);
+            return;
+        }
+
+        show_in_editor (active_path);
+        tab_bar_view.mark_modified (active_path, document.dirty);
+        tab_bar_view.mark_deleted (active_path, false);
+        notify_active_state ();
+    }
+
+    private void mark_file_deleted (string path, Document document, bool deleted) {
+        if (document.is_deleted == deleted) {
+            return;
+        }
+
+        document.is_deleted = deleted;
+        tab_bar_view.mark_deleted (path, deleted);
+        tab_bar_view.mark_modified (path, document.dirty);
+        notify_active_state ();
     }
 
     /** The tab-bar label's folder suffix: the file's immediate parent directory name, or "" if it has none. */
@@ -189,6 +354,7 @@ public class EditorController : Object {
         } else {
             editor_view.set_placeholder (_("This file can't be displayed."));
         }
+        editor_view.set_change_banner_visible (document.is_externally_modified);
     }
 
     private void promote (Document document) {
@@ -270,25 +436,33 @@ public class EditorController : Object {
             return true;
         }
 
+        own_writes[document.path] = true;
         try {
             document.save ();
         } catch (Error e) {
+            own_writes.remove (document.path); // never wrote, so no event will ever come consume it
             warning ("failed to save %s: %s", document.path, e.message);
             return false;
         }
 
         tab_bar_view.mark_modified (document.path, document.dirty);
+        tab_bar_view.mark_deleted (document.path, document.is_deleted); // save() already reset this to false
+        if (document.path == active_path) {
+            editor_view.set_change_banner_visible (false); // same — save() already reset is_externally_modified too
+        }
         notify_active_state ();
         return true;
     }
 
     private void finish_close (string path) {
+        stop_watching_file (path);
         tab_bar_view.remove_tab (path);
         documents.remove (path);
 
         if (active_path == path) {
             active_path = null;
             editor_view.set_text ("", path);
+            editor_view.set_change_banner_visible (false);
             notify_active_state ();
         }
 
@@ -371,21 +545,30 @@ public class EditorController : Object {
             return null;
         }
 
+        own_writes[new_path] = true;
         try {
             document.save_as (new_path);
         } catch (Error e) {
+            own_writes.remove (new_path); // never wrote, so no event will ever come consume it
             warning ("failed to save %s: %s", new_path, e.message);
             return null;
         }
 
         documents.remove (path);
         documents[new_path] = document;
-        if (active_path == path) {
+        stop_watching_file (path);
+        start_watching_file (new_path);
+        bool was_active = active_path == path;
+        if (was_active) {
             active_path = new_path;
         }
 
         tab_bar_view.rename_tab (path, new_path, Path.get_basename (new_path), folder_name_of (new_path));
         tab_bar_view.mark_modified (new_path, false);
+        tab_bar_view.mark_deleted (new_path, false);
+        if (was_active) {
+            editor_view.set_change_banner_visible (false); // save_as() already reset is_externally_modified too
+        }
         if (document.is_preview) {
             promote (document);
         }

@@ -5,16 +5,72 @@ using GtkSource 5;
 // EditorView doesn't use this as a composite template — it loads this as a
 // plain widget tree via Gtk.Builder and owns the root, per the View-as-facade
 // pattern (see CLAUDE.md).
-Gtk.ScrolledWindow root {
-  hscrollbar-policy: automatic;
-  vscrollbar-policy: automatic;
+Gtk.Box root {
+  orientation: vertical;
 
-  child: GtkSource.View text_view {
-    monospace: true;
-    top-margin: 8;
-    bottom-margin: 8;
-    left-margin: 8;
-    right-margin: 8;
-    show-line-numbers: true;
-  };
+  // Matches GNOME Text Editor's own "File Has Changed on Disk" banner
+  // (EditorInfoBar, built on GtkInfoBar — deprecated in GTK4 with no
+  // direct replacement, so not used here directly) pixel-for-pixel: every
+  // size/color below is copied straight out of GTK's own real "infobar >
+  // revealer > box" / "infobar.warning" / "infobar .close" rules
+  // (extracted from libgtk-4.so's compiled CSS, not guessed), so it comes
+  // from the same system tokens GtkInfoBar itself uses and still tracks
+  // light/dark and the accent color automatically.
+  Gtk.Revealer change_banner_revealer {
+    transition-type: slide_down;
+
+    Gtk.Box {
+      styles ["change-banner"]
+      orientation: horizontal;
+      spacing: 6;
+
+      Gtk.Box {
+        orientation: vertical;
+        spacing: 6;
+        hexpand: true;
+        valign: center;
+
+        Gtk.Label {
+          styles ["change-banner-title"]
+          halign: start;
+          wrap: true;
+          label: _("File Has Changed on Disk");
+        }
+
+        Gtk.Label {
+          halign: start;
+          wrap: true;
+          label: _("The file has been changed by another program.");
+        }
+      }
+
+      Gtk.Button change_banner_discard_button {
+        valign: center;
+        label: _("_Discard Changes and Reload");
+        use-underline: true;
+      }
+
+      Gtk.Button change_banner_close_button {
+        styles ["flat", "change-banner-close"]
+        valign: center;
+        icon-name: "window-close-symbolic";
+        tooltip-text: _("Close");
+      }
+    }
+  }
+
+  Gtk.ScrolledWindow {
+    vexpand: true;
+    hscrollbar-policy: automatic;
+    vscrollbar-policy: automatic;
+
+    child: GtkSource.View text_view {
+      monospace: true;
+      top-margin: 8;
+      bottom-margin: 8;
+      left-margin: 8;
+      right-margin: 8;
+      show-line-numbers: true;
+    };
+  }
 }

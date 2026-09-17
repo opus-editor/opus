@@ -230,6 +230,10 @@ public class TabBarView : Object {
         var pill = new TabPill ();
         pill.set_label (file_name, folder_name);
         pill.set_preview (preview);
+        // A plain Gtk.Widget property — no need for a TabPill method of
+        // its own just to proxy it; the pill only ever knows file_name/
+        // folder_name, not the full path this lives on.
+        pill.widget.tooltip_text = display_path (path);
         pill.selected.connect (() => tab_selected (path));
         pill.double_clicked.connect (() => tab_double_clicked (path));
         pill.close_requested.connect (() => tab_close_requested (path));
@@ -324,6 +328,19 @@ public class TabBarView : Object {
         }
     }
 
+    /** The file behind `path` was deleted (or moved away) outside Opus, or came back — strikes through the tab's own label and updates its tooltip to say so. */
+    public void mark_deleted (string path, bool deleted) {
+        var pill = pills[path];
+        if (pill == null) {
+            return;
+        }
+
+        pill.set_deleted (deleted);
+        pill.widget.tooltip_text = deleted
+            ? _("%s · Deleted").printf (display_path (path))
+            : display_path (path);
+    }
+
     /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. */
     public void rename_tab (string old_path, string new_path, string file_name, string folder_name) {
         var pill = pills[old_path];
@@ -334,6 +351,7 @@ public class TabBarView : Object {
         pills.remove (old_path);
         pills[new_path] = pill;
         pill.set_label (file_name, folder_name);
+        pill.widget.tooltip_text = display_path (new_path);
 
         if (preview_path == old_path) {
             preview_path = new_path;
@@ -594,5 +612,14 @@ public class TabBarView : Object {
             default:
                 return DiscardChoice.CANCEL;
         }
+    }
+
+    /** `path`, with the user's home directory collapsed to `~` if it's under there — same shorthand every terminal/file manager already uses, for the tab tooltip. */
+    private static string display_path (string path) {
+        var home = Environment.get_home_dir ();
+        if (path.has_prefix (home + "/")) {
+            return "~" + path.substring (home.length);
+        }
+        return path;
     }
 }

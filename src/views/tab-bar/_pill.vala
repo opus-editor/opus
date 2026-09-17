@@ -40,6 +40,7 @@ public class TabPill : Object {
     public string folder_name { get; private set; default = ""; }
     public bool is_preview { get; private set; default = false; }
     public bool is_modified { get; private set; default = false; }
+    public bool is_deleted { get; private set; default = false; }
 
     static construct {
         install_css ();
@@ -94,6 +95,12 @@ public class TabPill : Object {
         refresh_label ();
     }
 
+    /** The file this tab was opened from was deleted (or moved away) outside Opus. */
+    public void set_deleted (bool deleted) {
+        is_deleted = deleted;
+        refresh_label ();
+    }
+
     private void refresh_label () {
         var file_part = Markup.escape_text (file_name);
         if (is_modified) {
@@ -101,6 +108,9 @@ public class TabPill : Object {
         }
         if (is_preview) {
             file_part = "<i>%s</i>".printf (file_part);
+        }
+        if (is_deleted) {
+            file_part = "<s>%s</s>".printf (file_part);
         }
 
         var text = file_part;

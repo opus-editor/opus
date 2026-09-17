@@ -100,6 +100,19 @@ public class MainWindowView : Object {
             separator.content-divider {
                 background: color-mix(in srgb, var(--border-color) 60%, transparent);
             }
+
+            /* libadwaita's own tooltip.background rule (checked its
+             * source, _tooltip.scss) sets RGB(0 0 6 / 80%) — a translucent
+             * near-black, always, regardless of light/dark theme. Fine
+             * for a short label, but this UI packs a lot of text close
+             * together (the tab tooltip's own full path, among others),
+             * so whatever's behind a tooltip keeps showing through enough
+             * to fight with it. Same color, just opaque — only the alpha
+             * changes, kept as `.background` since libadwaita's own
+             * comment there explains why (double-drawing otherwise). */
+            tooltip.background {
+                background-color: rgb(0 0 6);
+            }
         """);
         // See views/tab-bar/_pill.vala for why add_provider_for_display
         // despite the GTK 4.10 deprecation with no replacement.

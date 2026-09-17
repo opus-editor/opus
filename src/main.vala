@@ -96,7 +96,13 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     session.window_view.close_folder_requested.connect (() => unlink_folder (session));
 
     sessions.add (session);
-    session.window_view.closed.connect (() => sessions.remove (session));
+    session.window_view.closed.connect (() => {
+        if (session.file_tree_controller != null) {
+            session.file_tree_controller.close ();
+        }
+        session.editor_controller.close ();
+        sessions.remove (session);
+    });
 
     return session;
 }
@@ -145,7 +151,12 @@ private static void open_workspace (Gtk.Application app, string root_path) {
     session.window_view.present ();
 }
 
+/** Replaces whichever FileTreeController this session already had (if any) — closing it first (see its own close() doc comment) so its watches/timers don't keep running after nothing references it anymore. */
 private static void link_folder (Session session, FileTreeView file_tree_view, FileTreeController file_tree_controller) {
+    if (session.file_tree_controller != null) {
+        session.file_tree_controller.close ();
+    }
+
     session.file_tree_view = file_tree_view;
     session.file_tree_controller = file_tree_controller;
     session.main_controller = new MainController (file_tree_controller, session.editor_controller);
@@ -162,6 +173,10 @@ private static void link_folder (Session session, FileTreeView file_tree_view, F
  * linked in the first place (see open_window()'s own comment).
  */
 private static void unlink_folder (Session session) {
+    if (session.file_tree_controller != null) {
+        session.file_tree_controller.close ();
+    }
+
     session.file_tree_view = null;
     session.file_tree_controller = null;
     session.main_controller = null;

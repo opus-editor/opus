@@ -123,6 +123,87 @@ private void test_save_as_clears_untitled_and_moves_the_document_to_the_new_path
     }
 }
 
+private void test_is_deleted_does_not_affect_dirty_on_its_own () {
+    // EditorController is the one deciding whether a deleted-outside-Opus
+    // tab should even set is_deleted at all — only ever on an already-dirty
+    // one, a clean tab just closes outright instead. Document itself
+    // doesn't need is_deleted to influence dirty, since it's only ever set
+    // when dirty is already true from real edits.
+    string path = make_temp_file ("original".data);
+
+    try {
+        var document = Document.load (path);
+        assert_false (document.dirty);
+
+        document.is_deleted = true;
+        assert_false (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_save_recreates_a_deleted_document_and_clears_the_flag () {
+    string path = make_temp_file ("original".data);
+
+    try {
+        var document = Document.load (path);
+        document.content = "edited before the file vanished";
+        document.is_deleted = true;
+        FileUtils.remove (path); // the file itself really is gone, same as what set is_deleted in the first place
+
+        document.save ();
+
+        assert_false (document.is_deleted);
+        assert_false (document.dirty);
+        assert_true (FileUtils.test (path, FileTest.EXISTS));
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_is_externally_modified_does_not_affect_dirty_on_its_own () {
+    string path = make_temp_file ("original".data);
+
+    try {
+        var document = Document.load (path);
+        assert_false (document.dirty);
+
+        document.is_externally_modified = true;
+        assert_false (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_reload_replaces_in_memory_content_with_whats_on_disk () {
+    string path = make_temp_file ("original".data);
+
+    try {
+        var document = Document.load (path);
+        document.content = "edited in the buffer, not saved yet";
+        document.is_externally_modified = true;
+        document.is_deleted = true; // reload() should clear both, regardless of which set it
+        FileUtils.set_contents (path, "changed by another program");
+
+        document.reload ();
+
+        assert_cmpstr (document.content, CompareOperator.EQ, "changed by another program");
+        assert_false (document.dirty);
+        assert_false (document.is_externally_modified);
+        assert_false (document.is_deleted);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/document/load_save_round_trip", test_load_save_round_trip);
@@ -131,5 +212,9 @@ int main (string[] args) {
     Test.add_func ("/models/document/invalid_utf8_is_unreadable", test_invalid_utf8_is_unreadable);
     Test.add_func ("/models/document/untitled_document_starts_clean_and_untitled", test_untitled_document_starts_clean_and_untitled);
     Test.add_func ("/models/document/save_as_clears_untitled_and_moves_the_document_to_the_new_path", test_save_as_clears_untitled_and_moves_the_document_to_the_new_path);
+    Test.add_func ("/models/document/is_deleted_does_not_affect_dirty_on_its_own", test_is_deleted_does_not_affect_dirty_on_its_own);
+    Test.add_func ("/models/document/save_recreates_a_deleted_document_and_clears_the_flag", test_save_recreates_a_deleted_document_and_clears_the_flag);
+    Test.add_func ("/models/document/is_externally_modified_does_not_affect_dirty_on_its_own", test_is_externally_modified_does_not_affect_dirty_on_its_own);
+    Test.add_func ("/models/document/reload_replaces_in_memory_content_with_whats_on_disk", test_reload_replaces_in_memory_content_with_whats_on_disk);
     return Test.run ();
 }

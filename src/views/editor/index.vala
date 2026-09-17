@@ -12,7 +12,8 @@
  * or a recolored one is a file dropped there, not a code change.
  */
 public class EditorView : Object {
-    private Gtk.ScrolledWindow root;
+    private Gtk.Box root;
+    private Gtk.Revealer change_banner_revealer;
     private GtkSource.View text_view;
     private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
 
@@ -24,11 +25,26 @@ public class EditorView : Object {
     /** The user edited the text; `new_text` is the buffer's full content. */
     public signal void text_changed (string new_text);
 
+    /** The active tab's file changed on disk and the user chose to discard in-memory content in its favor — see the "Discard Changes and Reload" button on the change banner. */
+    public signal void reload_requested ();
+
     public EditorView () {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor/index.ui");
-        root = (Gtk.ScrolledWindow) builder.get_object ("root");
+        root = (Gtk.Box) builder.get_object ("root");
+        change_banner_revealer = (Gtk.Revealer) builder.get_object ("change_banner_revealer");
         text_view = (GtkSource.View) builder.get_object ("text_view");
         text_view.buffer.changed.connect (on_buffer_changed);
+
+        var discard_button = (Gtk.Button) builder.get_object ("change_banner_discard_button");
+        discard_button.clicked.connect (() => reload_requested ());
+        // Same as GNOME Text Editor's own EditorInfoBar: the close button
+        // only dismisses the banner — the underlying "externally modified"
+        // state stays put, and switching away from this tab and back
+        // brings it right back (see EditorController.show_in_editor).
+        var close_button = (Gtk.Button) builder.get_object ("change_banner_close_button");
+        close_button.clicked.connect (() => change_banner_revealer.reveal_child = false);
+
+        install_css ();
 
         // GtkSource.Buffer paints with a StyleScheme's own fixed colors
         // instead of following the app's GTK theme, so it stays put through
@@ -37,6 +53,43 @@ public class EditorView : Object {
         var style_manager = Adw.StyleManager.get_default ();
         style_manager.notify["dark"].connect (() => apply_style_scheme (style_manager.dark));
         apply_style_scheme (style_manager.dark);
+    }
+
+    /**
+     * Copied straight from GTK's own real `infobar.warning > revealer >
+     * box` / `infobar .close` rules (found in libgtk-4.so's compiled CSS,
+     * not guessed) — same `var(--…)` tokens GtkInfoBar itself resolves
+     * against, so this tracks light/dark and the accent color exactly the
+     * same way it does, with no hardcoded color of our own. The 30% mix
+     * with the window background (not a flat `--warning-bg-color`) is
+     * what actually gives GtkInfoBar its pale, non-saturated look.
+     */
+    private void install_css () {
+        var css_provider = new Gtk.CssProvider ();
+        css_provider.load_from_string ("""
+            .change-banner {
+                background-color: color-mix(in srgb, var(--warning-bg-color) 30%, var(--window-bg-color));
+                color: var(--window-fg-color);
+                padding: 6px 6px 7px 6px;
+                box-shadow: inset 0 -1px var(--shade-color);
+            }
+
+            .change-banner-title {
+                font-weight: bold;
+            }
+
+            .change-banner-close {
+                min-width: 18px;
+                min-height: 18px;
+                padding: 4px;
+                border-radius: 9999px;
+            }
+        """);
+        // See views/tab-bar/_pill.vala for why add_provider_for_display
+        // despite the GTK 4.10 deprecation with no replacement.
+        Gtk.StyleContext.add_provider_for_display (
+            Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
     }
 
     /** Shows `text`, highlighted as whichever language `path`'s name/extension matches (none, if it matches none). */
@@ -63,6 +116,11 @@ public class EditorView : Object {
     /** Moves keyboard focus into the text view — used when opening a tab is meant to start editing right away, not just show it. */
     public void grab_focus () {
         text_view.grab_focus ();
+    }
+
+    /** Shows or hides the "File Has Changed on Disk" banner — for whichever document is currently shown, tracked by EditorController, not by EditorView itself. */
+    public void set_change_banner_visible (bool visible) {
+        change_banner_revealer.reveal_child = visible;
     }
 
     /**
