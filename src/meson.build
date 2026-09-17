@@ -7,6 +7,7 @@ opus_model_sources = files(
 )
 
 opus_gtk_view_sources = files(
+  'views/popover-menu.vala',
   'views/file-tree/_row.vala',
   'views/file-tree/index.vala',
   'views/tab-bar/_ghost.vala',

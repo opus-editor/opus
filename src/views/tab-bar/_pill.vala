@@ -25,6 +25,9 @@ public class TabPill : Object {
     /** The close button was clicked. Always emitted; the button is never disabled. */
     public signal void close_requested ();
 
+    /** Right click — open this tab's context menu at `(x, y)`, in this pill's own widget coordinates. */
+    public signal void context_menu_requested (double x, double y);
+
     // Read-only outside this class (see set_label/set_preview/set_modified
     // for how they're set) — exposed so a ghost copy (see _ghost.vala) can
     // be built with the same label/state without this pill needing to know
@@ -57,6 +60,11 @@ public class TabPill : Object {
             }
         });
         box.add_controller (click);
+
+        var right_click = new Gtk.GestureClick ();
+        right_click.set_button (Gdk.BUTTON_SECONDARY);
+        right_click.pressed.connect ((n_press, x, y) => context_menu_requested (x, y));
+        box.add_controller (right_click);
 
         close_button.clicked.connect (() => close_requested ());
     }

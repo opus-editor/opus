@@ -16,6 +16,131 @@ public class FileTree : Object {
         root = build_node (root_path);
     }
 
+    /** Finds the node at `path` within this tree, or null if there isn't one. */
+    public FileNode? find (string path) {
+        return find_in (root, path);
+    }
+
+    private static FileNode? find_in (FileNode node, string path) {
+        if (node.path == path) {
+            return node;
+        }
+
+        for (uint i = 0; i < node.children.length; i++) {
+            var found = find_in (node.children[i], path);
+            if (found != null) {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /** Creates `name` inside `parent` on disk — a plain empty file, or a directory — and inserts the resulting node into `parent.children` in the same sorted order the initial scan uses. Returns the new node. */
+    public FileNode create_child (FileNode parent, string name, bool is_directory) throws Error {
+        var path = Path.build_filename (parent.path, name);
+        var file = File.new_for_path (path);
+
+        if (is_directory) {
+            file.make_directory ();
+        } else {
+            var stream = file.create (FileCreateFlags.NONE);
+            stream.close ();
+        }
+
+        var node = new FileNode (path, name, is_directory);
+        insert_sorted (parent.children, node);
+        return node;
+    }
+
+    /**
+     * Renames `node` (a child of `parent`) to `new_name` on disk, and
+     * replaces it in `parent.children` with a freshly-scanned node built
+     * from its new path. A fresh scan, not an in-place path/name update,
+     * because renaming a directory changes the path of everything under
+     * it too — `build_node` already knows how to walk that correctly, no
+     * need for a second way to do it. Returns the new node.
+     */
+    public FileNode rename_child (FileNode parent, FileNode node, string new_name) throws Error {
+        var renamed_file = File.new_for_path (node.path).set_display_name (new_name);
+
+        parent.children.remove (node);
+        var renamed_node = build_node (renamed_file.get_path ());
+        insert_sorted (parent.children, renamed_node);
+        return renamed_node;
+    }
+
+    /** Moves `node` (a child of `parent`) to the trash, and removes it from `parent.children`. */
+    public void delete_child (FileNode parent, FileNode node) throws Error {
+        File.new_for_path (node.path).trash ();
+        parent.children.remove (node);
+    }
+
+    /**
+     * Moves `node` (a child of `old_parent`) to become a child of
+     * `new_parent`, on disk and in the tree — the model side of a
+     * Cut+Paste. Throws if `new_parent` is `node` itself or one of its own
+     * descendants (moving a directory into itself would recurse forever),
+     * or if `new_parent` already has an entry with that name (the same
+     * "already exists" failure `create_child` surfaces). Same fresh-scan
+     * approach as `rename_child`, for the same reason: moving a directory
+     * changes the path of everything under it.
+     */
+    public FileNode move_child (FileNode old_parent, FileNode node, FileNode new_parent) throws Error {
+        if (is_self_or_descendant (node, new_parent)) {
+            throw new IOError.INVALID_ARGUMENT ("Can’t move “%s” into itself.".printf (node.name));
+        }
+
+        var destination = File.new_for_path (Path.build_filename (new_parent.path, node.name));
+        File.new_for_path (node.path).move (destination, FileCopyFlags.NONE);
+
+        old_parent.children.remove (node);
+        var moved_node = build_node (destination.get_path ());
+        insert_sorted (new_parent.children, moved_node);
+        return moved_node;
+    }
+
+    /**
+     * Copies `node` (recursively, if it's a directory) into `new_parent`,
+     * on disk and in the tree — the model side of a Copy+Paste. Same
+     * self/descendant guard as `move_child`, for the same reason (a
+     * directory copied into its own descendant would recurse forever);
+     * unlike a move, copying into `node`'s own current parent is fine —
+     * `create_child`'s "already exists" case would only trip if a distinct
+     * destination happens to collide with something already there.
+     */
+    public FileNode copy_child (FileNode node, FileNode new_parent) throws Error {
+        if (is_self_or_descendant (node, new_parent)) {
+            throw new IOError.INVALID_ARGUMENT ("Can’t copy “%s” into itself.".printf (node.name));
+        }
+
+        var destination = File.new_for_path (Path.build_filename (new_parent.path, node.name));
+        copy_recursive (File.new_for_path (node.path), destination);
+
+        var copied_node = build_node (destination.get_path ());
+        insert_sorted (new_parent.children, copied_node);
+        return copied_node;
+    }
+
+    private static bool is_self_or_descendant (FileNode node, FileNode candidate) {
+        return candidate == node || candidate.path.has_prefix (node.path + "/");
+    }
+
+    private static void copy_recursive (File source, File destination) throws Error {
+        var info = source.query_info (FileAttribute.STANDARD_TYPE, FileQueryInfoFlags.NONE);
+        if (info.get_file_type () != FileType.DIRECTORY) {
+            source.copy (destination, FileCopyFlags.NONE);
+            return;
+        }
+
+        destination.make_directory ();
+        var enumerator = source.enumerate_children (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NONE);
+        FileInfo? entry_info;
+        while ((entry_info = enumerator.next_file ()) != null) {
+            copy_recursive (source.get_child (entry_info.get_name ()), destination.get_child (entry_info.get_name ()));
+        }
+    }
+
     private FileNode build_node (string path) throws Error {
         var file = File.new_for_path (path);
         var file_info = file.query_info (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);

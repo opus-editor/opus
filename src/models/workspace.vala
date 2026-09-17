@@ -1,13 +1,26 @@
 namespace Workspace {
     /**
-     * Resolves the root path to browse: the CLI argument if one was given,
-     * otherwise the current working directory. Pure and side-effect free —
-     * no filesystem access, no normalization.
+     * Interprets the CLI argument, if any, as either a folder to link as
+     * the workspace root or a file to open with no folder linked at all —
+     * `folder_path`/`file_path` come back mutually exclusive, both null
+     * when no argument was given (a blank window, no tab, no sidebar
+     * until "Open Folder…" links one). Touches the filesystem (needs to
+     * know whether the given path is actually a directory), unlike the
+     * plain string logic this used to be.
      */
-    public static string resolve_root_path (string[] args, string cwd) {
-        if (args.length > 1) {
-            return args[1];
+    public static void resolve (string[] args, out string? folder_path, out string? file_path) {
+        folder_path = null;
+        file_path = null;
+
+        if (args.length <= 1) {
+            return;
         }
-        return cwd;
+
+        var path = args[1];
+        if (FileUtils.test (path, FileTest.IS_DIR)) {
+            folder_path = path;
+        } else {
+            file_path = path;
+        }
     }
 }

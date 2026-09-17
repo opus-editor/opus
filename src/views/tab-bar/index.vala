@@ -41,6 +41,15 @@ public class TabBarView : Object {
     /** A tab's close control was clicked. */
     public signal void tab_close_requested (string path);
 
+    /** "Close Others" from a tab's context menu — `path` is the one to keep open. */
+    public signal void close_others_requested (string path);
+
+    /** "Close All" from a tab's context menu. */
+    public signal void close_all_requested ();
+
+    public signal void copy_path_requested (string path);
+    public signal void copy_relative_path_requested (string path);
+
     /** A tab was double-clicked (promotes a preview tab to permanent). */
     public signal void tab_double_clicked (string path);
 
@@ -55,6 +64,9 @@ public class TabBarView : Object {
 
     /** The drag ended (or was cancelled); remove the ghost. */
     public signal void drag_ghost_hidden ();
+
+    /** Double-click on the tab bar's own empty area (not on any pill) — same as "New File" (Ctrl+N / the primary menu's own item). */
+    public signal void new_file_requested ();
 
     static construct {
         install_css ();
@@ -114,6 +126,32 @@ public class TabBarView : Object {
         hadjustment.notify["upper"].connect (update_fade_visibility);
         hadjustment.notify["page-size"].connect (update_fade_visibility);
         update_fade_visibility ();
+
+        // Double-clicking the empty stretch of the row (past the last
+        // tab, or the whole row with none open) is a quick "New File" —
+        // on the outermost widget, not `box` itself, since a Gtk.Box with
+        // no hexpand only sizes to its own children and wouldn't cover
+        // the empty space to their right at all.
+        var new_file_click = new Gtk.GestureClick ();
+        new_file_click.set_button (Gdk.BUTTON_PRIMARY);
+        new_file_click.pressed.connect ((n_press, x, y) => {
+            if (n_press == 2 && click_is_on_empty_area (x, y)) {
+                new_file_requested ();
+            }
+        });
+        overlay.add_controller (new_file_click);
+    }
+
+    /** Whether `(x, y)` (in `overlay`'s own coordinates) lands outside every pill — walks up from whatever's actually under the point looking for one whose direct parent is `box` (a pill's own root widget); reaching `box` itself first means the background was hit instead. */
+    private bool click_is_on_empty_area (double x, double y) {
+        Gtk.Widget? picked = overlay.pick (x, y, Gtk.PickFlags.DEFAULT);
+        while (picked != null && picked != box) {
+            if (picked.get_parent () == box) {
+                return false;
+            }
+            picked = picked.get_parent ();
+        }
+        return true;
     }
 
     /**
@@ -195,6 +233,7 @@ public class TabBarView : Object {
         pill.selected.connect (() => tab_selected (path));
         pill.double_clicked.connect (() => tab_double_clicked (path));
         pill.close_requested.connect (() => tab_close_requested (path));
+        pill.context_menu_requested.connect ((x, y) => show_context_menu (path, pill, x, y));
 
         pills[path] = pill;
         box.append (pill.widget);
@@ -283,6 +322,55 @@ public class TabBarView : Object {
         if (pill != null) {
             pill.set_modified (modified);
         }
+    }
+
+    /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. */
+    public void rename_tab (string old_path, string new_path, string file_name, string folder_name) {
+        var pill = pills[old_path];
+        if (pill == null) {
+            return;
+        }
+
+        pills.remove (old_path);
+        pills[new_path] = pill;
+        pill.set_label (file_name, folder_name);
+
+        if (preview_path == old_path) {
+            preview_path = new_path;
+        }
+    }
+
+    public void copy_to_clipboard (string text) {
+        widget.get_clipboard ().set_text (text);
+    }
+
+    /**
+     * `path`'s own right-click menu. Save/Save as… used to live here too,
+     * but only ever applied to the active tab regardless of which tab's
+     * menu triggered them — now that they're global (the primary menu,
+     * Ctrl+S/Ctrl+Shift+S), keeping a second copy here would just offer
+     * the same not-necessarily-this-tab action from a place that implies
+     * it's about *this* tab specifically.
+     *
+     * The "Close" accelerator hint is built via `Gtk.accelerator_get_label`,
+     * from the exact same keyval/modifier constants
+     * MainWindowView.on_key_pressed matches on — not typed out as literal
+     * text, which drifted from the actual keys the first time around and
+     * would drift again silently.
+     */
+    private void show_context_menu (string path, TabPill pill, double x, double y) {
+        var popover = ContextMenu.create (pill.widget, x, y);
+        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+
+        box.append (ContextMenu.item (_("Close"), () => tab_close_requested (path), popover, Gtk.accelerator_get_label (Gdk.Key.w, Gdk.ModifierType.CONTROL_MASK)));
+        box.append (ContextMenu.item (_("Close Others"), () => close_others_requested (path), popover));
+        box.append (ContextMenu.item (_("Close All"), () => close_all_requested (), popover));
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (path), popover));
+        box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (path), popover));
+
+        popover.child = box;
+        popover.popup ();
     }
 
     /**
@@ -490,6 +578,12 @@ public class TabBarView : Object {
         dialog.set_response_appearance ("save", Adw.ResponseAppearance.SUGGESTED);
         dialog.set_default_response ("save");
         dialog.set_close_response ("cancel");
+        // Adw.AlertDialog stacks its response buttons vertically by
+        // default at medium sizes (its own doc comment on
+        // prefer-wide-layout: "By default it will prefer to stack buttons
+        // vertically") — side-by-side, like GNOME Text Editor's own
+        // unsaved-changes dialog, needs this opted into explicitly.
+        dialog.prefer_wide_layout = true;
 
         var response = yield dialog.choose (widget, null);
         switch (response) {

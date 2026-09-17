@@ -1,8 +1,17 @@
 [Desktop Entry]
 Name=Opus
 Comment=A lightweight source code editor
-Exec=opus %F
+Exec=opus %f
 Icon=accessories-text-editor
 Terminal=false
 Type=Application
 Categories=Development;TextEditor;
+# %f (a single local path), not %F/%u/%U: main.vala's own argv handling
+# (Workspace.resolve) only ever reads one plain filesystem path, never a
+# URI and never more than one file — matching what's actually supported,
+# not what a generic template happens to default to. Same MimeType set
+# GNOME Text Editor itself declares (checked its own .desktop.in.in) —
+# this is what actually makes "Open With… Opus" show up for a text file
+# in the first place; without it, no file manager offers it regardless
+# of Exec being otherwise correct.
+MimeType=text/plain;application/x-zerosize;

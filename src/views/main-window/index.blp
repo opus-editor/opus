@@ -14,12 +14,28 @@ Adw.ApplicationWindow window {
   // screen, not just within whichever narrower widget started the drag.
   content: Gtk.Overlay floating_layer {
     child: Adw.OverlaySplitView split_view {
+      // Off by default, on only once collapsed (see the breakpoint below)
+      // — matches Nautilus's own split_view exactly (checked its source):
+      // a swipe shouldn't reveal/hide the sidebar while there's still
+      // room for it to sit permanently side-by-side.
+      enable-show-gesture: false;
+      enable-hide-gesture: false;
+
       sidebar: Adw.ToolbarView {
         [top]
+        // No decoration-layout/show-*-title-buttons set here on purpose:
+        // Adw.HeaderBar has this split-view case built in — nested inside
+        // an Adw.OverlaySplitView, it automatically figures out which
+        // pane should carry the window's actual close/minimize/maximize
+        // controls (honoring wherever the user's own GNOME settings put
+        // them, left or right) and relocates them to the content pane's
+        // own header once the sidebar collapses — see adw_header_bar's
+        // own "Split View Integration" docs. Hardcoding decoration-layout
+        // here, as this used to, defeats that entirely.
         Adw.HeaderBar {
-          show-end-title-buttons: false;
-          decoration-layout: "close:";
-          title-widget: Adw.WindowTitle window_title {};
+          title-widget: Adw.WindowTitle {
+            title: _("Opus");
+          };
         }
 
         content: Adw.Bin sidebar_bin {};
@@ -30,13 +46,31 @@ Adw.ApplicationWindow window {
 
         [top]
         Adw.HeaderBar {
-          show-start-title-buttons: false;
-          show-end-title-buttons: false;
-
           title-widget: Adw.ViewSwitcher {
             stack: view_stack;
             policy: wide;
           };
+
+          // Only shown once the sidebar has actually collapsed AND a
+          // folder is linked (see MainWindowView's own
+          // update_sidebar_toggle_visibility) — with the sidebar sitting
+          // permanently side-by-side, or none linked at all, there's
+          // nothing useful for it to reveal. Adw.OverlaySplitView already
+          // dismisses the revealed sidebar on an outside click on its own
+          // (its own "shield" widget — checked its source, not assumed);
+          // this button only needs to handle showing it.
+          [start]
+          Gtk.ToggleButton sidebar_toggle_button {
+            icon-name: "sidebar-show-symbolic";
+            tooltip-text: _("Toggle Sidebar");
+            visible: false;
+          }
+
+          [end]
+          Gtk.MenuButton menu_button {
+            icon-name: "open-menu-symbolic";
+            tooltip-text: _("Main Menu");
+          }
         }
 
         content: Adw.ViewStack view_stack {
@@ -85,4 +119,20 @@ Adw.ApplicationWindow window {
       };
     };
   };
+
+  // Collapses the sidebar into an overlay once the window gets narrow —
+  // same threshold Nautilus's own equivalent breakpoint uses. The
+  // Adw.HeaderBar split-view integration (see the sidebar header's own
+  // comment above) reacts to split_view.collapsed on its own; nothing
+  // else needs to change here beyond that one property and re-enabling
+  // the swipe gestures collapsing makes meaningful again.
+  Adw.Breakpoint {
+    condition ("max-width: 682sp")
+
+    setters {
+      split_view.collapsed: true;
+      split_view.enable-show-gesture: true;
+      split_view.enable-hide-gesture: true;
+    }
+  }
 }

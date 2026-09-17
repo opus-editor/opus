@@ -60,6 +60,31 @@ public class EditorView : Object {
         text_view.editable = true;
     }
 
+    /** Moves keyboard focus into the text view — used when opening a tab is meant to start editing right away, not just show it. */
+    public void grab_focus () {
+        text_view.grab_focus ();
+    }
+
+    /**
+     * Shows the system's own Save-As file chooser (Gtk.FileDialog — a
+     * portal dialog, the desktop's own file manager UI when a portal is
+     * available, e.g. GNOME's Nautilus-flavored one), pre-filled with
+     * `suggested_name` in `current_folder`. Returns the chosen path, or
+     * null if the user cancelled or the dialog/portal itself failed.
+     */
+    public async string? choose_save_as_path (string suggested_name, string current_folder) {
+        var dialog = new Gtk.FileDialog ();
+        dialog.initial_name = suggested_name;
+        dialog.initial_folder = File.new_for_path (current_folder);
+
+        try {
+            var file = yield dialog.save (widget.get_root () as Gtk.Window, null);
+            return file != null ? file.get_path () : null;
+        } catch (Error e) {
+            return null;
+        }
+    }
+
     private void on_buffer_changed () {
         if (updating_programmatically) {
             return;

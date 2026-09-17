@@ -150,5 +150,338 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/file-tree/create-child/creates-a-file-on-disk", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            var node = tree.create_child (tree.root, "new-file.txt", false);
+
+            assert (!node.is_directory);
+            assert (FileUtils.test (node.path, FileTest.EXISTS));
+            assert (!FileUtils.test (node.path, FileTest.IS_DIR));
+            assert (find_child (tree.root, "new-file.txt") == node);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/create-child/creates-a-directory-on-disk", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            var node = tree.create_child (tree.root, "new-dir", true);
+
+            assert (node.is_directory);
+            assert (FileUtils.test (node.path, FileTest.IS_DIR));
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/create-child/inserts-in-sorted-order", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            // Fixture's children are already: .hidden-dir, b-dir,
+            // .hidden-file, a-file.txt, Z-file.txt — a new directory goes
+            // after the existing directories but before any file.
+            tree.create_child (tree.root, "c-dir", true);
+
+            var children = tree.root.children;
+            assert (children.length == 6);
+            assert (children[0].name == ".hidden-dir");
+            assert (children[1].name == "b-dir");
+            assert (children[2].name == "c-dir");
+            assert (children[3].name == ".hidden-file");
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/create-child/throws-if-the-name-already-exists", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            var threw = false;
+            try {
+                tree.create_child (tree.root, "a-file.txt", false);
+            } catch (Error e) {
+                threw = true;
+            }
+            assert (threw);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/rename-child/renames-on-disk-and-in-the-tree", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var old_node = find_child (tree.root, "a-file.txt");
+            var old_path = old_node.path;
+
+            var renamed = tree.rename_child (tree.root, old_node, "renamed.txt");
+
+            assert (renamed.name == "renamed.txt");
+            assert (!FileUtils.test (old_path, FileTest.EXISTS));
+            assert (FileUtils.test (renamed.path, FileTest.EXISTS));
+            assert (find_child (tree.root, "a-file.txt") == null);
+            assert (find_child (tree.root, "renamed.txt") == renamed);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/rename-child/renaming-a-directory-updates-its-children-paths", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+
+            var renamed = tree.rename_child (tree.root, b_dir, "renamed-dir");
+
+            assert (renamed.children.length == 1);
+            assert (renamed.children[0].name == "nested.txt");
+            assert (renamed.children[0].path == Path.build_filename (renamed.path, "nested.txt"));
+            assert (FileUtils.test (renamed.children[0].path, FileTest.EXISTS));
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/delete-child/trashes-and-removes-from-the-tree", () => {
+        // Whether trashing a file actually succeeds depends on the
+        // filesystem it lives on having a trash implementation at all —
+        // e.g. it fails on this very test's own tmpfs fixture directory.
+        // Covers both outcomes rather than assuming one: on success, gone
+        // from disk and from the tree; on failure, untouched in both — not
+        // silently dropped from the tree while still sitting on disk.
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var node = find_child (tree.root, "a-file.txt");
+            var path = node.path;
+
+            try {
+                tree.delete_child (tree.root, node);
+                assert (!FileUtils.test (path, FileTest.EXISTS));
+                assert (find_child (tree.root, "a-file.txt") == null);
+            } catch (Error e) {
+                assert (FileUtils.test (path, FileTest.EXISTS));
+                assert (find_child (tree.root, "a-file.txt") == node);
+            }
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/move-child/moves-a-file-on-disk-and-into-the-new-parent", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var a_file = find_child (tree.root, "a-file.txt");
+            var b_dir = find_child (tree.root, "b-dir");
+            var old_path = a_file.path;
+
+            var moved = tree.move_child (tree.root, a_file, b_dir);
+
+            assert (!FileUtils.test (old_path, FileTest.EXISTS));
+            assert (FileUtils.test (moved.path, FileTest.EXISTS));
+            assert (find_child (tree.root, "a-file.txt") == null);
+            assert (find_child (b_dir, "a-file.txt") == moved);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/move-child/throws-when-moving-a-directory-into-itself", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+
+            var threw = false;
+            try {
+                tree.move_child (tree.root, b_dir, b_dir);
+            } catch (Error e) {
+                threw = true;
+            }
+            assert (threw);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/move-child/throws-when-moving-a-directory-into-its-own-descendant", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+            var nested_dir = tree.create_child (b_dir, "nested-dir", true);
+
+            var threw = false;
+            try {
+                tree.move_child (tree.root, b_dir, nested_dir);
+            } catch (Error e) {
+                threw = true;
+            }
+            assert (threw);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/copy-child/copies-a-file-on-disk-and-into-the-tree-without-touching-the-original", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var a_file = find_child (tree.root, "a-file.txt");
+            var b_dir = find_child (tree.root, "b-dir");
+
+            var copied = tree.copy_child (a_file, b_dir);
+
+            assert (FileUtils.test (a_file.path, FileTest.EXISTS));
+            assert (FileUtils.test (copied.path, FileTest.EXISTS));
+            assert (find_child (tree.root, "a-file.txt") == a_file);
+            assert (find_child (b_dir, "a-file.txt") == copied);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/copy-child/copies-a-directory-recursively", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+            var c_dir = tree.create_child (tree.root, "c-dir", true);
+
+            var copied = tree.copy_child (b_dir, c_dir);
+
+            assert (copied.is_directory);
+            assert (copied.children.length == 1);
+            assert (copied.children[0].name == "nested.txt");
+            assert (FileUtils.test (copied.children[0].path, FileTest.EXISTS));
+            assert (FileUtils.test (find_child (b_dir, "nested.txt").path, FileTest.EXISTS));
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/copy-child/throws-when-copying-a-directory-into-itself", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+
+            var threw = false;
+            try {
+                tree.copy_child (b_dir, b_dir);
+            } catch (Error e) {
+                threw = true;
+            }
+            assert (threw);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/copy-child/throws-when-copying-a-directory-into-its-own-descendant", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+            var nested_dir = tree.create_child (b_dir, "nested-dir", true);
+
+            var threw = false;
+            try {
+                tree.copy_child (b_dir, nested_dir);
+            } catch (Error e) {
+                threw = true;
+            }
+            assert (threw);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/find/finds-a-nested-node-by-path", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var expected = find_child (tree.root, "b-dir").children[0];
+
+            var found = tree.find (expected.path);
+
+            assert (found == expected);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/find/returns-null-for-an-unknown-path", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            assert (tree.find (Path.build_filename (root_path, "nope")) == null);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     return Test.run ();
 }

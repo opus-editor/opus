@@ -10,6 +10,12 @@ public class FileNode : Object {
     public bool is_directory { get; private set; }
     public GenericArray<FileNode> children;
 
+    /** This node's name is being edited inline in the tree — a New File/Folder still being named (blank `name`), or an existing entry being renamed (its current `name`). Which one is for whoever set it (FileTreeView) to track; FileTreeRow just needs to know an edit is in progress. */
+    public bool is_editing_name { get; set; default = false; }
+
+    /** This node is on the tree's own internal Cut clipboard, awaiting a Paste — shown dimmed until then. */
+    public bool is_cut { get; set; default = false; }
+
     public FileNode (string path, string name, bool is_directory) {
         this.path = path;
         this.name = name;
