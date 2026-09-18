@@ -89,6 +89,17 @@ public class Document : Object {
         return document;
     }
 
+    /**
+     * The file this document tracks moved on disk without Opus itself
+     * writing anything there — a sidebar Rename, or a Cut+Paste (menu or
+     * drag) actually moving it. Unlike save_as(), nothing was written:
+     * content/dirty/is_untitled are all untouched, this only relabels
+     * which path the document is for.
+     */
+    public void move_to (string new_path) {
+        path = new_path;
+    }
+
     /** Only ever valid for a document that already has a real path — an untitled one always goes through save_as() instead (see EditorController). */
     public void save () throws Error {
         if (!readable) {

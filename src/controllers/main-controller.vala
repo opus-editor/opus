@@ -1,7 +1,7 @@
 /**
- * Wires {@link FileTreeController}'s file activations, creations and
- * deletions into {@link EditorController} — the only glue between the
- * sidebar and the tab/editor pane.
+ * Wires {@link FileTreeController}'s file activations, creations,
+ * deletions and moves into {@link EditorController} — the only glue
+ * between the sidebar and the tab/editor pane.
  */
 public class MainController : Object {
     private FileTreeController file_tree_controller;
@@ -21,6 +21,7 @@ public class MainController : Object {
             open (path, true);
         });
         file_tree_controller.delete_entry_requested.connect ((path) => on_delete_requested.begin (path));
+        file_tree_controller.file_moved.connect ((old_path, new_path) => editor_controller.file_moved (old_path, new_path));
     }
 
     private void open (string path, bool open_permanent) {

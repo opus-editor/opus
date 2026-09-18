@@ -25,14 +25,6 @@ public class TabBarView : Object {
     private TabPill? active_pill = null;
     private string? preview_path = null;
 
-    // The floating "held" copy of whichever pill is currently being
-    // dragged — see begin_drag_ghost() and TabGhost. Rendered by whoever
-    // owns the window (see the drag_ghost_* signals below), not by this
-    // view itself: a copy confined to this row's own bounds can't follow
-    // the pointer once it leaves the tab bar, the same way a real file
-    // manager's drag icon does.
-    private TabGhost? drag_ghost = null;
-
     public Gtk.Widget widget { get { return overlay; } }
 
     /** A tab was clicked (single-click — makes it active). */
@@ -56,15 +48,6 @@ public class TabBarView : Object {
     /** The preview tab was dragged (or displaced) away from the last position, so it's now permanent. */
     public signal void preview_demoted (string path);
 
-    /** A tab started being dragged: show `ghost` floating at `(x, y, width, height)`, in the window's own coordinates. */
-    public signal void drag_ghost_shown (Gtk.Widget ghost, int x, int y, int width, int height);
-
-    /** The dragged tab's ghost should move to `(x, y)`, in the window's own coordinates. */
-    public signal void drag_ghost_moved (int x, int y);
-
-    /** The drag ended (or was cancelled); remove the ghost. */
-    public signal void drag_ghost_hidden ();
-
     /** Double-click on the tab bar's own empty area (not on any pill) — same as "New File" (Ctrl+N / the primary menu's own item). */
     public signal void new_file_requested ();
 
@@ -74,6 +57,9 @@ public class TabBarView : Object {
 
     public TabBarView () {
         box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+        // Scopes the :drop(active) override below to this box specifically
+        // — it has no other distinguishing class of its own otherwise.
+        box.add_css_class ("tab-row");
 
         scrolled_window = new Gtk.ScrolledWindow ();
         // EXTERNAL, not NEVER: per GtkPolicyType's own docs, NEVER means
@@ -140,6 +126,8 @@ public class TabBarView : Object {
             }
         });
         overlay.add_controller (new_file_click);
+
+        setup_reorder_drop_target ();
     }
 
     /** Whether `(x, y)` (in `overlay`'s own coordinates) lands outside every pill — walks up from whatever's actually under the point looking for one whose direct parent is `box` (a pill's own root widget); reaching `box` itself first means the background was hit instead. */
@@ -217,6 +205,17 @@ public class TabBarView : Object {
             .tab-pill.dragging {
                 opacity: 0;
             }
+
+            /* libadwaita's own default for any widget currently holding an
+             * "active" drop target (base.css: `:drop(active)`) is a 1px
+             * accent-colored inset border — same fix as FileTreeView's own
+             * listview:drop(active) override, for the same reason: this
+             * box carries our reorder Gtk.DropTarget directly, so the
+             * descendant-selector suppression libadwaita ships for other
+             * lists (placessidebar, stackswitcher, …) doesn't catch it. */
+            .tab-row:drop(active) {
+                box-shadow: none;
+            }
         """);
 
         // See views/tab-bar/_pill.vala for why add_provider_for_display
@@ -245,7 +244,7 @@ public class TabBarView : Object {
             preview_path = path;
         }
 
-        setup_reorder_gesture (path, pill);
+        setup_drag_source (pill);
         // A newly-appended permanent tab may have just pushed an existing
         // preview tab out of the last position.
         enforce_preview_is_last ();
@@ -392,151 +391,107 @@ public class TabBarView : Object {
     }
 
     /**
-     * Lets `pill` be reordered within the row by dragging it. Tracked with a
-     * plain {@link Gtk.GestureDrag} rather than real GDK drag-and-drop
-     * ({@link Gtk.DragSource}/{@link Gtk.DropTarget}): a real drag session
-     * gets offered to every other drop-capable widget the pointer passes
-     * over — including the editor's GtkTextView, which happily accepts and
-     * pastes it — and starting one is subject to GTK's DND source/target
-     * negotiation, which proved unreliable here. A gesture never leaves this
-     * row, so neither problem can happen. Same technique libadwaita's own
-     * AdwTabBar uses for in-bar reordering (see AdwTabBox's drag_gesture).
+     * Lets `pill` be dragged to reorder it within the row, or onto
+     * FileTreeView's own sidebar (see FileDrag.make_source()'s own
+     * comment). Real Gtk.DragSource, not a hand-rolled gesture — the
+     * concern that used to rule that out (a real drag session gets
+     * offered to every other drop-capable widget the pointer passes over,
+     * e.g. the editor's own GtkTextView happily accepting and pasting it
+     * as plain text) doesn't apply once the payload carries its own
+     * distinct GType (FileDragPayload) instead of plain text: nothing
+     * else in GTK declares interest in that type, so it's never offered
+     * anywhere it shouldn't be. Reordering within this row is just this
+     * row's own Gtk.DropTarget (see setup_reorder_drop_target() below)
+     * accepting the very same payload a plain pill drag produces.
      */
-    private void setup_reorder_gesture (string path, TabPill pill) {
-        // Where within `pill.widget` the press landed — fixed for the
-        // whole drag, so the ghost keeps that same point glued under the
-        // pointer regardless of the pill's current size or position.
-        double press_x = 0;
-        double press_y = 0;
-        var dragging = false;
+    private void setup_drag_source (TabPill pill) {
+        var source = FileDrag.make_source (pill.widget, (x, y) => {
+            var path = path_of (pill);
+            if (path == null) {
+                return null;
+            }
 
-        var drag = new Gtk.GestureDrag ();
-        drag.set_button (Gdk.BUTTON_PRIMARY);
-        drag.drag_begin.connect ((gesture, x, y) => {
-            press_x = x;
-            press_y = y;
-            dragging = false;
+            // A live Gtk.WidgetPaintable of `pill.widget` itself would
+            // carry over whatever it's currently rendering (e.g. an
+            // inactive tab's dimmed look) into the drag icon, with no
+            // clean way to override that on the paintable copy — a fresh,
+            // throwaway pill, always shown as if active, is what GTK's
+            // own native tab drag (and libadwaita's own AdwTabBox,
+            // checked against its real source) uses instead, so this
+            // does too.
+            var ghost = new TabGhost (pill.file_name, pill.folder_name, pill.is_preview, pill.is_modified);
+            // A freshly-built widget has never been through a real
+            // measure/allocate pass — Gtk.DragIcon showing it before one
+            // ever happens logs "Trying to snapshot GtkGizmo without a
+            // current allocation" (found live, not assumed). AdwTabBox's
+            // own drag icon (checked its real source) explicitly sizes
+            // its equivalent throwaway tab the same way, for the same
+            // reason — matching the real pill's own current size, since
+            // the ghost renders the exact same label/content.
+            ghost.widget.set_size_request (pill.widget.get_width (), pill.widget.get_height ());
+            return new FileDragCandidate (path, pill.widget, ghost.widget);
         });
-        drag.drag_update.connect ((gesture, offset_x, offset_y) => {
-            if (!dragging) {
-                if (!Gtk.drag_check_threshold (pill.widget, 0, 0, (int) offset_x, (int) offset_y)) {
-                    return;
-                }
-                dragging = true;
-                begin_drag_ghost (pill);
-            }
 
-            // Only claim once movement past GTK's drag threshold is
-            // confirmed, same as AdwTabBox: claiming unconditionally on
-            // every press would swallow plain clicks meant for selection.
-            gesture.set_state (Gtk.EventSequenceState.CLAIMED);
-
-            // Not `offset_x`/`offset_y`: GtkGestureDrag reports those
-            // relative to `pill.widget`'s OWN current position, which
-            // reorder_towards changes mid-drag (moving it to a new
-            // sibling slot) — the reference point shifts under it,
-            // producing a visible jump. The pointer's raw surface
-            // position is unaffected by that, so it's what both the
-            // ghost and the reorder target are computed from instead.
-            double root_x, root_y;
-            if (!get_pointer_root_position (gesture, pill.widget, out root_x, out root_y)) {
-                return;
-            }
-
-            update_drag_ghost_position (root_x - press_x, root_y - press_y);
-
-            var root = pill.widget.get_root ();
-            if (root != null) {
-                var point = Graphene.Point () { x = (float) root_x, y = (float) root_y };
-                Graphene.Point box_point;
-                if (((Gtk.Widget) root).compute_point (box, point, out box_point)) {
-                    reorder_towards (path, box_point.x, box_point.y);
-                }
-            }
+        // The real pill stays right where it is — still in `box`, still
+        // swapping position as reorder_towards runs below — just
+        // invisible, so the row shows an empty "hole" moving between tabs
+        // instead of doubling up with the drag icon floating above it.
+        source.drag_begin.connect ((drag) => pill.widget.add_css_class ("dragging"));
+        source.drag_end.connect ((drag, delete_data) => pill.widget.remove_css_class ("dragging"));
+        source.drag_cancel.connect ((drag, reason) => {
+            pill.widget.remove_css_class ("dragging");
+            return false; // let GTK play its own default "snap back" animation
         });
-        drag.drag_end.connect ((gesture, offset_x, offset_y) => end_drag_ghost (pill));
-        drag.cancel.connect ((gesture, sequence) => end_drag_ghost (pill));
-        pill.widget.add_controller (drag);
     }
 
-    /** `widget`'s (thus `gesture`'s) root, in the widget tree's own coordinates — from the current event's raw surface position, corrected for the surface's own offset from that root (window decoration shadows, etc). */
-    private bool get_pointer_root_position (Gtk.Gesture gesture, Gtk.Widget widget, out double x, out double y) {
-        x = 0;
-        y = 0;
-
-        var event = gesture.get_current_event ();
-        if (event == null) {
-            return false;
+    /** `pill`'s current path — looked up by identity rather than captured at add_tab() time: unlike this, every other per-pill signal connected there (selected, close_requested, …) does capture it directly, which rename_tab() never re-points at a tab's new path after a rename — a real pre-existing gap, out of scope to fix here, but not one to add a new instance of for a drag specifically. */
+    private string? path_of (TabPill pill) {
+        foreach (var path in pills.get_keys ()) {
+            if (pills[path] == pill) {
+                return path;
+            }
         }
-
-        double surface_x, surface_y;
-        if (!event.get_position (out surface_x, out surface_y)) {
-            return false;
-        }
-
-        var native = widget.get_native ();
-        if (native == null) {
-            return false;
-        }
-
-        double transform_x, transform_y;
-        native.get_surface_transform (out transform_x, out transform_y);
-        x = surface_x - transform_x;
-        y = surface_y - transform_y;
-        return true;
+        return null;
     }
 
     /**
-     * Builds a {@link TabGhost} from `pill`'s current label/state and emits
-     * drag_ghost_shown so whoever owns the window shows it floating under
-     * the pointer for the rest of the drag: the real pill still swaps
-     * position in the row as the pointer crosses a neighbor (see
-     * reorder_towards), which alone reads as an abrupt jump rather than a
-     * drag — this copy is what makes it feel "held" instead.
+     * Accepts a FileDragPayload dropped anywhere in the row: motion()
+     * moves the dragged pill live as the pointer crosses a neighbor (same
+     * reorder_towards() as before the switch to real drag-and-drop, just
+     * fed coordinates straight from the DropTarget instead of translated
+     * by hand through root/surface transforms — Gtk.DropTarget already
+     * hands them over in `box`'s own local space). Only ever accepts a
+     * path that's actually one of this row's own open tabs — a drag
+     * originating elsewhere (e.g. a sidebar entry) has nothing to reorder
+     * here, and is rejected rather than doing something undefined with it.
+     *
+     * `preload = true`: without it, Gtk.DropTarget doesn't actually fetch
+     * the drag's content until the drop itself — get_value() below stayed
+     * null for the entire hover, read as "nothing to reorder" the whole
+     * time (no live reordering, and a rejected/"no drop" cursor throughout
+     * instead of the normal one — exactly the two symptoms reported).
      */
-    private void begin_drag_ghost (TabPill pill) {
-        var root = pill.widget.get_root ();
-        if (root == null) {
-            return;
-        }
+    private void setup_reorder_drop_target () {
+        var drop_target = new Gtk.DropTarget (typeof (FileDragPayload), Gdk.DragAction.MOVE);
+        drop_target.preload = true;
+        drop_target.motion.connect ((x, y) => {
+            var raw_value = drop_target.get_value ();
+            var payload = raw_value == null ? null : raw_value.get_object () as FileDragPayload;
+            if (payload == null || !pills.contains (payload.path)) {
+                return 0;
+            }
 
-        Graphene.Rect bounds;
-        if (!pill.widget.compute_bounds ((Gtk.Widget) root, out bounds)) {
-            return;
-        }
-
-        var ghost = new TabGhost (pill.file_name, pill.folder_name, pill.is_preview, pill.is_modified);
-        drag_ghost = ghost;
-
-        // `pill.widget` itself stays right where it is — still in `box`,
-        // still swapping position as reorder_towards runs below — just
-        // invisible, so the row shows an empty "hole" moving between tabs
-        // instead of doubling up with the ghost floating above it.
-        pill.widget.add_css_class ("dragging");
-
-        drag_ghost_shown (ghost.widget, (int) bounds.origin.x, (int) bounds.origin.y, (int) bounds.get_width (), (int) bounds.get_height ());
+            reorder_towards (payload.path, x, y);
+            return Gdk.DragAction.MOVE;
+        });
+        drop_target.drop.connect ((value, x, y) => {
+            var payload = value.get_object () as FileDragPayload;
+            return payload != null && pills.contains (payload.path);
+        });
+        box.add_controller (drop_target);
     }
 
-    private void update_drag_ghost_position (double x, double y) {
-        if (drag_ghost == null) {
-            return;
-        }
-
-        drag_ghost_moved ((int) x, (int) y);
-    }
-
-    private void end_drag_ghost (TabPill pill) {
-        if (drag_ghost == null) {
-            return;
-        }
-
-        pill.widget.remove_css_class ("dragging");
-
-        drag_ghost = null;
-        drag_ghost_hidden ();
-    }
-
-    /** Moves `dragged_path`'s pill next to whichever pill is under `(box_x, box_y)`, before or after it. */
+    /** Moves `dragged_path`'s pill next to whichever pill is under `(box_x, box_y)` (already in `box`'s own coordinates), before or after it. */
     private void reorder_towards (string dragged_path, double box_x, double box_y) {
         var dragged_pill = pills[dragged_path];
         if (dragged_pill == null) {

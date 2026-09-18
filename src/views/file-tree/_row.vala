@@ -31,6 +31,9 @@ public class FileTreeRow : Object {
     /** The node this row currently displays, or null between bind() calls (row recycling). */
     public FileNode? bound_node { get; private set; }
 
+    /** The list row currently bound — lets FileTreeView expand/collapse a directory under the pointer (e.g. drag-hover auto-expand) without a separate, position-searching lookup for a row it's already looking straight at. */
+    public Gtk.TreeListRow? bound_row { get; private set; }
+
     /** The inline edit's name was confirmed non-empty (Enter, or focus lost with text present). */
     public signal void edit_committed (string name);
 
@@ -63,6 +66,7 @@ public class FileTreeRow : Object {
     /** Binds this row to `list_row`/`node`, recycled from a previous use. */
     public void bind (Gtk.TreeListRow list_row, FileNode node) {
         expander.list_row = list_row;
+        bound_row = list_row;
         bound_node = node;
         resolved = false;
 
@@ -114,6 +118,7 @@ public class FileTreeRow : Object {
     /** Releases the row's data ahead of being recycled for another node. */
     public void unbind () {
         expander.list_row = null;
+        bound_row = null;
         bound_node = null;
     }
 

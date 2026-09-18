@@ -64,6 +64,17 @@ public class FileTreeController : Object {
      */
     public signal void delete_entry_requested (string path);
 
+    /**
+     * `old_path` moved to `new_path` on disk — a Rename, or a Cut+Paste
+     * (menu or drag) actually moving something rather than copying it.
+     * Re-emitted, not handled here: whether anything has an open tab for
+     * `old_path` (or a descendant of it, for a moved directory) is
+     * EditorController's own state, which this controller has no
+     * reference to — MainController bridges the two, same as it already
+     * does for file_activated/file_created/delete_entry_requested.
+     */
+    public signal void file_moved (string old_path, string new_path);
+
     public FileTreeController (FileTreeView view, string root_path) throws Error {
         this.view = view;
         this.root_path = root_path;
@@ -234,8 +245,9 @@ public class FileTreeController : Object {
             return;
         }
 
+        FileNode renamed;
         try {
-            tree.rename_child (parent, node, new_name);
+            renamed = tree.rename_child (parent, node, new_name);
         } catch (Error e) {
             view.cancel_rename ();
             view.show_error (_("Couldn’t rename “%s”: %s").printf (node.name, e.message));
@@ -243,6 +255,7 @@ public class FileTreeController : Object {
         }
 
         view.refresh_children (parent.path, parent.children);
+        file_moved (path, renamed.path);
     }
 
     /** Actually deletes `path` — called by MainController once it's decided it's safe to (a folder, or a file with no dirty open tab, or one whose unsaved changes the user explicitly confirmed losing). */
@@ -276,11 +289,12 @@ public class FileTreeController : Object {
             return;
         }
 
+        FileNode result;
         try {
             if (is_cut) {
-                tree.move_child (source_parent, source, target);
+                result = tree.move_child (source_parent, source, target);
             } else {
-                tree.copy_child (source, target);
+                result = tree.copy_child (source, target);
             }
         } catch (Error e) {
             view.show_error (_("Couldn’t paste “%s”: %s").printf (source.name, e.message));
@@ -290,6 +304,10 @@ public class FileTreeController : Object {
         view.refresh_children (target.path, target.children);
         if (is_cut) {
             view.refresh_children (source_parent.path, source_parent.children);
+            // A Copy leaves the original right where it was — nothing
+            // moved for any tab open on it to care about; only a Cut
+            // actually needs this.
+            file_moved (source_path, result.path);
         }
         view.clipboard_pasted (is_cut);
     }

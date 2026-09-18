@@ -141,6 +141,38 @@ public class EditorController : Object {
         }
     }
 
+    /**
+     * `old_path` moved to `new_path` on disk (a sidebar Rename, or a
+     * Cut+Paste — menu or drag — actually moving rather than copying),
+     * per FileTreeController's own file_moved. Only ever matches a path
+     * that was directly opened as its own tab — a moved *directory*'s
+     * path is never itself a documents key (only files ever are), so this
+     * is a plain no-op for one, same as for any other moved path with no
+     * open tab of its own: a tab open on a file *nested inside* a moved
+     * directory still ends up "Deleted", exactly like it was moved
+     * outside Opus — an acceptable, unsurprising outcome, not one this
+     * bothers chasing down and re-pointing.
+     */
+    public void file_moved (string old_path, string new_path) {
+        var document = documents[old_path];
+        if (document == null) {
+            return;
+        }
+
+        stop_watching_file (old_path);
+        document.move_to (new_path);
+        documents.remove (old_path);
+        documents[new_path] = document;
+        start_watching_file (new_path);
+
+        tab_bar_view.rename_tab (old_path, new_path, Path.get_basename (new_path), folder_name_of (new_path));
+
+        if (active_path == old_path) {
+            active_path = new_path;
+        }
+        notify_active_state ();
+    }
+
     /** Cancels every open tab's file watch — call before discarding this controller (the window closing), same reasoning as FileTreeController's own close(): an active Gio.FileMonitor's own IO source could otherwise keep this object alive indefinitely via its connected signal handler's closure. */
     public void close () {
         foreach (var monitor in file_watches.get_values ()) {

@@ -13,7 +13,6 @@
 public class MainWindowView : Object {
     private Adw.ApplicationWindow window;
     private Adw.OverlaySplitView split_view;
-    private Gtk.Overlay floating_layer;
     private Adw.Bin sidebar_bin;
     private Adw.Bin tab_bar_bin;
     private Adw.Bin content_bin;
@@ -39,9 +38,6 @@ public class MainWindowView : Object {
     private Gtk.Widget save_as_item;
     private bool has_active_tab = false;
     private bool active_is_dirty = false;
-
-    private Gtk.Widget? floating_widget = null;
-    private Gdk.Rectangle floating_rect;
 
     /** Ctrl+W anywhere in the window — the tab context menu's own "Close" item names this same shortcut. */
     public signal void close_active_tab_requested ();
@@ -74,14 +70,12 @@ public class MainWindowView : Object {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/index.ui");
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
-        floating_layer = (Gtk.Overlay) builder.get_object ("floating_layer");
         sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
         tab_bar_bin = (Adw.Bin) builder.get_object ("tab_bar_bin");
         content_bin = (Adw.Bin) builder.get_object ("content_bin");
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
         sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
-        floating_layer.get_child_position.connect (on_get_floating_position);
         // Gtk.Window has its own plain destroy() method (calls
         // gtk_window_destroy()), which shadows Gtk.Widget's own `destroy`
         // signal for a Gtk.Window-typed reference — same issue, same fix,
@@ -211,45 +205,6 @@ public class MainWindowView : Object {
         dialog.present (window);
     }
 
-    /**
-     * Shows `widget` floating over the rest of the window at `(x, y, width,
-     * height)`, in this window's own coordinates — e.g. a dragged tab's
-     * ghost copy (see TabBarView's `drag_ghost_*` signals), positioned
-     * anywhere on screen regardless of which narrower widget it came from.
-     * Only one floating widget at a time; a second call replaces the first.
-     */
-    public void show_floating (Gtk.Widget widget, int x, int y, int width, int height) {
-        if (floating_widget != widget) {
-            hide_floating ();
-            floating_layer.add_overlay (widget);
-        }
-
-        floating_widget = widget;
-        floating_rect = { x, y, width, height };
-        floating_layer.queue_allocate ();
-    }
-
-    /** Moves the widget currently shown via show_floating() to `(x, y)`, keeping its size. Does nothing if none is shown. */
-    public void move_floating (int x, int y) {
-        if (floating_widget == null) {
-            return;
-        }
-
-        floating_rect.x = x;
-        floating_rect.y = y;
-        floating_layer.queue_allocate ();
-    }
-
-    /** Removes the widget shown via show_floating(), if any. */
-    public void hide_floating () {
-        if (floating_widget == null) {
-            return;
-        }
-
-        floating_layer.remove_overlay (floating_widget);
-        floating_widget = null;
-    }
-
     private bool on_key_pressed (uint keyval, uint keycode, Gdk.ModifierType state) {
         if ((state & Gdk.ModifierType.CONTROL_MASK) == 0) {
             return false;
@@ -375,11 +330,6 @@ public class MainWindowView : Object {
         } catch (Error e) {
             return null;
         }
-    }
-
-    private bool on_get_floating_position (Gtk.Widget widget, out Gdk.Rectangle allocation) {
-        allocation = floating_rect;
-        return widget == floating_widget;
     }
 
     /** Shows the window. */

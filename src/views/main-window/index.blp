@@ -9,113 +9,111 @@ Adw.ApplicationWindow window {
   // its own, so the window's shows through underneath it uninterrupted.
   styles ["view"]
 
-  // Spans the whole window so a floating widget (e.g. a dragged tab's
-  // ghost, see show_floating() below) can be positioned anywhere on
-  // screen, not just within whichever narrower widget started the drag.
-  content: Gtk.Overlay floating_layer {
-    child: Adw.OverlaySplitView split_view {
-      // Off by default, on only once collapsed (see the breakpoint below)
-      // — matches Nautilus's own split_view exactly (checked its source):
-      // a swipe shouldn't reveal/hide the sidebar while there's still
-      // room for it to sit permanently side-by-side.
-      enable-show-gesture: false;
-      enable-hide-gesture: false;
+  content: Adw.OverlaySplitView split_view {
+    // Off by default, on only once collapsed (see the breakpoint below)
+    // — matches Nautilus's own split_view exactly (checked its source):
+    // a swipe shouldn't reveal/hide the sidebar while there's still
+    // room for it to sit permanently side-by-side.
+    enable-show-gesture: false;
+    enable-hide-gesture: false;
 
-      sidebar: Adw.ToolbarView {
-        [top]
-        // No decoration-layout/show-*-title-buttons set here on purpose:
-        // Adw.HeaderBar has this split-view case built in — nested inside
-        // an Adw.OverlaySplitView, it automatically figures out which
-        // pane should carry the window's actual close/minimize/maximize
-        // controls (honoring wherever the user's own GNOME settings put
-        // them, left or right) and relocates them to the content pane's
-        // own header once the sidebar collapses — see adw_header_bar's
-        // own "Split View Integration" docs. Hardcoding decoration-layout
-        // here, as this used to, defeats that entirely.
-        Adw.HeaderBar {
-          title-widget: Adw.WindowTitle {
-            title: _("Opus");
-          };
-        }
-
-        content: Adw.Bin sidebar_bin {};
-      };
-
-      content: Adw.ToolbarView {
-        top-bar-style: flat;
-
-        [top]
-        Adw.HeaderBar {
-          title-widget: Adw.ViewSwitcher {
-            stack: view_stack;
-            policy: wide;
-          };
-
-          // Only shown once the sidebar has actually collapsed AND a
-          // folder is linked (see MainWindowView's own
-          // update_sidebar_toggle_visibility) — with the sidebar sitting
-          // permanently side-by-side, or none linked at all, there's
-          // nothing useful for it to reveal. Adw.OverlaySplitView already
-          // dismisses the revealed sidebar on an outside click on its own
-          // (its own "shield" widget — checked its source, not assumed);
-          // this button only needs to handle showing it.
-          [start]
-          Gtk.ToggleButton sidebar_toggle_button {
-            icon-name: "sidebar-show-symbolic";
-            tooltip-text: _("Toggle Sidebar");
-            visible: false;
-          }
-
-          [end]
-          Gtk.MenuButton menu_button {
-            icon-name: "open-menu-symbolic";
-            tooltip-text: _("Main Menu");
-          }
-        }
-
-        content: Adw.ViewStack view_stack {
-          Adw.ViewStackPage {
-            name: "editor";
-            title: _("Editor");
-            icon-name: "code-symbolic";
-
-            // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as
-            // a Gtk.WindowHandle (drag-to-move-the-window), which races
-            // against — and often wins over — the tab bar's own
-            // drag-to-reorder gesture. A plain Box has no such behavior.
-            // It also paints no background of its own, so the window's
-            // own "view" background (see the `styles ["view"]` above)
-            // shows through here the same as it does behind content_bin,
-            // instead of "raised"'s opaque header-bar-colored one.
-            child: Gtk.Box {
-              orientation: vertical;
-
-              Adw.Bin tab_bar_bin {}
-              Gtk.Separator {
-                styles ["content-divider"]
-              }
-
-              // Holds whatever the active tab shows — today always
-              // EditorView's widget, but not assumed to be: see
-              // show_editor()/show_empty_state() in index.vala. Starts (and
-              // returns to, once the last tab closes) an empty-state
-              // placeholder rather than an editor with nothing open in it.
-              Adw.Bin content_bin {
-                vexpand: true;
-              }
-            };
-          }
-
-          Adw.ViewStackPage {
-            name: "git";
-            title: _("Git");
-            icon-name: "git-symbolic";
-
-            child: Adw.StatusPage {
-              title: _("Git integration coming soon");
-            };
-          }
+    sidebar: Adw.ToolbarView {
+      [top]
+      // No decoration-layout/show-*-title-buttons set here on purpose:
+      // Adw.HeaderBar has this split-view case built in — nested inside
+      // an Adw.OverlaySplitView, it automatically figures out which
+      // pane should carry the window's actual close/minimize/maximize
+      // controls (honoring wherever the user's own GNOME settings put
+      // them, left or right) and relocates them to the content pane's
+      // own header once the sidebar collapses — see adw_header_bar's
+      // own "Split View Integration" docs. Hardcoding decoration-layout
+      // here, as this used to, defeats that entirely.
+      Adw.HeaderBar {
+        title-widget: Adw.WindowTitle {
+          title: _("Opus");
         };
+      }
+
+      content: Adw.Bin sidebar_bin {};
+    };
+
+    content: Adw.ToolbarView {
+      top-bar-style: flat;
+
+      [top]
+      Adw.HeaderBar {
+        title-widget: Adw.ViewSwitcher {
+          stack: view_stack;
+          policy: wide;
+        };
+
+        // Only shown once the sidebar has actually collapsed AND a
+        // folder is linked (see MainWindowView's own
+        // update_sidebar_toggle_visibility) — with the sidebar sitting
+        // permanently side-by-side, or none linked at all, there's
+        // nothing useful for it to reveal. Adw.OverlaySplitView already
+        // dismisses the revealed sidebar on an outside click on its own
+        // (its own "shield" widget — checked its source, not assumed);
+        // this button only needs to handle showing it.
+        [start]
+        Gtk.ToggleButton sidebar_toggle_button {
+          icon-name: "sidebar-show-symbolic";
+          tooltip-text: _("Toggle Sidebar");
+          visible: false;
+        }
+
+        [end]
+        Gtk.MenuButton menu_button {
+          icon-name: "open-menu-symbolic";
+          tooltip-text: _("Main Menu");
+        }
+      }
+
+      content: Adw.ViewStack view_stack {
+        Adw.ViewStackPage {
+          name: "editor";
+          title: _("Editor");
+          icon-name: "code-symbolic";
+
+          // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as
+          // a Gtk.WindowHandle (drag-to-move-the-window), which raced
+          // against — and often won over — the tab bar's own (now
+          // removed) hand-rolled drag-to-reorder gesture; kept as a plain
+          // Box since real Gtk.DragSource/DropTarget (see TabBarView's
+          // own setup_reorder_drag_drop()) has no such conflict, but
+          // there's no reason to reintroduce a WindowHandle here now.
+          // It also paints no background of its own, so the window's
+          // own "view" background (see the `styles ["view"]` above)
+          // shows through here the same as it does behind content_bin,
+          // instead of "raised"'s opaque header-bar-colored one.
+          child: Gtk.Box {
+            orientation: vertical;
+
+            Adw.Bin tab_bar_bin {}
+            Gtk.Separator {
+              styles ["content-divider"]
+            }
+
+            // Holds whatever the active tab shows — today always
+            // EditorView's widget, but not assumed to be: see
+            // show_editor()/show_empty_state() in index.vala. Starts (and
+            // returns to, once the last tab closes) an empty-state
+            // placeholder rather than an editor with nothing open in it.
+            Adw.Bin content_bin {
+              vexpand: true;
+            }
+          };
+        }
+
+        Adw.ViewStackPage {
+          name: "git";
+          title: _("Git");
+          icon-name: "git-symbolic";
+
+          child: Adw.StatusPage {
+            title: _("Git integration coming soon");
+          };
+        }
       };
     };
   };

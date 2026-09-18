@@ -1,10 +1,13 @@
 /**
- * A frozen, independent copy of a {@link TabPill}'s appearance, used as the
- * floating visual while a tab is being dragged (see {@link TabBarView}'s
- * reorder gesture). Deliberately not a live mirror of the dragged pill
- * (e.g. via {@link Gtk.WidgetPaintable}): a mirror reflects whatever the
- * source widget currently renders, live — including, for an inactive tab,
- * the dimmed opacity `_pill.vala` applies via `.tab-pill:not(.active)`, which
+ * A frozen, independent copy of a {@link TabPill}'s appearance, used as
+ * the real widget {@link Gdk.DragIcon} shows floating under the pointer
+ * while a tab is being dragged (see {@link TabBarView}'s setup_drag_source()
+ * — the same technique GTK's own native tab drag, and libadwaita's own
+ * AdwTabBox, use for theirs, checked directly against its real source).
+ * Deliberately not a live mirror of the dragged pill (e.g. via
+ * {@link Gtk.WidgetPaintable}): a mirror reflects whatever the source
+ * widget currently renders, live — including, for an inactive tab, the
+ * dimmed opacity `_pill.vala` applies via `.tab-pill:not(.active)`, which
  * no per-drag override on the mirror itself can cleanly undo. Built once
  * from the dragged pill's label/state at drag start and thrown away on
  * drop; never touches the original pill.

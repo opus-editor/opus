@@ -59,6 +59,22 @@ public class FileTreeView : Object {
     // one paste.
     private FileNode? clipboard_node = null;
 
+    // Bluish translucent highlight (see the CSS below) for the folder row
+    // currently under a dragged file/folder — toggled directly on its row
+    // widget in on_drag_motion()/on_drag_leave(), not tracked by
+    // FileTreeRow itself: it's pointer-position state, unrelated to which
+    // FileNode a recycled row happens to be bound to right now.
+    private const string DRAG_HOVER_CSS_CLASS = "drag-hover";
+
+    // How long a drag has to sit over a collapsed folder before it
+    // auto-expands — the "spring-loaded folder" convention Nautilus/
+    // Finder/Explorer all already use, so reaching a deep destination
+    // doesn't need a separate expand-then-drag-again pass.
+    private const uint HOVER_EXPAND_MS = 1500;
+
+    private Gtk.Widget? drag_hover_widget = null;
+    private uint hover_expand_timeout_id = 0;
+
     public Gtk.Widget widget { get { return scrolled_window; } }
 
     /**
@@ -147,6 +163,29 @@ public class FileTreeView : Object {
             treeexpander > expander:checked {
                 -gtk-icon-source: -gtk-icontheme("chevron-down-symbolic");
             }
+            /* The folder row directly under a dragged file/folder — accent
+             * color (the system's own, not a hardcoded blue) at partial
+             * opacity, so it tracks the user's own accent choice and still
+             * reads correctly in light/dark. Set on the real "row" node
+             * itself (see native_row_widget()'s own comment) — the 22px
+             * height/border-radius rule right above already covers it too,
+             * same as it does for native hover/selection. */
+            listview.data-table row.drag-hover {
+                background-color: color-mix(in srgb, var(--accent-bg-color) 30%, transparent);
+            }
+            /* libadwaita's own default for any widget currently holding an
+             * "active" drop target (base.css: `:drop(active)`) is a 1px
+             * accent-colored inset border — already suppressed for other
+             * sidebar list types (placessidebar, stackswitcher, …), but
+             * only via a *descendant* selector, which doesn't catch our
+             * own Gtk.DropTarget: it's attached straight to this listview,
+             * which already carries .navigation-sidebar itself rather than
+             * being a child of something that does. .drag-hover above is
+             * this tree's own feedback for a drop target; this outer
+             * border is redundant on top of it either way. */
+            listview.data-table:drop(active) {
+                box-shadow: none;
+            }
         """);
         Gtk.StyleContext.add_provider_for_display (
             Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -158,6 +197,7 @@ public class FileTreeView : Object {
         setup_context_menu ();
         setup_background_click ();
         setup_repeat_click_toggle ();
+        setup_drag_drop ();
     }
 
     public void populate (FileNode root) {
@@ -325,11 +365,22 @@ public class FileTreeView : Object {
     }
 
     private FileNode? node_at (double x, double y) {
+        var row = row_at (x, y);
+        return row == null ? null : row.bound_node;
+    }
+
+    /** The FileTreeRow (the one on_setup() stashed onto its widget) under `(x, y)`, or null over the tree's empty background. */
+    private FileTreeRow? row_at (double x, double y) {
+        var widget = row_widget_at (x, y);
+        return widget == null ? null : widget.get_data<FileTreeRow?> ("row");
+    }
+
+    /** The row widget (the one on_setup() stashed a FileTreeRow onto) under `(x, y)`, or null over the tree's empty background. */
+    private Gtk.Widget? row_widget_at (double x, double y) {
         Gtk.Widget? widget = list_view.pick (x, y, Gtk.PickFlags.DEFAULT);
         while (widget != null) {
-            var row = widget.get_data<FileTreeRow?> ("row");
-            if (row != null) {
-                return row.bound_node;
+            if (widget.get_data<FileTreeRow?> ("row") != null) {
+                return widget;
             }
             widget = widget.get_parent ();
         }
@@ -400,6 +451,150 @@ public class FileTreeView : Object {
             }
         });
         list_view.add_controller (click);
+    }
+
+    /**
+     * Dragging a row here is a Cut+Paste in one gesture: it reuses
+     * paste_requested with `is_cut = true` on drop, the exact signal the
+     * Cut/Paste context-menu items already fire — no new Controller/Model
+     * code needed for the move itself. One Gtk.DragSource/Gtk.DropTarget
+     * pair on `list_view` itself, not per-row — matching every other
+     * primary-button controller in this class (see setup_background_click/
+     * setup_repeat_click_toggle's own comments on why a per-row gesture
+     * raced GtkListView's built-in click handling here before).
+     */
+    private void setup_drag_drop () {
+        FileDrag.make_source (list_view, (x, y) => {
+            var widget = row_widget_at (x, y);
+            var row = row_at (x, y);
+            if (widget == null || row == null || row.bound_node == null) {
+                return null;
+            }
+            return new FileDragCandidate (row.bound_node.path, widget);
+        });
+
+        var drop_target = new Gtk.DropTarget (typeof (FileDragPayload), Gdk.DragAction.MOVE);
+        drop_target.motion.connect (on_drag_motion);
+        drop_target.leave.connect (on_drag_leave);
+        drop_target.drop.connect (on_drag_drop);
+        list_view.add_controller (drop_target);
+    }
+
+    /**
+     * Highlights the folder row directly under the pointer and starts (or
+     * restarts, on moving to a different row) the auto-expand timer for
+     * it. Only a directory — or the tree's own background, meaning the
+     * workspace root — is a valid drop target; hovering a file row shows
+     * the "no drop" cursor and never highlights, same as dropping there
+     * would just be rejected by on_drag_drop() below.
+     */
+    private Gdk.DragAction on_drag_motion (double x, double y) {
+        var widget = row_widget_at (x, y);
+        var row = row_at (x, y);
+        FileNode? node = row == null ? null : row.bound_node;
+
+        var target_widget = (node != null && node.is_directory) ? native_row_widget (widget) : null;
+        if (target_widget != drag_hover_widget) {
+            set_drag_hover (drag_hover_widget, false);
+            drag_hover_widget = target_widget;
+            set_drag_hover (drag_hover_widget, true);
+        }
+        reset_hover_expand_timer (row, node);
+
+        if (widget == null) {
+            return Gdk.DragAction.MOVE; // background — drop lands in the workspace root
+        }
+        return node != null && node.is_directory ? Gdk.DragAction.MOVE : 0;
+    }
+
+    /**
+     * The actual GTK-internal "row"-named wrapper `row_widget` sits inside
+     * — the same element native hover/selection styling itself targets
+     * (`listview.data-table row` already relies on this for the 22px row
+     * height/border-radius above). `row_widget` (FileTreeRow's own
+     * Gtk.Box) is only its *child*: toggling `.drag-hover` there instead
+     * doesn't match native hover pixel-for-pixel (confirmed live, not
+     * assumed) — this is the same "some internal wrapper sits between
+     * them" the constructor's own CSS-provider comment already found.
+     */
+    private Gtk.Widget? native_row_widget (Gtk.Widget? row_widget) {
+        return row_widget == null ? null : row_widget.get_parent ();
+    }
+
+    private void on_drag_leave () {
+        set_drag_hover (drag_hover_widget, false);
+        drag_hover_widget = null;
+        cancel_hover_expand_timer ();
+    }
+
+    private void set_drag_hover (Gtk.Widget? row_widget, bool hover) {
+        if (row_widget == null) {
+            return;
+        }
+        if (hover) {
+            row_widget.add_css_class (DRAG_HOVER_CSS_CLASS);
+        } else {
+            row_widget.remove_css_class (DRAG_HOVER_CSS_CLASS);
+        }
+    }
+
+    /** Schedules HOVER_EXPAND_MS from now to expand `row`, unless it's already expanded (or isn't a directory) — cancels whatever was already pending for the previous row first, so only ever the *current* hover can fire. */
+    private void reset_hover_expand_timer (FileTreeRow? row, FileNode? node) {
+        cancel_hover_expand_timer ();
+        if (row == null || row.bound_row == null || node == null || !node.is_directory || row.bound_row.expanded) {
+            return;
+        }
+
+        var list_row = row.bound_row;
+        hover_expand_timeout_id = Timeout.add (HOVER_EXPAND_MS, () => {
+            hover_expand_timeout_id = 0;
+            set_expanded (list_row, node, true);
+            return Source.REMOVE;
+        });
+    }
+
+    private void cancel_hover_expand_timer () {
+        if (hover_expand_timeout_id != 0) {
+            Source.remove (hover_expand_timeout_id);
+            hover_expand_timeout_id = 0;
+        }
+    }
+
+    private bool on_drag_drop (Value value, double x, double y) {
+        set_drag_hover (drag_hover_widget, false);
+        drag_hover_widget = null;
+        cancel_hover_expand_timer ();
+
+        var payload = value.get_object () as FileDragPayload;
+        if (payload == null) {
+            return false;
+        }
+
+        var target = node_at (x, y);
+        if (target != null && !target.is_directory) {
+            return false;
+        }
+
+        // Dropped a folder directly onto itself — almost always the user
+        // starting a drag, changing their mind, and letting go right back
+        // where they picked it up, not a real move attempt. move_child()
+        // would just throw its own self/descendant guard for this exact
+        // case anyway; quietly doing nothing instead of surfacing that as
+        // an error dialog for what wasn't really an attempted move.
+        if (target != null && target.path == payload.path) {
+            return true;
+        }
+
+        var target_path = target == null ? root_node.path : target.path;
+
+        // Dropped back into the folder it's already in — also a no-op,
+        // not a mistake worth an error dialog either.
+        if (Path.get_dirname (payload.path) == target_path) {
+            return true;
+        }
+
+        paste_requested (payload.path, true, target_path);
+        return true;
     }
 
     /**
