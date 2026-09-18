@@ -75,6 +75,15 @@ public class FileTreeView : Object {
     private Gtk.Widget? drag_hover_widget = null;
     private uint hover_expand_timeout_id = 0;
 
+    // "Reveal in Sidebar" flash — a warm highlight added to the target
+    // row then removed shortly after, so the CSS transition on the row's
+    // own background-color (see the CSS below) fades it back out on its
+    // own; FLASH_HOLD_MS just needs to be long enough for GTK to actually
+    // paint one frame at full brightness before the removal (and thus the
+    // fade) kicks in.
+    private const string REVEAL_FLASH_CSS_CLASS = "reveal-flash";
+    private const uint REVEAL_FLASH_HOLD_MS = 150;
+
     public Gtk.Widget widget { get { return scrolled_window; } }
 
     /**
@@ -156,6 +165,12 @@ public class FileTreeView : Object {
                 padding-bottom: 0;
                 min-height: 22px;
                 border-radius: 4px;
+                /* Only reveal-flash below actually changes this row's own
+                 * background-color, but the transition has to live here,
+                 * on the property's own base rule — defined only inside
+                 * .reveal-flash, it'd apply going *into* the flash, not
+                 * coming back out of it once the class is removed. */
+                transition: background-color 700ms ease-out;
             }
             treeexpander > expander {
                 -gtk-icon-source: -gtk-icontheme("chevron-right-symbolic");
@@ -185,6 +200,15 @@ public class FileTreeView : Object {
              * border is redundant on top of it either way. */
             listview.data-table:drop(active) {
                 box-shadow: none;
+            }
+            /* "Reveal in Sidebar" — briefly highlights the revealed row,
+             * the same warm/warning color the "File Has Changed on Disk"
+             * banner uses (see EditorView's own install_css()), not a
+             * hardcoded yellow, so it also tracks light/dark. Added then
+             * removed shortly after in code; the transition above is what
+             * actually makes it fade back out instead of snapping off. */
+            listview.data-table row.reveal-flash {
+                background-color: var(--warning-bg-color);
             }
         """);
         Gtk.StyleContext.add_provider_for_display (
@@ -220,6 +244,65 @@ public class FileTreeView : Object {
         if (find_position (path, out position)) {
             selection.selected = position;
         }
+    }
+
+    /**
+     * "Reveal in Sidebar" from a tab's context menu: same as select_path()
+     * (expands every collapsed ancestor, selects it), plus scrolls it into
+     * view and briefly flashes its row a warm highlight so it's easy to
+     * spot even in a long list.
+     */
+    public void reveal_path (string path) {
+        if (tree_model == null) {
+            return;
+        }
+
+        uint position;
+        if (!find_position (path, out position)) {
+            return;
+        }
+
+        selection.selected = position;
+        list_view.scroll_to (position, Gtk.ListScrollFlags.NONE, null);
+
+        // The row for `position` isn't necessarily realized as an actual
+        // widget yet right after scroll_to() — GTK only binds one on its
+        // own next layout pass. Deferred one main-loop iteration for that
+        // to happen, same reasoning as FileTreeRow's own start_editing().
+        Idle.add (() => {
+            flash_path (path);
+            return Source.REMOVE;
+        });
+    }
+
+    private void flash_path (string path) {
+        var widget = find_realized_row_widget (list_view, path);
+        var row_widget = widget == null ? null : native_row_widget (widget);
+        if (row_widget == null) {
+            return;
+        }
+
+        row_widget.add_css_class (REVEAL_FLASH_CSS_CLASS);
+        Timeout.add (REVEAL_FLASH_HOLD_MS, () => {
+            row_widget.remove_css_class (REVEAL_FLASH_CSS_CLASS);
+            return Source.REMOVE;
+        });
+    }
+
+    /** Finds `path`'s currently-realized row widget, if any — list virtualization means most paths don't have one at all (recycled away, off-screen); only ever meaningful right after a scroll_to() targeting that exact path. */
+    private static Gtk.Widget? find_realized_row_widget (Gtk.Widget root, string path) {
+        var row = root.get_data<FileTreeRow?> ("row");
+        if (row != null && row.bound_node != null && row.bound_node.path == path) {
+            return root;
+        }
+
+        for (var child = root.get_first_child (); child != null; child = child.get_next_sibling ()) {
+            var found = find_realized_row_widget (child, path);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     // Expands every collapsed ancestor of `path` while scanning the

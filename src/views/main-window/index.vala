@@ -186,6 +186,13 @@ public class MainWindowView : Object {
         update_folder_dependent_ui ();
     }
 
+    /** Shows the sidebar if it's currently collapsed/hidden behind the toggle button — "Reveal in Sidebar" needs it actually visible, not just linked, same as clicking sidebar_toggle_button by hand would. A no-op with no folder linked at all (has_linked_folder false): nothing to reveal. */
+    public void reveal_sidebar () {
+        if (has_linked_folder) {
+            split_view.show_sidebar = true;
+        }
+    }
+
     /** "Close Folder" — the opposite of link_folder(): the sidebar goes back to not existing at all, same as a window that never had one linked. Open tabs stay exactly as they are; only the sidebar (and what "Copy Relative Path" resolves against, main.vala's own concern) are affected. */
     public void unlink_folder () {
         sidebar_bin.child = null;

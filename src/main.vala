@@ -71,6 +71,20 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
         (path, dirty) => session.window_view.set_active_state (path != null, dirty)
     );
 
+    // "Reveal in Sidebar" — a pure View<->View navigation, no
+    // Model/Controller involved, so it's bridged here rather than through
+    // MainController (that's specifically the FileTree<->Editor glue).
+    // A no-op with no folder linked (session.file_tree_view null) — read
+    // fresh at signal time, not captured up front, since which window
+    // that's true for can change later (Open Folder…/Close Folder).
+    session.tab_bar_view.reveal_in_sidebar_requested.connect ((path) => {
+        if (session.file_tree_view == null) {
+            return;
+        }
+        session.window_view.reveal_sidebar ();
+        session.file_tree_view.reveal_path (path);
+    });
+
     // New File opens a brand-new "Untitled-N" tab with nothing on disk
     // yet — saving it (Save or Save as…, either one) goes through the
     // Save As flow, since there's nowhere existing to plain-save to.

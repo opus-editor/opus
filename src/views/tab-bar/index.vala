@@ -42,6 +42,9 @@ public class TabBarView : Object {
     public signal void copy_path_requested (string path);
     public signal void copy_relative_path_requested (string path);
 
+    /** "Reveal in Sidebar" from a tab's context menu — expands/selects `path` in the sidebar and briefly flashes it, if a sidebar is even linked for this window (whoever wires this up decides that; TabBarView has no idea). */
+    public signal void reveal_in_sidebar_requested (string path);
+
     /** A tab was double-clicked (promotes a preview tab to permanent). */
     public signal void tab_double_clicked (string path);
 
@@ -382,6 +385,8 @@ public class TabBarView : Object {
         box.append (ContextMenu.item (_("Close"), () => tab_close_requested (path), popover, Gtk.accelerator_get_label (Gdk.Key.w, Gdk.ModifierType.CONTROL_MASK)));
         box.append (ContextMenu.item (_("Close Others"), () => close_others_requested (path), popover));
         box.append (ContextMenu.item (_("Close All"), () => close_all_requested (), popover));
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Reveal in Sidebar"), () => reveal_in_sidebar_requested (path), popover));
         box.append (ContextMenu.separator ());
         box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (path), popover));
         box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (path), popover));
