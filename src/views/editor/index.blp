@@ -10,12 +10,13 @@ Gtk.Box root {
 
   // Matches GNOME Text Editor's own "File Has Changed on Disk" banner
   // (EditorInfoBar, built on GtkInfoBar — deprecated in GTK4 with no
-  // direct replacement, so not used here directly) pixel-for-pixel: every
-  // size/color below is copied straight out of GTK's own real "infobar >
-  // revealer > box" / "infobar.warning" / "infobar .close" rules
-  // (extracted from libgtk-4.so's compiled CSS, not guessed), so it comes
-  // from the same system tokens GtkInfoBar itself uses and still tracks
-  // light/dark and the accent color automatically.
+  // direct replacement, so not used here directly): the size/color below
+  // is copied straight out of GTK's own real "infobar > revealer > box" /
+  // "infobar.warning" rules (extracted from libgtk-4.so's compiled CSS,
+  // not guessed), so it comes from the same system tokens GtkInfoBar
+  // itself uses and still tracks light/dark and the accent color
+  // automatically. Deliberately without its own close button — see
+  // change_banner_discard_button's own comment below for why.
   Gtk.Revealer change_banner_revealer {
     transition-type: slide_down;
 
@@ -44,17 +45,16 @@ Gtk.Box root {
         }
       }
 
+      // No close button: dismissing it without resolving anything was
+      // exactly what "unsynchronized" — the underlying state the banner
+      // itself is showing (see EditorController.mark_externally_modified)
+      // — needs to *not* let happen; the tab itself already carries its
+      // own persistent reminder (the modified dot, and its tooltip) once
+      // this closes, so there's nothing extra lost by not offering one.
       Gtk.Button change_banner_discard_button {
         valign: center;
         label: _("_Discard Changes and Reload");
         use-underline: true;
-      }
-
-      Gtk.Button change_banner_close_button {
-        styles ["flat", "change-banner-close"]
-        valign: center;
-        icon-name: "window-close-symbolic";
-        tooltip-text: _("Close");
       }
     }
   }

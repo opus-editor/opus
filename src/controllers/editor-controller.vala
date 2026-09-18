@@ -304,9 +304,42 @@ public class EditorController : Object {
         }
     }
 
-    /** Shows the "File Has Changed on Disk" banner if `path` is the active tab — a background tab just remembers the flag on its Document until it's activated (see show_in_editor) or reloaded. */
+    /**
+     * `path`'s content changed on disk. is_externally_modified is a
+     * sticky "unsynchronized" state, not just a one-off reaction to this
+     * particular event: once set, `document` stays unsynchronized
+     * through *any* number of further external changes, no matter what
+     * dirty happens to be at the time of each one — only resolved by an
+     * explicit choice (Discard and Reload, or a Save that overwrites
+     * disk with this tab's own content), never by silently landing back
+     * in a clean state along the way (e.g. Ctrl+Z undoing back to the
+     * original content) or by dismissing the banner's own close button
+     * (that only hides it, see EditorView — the state underneath is
+     * unaffected). First found live, not assumed: a *second* external
+     * edit while already unsynchronized re-ran this same dirty check
+     * fresh, and — since the tab had gone clean again via Ctrl+Z in the
+     * meantime — silently reloaded it right out from under the pending,
+     * still-unresolved conflict the banner was already showing.
+     *
+     * Only on the *first* transition into this state does dirty actually
+     * matter: a clean tab has nothing of its own at stake, so it's just
+     * silently reloaded instead of ever becoming unsynchronized at all;
+     * a dirty one shows the banner (if `path` is the active tab; a
+     * background one just remembers the flag on its Document until it's
+     * activated or reloaded — see show_in_editor).
+     */
     private void mark_externally_modified (string path, Document document) {
+        if (document.is_externally_modified) {
+            return;
+        }
+
+        if (!document.dirty) {
+            reload_document (path, document);
+            return;
+        }
+
         document.is_externally_modified = true;
+        tab_bar_view.mark_unsynchronized (path, true);
         if (path == active_path) {
             editor_view.set_change_banner_visible (true);
         }
@@ -323,16 +356,24 @@ public class EditorController : Object {
             return;
         }
 
+        reload_document (active_path, document);
+    }
+
+    /** Discards `document`'s in-memory content in favor of what's on disk right now — shared by the explicit "Discard Changes and Reload" action and the automatic silent reload for a clean tab. Only touches the editor buffer itself if `path` is the active tab; the tab pill's own state (modified/deleted) updates either way. */
+    private void reload_document (string path, Document document) {
         try {
             document.reload ();
         } catch (Error e) {
-            warning ("failed to reload %s: %s", active_path, e.message);
+            warning ("failed to reload %s: %s", path, e.message);
             return;
         }
 
-        show_in_editor (active_path);
-        tab_bar_view.mark_modified (active_path, document.dirty);
-        tab_bar_view.mark_deleted (active_path, false);
+        if (path == active_path) {
+            show_in_editor (path);
+        }
+        tab_bar_view.mark_modified (path, document.dirty);
+        tab_bar_view.mark_deleted (path, false);
+        tab_bar_view.mark_unsynchronized (path, false);
         notify_active_state ();
     }
 
@@ -463,8 +504,20 @@ public class EditorController : Object {
     }
 
     /** Returns whether the document is clean afterwards (i.e. the save, if attempted, succeeded). */
+    /**
+     * A clean, synchronized document has nothing to write — but "clean"
+     * alone isn't enough to skip this: a document can be clean and still
+     * unsynchronized at once (its own content matches original_content,
+     * which is itself stale against what's actually on disk right now —
+     * e.g. Ctrl+Z undoing back to a clean state while the "File Has
+     * Changed on Disk" banner is still up). Save is one of the two ways
+     * that's meant to resolve — writing this tab's own content back to
+     * disk either way — so it has to actually run even then, not just
+     * when dirty happens to be true (found live: Ctrl+S silently doing
+     * nothing in exactly that state).
+     */
     private bool save_document (Document? document) {
-        if (document == null || !document.dirty) {
+        if (document == null || (!document.dirty && !document.is_externally_modified)) {
             return true;
         }
 
@@ -479,8 +532,9 @@ public class EditorController : Object {
 
         tab_bar_view.mark_modified (document.path, document.dirty);
         tab_bar_view.mark_deleted (document.path, document.is_deleted); // save() already reset this to false
+        tab_bar_view.mark_unsynchronized (document.path, false); // same — save() already reset is_externally_modified too
         if (document.path == active_path) {
-            editor_view.set_change_banner_visible (false); // same — save() already reset is_externally_modified too
+            editor_view.set_change_banner_visible (false);
         }
         notify_active_state ();
         return true;
@@ -598,8 +652,9 @@ public class EditorController : Object {
         tab_bar_view.rename_tab (path, new_path, Path.get_basename (new_path), folder_name_of (new_path));
         tab_bar_view.mark_modified (new_path, false);
         tab_bar_view.mark_deleted (new_path, false);
+        tab_bar_view.mark_unsynchronized (new_path, false); // save_as() already reset is_externally_modified too
         if (was_active) {
-            editor_view.set_change_banner_visible (false); // save_as() already reset is_externally_modified too
+            editor_view.set_change_banner_visible (false);
         }
         if (document.is_preview) {
             promote (document);

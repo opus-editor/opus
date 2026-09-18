@@ -37,12 +37,6 @@ public class EditorView : Object {
 
         var discard_button = (Gtk.Button) builder.get_object ("change_banner_discard_button");
         discard_button.clicked.connect (() => reload_requested ());
-        // Same as GNOME Text Editor's own EditorInfoBar: the close button
-        // only dismisses the banner — the underlying "externally modified"
-        // state stays put, and switching away from this tab and back
-        // brings it right back (see EditorController.show_in_editor).
-        var close_button = (Gtk.Button) builder.get_object ("change_banner_close_button");
-        close_button.clicked.connect (() => change_banner_revealer.reveal_child = false);
 
         install_css ();
 
@@ -76,13 +70,6 @@ public class EditorView : Object {
 
             .change-banner-title {
                 font-weight: bold;
-            }
-
-            .change-banner-close {
-                min-width: 18px;
-                min-height: 18px;
-                padding: 4px;
-                border-radius: 9999px;
             }
         """);
         // See views/tab-bar/_pill.vala for why add_provider_for_display

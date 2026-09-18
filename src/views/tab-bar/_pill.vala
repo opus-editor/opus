@@ -41,6 +41,7 @@ public class TabPill : Object {
     public bool is_preview { get; private set; default = false; }
     public bool is_modified { get; private set; default = false; }
     public bool is_deleted { get; private set; default = false; }
+    public bool is_unsynchronized { get; private set; default = false; }
 
     static construct {
         install_css ();
@@ -101,9 +102,19 @@ public class TabPill : Object {
         refresh_label ();
     }
 
+    /** The file this tab was opened from changed on disk while the "File Has Changed on Disk" banner's own choice (Discard and Reload, or a Save) is still unresolved — stays true whether or not the banner itself is currently showing; see EditorController.mark_externally_modified. */
+    public void set_unsynchronized (bool unsynchronized) {
+        is_unsynchronized = unsynchronized;
+        refresh_label ();
+    }
+
     private void refresh_label () {
         var file_part = Markup.escape_text (file_name);
-        if (is_modified) {
+        // The same dot already used for "unsaved changes" — an
+        // unsynchronized tab needs attention exactly the same way a
+        // dirty one does, so it reuses that same marker rather than
+        // adding a second, differently-colored one next to it.
+        if (is_modified || is_unsynchronized) {
             file_part = "%s •".printf (file_part);
         }
         if (is_preview) {

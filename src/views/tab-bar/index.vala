@@ -343,6 +343,19 @@ public class TabBarView : Object {
             : display_path (path);
     }
 
+    /** The file behind `path` changed on disk while unresolved — see EditorController.mark_externally_modified for what "unresolved" means here (it outlives the banner's own close button, which only hides it). */
+    public void mark_unsynchronized (string path, bool unsynchronized) {
+        var pill = pills[path];
+        if (pill == null) {
+            return;
+        }
+
+        pill.set_unsynchronized (unsynchronized);
+        pill.widget.tooltip_text = unsynchronized
+            ? _("%s · Unsynchronized").printf (display_path (path))
+            : display_path (path);
+    }
+
     /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. */
     public void rename_tab (string old_path, string new_path, string file_name, string folder_name) {
         var pill = pills[old_path];
