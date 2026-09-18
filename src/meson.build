@@ -24,9 +24,17 @@ opus_controller_sources = files(
   'controllers/main-controller.vala',
 )
 
+# Always compiled, same as models/logger.vala — only ever actually used
+# from behind main.vala's own `#if DEBUG`, so it's inert (never
+# registered, never reachable) in a release build despite being part of
+# the binary. See its own doc comment for what it's for.
+opus_module_sources = files(
+  'modules/dev-server/index.vala',
+)
+
 opus_sources = files(
   'main.vala',
-) + opus_model_sources + opus_gtk_view_sources + opus_controller_sources
+) + opus_model_sources + opus_gtk_view_sources + opus_controller_sources + opus_module_sources
 
 executable(
   'opus',

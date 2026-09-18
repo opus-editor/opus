@@ -134,6 +134,45 @@ public class EditorController : Object {
         return document != null && document.dirty;
     }
 
+    /** Every currently open tab's path — Opus.Dev.DevServer's own ListOpenTabs, no UI caller today. */
+    public string[] open_paths () {
+        string[] paths = {};
+        foreach (var path in documents.get_keys ()) {
+            paths += path;
+        }
+        return paths;
+    }
+
+    /** The active tab's path, or null if none — same value active_state_changed's own last emission carried, just readable directly instead of having to have been listening for it. */
+    public string? active_document_path {
+        get { return active_path; }
+    }
+
+    /**
+     * Replaces the active document's content wholesale, as if the user
+     * had retyped the whole buffer — Opus.Dev.DevServer's own
+     * SetActiveText, no UI caller today (a person editing for real goes
+     * through on_text_changed() instead, reached from the buffer's own
+     * `changed` signal, not this). Unlike on_text_changed(), this also
+     * has to push the new text into the real buffer itself: the UI path
+     * runs the other way around (buffer changes first, content follows),
+     * so nothing else does that half of the job here.
+     */
+    public void set_active_content (string text) {
+        if (active_path == null) {
+            return;
+        }
+
+        var document = documents[active_path];
+        document.content = text;
+        if (document.is_preview) {
+            promote (document);
+        }
+        editor_view.set_text (text, active_path);
+        tab_bar_view.mark_modified (document.path, document.dirty);
+        notify_active_state ();
+    }
+
     /** Closes `path`'s tab outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. No-op if `path` isn't open. */
     public void discard_tab (string path) {
         if (documents.contains (path)) {
@@ -591,8 +630,8 @@ public class EditorController : Object {
         }
     }
 
-    /** A plain Save — except for an untitled document, which has nowhere to write to yet and goes through the Save As flow instead, same as the user asked: "the same little Save As window, since it doesn't exist anywhere". */
-    private async void save_path (string path) {
+    /** A plain Save on `path` specifically, not necessarily the active tab — except for an untitled document, which has nowhere to write to yet and goes through the Save As flow instead, same as the user asked: "the same little Save As window, since it doesn't exist anywhere". Public for Opus.Dev.DevServer's own SaveTab, which addresses a tab by path — the UI itself only ever reaches this through save_active()/save_as_active(), always on whichever tab is active. */
+    public async void save_path (string path) {
         var document = documents[path];
         if (document == null) {
             return;

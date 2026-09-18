@@ -25,6 +25,12 @@ private class Session : Object {
 
 private static GenericArray<Session> sessions;
 
+#if DEBUG
+// See src/modules/dev-server/index.vala's own doc comment — a D-Bus
+// control surface for the terminal, debug builds only.
+private static Opus.Dev.DevServer dev_server;
+#endif
+
 /**
  * Everything a window needs regardless of whether a folder ends up linked
  * — open_window() (blank, or a single file, neither links one) and
@@ -99,12 +105,18 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     session.window_view.close_folder_requested.connect (() => unlink_folder (session));
 
     sessions.add (session);
+    #if DEBUG
+    dev_server.add_session (session.editor_controller);
+    #endif
     session.window_view.closed.connect (() => {
         if (session.file_tree_controller != null) {
             session.file_tree_controller.close ();
         }
         session.editor_controller.close ();
         sessions.remove (session);
+        #if DEBUG
+        dev_server.remove_session (session.editor_controller);
+        #endif
     });
 
     return session;
@@ -229,6 +241,10 @@ private static async void on_open_folder_requested (Session session) {
 int main (string[] args) {
     sessions = new GenericArray<Session> ();
 
+    #if DEBUG
+    dev_server = new Opus.Dev.DevServer ();
+    #endif
+
     // HANDLES_COMMAND_LINE: without it, GApplication's default argv handling
     // treats a bare positional argument as a file to open and aborts with
     // "This application can not open files" unless HANDLES_OPEN is also set.
@@ -236,6 +252,20 @@ int main (string[] args) {
     // Workspace.resolve, as decided in the sprint spec, instead of GLib's
     // own GFile-based "open" semantics.
     var app = new Adw.Application ("io.github.nowaos.Opus", ApplicationFlags.HANDLES_COMMAND_LINE);
+
+    #if DEBUG
+    // Not any earlier: the application's own D-Bus connection/object path
+    // (get_dbus_connection()/get_dbus_object_path()) only exist once
+    // GApplication has actually registered itself on the bus, which is
+    // done by the time `startup` fires — not at construction.
+    app.startup.connect (() => {
+        var connection = app.get_dbus_connection ();
+        var object_path = app.get_dbus_object_path ();
+        if (connection != null && object_path != null) {
+            dev_server.start (connection, object_path + "/Dev");
+        }
+    });
+    #endif
 
     app.command_line.connect ((command_line) => {
         string[] argv = command_line.get_arguments ();

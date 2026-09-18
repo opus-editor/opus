@@ -44,6 +44,18 @@ Use sparingly: only at real points of interest (a signal crossing a
 Controller/View boundary, a decision branch worth tracing), never scattered
 across every function — it's a diagnostic tool, not routine narration.
 
+## Dev D-Bus control surface
+
+Debug builds expose `io.github.nowaos.Opus.Dev` on the app's own D-Bus
+connection (`src/modules/dev-server/`) — drive a running window from the
+terminal instead of a throwaway harness:
+
+```shell
+gdbus call --session --dest io.github.nowaos.Opus --object-path /io/github/nowaos/Opus/Dev --method io.github.nowaos.Opus.Dev.OpenTab /path/to/file
+```
+
+`gdbus introspect` there lists every method; same `--define=DEBUG` gate as Logging.
+
 ## Structure
 
 ```
