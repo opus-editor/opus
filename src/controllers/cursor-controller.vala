@@ -51,6 +51,8 @@ public class CursorController : Object {
         editor_view.click_raw.connect (on_click);
         editor_view.drag_extended_raw.connect (on_drag_extended);
         editor_view.native_cursor_moved.connect (on_native_cursor_moved);
+        editor_view.untracked_edit.connect (on_untracked_edit);
+        editor_view.selection_dropped.connect (on_selection_dropped);
     }
 
     /**
@@ -107,6 +109,26 @@ public class CursorController : Object {
         if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.y) {
             previous_typed_was_space = false;
             apply_history_step (true);
+            return true;
+        }
+
+        // Claimed ourselves — same reasoning as select-all's own fix:
+        // GTK's native cut/paste bypass this controller's edit pipeline
+        // entirely (like drag-and-drop's insert/delete), so nothing
+        // would ever reach EditHistory for them. Unlike drag-and-drop,
+        // these are a single keystroke each, so there's no native
+        // interaction (icon, motion, drop target) worth keeping —
+        // reusing apply_edit() outright is simpler than reconstructing
+        // after the fact.
+        if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.x) {
+            if (!active_document.cursors.primary.is_empty) {
+                editor_view.copy_selection_to_clipboard ();
+                apply_edit (EditIntent.INSERT, "", EditKind.OTHER);
+            }
+            return true;
+        }
+        if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.v) {
+            paste_from_clipboard.begin (active_document);
             return true;
         }
 
@@ -281,12 +303,100 @@ public class CursorController : Object {
         render ();
     }
 
+    /**
+     * The real buffer changed through some native GTK path this
+     * controller didn't drive itself — a defense-in-depth net for
+     * whatever that turns out to be (see EditorView.untracked_edit's own
+     * doc comment; drag-and-drop used to be the concrete example here
+     * before Opus reimplemented that itself — see on_selection_dropped
+     * — but this stays in place for anything else, e.g. an external
+     * app's text dropped in). Pushed as its own EditKind.OTHER entry,
+     * which never coalesces with anything else. Not a data-loss risk:
+     * EditKind.OTHER just means "its own undo step," not "approximate"
+     * — the edit itself came straight from Gtk.TextBuffer's own
+     * insert-text/delete-range parameters, not a reconstructed diff.
+     */
+    private void on_untracked_edit (TextEdit edit) {
+        if (active_document == null) {
+            return;
+        }
+
+        previous_typed_was_space = false;
+        var cursors_snapshot = active_document.cursors.snapshot ();
+        active_document.history.push ({ edit }, cursors_snapshot, cursors_snapshot, EditKind.OTHER);
+    }
+
+    /**
+     * The primary selection's own drag-to-move landed — Opus's own
+     * reimplementation of native drag-move (see EditorView.
+     * selection_dropped's own doc comment for why native DnD can't be
+     * used here at all). Unlike untracked_edit() above, both halves of
+     * the move are known up front here, so they're pushed as a single
+     * atomic TextEdit[] (one EditHistory entry, one Ctrl+Z) via
+     * apply_edits() directly — not routed through compute_edits()/
+     * apply_edit(): those are inherently per-cursor and relative to
+     * *live* cursor positions, and this move's two edits are at fixed,
+     * cursor-independent offsets instead. Leaves the moved text selected
+     * at its new destination, matching VS Code's own convention (anchor
+     * at the start, caret at the end) — native GTK never did this.
+     */
+    private void on_selection_dropped (string text, int source_start, int source_end, int drop_offset) {
+        if (active_document == null) {
+            return;
+        }
+        if (drop_offset >= source_start && drop_offset <= source_end) {
+            return; // dropped back inside (or at either edge of) its own original range — a no-op, matches VS Code
+        }
+
+        previous_typed_was_space = false;
+        active_document.history.close_current_entry ();
+
+        var before_cursors = active_document.cursors.snapshot ();
+        var delete_edit = new TextEdit () {
+            start_offset = source_start, end_offset = source_end, old_text = text, new_text = ""
+        };
+        var insert_edit = new TextEdit () {
+            start_offset = drop_offset, end_offset = drop_offset, old_text = "", new_text = text
+        };
+
+        // Order-independent: apply_edits() sorts its own edits highest-
+        // offset-first internally before applying them.
+        editor_view.apply_edits ({ delete_edit, insert_edit });
+
+        int landed_start = drop_offset > source_end ? drop_offset - (source_end - source_start) : drop_offset;
+        int landed_end = landed_start + text.char_count ();
+        var new_cursor = new Cursor (landed_start);
+        new_cursor.position_offset = landed_end; // anchor at the start, caret at the end
+        active_document.cursors.set_cursors ({ new_cursor });
+
+        // EditHistory.push() -> TextEdit.invert_batch() requires edits
+        // sorted *ascending* by start_offset — a different requirement
+        // from apply_edits()'s own descending order above, so this
+        // can't reuse the same array as-is.
+        TextEdit[] edits_ascending = source_start < drop_offset
+            ? new TextEdit[] { delete_edit, insert_edit }
+            : new TextEdit[] { insert_edit, delete_edit };
+        active_document.history.push (edits_ascending, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
+
+        render ();
+    }
+
     /** Runs a cursor-only command (movement, or a multi-cursor creation command) — none of these touch any text, so unlike apply_edit() there's nothing to push onto EditHistory; they just close whatever undo entry is currently open, same as any other non-edit action, and re-render. */
     private void apply_cursor_command (CursorCommand command) {
         previous_typed_was_space = false;
         command ();
         active_document.history.close_current_entry ();
         render ();
+    }
+
+    /** Paste's own async half — clipboard reads can't be synchronous in GTK4. Re-checks active_document once the read comes back: the user could have switched tabs in that gap, and this must never land in whatever tab happens to be active by then. */
+    private async void paste_from_clipboard (Document document) {
+        string? text = yield editor_view.read_clipboard_text ();
+        if (text == null || text == "" || active_document != document) {
+            return;
+        }
+
+        apply_edit (EditIntent.INSERT, text, EditKind.OTHER);
     }
 
     private void apply_edit (EditIntent intent, string typed_text, EditKind kind) {

@@ -82,6 +82,36 @@ public class EditorView : Object {
      */
     public signal void native_cursor_moved (int anchor_offset, int position_offset);
 
+    /**
+     * The real buffer's text was structurally edited (inserted into or
+     * deleted from) by some native GTK path this View didn't itself
+     * drive through apply_edits() — a defense-in-depth net for whatever
+     * that turns out to be (e.g. an external app's text dropped into the
+     * editor, still handled by GtkTextView's own native drop-target
+     * logic — only its native drag-*start* is preempted, by our own
+     * DragSource below, not its target side). Captured directly from
+     * Gtk.TextBuffer's own insert-text/delete-range signal parameters,
+     * before the mutation lands, so it's exact — not a before/after diff
+     * reconstructed after the fact. CursorController pushes each one as
+     * its own EditHistory entry.
+     */
+    public signal void untracked_edit (TextEdit edit);
+
+    /**
+     * The primary selection's own drag-to-move (our own reimplementation
+     * — see the DragSource/DropTarget setup below for why GTK's native
+     * one can't be used at all) landed. `source_start`/`source_end` are
+     * that selection's original bounds, `drop_offset` is where it was
+     * released — all offsets against the buffer as it stood *before*
+     * this drop, mirroring TextEdit's own convention. `text` is the
+     * moved selection's own content, captured once at drag-start so
+     * CursorController never needs to re-derive a substring for this.
+     * Purely mechanical, same shape as click_raw/drag_extended_raw — no
+     * interpretation of "is this actually a no-op" here (e.g. dropping
+     * back inside the original range); CursorController decides that.
+     */
+    public signal void selection_dropped (string text, int source_start, int source_end, int drop_offset);
+
     public EditorView () {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor/index.ui");
         root = (Gtk.Box) builder.get_object ("root");
@@ -106,6 +136,12 @@ public class EditorView : Object {
         scrolled_window.set_child (text_view);
         text_view.buffer.changed.connect (on_buffer_changed);
         text_view.buffer.mark_set.connect (on_mark_set);
+        // Plain .connect() (not _after) runs before GtkTextBuffer's own
+        // default handler actually applies the mutation, so `pos`/`start`/
+        // `end` still describe what's *about to* happen — exact structured
+        // data, not something reconstructed afterward.
+        text_view.buffer.insert_text.connect (on_insert_text);
+        text_view.buffer.delete_range.connect (on_delete_range);
 
         // CAPTURE, not the default BUBBLE phase: this has to see a key
         // before GtkTextView's own built-in bindings do, so returning
@@ -163,6 +199,41 @@ public class EditorView : Object {
         // sequence.
         bool dragging = false;
 
+        // Our own reimplementation of "drag a selection to move it" —
+        // GTK's native one (a private GtkGestureDrag + a GdkDrag created
+        // inside a static function, both confirmed unreachable from
+        // application code by reading gtk/gtktextview.c directly) can't
+        // be used at all: its own drop-position indicator gates its
+        // visibility on cursor_visible(text_view), a private function
+        // returning `use_caret || priv->cursor_visible` — permanently
+        // false in Opus's own configuration (cursor_visible = false, to
+        // suppress the native caret entirely — see OpusSourceView's own
+        // doc comment), so the indicator could never be made to appear
+        // without either reintroducing a duplicate native caret or
+        // mutating a desktop-wide accessibility setting shared by every
+        // GTK app on the system. Both rejected.
+        //
+        // Built on top of click_gesture below rather than a separate
+        // Gtk.DragSource: DragSource's own gesture recognition only
+        // calls its `prepare` signal once a real drag threshold is
+        // crossed on a *later* motion event — but GTK's own native
+        // precedent (gtk_text_view_click_gesture_pressed) claims its
+        // internal drag gesture immediately on the *press* itself (if
+        // inside the selection), and once that claim lands, GTK's own
+        // cross-gesture arbitration denies every other ungrouped gesture
+        // watching that same sequence — including a DragSource — before
+        // it ever gets to recognize its own, later threshold crossing
+        // (confirmed live: a DragSource attached this way never once
+        // fired `prepare`). So this claims on press, exactly like Alt+
+        // Click already does below, and drives the rest by hand:
+        // `possible_selection_drag` tracks a claimed press that might
+        // still turn out to be just a click (see the `released` handler
+        // for why that fallback is needed, and start_selection_drag()
+        // for where the drag actually starts once threshold is crossed).
+        bool possible_selection_drag = false;
+        double drag_press_x = 0;
+        double drag_press_y = 0;
+
         var click_gesture = new Gtk.GestureClick ();
         click_gesture.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
         click_gesture.pressed.connect ((n_press, x, y) => {
@@ -181,6 +252,11 @@ public class EditorView : Object {
             if (n_press == 1 && alt) {
                 click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
                 dragging = shift; // only the box-select case continues via drag right now
+            } else if (n_press == 1 && !alt && !shift && is_inside_selection (x, y)) {
+                click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
+                possible_selection_drag = true;
+                drag_press_x = x;
+                drag_press_y = y;
             }
             // else: leave the sequence at NONE — no claim, no deny —
             // so it flows to GtkTextView's native handling untouched.
@@ -189,8 +265,29 @@ public class EditorView : Object {
         });
         click_gesture.released.connect ((n_press, x, y) => {
             dragging = false;
+            if (possible_selection_drag) {
+                // Claiming the press to *maybe* start a drag means
+                // nothing else will reposition the cursor if it turns
+                // out to just be a click with no real movement — native
+                // GTK needs the exact same fallback, for the exact same
+                // reason (gtk_text_view_click_gesture_released).
+                possible_selection_drag = false;
+                Gtk.TextIter iter;
+                source_buffer.get_iter_at_offset (out iter, offset_at_widget_position (x, y));
+                source_buffer.place_cursor (iter);
+            }
         });
         click_gesture.update.connect ((sequence) => {
+            if (possible_selection_drag) {
+                double x;
+                double y;
+                if (click_gesture.get_point (sequence, out x, out y) &&
+                    Gtk.drag_check_threshold (text_view, (int) drag_press_x, (int) drag_press_y, (int) x, (int) y)) {
+                    possible_selection_drag = false;
+                    start_selection_drag (click_gesture.get_current_event ());
+                }
+                return;
+            }
             if (!dragging) {
                 return;
             }
@@ -201,6 +298,18 @@ public class EditorView : Object {
             }
         });
         text_view.add_controller (click_gesture);
+
+        // GtkTextView's own native *drop target* side is untouched by
+        // any of the above — only its native drag-*start* competes with
+        // click_gesture's own claim, never its target side — so this
+        // stays a plain Gtk.DropTarget, reacting to the GDK drag-and-
+        // drop protocol the same way regardless of whether the Gdk.Drag
+        // was started by a Gtk.DragSource or, as above, by hand.
+        var drop_target = new Gtk.DropTarget (typeof (EditorDragPayload), Gdk.DragAction.MOVE);
+        drop_target.motion.connect (on_drop_motion);
+        drop_target.leave.connect (on_drop_leave);
+        drop_target.drop.connect (on_drop);
+        text_view.add_controller (drop_target);
 
         // One shared tag applied over every secondary cursor's selection
         // range (if any) — cleared and reapplied fresh on every
@@ -247,6 +356,30 @@ public class EditorView : Object {
 
             .change-banner-title {
                 font-weight: bold;
+            }
+
+            /* libadwaita's own default for any widget currently holding
+             * an "active" drop target (base.css: `:drop(active)`) is a
+             * 1px accent-colored inset border — same fix as TabBarView's
+             * own `.tab-row:drop(active)` and FileTreeView's own
+             * `listview.data-table:drop(active)`, for the same reason:
+             * text_view carries our own drag-move Gtk.DropTarget
+             * directly, so libadwaita's descendant-selector suppression
+             * for other lists doesn't catch it. The drop indicator
+             * (OpusSourceView's own hand-drawn one) is this editor's
+             * real feedback for a drop target; this outer border is
+             * redundant on top of it either way. GtkTextView's own real
+             * internal CSS node tree (libadwaita's _views.scss, checked
+             * directly: `textview { > text { ... } > border { ... } }`)
+             * has the actual content painted on child nodes, not
+             * `textview` itself — covering all three since it's unclear
+             * which one(s) libadwaita's own generic `:not(window):
+             * drop(active)` wildcard rule (_common.scss) actually
+             * matches here. */
+            textview:drop(active),
+            textview > text:drop(active),
+            textview > border:drop(active) {
+                box-shadow: none;
             }
         """);
         // See views/tab-bar/_pill.vala for why add_provider_for_display
@@ -311,6 +444,26 @@ public class EditorView : Object {
     public void simulate_select_all () {
         handle_key_pressed (Gdk.Key.a, Gdk.ModifierType.CONTROL_MASK);
         text_view.select_all (true);
+    }
+
+    /**
+     * Copies the current selection to the clipboard, read-only — Cut's
+     * own read half. CursorController pairs this with deleting the
+     * selection through its own apply_edit(), rather than GTK's native
+     * cut-clipboard action, which (like drag-and-drop) wouldn't go
+     * through EditHistory at all.
+     */
+    public void copy_selection_to_clipboard () {
+        source_buffer.copy_clipboard (text_view.get_clipboard ());
+    }
+
+    /** The clipboard's current text, or null if it has none (or isn't text at all) — Paste's own read half; the caller inserts it through its own apply_edit(), same reasoning as copy_selection_to_clipboard() above. */
+    public async string? read_clipboard_text () {
+        try {
+            return yield text_view.get_clipboard ().read_text_async (null);
+        } catch (Error e) {
+            return null;
+        }
     }
 
     public void set_placeholder (string message) {
@@ -490,6 +643,129 @@ public class EditorView : Object {
             // that stays true).
             native_cursor_moved (int.min (anchor, position), int.max (anchor, position));
         }
+    }
+
+    // insert-text/delete-range fire for *every* buffer mutation, this
+    // View's own apply_edits() included — updating_programmatically is
+    // already true for that whole call (see apply_edits()'s own body),
+    // the same guard on_buffer_changed() itself already relies on to
+    // tell "our own pipeline" apart from anything else.
+    private void on_insert_text (ref Gtk.TextIter pos, string new_text, int new_text_length) {
+        if (updating_programmatically || new_text == "") {
+            return;
+        }
+
+        Logger.warn ("on_insert_text (untracked/native path) fired: %s".printf (new_text));
+        int offset = pos.get_offset ();
+        untracked_edit (new TextEdit () {
+            start_offset = offset, end_offset = offset, old_text = "", new_text = new_text
+        });
+    }
+
+    private void on_delete_range (Gtk.TextIter start, Gtk.TextIter end) {
+        if (updating_programmatically) {
+            return;
+        }
+
+        Logger.warn ("on_delete_range (untracked/native path) fired");
+        untracked_edit (new TextEdit () {
+            start_offset = start.get_offset (), end_offset = end.get_offset (),
+            old_text = source_buffer.get_text (start, end, false), new_text = ""
+        });
+    }
+
+    /**
+     * Whether a press at widget-relative (x, y) landed inside the
+     * *real* native selection (source_buffer.get_selection_bounds), not
+     * CursorCollection: this View has no reference to the Model, and
+     * doesn't need one here — render_cursors() already mirrors the
+     * primary cursor's own selection onto these same marks, so they're
+     * always in sync with it. This also means only the primary selection
+     * is ever draggable — matches Cut/Paste's own precedent (see
+     * cursor-controller.vala's Ctrl+X/Ctrl+V comment): a drag has exactly
+     * one pointer, with no natural mapping onto several secondary-cursor
+     * destinations. Also false for a non-editable buffer (an unreadable
+     * file's placeholder text shouldn't be draggable — see
+     * set_placeholder()).
+     */
+    private bool is_inside_selection (double x, double y) {
+        if (!text_view.editable) {
+            return false;
+        }
+
+        Gtk.TextIter sel_start;
+        Gtk.TextIter sel_end;
+        if (!source_buffer.get_selection_bounds (out sel_start, out sel_end)) {
+            return false;
+        }
+        int offset = offset_at_widget_position (x, y);
+        return offset >= sel_start.get_offset () && offset < sel_end.get_offset ();
+    }
+
+    /** Actually starts the drag, once click_gesture's own threshold check (see its own comment) says a claimed press has turned into a real drag. */
+    private void start_selection_drag (Gdk.Event? event) {
+        if (event == null) {
+            return;
+        }
+        var surface = event.get_surface ();
+        var device = event.get_device ();
+        if (surface == null || device == null) {
+            return;
+        }
+
+        Gtk.TextIter sel_start;
+        Gtk.TextIter sel_end;
+        if (!source_buffer.get_selection_bounds (out sel_start, out sel_end)) {
+            return;
+        }
+
+        var payload = new EditorDragPayload (
+            source_buffer.get_text (sel_start, sel_end, false),
+            sel_start.get_offset (), sel_end.get_offset ()
+        );
+        var value = Value (typeof (EditorDragPayload));
+        value.set_object (payload);
+        var content = new Gdk.ContentProvider.for_value (value);
+
+        // dx/dy are surface-relative (what the event's own get_position()
+        // reports), not the widget-relative x/y click_gesture's signals
+        // carry.
+        double sx;
+        double sy;
+        event.get_position (out sx, out sy);
+        var drag = Gdk.Drag.begin (surface, device, content, Gdk.DragAction.MOVE, sx, sy);
+
+        // Without an explicit icon, Gtk.DragIcon falls back to
+        // Gtk.DragIcon.create_widget_for_value()'s own default rendering
+        // for whatever GType the content holds — EditorDragPayload isn't
+        // a type it knows how to render meaningfully, so this replaces
+        // that default (a plain bordered box) with the moved text
+        // itself, styled as a plain label — no border, no background.
+        if (drag != null) {
+            ((Gtk.DragIcon) Gtk.DragIcon.get_for_drag (drag)).child = new Gtk.Label (payload.text);
+        }
+    }
+
+    private Gdk.DragAction on_drop_motion (double x, double y) {
+        text_view.set_drop_indicator (offset_at_widget_position (x, y));
+        return Gdk.DragAction.MOVE;
+    }
+
+    private void on_drop_leave () {
+        text_view.set_drop_indicator (null);
+    }
+
+    private bool on_drop (Value value, double x, double y) {
+        text_view.set_drop_indicator (null); // drop completing isn't guaranteed to also fire leave()
+        var payload = value.get_object () as EditorDragPayload;
+        if (payload == null) {
+            Logger.warn ("on_drop: dropped content wasn't an EditorDragPayload — should be unreachable, DropTarget is typed to only accept that");
+            return false;
+        }
+
+        Logger.warn ("on_drop: moving selection [%d, %d) to %d".printf (payload.source_start, payload.source_end, offset_at_widget_position (x, y)));
+        selection_dropped (payload.text, payload.source_start, payload.source_end, offset_at_widget_position (x, y));
+        return true;
     }
 
     private void set_buffer_text (string text) {

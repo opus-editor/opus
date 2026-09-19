@@ -157,3 +157,16 @@ test(
   timeout: 60,
   is_parallel: false,
 )
+
+cut_paste_test = executable(
+  'cut-paste-test',
+  ['system/cut-paste-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'cut-paste',
+  cut_paste_test,
+  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  timeout: 60,
+  is_parallel: false,
+)

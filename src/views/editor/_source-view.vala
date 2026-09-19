@@ -36,6 +36,7 @@ public class OpusSourceView : GtkSource.View {
     private int[] caret_offsets = {};
     private bool blink_visible = true;
     private uint blink_timeout_id = 0;
+    private int? drop_indicator_offset = null;
 
     /**
      * A caret means "typing lands here" — showing one while this view
@@ -100,7 +101,13 @@ public class OpusSourceView : GtkSource.View {
     public override void snapshot_layer (Gtk.TextViewLayer layer, Gtk.Snapshot snapshot) {
         base.snapshot_layer (layer, snapshot);
 
-        if (layer != Gtk.TextViewLayer.ABOVE_TEXT || !blink_visible || !has_focus) {
+        if (layer != Gtk.TextViewLayer.ABOVE_TEXT) {
+            return;
+        }
+
+        draw_drop_indicator (snapshot);
+
+        if (!blink_visible || !has_focus) {
             return;
         }
 
@@ -123,5 +130,57 @@ public class OpusSourceView : GtkSource.View {
             rect.init (strong.x, strong.y, 2, strong.height);
             snapshot.append_color (color, rect);
         }
+    }
+
+    /**
+     * Where EditorView's own reimplemented drag-and-drop (see its own
+     * DragSource/DropTarget setup) currently wants the drop indicator
+     * shown, or null to hide it — driven entirely by real motion/leave/
+     * drop events on our own DropTarget. GTK's native drag-and-drop
+     * indicator can't be used at all: it gates its own visibility on
+     * `cursor_visible(text_view)`, a private function returning
+     * `use_caret || priv->cursor_visible` — unconditionally false in
+     * Opus's configuration (`cursor_visible = false`, to suppress the
+     * native caret entirely — see this class's own doc comment), so it
+     * could never be made to appear without reintroducing a duplicate
+     * native caret or mutating a desktop-wide accessibility setting
+     * shared by every GTK app on the system. Both rejected — this is why
+     * Opus reimplements the whole drag-and-drop interaction itself
+     * rather than only its rendering.
+     */
+    public void set_drop_indicator (int? offset) {
+        drop_indicator_offset = offset;
+        queue_draw ();
+    }
+
+    /**
+     * Painted the same way as a real caret (same shape) but never
+     * blinking and in the theme's accent color, so it reads as "this is
+     * where it lands," not as one more actual cursor.
+     */
+    private void draw_drop_indicator (Gtk.Snapshot snapshot) {
+        if (drop_indicator_offset == null) {
+            return;
+        }
+
+        Gtk.TextIter iter;
+        buffer.get_iter_at_offset (out iter, drop_indicator_offset);
+
+        Gdk.Rectangle strong;
+        Gdk.Rectangle weak;
+        get_cursor_locations (iter, out strong, out weak);
+
+        var rect = Graphene.Rect ();
+        rect.init (strong.x, strong.y, 2, strong.height);
+        // Null only if the platform doesn't support accent colors at
+        // all (get_system_supports_accent_colors()) — the normal caret
+        // color is a reasonable fallback rather than skipping the
+        // indicator entirely. Deliberately the *method* form, not the
+        // `accent_color_rgba` *property* — the property form is broken
+        // against this system's installed libadwaita 1.7.6 headers (a
+        // real vapi/header mismatch: "too many arguments to function
+        // `adw_style_manager_get_accent_color_rgba`" at the C level).
+        var accent = Adw.StyleManager.get_default ().get_accent_color_rgba ();
+        snapshot.append_color (accent ?? get_color (), rect);
     }
 }

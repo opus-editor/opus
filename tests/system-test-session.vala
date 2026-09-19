@@ -299,6 +299,14 @@ public class SystemTestSession : Object {
             keyval = Gdk.Key.d;
             modifiers = Gdk.ModifierType.CONTROL_MASK;
             break;
+        case "ctrl+x":
+            keyval = Gdk.Key.x;
+            modifiers = Gdk.ModifierType.CONTROL_MASK;
+            break;
+        case "ctrl+v":
+            keyval = Gdk.Key.v;
+            modifiers = Gdk.ModifierType.CONTROL_MASK;
+            break;
         default:
             throw new IOError.INVALID_ARGUMENT ("Unknown type_cmd: %s".printf (name));
         }
