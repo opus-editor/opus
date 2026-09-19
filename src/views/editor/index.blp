@@ -1,10 +1,13 @@
 using Gtk 4.0;
-using GtkSource 5;
 
 // GtkScrolledWindow is a final type in GTK4 (it can't be subclassed), so
 // EditorView doesn't use this as a composite template — it loads this as a
 // plain widget tree via Gtk.Builder and owns the root, per the View-as-facade
-// pattern (see CLAUDE.md).
+// pattern (see CLAUDE.md). The text view itself (an OpusSourceView, see
+// _source-view.vala) isn't declared here at all — it's a custom subclass
+// built and attached to scrolled_window in code, not by name in Blueprint;
+// nothing else in this codebase references a custom app-defined type from
+// a .blp file, so this avoids being the first to rely on that working.
 Gtk.Box root {
   orientation: vertical;
 
@@ -59,18 +62,9 @@ Gtk.Box root {
     }
   }
 
-  Gtk.ScrolledWindow {
+  Gtk.ScrolledWindow scrolled_window {
     vexpand: true;
     hscrollbar-policy: automatic;
     vscrollbar-policy: automatic;
-
-    child: GtkSource.View text_view {
-      monospace: true;
-      top-margin: 8;
-      bottom-margin: 8;
-      left-margin: 8;
-      right-margin: 8;
-      show-line-numbers: true;
-    };
   }
 }

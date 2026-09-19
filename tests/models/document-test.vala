@@ -204,6 +204,20 @@ private void test_reload_replaces_in_memory_content_with_whats_on_disk () {
     }
 }
 
+private void test_each_document_owns_its_own_independent_cursors_and_history () {
+    var a = Document.untitled ("Untitled-1");
+    var b = Document.untitled ("Untitled-2");
+
+    assert_nonnull (a.cursors);
+    assert_nonnull (a.history);
+    assert_true (a.cursors != b.cursors);
+    assert_true (a.history != b.history);
+
+    a.cursors.add_cursor_at_click (5);
+    assert_cmpint (a.cursors.count, CompareOperator.EQ, 2);
+    assert_cmpint (b.cursors.count, CompareOperator.EQ, 1); // untouched by a's own edits
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/document/load_save_round_trip", test_load_save_round_trip);
@@ -216,5 +230,6 @@ int main (string[] args) {
     Test.add_func ("/models/document/save_recreates_a_deleted_document_and_clears_the_flag", test_save_recreates_a_deleted_document_and_clears_the_flag);
     Test.add_func ("/models/document/is_externally_modified_does_not_affect_dirty_on_its_own", test_is_externally_modified_does_not_affect_dirty_on_its_own);
     Test.add_func ("/models/document/reload_replaces_in_memory_content_with_whats_on_disk", test_reload_replaces_in_memory_content_with_whats_on_disk);
+    Test.add_func ("/models/document/each_document_owns_its_own_independent_cursors_and_history", test_each_document_owns_its_own_independent_cursors_and_history);
     return Test.run ();
 }

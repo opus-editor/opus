@@ -43,8 +43,16 @@ public class Document : Object {
         get { return readable && content != original_content; }
     }
 
+    /** This document's own multi-cursor state — separate from any other open document's. */
+    public CursorCollection cursors { get; private set; }
+
+    /** This document's own undo/redo stack — separate from any other open document's. */
+    public EditHistory history { get; private set; }
+
     private Document (string path) {
         this.path = path;
+        cursors = new CursorCollection ();
+        history = new EditHistory ();
     }
 
     public static Document load (string path) throws Error {

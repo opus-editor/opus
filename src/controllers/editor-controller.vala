@@ -7,6 +7,7 @@
 public class EditorController : Object {
     private TabBarView tab_bar_view;
     private EditorView editor_view;
+    private CursorController cursor_controller;
     private string root_path;
 
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
@@ -41,6 +42,7 @@ public class EditorController : Object {
         this.tab_bar_view = tab_bar_view;
         this.editor_view = editor_view;
         this.root_path = root_path;
+        cursor_controller = new CursorController (editor_view);
 
         editor_view.text_changed.connect (on_text_changed);
         tab_bar_view.tab_selected.connect (on_tab_selected);
@@ -148,6 +150,11 @@ public class EditorController : Object {
         get { return active_path; }
     }
 
+    /** The active document's current buffer content, or "" if none — Opus.Dev.DevServer's own GetActiveText, the reverse of set_active_content(). */
+    public string active_content {
+        get { return active_path == null ? "" : documents[active_path].content; }
+    }
+
     /**
      * Replaces the active document's content wholesale, as if the user
      * had retyped the whole buffer — Opus.Dev.DevServer's own
@@ -171,6 +178,71 @@ public class EditorController : Object {
         editor_view.set_text (text, active_path);
         tab_bar_view.mark_modified (document.path, document.dirty);
         notify_active_state ();
+    }
+
+    /**
+     * Replaces the active document's cursor set and renders it — Opus.Dev.DevServer's
+     * own SetActiveCursors, still handy for the system-test DSL to seed a
+     * multi-cursor starting state without typing/clicking it into place
+     * first. `anchors[i]`/`positions[i]` pair up into one cursor each; a
+     * collapsed cursor has `anchors[i] == positions[i]`. A no-op if the
+     * two arrays don't have the same length, or if there's no active tab.
+     */
+    public void set_active_cursors (int[] anchors, int[] positions) {
+        if (active_path == null || anchors.length != positions.length) {
+            return;
+        }
+
+        var document = documents[active_path];
+        var cursors = new Cursor[anchors.length];
+        for (int i = 0; i < anchors.length; i++) {
+            var cursor = new Cursor (anchors[i]);
+            cursor.position_offset = positions[i];
+            cursors[i] = cursor;
+        }
+
+        document.cursors.set_cursors (cursors);
+        editor_view.render_cursors (document.cursors.snapshot ());
+    }
+
+    /**
+     * The active document's current cursor set — Opus.Dev.DevServer's own
+     * GetActiveCursors, the reverse of set_active_cursors(). Each `out`
+     * array is empty when there's no active tab.
+     */
+    public void get_active_cursors (out int[] anchors, out int[] positions) {
+        if (active_path == null) {
+            anchors = {};
+            positions = {};
+            return;
+        }
+
+        var cursors = documents[active_path].cursors.snapshot ();
+        anchors = new int[cursors.length];
+        positions = new int[cursors.length];
+        for (int i = 0; i < cursors.length; i++) {
+            anchors[i] = cursors[i].anchor_offset;
+            positions[i] = cursors[i].position_offset;
+        }
+    }
+
+    /**
+     * Simulates one keystroke exactly as a real EventControllerKey would
+     * report it, driving the same CursorController dispatch a genuine
+     * keypress triggers — Opus.Dev.DevServer's own KeyPress, for the
+     * system-test DSL. `modifier_state` is a raw `Gdk.ModifierType`
+     * bitmask, kept as a plain `uint` here since this controller never
+     * imports Gdk itself (see EditorView.simulate_key_press(), which
+     * does the actual cast). Returns whether something claimed the key,
+     * same as the real signal.
+     */
+    public bool simulate_key_press (uint keyval, uint modifier_state) {
+        return editor_view.simulate_key_press (keyval, modifier_state);
+    }
+
+    /** Fires GtkTextView's own native "select-all" (Ctrl+A) action directly — Opus.Dev.DevServer's own SelectAll, for the system-test DSL. See EditorView.simulate_select_all()'s own doc comment for why this reaches GTK's real handling without a raw keystroke. */
+    public void simulate_select_all () {
+        editor_view.simulate_select_all ();
     }
 
     /** Closes `path`'s tab outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. No-op if `path` isn't open. */
@@ -467,6 +539,7 @@ public class EditorController : Object {
             editor_view.set_placeholder (_("This file can't be displayed."));
         }
         editor_view.set_change_banner_visible (document.is_externally_modified);
+        cursor_controller.set_active_document (document);
     }
 
     private void promote (Document document) {
@@ -588,6 +661,7 @@ public class EditorController : Object {
             active_path = null;
             editor_view.set_text ("", path);
             editor_view.set_change_banner_visible (false);
+            cursor_controller.set_active_document (null);
             notify_active_state ();
         }
 

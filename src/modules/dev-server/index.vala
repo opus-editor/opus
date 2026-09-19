@@ -24,6 +24,9 @@
 namespace Opus.Dev {
     [DBus (name = "io.github.nowaos.Opus.Dev")]
     public interface DevInterface : Object {
+        /** Opens a brand-new "Untitled-N" tab, focused immediately — same as the sidebar's "New File". */
+        public abstract void new_file () throws DBusError, IOError;
+
         /** Opens `path` as a permanent tab — same as a double-click. Already-open just activates it, same as clicking its tab. */
         public abstract void open_tab (string path) throws DBusError, IOError;
 
@@ -48,6 +51,39 @@ namespace Opus.Dev {
 
         /** Replaces the active tab's entire buffer content — simulates a real edit (dirty tracking and all), just not through a real keypress. */
         public abstract void set_active_text (string text) throws DBusError, IOError;
+
+        /** Replaces the active tab's cursor set — `anchors[i]`/`positions[i]` pair up into one cursor each (collapsed when equal). Lets a system test seed a multi-cursor starting state directly, without typing/clicking it into place first. */
+        public abstract void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError;
+
+        /** The active tab's current buffer content, or "" if none — the reverse of set_active_text(). */
+        public abstract string get_active_text () throws DBusError, IOError;
+
+        /** The active tab's current cursor set, or two empty arrays if none — the reverse of set_active_cursors(). */
+        public abstract void get_active_cursors (out int[] anchors, out int[] positions) throws DBusError, IOError;
+
+        /**
+         * Simulates one keystroke on the active tab exactly as a real one
+         * would be reported (same keyval/modifier shape as Gdk, e.g.
+         * `Gdk.ModifierType.CONTROL_MASK` for Ctrl) — driving the real
+         * CursorController dispatch, not a shortcut around it. Returns
+         * whether anything claimed the key. The system-test DSL's `type`/
+         * `type_cmd` both resolve to this: `type` looks up each
+         * character's own keyval and calls this once per character;
+         * `type_cmd` resolves a named command (e.g. "undo") to its
+         * keyval + modifiers the same way a real Ctrl+Z would arrive.
+         */
+        public abstract bool key_press (uint keyval, uint modifiers) throws DBusError, IOError;
+
+        /**
+         * Fires GtkTextView's own native "select-all" (Ctrl+A) action on
+         * the active tab directly — the system-test DSL's `select_all`.
+         * Not routed through key_press(): unlike an ordinary keystroke,
+         * "select-all" is a GTK keybinding-action signal, reachable
+         * (and faithfully exercised) without needing a real GTK event
+         * at all — see EditorView.simulate_select_all()'s own doc
+         * comment for why.
+         */
+        public abstract void select_all () throws DBusError, IOError;
 
         /** Every currently open tab's path, across whichever window this call happens to land on (see current_editor_controller()'s own comment). */
         public abstract string[] list_open_tabs () throws DBusError, IOError;
@@ -100,6 +136,10 @@ namespace Opus.Dev {
             return editor_controllers[editor_controllers.length - 1];
         }
 
+        public void new_file () throws DBusError, IOError {
+            current_editor_controller ().new_untitled ();
+        }
+
         public void open_tab (string path) throws DBusError, IOError {
             try {
                 current_editor_controller ().open (path, true);
@@ -118,6 +158,26 @@ namespace Opus.Dev {
 
         public void set_active_text (string text) throws DBusError, IOError {
             current_editor_controller ().set_active_content (text);
+        }
+
+        public void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError {
+            current_editor_controller ().set_active_cursors (anchors, positions);
+        }
+
+        public string get_active_text () throws DBusError, IOError {
+            return current_editor_controller ().active_content;
+        }
+
+        public void get_active_cursors (out int[] anchors, out int[] positions) throws DBusError, IOError {
+            current_editor_controller ().get_active_cursors (out anchors, out positions);
+        }
+
+        public bool key_press (uint keyval, uint modifiers) throws DBusError, IOError {
+            return current_editor_controller ().simulate_key_press (keyval, modifiers);
+        }
+
+        public void select_all () throws DBusError, IOError {
+            current_editor_controller ().simulate_select_all ();
         }
 
         public string[] list_open_tabs () throws DBusError, IOError {
