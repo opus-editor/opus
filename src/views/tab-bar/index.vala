@@ -269,6 +269,33 @@ public class TabBarView : Object {
         }
     }
 
+    /**
+     * The rightmost open tab's path, or null if none are open — `pills`
+     * is a plain HashTable with no ordering of its own, so this walks
+     * `box`'s real widget children instead, the actual visual left-to-
+     * right order (drag-reordering included). Lets a caller closing the
+     * active tab fall back to some other one without tracking order
+     * itself.
+     *
+     * Not the same fallback VS Code uses (most-recently-used, tracked
+     * as its own stack independent of tab position) — deliberately
+     * simpler for now; revisit if the rightmost tab turns out to be the
+     * wrong guess often enough in practice.
+     */
+    public string? last_tab_path () {
+        var last_child = box.get_last_child ();
+        if (last_child == null) {
+            return null;
+        }
+
+        foreach (var path in pills.get_keys ()) {
+            if (pills[path].widget == last_child) {
+                return path;
+            }
+        }
+        return null;
+    }
+
     public void set_active (string path) {
         if (active_pill != null) {
             active_pill.set_active (false);

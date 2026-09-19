@@ -658,11 +658,20 @@ public class EditorController : Object {
         documents.remove (path);
 
         if (active_path == path) {
-            active_path = null;
-            editor_view.set_text ("", path);
-            editor_view.set_change_banner_visible (false);
-            cursor_controller.set_active_document (null);
-            notify_active_state ();
+            // Prefer another still-open tab over going empty — the
+            // rightmost one, for now (see last_tab_path()'s own doc
+            // comment for the MRU-stack alternative this deliberately
+            // isn't yet).
+            var fallback = tab_bar_view.last_tab_path ();
+            if (fallback != null) {
+                activate (fallback);
+            } else {
+                active_path = null;
+                editor_view.set_text ("", path);
+                editor_view.set_change_banner_visible (false);
+                cursor_controller.set_active_document (null);
+                notify_active_state ();
+            }
         }
 
         if (documents.size () == 0) {

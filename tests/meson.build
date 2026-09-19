@@ -144,3 +144,16 @@ test(
   timeout: 60,
   is_parallel: false,
 )
+
+close_tab_test = executable(
+  'close-tab-test',
+  ['system/close-tab-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'close-tab',
+  close_tab_test,
+  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  timeout: 60,
+  is_parallel: false,
+)

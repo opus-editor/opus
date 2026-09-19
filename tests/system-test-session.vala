@@ -136,6 +136,22 @@ public class SystemTestSession : Object {
         call ("NewFile");
     }
 
+    /** Closes `path`'s tab outright, no unsaved-changes prompt (matching CloseTab's own semantics — see dev-server/index.vala) — fine for a clean, just-created test document. */
+    public void close_tab (string path) throws Error {
+        call ("CloseTab", new Variant ("(s)", path));
+    }
+
+    /** The active tab's path, or "" if none is. */
+    public string active_tab () throws Error {
+        string path;
+        call ("GetActiveTab").get_child (0, "s", out path);
+        return path;
+    }
+
+    public void assert_active_tab (string expected) throws Error {
+        assert_cmpstr (active_tab (), CompareOperator.EQ, expected);
+    }
+
     /**
      * Sets the active tab's buffer content directly, for arranging a
      * scenario's starting text — unlike type(), this doesn't simulate
