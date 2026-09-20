@@ -81,8 +81,20 @@ public class FileTreeView : Object {
     // own; FLASH_HOLD_MS just needs to be long enough for GTK to actually
     // paint one frame at full brightness before the removal (and thus the
     // fade) kicks in.
+    //
+    // The transition itself lives on a *second*, separately-toggled class
+    // (REVEAL_FLASH_TRANSITION_CSS_CLASS) rather than on every row
+    // unconditionally: a transition on the row's own base rule would also
+    // animate native hover/selection's own background-color changes,
+    // which normally snap instantly — sharing the property turned every
+    // hover into a slow, laggy fade too. Toggling a second class on for
+    // only as long as this one row's own flash-then-fade actually takes
+    // (HOLD_MS to show it solid, TRANSITION_MS more to fade it back out)
+    // keeps the transition scoped to just that row, just that window.
     private const string REVEAL_FLASH_CSS_CLASS = "reveal-flash";
+    private const string REVEAL_FLASH_TRANSITION_CSS_CLASS = "reveal-flash-fading";
     private const uint REVEAL_FLASH_HOLD_MS = 150;
+    private const uint REVEAL_FLASH_TRANSITION_MS = 700; // matches the CSS transition's own duration
 
     public Gtk.Widget widget { get { return scrolled_window; } }
 
@@ -165,11 +177,18 @@ public class FileTreeView : Object {
                 padding-bottom: 0;
                 min-height: 22px;
                 border-radius: 4px;
-                /* Only reveal-flash below actually changes this row's own
-                 * background-color, but the transition has to live here,
-                 * on the property's own base rule — defined only inside
-                 * .reveal-flash, it'd apply going *into* the flash, not
-                 * coming back out of it once the class is removed. */
+            }
+            /* The transition lives on this separate, briefly-toggled class
+             * (see REVEAL_FLASH_TRANSITION_CSS_CLASS's own comment) rather
+             * than on every row unconditionally — that made native hover/
+             * selection's own background-color changes fade slowly too,
+             * leaving a laggy "trail" on every hover. Defined here, on
+             * *this* class rather than .reveal-flash itself, so it's
+             * active while .reveal-flash is being *removed* too (a
+             * transition defined only inside .reveal-flash would apply
+             * going into the flash, not coming back out of it once that
+             * class is gone). */
+            listview.data-table row.reveal-flash-fading {
                 transition: background-color 700ms ease-out;
             }
             treeexpander > expander {
@@ -205,8 +224,9 @@ public class FileTreeView : Object {
              * the same warm/warning color the "File Has Changed on Disk"
              * banner uses (see EditorView's own install_css()), not a
              * hardcoded yellow, so it also tracks light/dark. Added then
-             * removed shortly after in code; the transition above is what
-             * actually makes it fade back out instead of snapping off. */
+             * removed shortly after in code, with .reveal-flash-fading's
+             * own transition (above) fading it back out instead of
+             * snapping off. */
             listview.data-table row.reveal-flash {
                 background-color: var(--warning-bg-color);
             }
@@ -282,9 +302,14 @@ public class FileTreeView : Object {
             return;
         }
 
+        row_widget.add_css_class (REVEAL_FLASH_TRANSITION_CSS_CLASS);
         row_widget.add_css_class (REVEAL_FLASH_CSS_CLASS);
         Timeout.add (REVEAL_FLASH_HOLD_MS, () => {
-            row_widget.remove_css_class (REVEAL_FLASH_CSS_CLASS);
+            row_widget.remove_css_class (REVEAL_FLASH_CSS_CLASS); // transition is still on — this is what fades it back out
+            Timeout.add (REVEAL_FLASH_TRANSITION_MS, () => {
+                row_widget.remove_css_class (REVEAL_FLASH_TRANSITION_CSS_CLASS); // fade's done — stop carrying the transition on this row
+                return Source.REMOVE;
+            });
             return Source.REMOVE;
         });
     }
