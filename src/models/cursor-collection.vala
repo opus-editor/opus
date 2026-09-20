@@ -56,6 +56,18 @@ public class CursorCollection : Object {
     public int count { get { return (int) cursors.length; } }
     public Cursor primary { get { return cursors[0]; } }
 
+    /** Whether any cursor (not just the primary) currently has a non-empty selection — Cut/Copy/Delete's own "is there anything to act on" check, e.g. for EditorView's context menu. */
+    public bool has_selection {
+        get {
+            for (uint i = 0; i < cursors.length; i++) {
+                if (!cursors[i].is_empty) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     public Cursor at (int index) {
         return cursors[(uint) index];
     }

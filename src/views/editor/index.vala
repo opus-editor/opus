@@ -114,6 +114,16 @@ public class EditorView : Object {
      */
     public signal void selection_dropped (string text, int source_start, int source_end, int drop_offset);
 
+    /**
+     * A right-click landed on the text (widget-relative `x`/`y`) — this
+     * View doesn't decide the context menu's own item states itself:
+     * whether Cut/Copy/Delete or Undo/Redo make sense right now depends
+     * on the live CursorCollection/EditHistory, which live in the Model,
+     * not here. CursorController answers with show_context_menu() once
+     * it's worked that out.
+     */
+    public signal void context_menu_requested (double x, double y);
+
     public EditorView () {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor/index.ui");
         root = (Gtk.Box) builder.get_object ("root");
@@ -239,20 +249,43 @@ public class EditorView : Object {
 
         var click_gesture = new Gtk.GestureClick ();
         click_gesture.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
+        // GTK's own native click_gesture (gtk_text_view_init) listens for
+        // *any* button (button = 0), not just the primary one — its own
+        // pressed handler is where the native context-menu-on-right-click
+        // check happens (gdk_event_triggers_context_menu(), confirmed
+        // directly in gtktextview.c), ahead of its primary-button branch.
+        // Widening this gesture the same way is what lets it claim a
+        // right-click too — same CAPTURE-preemption this already relies
+        // on for Alt+Click and the selection-drag start below.
+        click_gesture.button = 0;
         click_gesture.pressed.connect ((n_press, x, y) => {
             var state = click_gesture.get_current_event_state ();
             bool alt = (state & Gdk.ModifierType.ALT_MASK) != 0;
             bool shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
+            uint button = click_gesture.get_current_button ();
 
             // CAPTURE fires before GtkTextView's own native handling (see
             // above), so this is set before whatever the native click
             // handling is about to do — on_mark_set() reads it once that
-            // lands. Only a plain, single-press click (n_press == 1) has
-            // a direction worth preserving: what follows is either just
-            // that click, or the drag-select that can follow it.
-            preserve_native_direction = n_press == 1;
+            // lands. Only a plain, single-press primary click (n_press ==
+            // 1) has a direction worth preserving: what follows is either
+            // just that click, or the drag-select that can follow it.
+            preserve_native_direction = n_press == 1 && button == Gdk.BUTTON_PRIMARY;
 
-            if (n_press <= 3 && alt) {
+            if (button == Gdk.BUTTON_SECONDARY && n_press == 1) {
+                // Claim outright, same as Alt+Click below — this is what
+                // stops gtk_text_view_do_popup() from ever running (its
+                // own native Cut/Copy/Paste/Delete menu items call
+                // GtkTextBuffer's clipboard methods directly, the exact
+                // primary-selection-only, non-EditHistory path Cut/Copy/
+                // Paste were already claimed away from at the keyboard
+                // level — see CursorController's own Ctrl+X/C/V handling).
+                // No cursor/selection change of our own here either: GTK's
+                // real gtk_text_view_do_popup() doesn't reposition the
+                // cursor on a right-click, so this doesn't need to.
+                click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
+                context_menu_requested (x, y);
+            } else if (button == Gdk.BUTTON_PRIMARY && n_press <= 3 && alt) {
                 // Also claims Alt+Double/Triple-click now (not just
                 // Alt+Click): CursorController.on_click expands the
                 // just-added cursor to its word/line for those, same as
@@ -270,7 +303,7 @@ public class EditorView : Object {
                 // CursorCollection.expand_last_added_cursor_to_word/
                 // line()'s own doc comments for that trade-off.
                 dragging = n_press == 1;
-            } else if (n_press == 1 && !alt && !shift && is_inside_selection (x, y)) {
+            } else if (button == Gdk.BUTTON_PRIMARY && n_press == 1 && !alt && !shift && is_inside_selection (x, y)) {
                 click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
                 possible_selection_drag = true;
                 drag_press_x = x;
@@ -734,6 +767,36 @@ public class EditorView : Object {
         untracked_edit (new TextEdit () {
             start_offset = start.get_offset (), end_offset = end.get_offset (),
             old_text = source_buffer.get_text (start, end, false), new_text = ""
+        });
+    }
+
+    /**
+     * Opus's own replacement for GtkTextView's native right-click menu —
+     * every item just simulates the equivalent keystroke via
+     * handle_key_pressed(), the exact same call simulate_select_all()
+     * and simulate_key_press() already use to run a real keystroke's own
+     * code path without a real GTK event, so each item is guaranteed to
+     * behave identically to actually pressing that key (no separate,
+     * driftable copy of Cut/Copy/Paste/Delete/Undo/Redo's own logic).
+     * Uses the same ContextMenu/popover-menu.vala builder FileTreeView
+     * and TabBarView already share for their own right-click menus.
+     *
+     * `can_cut_copy_delete`/`can_undo`/`can_redo` come from
+     * CursorController — see context_menu_requested's own doc comment
+     * for why this View can't work them out by itself. Paste has no
+     * such check: it would need an async clipboard read before the menu
+     * could even be built, and clicking it with nothing useful to paste
+     * already just no-ops (paste_from_clipboard's own empty-text guard).
+     */
+    public void show_context_menu (double x, double y, bool can_cut_copy_delete, bool can_undo, bool can_redo) {
+        ContextMenu.show (text_view, x, y, (popover, box) => {
+            box.append (ContextMenu.item (_("Cut"), () => { handle_key_pressed (Gdk.Key.x, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_cut_copy_delete));
+            box.append (ContextMenu.item (_("Copy"), () => { handle_key_pressed (Gdk.Key.c, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_cut_copy_delete));
+            box.append (ContextMenu.item (_("Paste"), () => { handle_key_pressed (Gdk.Key.v, Gdk.ModifierType.CONTROL_MASK); }, popover));
+            box.append (ContextMenu.item (_("Delete"), () => { handle_key_pressed (Gdk.Key.Delete, 0); }, popover, null, can_cut_copy_delete));
+            box.append (ContextMenu.separator ());
+            box.append (ContextMenu.item (_("Undo"), () => { handle_key_pressed (Gdk.Key.z, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_undo));
+            box.append (ContextMenu.item (_("Redo"), () => { handle_key_pressed (Gdk.Key.y, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_redo));
         });
     }
 

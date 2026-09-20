@@ -719,43 +719,40 @@ public class FileTreeView : Object {
         var context_path = target == null ? root_node.path : target.path;
         var has_clipboard = clipboard_node != null;
 
-        var popover = ContextMenu.create (list_view, x, y);
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-        if (target == null || target.is_directory) {
-            box.append (ContextMenu.item (_("New File…"), () => request_new_entry (target, false), popover));
-            box.append (ContextMenu.item (_("New Folder…"), () => request_new_entry (target, true), popover));
-            box.append (ContextMenu.separator ());
-            box.append (ContextMenu.item (_("Open in Files"), () => open_in_files_requested (context_path), popover));
-            box.append (ContextMenu.item (_("Open in Terminal"), () => open_in_terminal_requested (context_path), popover));
-
-            if (target != null || has_clipboard) {
+        ContextMenu.show (list_view, x, y, (popover, box) => {
+            if (target == null || target.is_directory) {
+                box.append (ContextMenu.item (_("New File…"), () => request_new_entry (target, false), popover));
+                box.append (ContextMenu.item (_("New Folder…"), () => request_new_entry (target, true), popover));
                 box.append (ContextMenu.separator ());
-            }
-            if (target != null) {
+                box.append (ContextMenu.item (_("Open in Files"), () => open_in_files_requested (context_path), popover));
+                box.append (ContextMenu.item (_("Open in Terminal"), () => open_in_terminal_requested (context_path), popover));
+
+                if (target != null || has_clipboard) {
+                    box.append (ContextMenu.separator ());
+                }
+                if (target != null) {
+                    box.append (ContextMenu.item (_("Cut"), () => request_cut (target), popover));
+                    box.append (ContextMenu.item (_("Copy"), () => request_copy (target), popover));
+                }
+                if (has_clipboard) {
+                    box.append (ContextMenu.item (_("Paste"), () => request_paste (target), popover));
+                }
+            } else {
                 box.append (ContextMenu.item (_("Cut"), () => request_cut (target), popover));
                 box.append (ContextMenu.item (_("Copy"), () => request_copy (target), popover));
             }
-            if (has_clipboard) {
-                box.append (ContextMenu.item (_("Paste"), () => request_paste (target), popover));
+
+            // Renaming/deleting the workspace root itself isn't offered — only an actual file/folder target has this group.
+            if (target != null) {
+                box.append (ContextMenu.separator ());
+                box.append (ContextMenu.item (_("Rename…"), () => request_rename (target), popover));
+                box.append (ContextMenu.item (_("Delete"), () => delete_entry_requested (target.path), popover));
             }
-        } else {
-            box.append (ContextMenu.item (_("Cut"), () => request_cut (target), popover));
-            box.append (ContextMenu.item (_("Copy"), () => request_copy (target), popover));
-        }
 
-        // Renaming/deleting the workspace root itself isn't offered — only an actual file/folder target has this group.
-        if (target != null) {
             box.append (ContextMenu.separator ());
-            box.append (ContextMenu.item (_("Rename…"), () => request_rename (target), popover));
-            box.append (ContextMenu.item (_("Delete"), () => delete_entry_requested (target.path), popover));
-        }
-
-        box.append (ContextMenu.separator ());
-        box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (context_path), popover));
-        box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (context_path), popover));
-
-        popover.child = box;
-        popover.popup ();
+            box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (context_path), popover));
+            box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (context_path), popover));
+        });
     }
 
     /**

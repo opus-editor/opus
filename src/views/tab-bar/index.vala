@@ -419,20 +419,16 @@ public class TabBarView : Object {
      * would drift again silently.
      */
     private void show_context_menu (string path, TabPill pill, double x, double y) {
-        var popover = ContextMenu.create (pill.widget, x, y);
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-
-        box.append (ContextMenu.item (_("Close"), () => tab_close_requested (path), popover, Gtk.accelerator_get_label (Gdk.Key.w, Gdk.ModifierType.CONTROL_MASK)));
-        box.append (ContextMenu.item (_("Close Others"), () => close_others_requested (path), popover));
-        box.append (ContextMenu.item (_("Close All"), () => close_all_requested (), popover));
-        box.append (ContextMenu.separator ());
-        box.append (ContextMenu.item (_("Reveal in Sidebar"), () => reveal_in_sidebar_requested (path), popover));
-        box.append (ContextMenu.separator ());
-        box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (path), popover));
-        box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (path), popover));
-
-        popover.child = box;
-        popover.popup ();
+        ContextMenu.show (pill.widget, x, y, (popover, box) => {
+            box.append (ContextMenu.item (_("Close"), () => tab_close_requested (path), popover, Gtk.accelerator_get_label (Gdk.Key.w, Gdk.ModifierType.CONTROL_MASK)));
+            box.append (ContextMenu.item (_("Close Others"), () => close_others_requested (path), popover));
+            box.append (ContextMenu.item (_("Close All"), () => close_all_requested (), popover));
+            box.append (ContextMenu.separator ());
+            box.append (ContextMenu.item (_("Reveal in Sidebar"), () => reveal_in_sidebar_requested (path), popover));
+            box.append (ContextMenu.separator ());
+            box.append (ContextMenu.item (_("Copy Path"), () => copy_path_requested (path), popover));
+            box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_relative_path_requested (path), popover));
+        });
     }
 
     /**

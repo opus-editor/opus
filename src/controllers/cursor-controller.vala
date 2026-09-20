@@ -83,6 +83,7 @@ public class CursorController : Object {
         editor_view.native_cursor_moved.connect (on_native_cursor_moved);
         editor_view.untracked_edit.connect (on_untracked_edit);
         editor_view.selection_dropped.connect (on_selection_dropped);
+        editor_view.context_menu_requested.connect (on_context_menu_requested);
     }
 
     /**
@@ -437,6 +438,21 @@ public class CursorController : Object {
         active_document.history.push (edits_ascending, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
 
         render ();
+    }
+
+    /**
+     * A right-click landed on the editor — works out whether Cut/Copy/
+     * Delete (need a selection *somewhere*, any cursor's — has_selection
+     * is multi-cursor-aware, unlike the real native selection this View
+     * could otherwise have checked itself) and Undo/Redo (need a history
+     * entry to act on) currently apply, then hands the answer back to
+     * EditorView to actually build the menu.
+     */
+    private void on_context_menu_requested (double x, double y) {
+        bool can_cut_copy_delete = active_document != null && active_document.cursors.has_selection;
+        bool can_undo = active_document != null && active_document.history.can_undo;
+        bool can_redo = active_document != null && active_document.history.can_redo;
+        editor_view.show_context_menu (x, y, can_cut_copy_delete, can_undo, can_redo);
     }
 
     /** Runs a cursor-only command (movement, or a multi-cursor creation command) — none of these touch any text, so unlike apply_edit() there's nothing to push onto EditHistory; they just close whatever undo entry is currently open, same as any other non-edit action, and re-render. */

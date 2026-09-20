@@ -1,14 +1,17 @@
 /** See ContextMenu.item(). */
 public delegate void MenuAction ();
 
+/** See ContextMenu.show(). */
+public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
+
 /**
- * A small shared builder for the flat-button right-click menus used by both
- * FileTreeView and TabBarView — a plain Gtk.Popover containing a vertical
- * Gtk.Box of flat Gtk.Buttons and Gtk.Separators, not Gtk.PopoverMenu/
- * GLib.Menu+Gio.SimpleAction: nothing else in this codebase uses that
- * pattern, every interactive row/pill here is plain widgets wired to
- * signals, and a menu isn't reason enough to introduce a whole new
- * action-group convention just for itself.
+ * A small shared builder for the flat-button right-click menus used by
+ * FileTreeView, TabBarView, and EditorView — a plain Gtk.Popover
+ * containing a vertical Gtk.Box of flat Gtk.Buttons and Gtk.Separators,
+ * not Gtk.PopoverMenu/GLib.Menu+Gio.SimpleAction: nothing else in this
+ * codebase uses that pattern, every interactive row/pill here is plain
+ * widgets wired to signals, and a menu isn't reason enough to introduce
+ * a whole new action-group convention just for itself.
  */
 public class ContextMenu : Object {
     // Not a `static construct` block: this class is only ever used through
@@ -16,23 +19,44 @@ public class ContextMenu : Object {
     // `static construct`/class_init only runs once something actually
     // triggers type registration — plain static-method calls don't (found
     // the hard way, twice: once because this class is never `new`'d at
-    // all, then again because the check lived in create() specifically —
+    // all, then again because the check lived in show() specifically —
     // a menu attached straight to a Gtk.MenuButton's own `popover`
-    // property, as the primary menu is, never calls create() at all, so
+    // property, as the primary menu is, never calls show() at all, so
     // its CSS silently never loaded either). The check now lives in
     // item() instead — the one thing every possible menu, built however
     // it likes, always calls at least once (a menu with no items isn't a
     // menu) — so there is exactly one place left that can ever forget it.
     private static bool css_installed = false;
 
-    /** A popover parented on `parent`, pointing at `(x, y)` (in `parent`'s own coordinates) — set its `.child` and call `.popup ()` once its items are built. */
-    public static Gtk.Popover create (Gtk.Widget parent, double x, double y) {
+    // A menu with only one or two short-word items (EditorView's own —
+    // see its show_context_menu()) shrinks to fit its widest label and
+    // reads as oddly narrow; every menu gets this same floor rather than
+    // each call site guessing its own, since a wider one's own content
+    // already clears it anyway (TabBarView/FileTreeView's own labels and
+    // accelerator hints are comfortably past 124px already).
+    private const int MIN_WIDTH = 124;
+
+    /**
+     * Builds a popover parented on `parent`, pointing at `(x, y)` (in
+     * `parent`'s own coordinates), and shows it — `builder` fills in
+     * `box` with whatever `item()`/`separator()` calls that particular
+     * menu needs; the popover/box scaffolding itself (parenting, min-
+     * width, wiring `box` as the popover's child, `popup()`) is the same
+     * for every menu, so only the actual item list varies per call site.
+     */
+    public static void show (Gtk.Widget parent, double x, double y, owned MenuBuilder builder) {
         var popover = new Gtk.Popover ();
         popover.set_parent (parent);
         popover.has_arrow = false;
         popover.set_pointing_to (Gdk.Rectangle () { x = (int) x, y = (int) y, width = 1, height = 1 });
         popover.closed.connect (() => popover.unparent ());
-        return popover;
+
+        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        box.width_request = MIN_WIDTH;
+        builder (popover, box);
+
+        popover.child = box;
+        popover.popup ();
     }
 
     // 6px, matching AdwTabView's own dividers/spacing conventions elsewhere
@@ -54,15 +78,18 @@ public class ContextMenu : Object {
      * carries no `dim-label`/similar class of its own — that's a real
      * GtkPopoverMenu's own built-in accelerator column, which this project
      * doesn't use; see the class doc comment — this reproduces the same
-     * look with two plain Gtk.Labels instead).
+     * look with two plain Gtk.Labels instead). `sensitive` false renders
+     * it disabled and unclickable, same as any other Gtk.Widget — for a
+     * menu item whose action doesn't apply right now (EditorView's own
+     * Cut/Copy/Delete/Undo/Redo, depending on selection/history state).
      */
-    public static Gtk.Widget item (string label_text, owned MenuAction action, Gtk.Popover popover, string? accel = null) {
+    public static Gtk.Widget item (string label_text, owned MenuAction action, Gtk.Popover popover, string? accel = null, bool sensitive = true) {
         if (!css_installed) {
             css_installed = true;
             install_css ();
         }
 
-        var button = new Gtk.Button ();
+        var button = new Gtk.Button () { sensitive = sensitive };
         // libadwaita's own button { font-weight: bold; } applies
         // unconditionally, .flat included — real popover menu items use a
         // different widget entirely (a legacy `modelbutton`, styled
