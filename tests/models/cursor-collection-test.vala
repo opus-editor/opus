@@ -171,6 +171,68 @@ private void test_add_cursor_below_preserves_the_horizontal_column () {
     assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 5); // column 1 on line 1 ("defg" starts at 4)
 }
 
+private void test_extend_last_added_cursor_grows_it_into_a_selection () {
+    var cc = new CursorCollection ();
+    string text = "aaaa bbbb cccc";
+
+    cc.add_cursor_at_click (2); // second cursor, collapsed at offset 2
+    cc.extend_last_added_cursor (7);
+
+    assert_cmpint (cc.count, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).anchor_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 7);
+}
+
+// Reproduces a scenario checked by hand: an Alt-drag's own selection
+// overlapping an already-selected cursor merges into their union, the
+// same way any other overlap does (Ctrl+D, box-select, ...) —
+// deliberately not special-cased to instead discard the older
+// selection, to keep the app's own overlap behavior consistent with
+// itself rather than picking a different rule just for Alt-drag.
+private void test_extend_last_added_cursor_overlapping_another_cursor_merges_into_their_union () {
+    var cc = new CursorCollection ();
+    string text = "aaaa\nbbbb\ncccc";
+
+    var bbbb = new Cursor (5);
+    bbbb.position_offset = 9; // "[bbbb]" selected, offsets 5-9
+    cc.set_cursors ({ bbbb });
+
+    cc.add_cursor_at_click (2); // "aa|aa\nbbbb\ncccc"
+    cc.extend_last_added_cursor (7); // drags to (1, 2) -> offset 7, overlapping bbbb's own [5, 9)
+
+    assert_cmpint (cc.count, CompareOperator.EQ, 1);
+    assert_cmpint (cc.primary.anchor_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 9);
+}
+
+private void test_expand_last_added_cursor_to_word_selects_the_word_touching_it () {
+    var cc = new CursorCollection ();
+    string text = "cat dog bird";
+
+    cc.add_cursor_at_click (5); // inside "dog"
+    cc.expand_last_added_cursor_to_word (text);
+
+    assert_cmpint (cc.count, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).anchor_offset, CompareOperator.EQ, 4);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 7);
+}
+
+// The caret lands right after the line's own last character, not past
+// its trailing newline — matches a plain triple-click's own existing,
+// native behavior (checked by hand: the caret stays on the same line,
+// not the one below), which line_end() itself already gives for free.
+private void test_expand_last_added_cursor_to_line_selects_the_whole_line_without_its_trailing_newline () {
+    var cc = new CursorCollection ();
+    string text = "aaaa\nbbbb\ncccc";
+
+    cc.add_cursor_at_click (6); // inside "bbbb"
+    cc.expand_last_added_cursor_to_line (text);
+
+    assert_cmpint (cc.count, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).anchor_offset, CompareOperator.EQ, 5);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 9);
+}
+
 private void test_add_cursor_at_next_match_expands_word_then_finds_the_next_occurrence () {
     var cc = new CursorCollection ();
     string text = "cat dog cat bird cat";
@@ -367,6 +429,10 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/normalize_keeps_merely_touching_non_empty_selections_separate", test_normalize_keeps_merely_touching_non_empty_selections_separate);
     Test.add_func ("/models/cursor-collection/normalize_merge_prefers_the_last_added_cursors_direction", test_normalize_merge_prefers_the_last_added_cursors_direction);
     Test.add_func ("/models/cursor-collection/add_cursor_below_preserves_the_horizontal_column", test_add_cursor_below_preserves_the_horizontal_column);
+    Test.add_func ("/models/cursor-collection/extend_last_added_cursor_grows_it_into_a_selection", test_extend_last_added_cursor_grows_it_into_a_selection);
+    Test.add_func ("/models/cursor-collection/extend_last_added_cursor_overlapping_another_cursor_merges_into_their_union", test_extend_last_added_cursor_overlapping_another_cursor_merges_into_their_union);
+    Test.add_func ("/models/cursor-collection/expand_last_added_cursor_to_word_selects_the_word_touching_it", test_expand_last_added_cursor_to_word_selects_the_word_touching_it);
+    Test.add_func ("/models/cursor-collection/expand_last_added_cursor_to_line_selects_the_whole_line_without_its_trailing_newline", test_expand_last_added_cursor_to_line_selects_the_whole_line_without_its_trailing_newline);
     Test.add_func ("/models/cursor-collection/add_cursor_at_next_match_expands_word_then_finds_the_next_occurrence", test_add_cursor_at_next_match_expands_word_then_finds_the_next_occurrence);
     Test.add_func ("/models/cursor-collection/select_all_occurrences_selects_every_match_at_once", test_select_all_occurrences_selects_every_match_at_once);
     Test.add_func ("/models/cursor-collection/box_select_creates_one_cursor_per_line_at_the_same_column_range", test_box_select_creates_one_cursor_per_line_at_the_same_column_range);

@@ -115,6 +115,99 @@ public class CursorCollection : Object {
         set_cursors (result, extra);
     }
 
+    /**
+     * Alt+drag continuing past the initial click that added a cursor
+     * (add_cursor_at_click) — moves that same cursor's own caret to
+     * `new_position` while keeping its anchor fixed at the original
+     * click point, extending it into a selection exactly like a plain
+     * drag extends the primary cursor's own selection. No-op if there's
+     * no last-added cursor (shouldn't happen in practice — this is only
+     * ever called while an Alt-drag that just added one is still live).
+     *
+     * Re-normalizes afterward, same as any other cursor-set change: if
+     * the growing selection now overlaps another cursor, they merge
+     * into the union of both, the same way any other overlap does
+     * (Ctrl+D, box-select, ...) — no special-casing for this one, by
+     * design, to keep the app's own overlap behavior consistent with
+     * itself rather than picking a different rule for Alt-drag alone.
+     */
+    public void extend_last_added_cursor (int new_position) {
+        if (last_added_cursor == null) {
+            return;
+        }
+
+        last_added_cursor.position_offset = new_position;
+        var result = new Cursor[cursors.length];
+        for (uint i = 0; i < cursors.length; i++) {
+            result[i] = cursors[i];
+        }
+        set_cursors (result, last_added_cursor);
+    }
+
+    /**
+     * Alt+DoubleClick: expands the just-added cursor (add_cursor_at_click)
+     * to the word touching its own position — matching VS Code's own
+     * LastCursorWordSelect, minus its drag-to-extend-by-word nuance
+     * (dragging further after the double-click keeps growing the
+     * selection word-by-word there); left out here to keep this to a
+     * single click, same simplicity trade-off as extend_last_added_cursor()
+     * makes for overlap. No-op if there's no last-added cursor, or it
+     * isn't sitting on/next to a word.
+     */
+    public void expand_last_added_cursor_to_word (string text) {
+        if (last_added_cursor == null) {
+            return;
+        }
+
+        var chars = to_chars (text);
+        int start = find_word_boundary_start (chars, last_added_cursor.position_offset);
+        int end = find_word_boundary_end (chars, last_added_cursor.position_offset);
+        if (start == end) {
+            return;
+        }
+
+        last_added_cursor.anchor_offset = start;
+        last_added_cursor.position_offset = end;
+        last_added_cursor.anchor_kind = CursorAnchorKind.WORD;
+
+        var result = new Cursor[cursors.length];
+        for (uint i = 0; i < cursors.length; i++) {
+            result[i] = cursors[i];
+        }
+        set_cursors (result, last_added_cursor);
+    }
+
+    /**
+     * Alt+TripleClick: expands the just-added cursor to its whole
+     * line — deliberately *not* including the trailing newline (unlike
+     * VS Code's own LastCursorLineSelect, which does, landing the caret
+     * at the start of the next line instead): checked by hand against a
+     * plain triple-click, which already leaves the caret on the same
+     * line, not the one below — matching that existing, native
+     * convention here keeps Opus consistent with itself, which matters
+     * more here than matching VS Code's own choice. Also leaves out
+     * LastCursorLineSelect's drag-to-extend-by-line nuance, same
+     * reasoning as expand_last_added_cursor_to_word() above.
+     */
+    public void expand_last_added_cursor_to_line (string text) {
+        if (last_added_cursor == null) {
+            return;
+        }
+
+        var chars = to_chars (text);
+        int start = line_start (chars, last_added_cursor.position_offset);
+        int end = line_end (chars, last_added_cursor.position_offset);
+
+        last_added_cursor.anchor_offset = start;
+        last_added_cursor.position_offset = end;
+
+        var result = new Cursor[cursors.length];
+        for (uint i = 0; i < cursors.length; i++) {
+            result[i] = cursors[i];
+        }
+        set_cursors (result, last_added_cursor);
+    }
+
     /** Arrow keys, word jumps, Home/End, and document-start/end — maps one pure per-cursor move over every cursor independently, then merges any that now collide. `extend` is whether Shift is held (grow the selection) or not (collapse to the new position). */
     public void move (CursorMoveOp op, bool extend, string text) {
         var chars = to_chars (text);

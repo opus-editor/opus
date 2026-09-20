@@ -186,8 +186,9 @@ public class EditorView : Object {
         // completely untouched — native_cursor_moved (below) already
         // picks up whatever the native path lands on.
         //
-        // Drag continuation (for Alt+Shift box-select only) rides
-        // Gtk.Gesture's own inherited `update` signal rather than a
+        // Drag continuation (for both Alt-drag cases — plain Alt extends
+        // the just-added cursor into a selection, Alt+Shift box-selects)
+        // rides Gtk.Gesture's own inherited `update` signal rather than a
         // second Gesture or an EventControllerMotion: two Gestures
         // claiming the same sequence deny *each other* (confirmed by
         // trying it — it broke drag-select entirely), and claiming also
@@ -249,9 +250,24 @@ public class EditorView : Object {
             // that click, or the drag-select that can follow it.
             preserve_native_direction = n_press == 1;
 
-            if (n_press == 1 && alt) {
+            if (n_press <= 3 && alt) {
+                // Also claims Alt+Double/Triple-click now (not just
+                // Alt+Click): CursorController.on_click expands the
+                // just-added cursor to its word/line for those, same as
+                // native double/triple-click does for a single cursor —
+                // leaving this unclaimed would let native handling run
+                // right after and replace the whole multi-cursor set
+                // with its own single selection.
                 click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
-                dragging = shift; // only the box-select case continues via drag right now
+                // Only a plain single Alt+click continues via drag —
+                // either the added cursor extending into a selection, or
+                // Alt+Shift box-select (CursorController.on_drag_extended
+                // tells them apart by shift's own state). Alt+Double/
+                // Triple-click's own word/line expansion is a deliberate
+                // one-shot action, not drag-extending further — see
+                // CursorCollection.expand_last_added_cursor_to_word/
+                // line()'s own doc comments for that trade-off.
+                dragging = n_press == 1;
             } else if (n_press == 1 && !alt && !shift && is_inside_selection (x, y)) {
                 click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
                 possible_selection_drag = true;

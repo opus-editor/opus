@@ -170,3 +170,16 @@ test(
   timeout: 60,
   is_parallel: false,
 )
+
+add_cursor_vertical_test = executable(
+  'add-cursor-vertical-test',
+  ['system/add-cursor-vertical-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'add-cursor-vertical',
+  add_cursor_vertical_test,
+  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  timeout: 60,
+  is_parallel: false,
+)

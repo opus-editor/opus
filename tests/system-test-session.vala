@@ -307,6 +307,14 @@ public class SystemTestSession : Object {
             keyval = Gdk.Key.v;
             modifiers = Gdk.ModifierType.CONTROL_MASK;
             break;
+        case "shift+alt+up":
+            keyval = Gdk.Key.Up;
+            modifiers = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK;
+            break;
+        case "shift+alt+down":
+            keyval = Gdk.Key.Down;
+            modifiers = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK;
+            break;
         default:
             throw new IOError.INVALID_ARGUMENT ("Unknown type_cmd: %s".printf (name));
         }

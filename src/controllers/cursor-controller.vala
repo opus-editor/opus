@@ -14,13 +14,20 @@
  *
  * Arrows/Home/End, Backspace/Delete, typing, Enter, shift-select,
  * click-to-place, click-drag-select, EditHistory-backed undo/redo, and
- * the multi-cursor creation commands: Alt+Click adds a cursor,
- * Ctrl+Alt+Up/Down adds one directly above/below, Ctrl+D adds the next
- * match of the current selection (or selects the word under the caret on
- * an empty one), Ctrl+Shift+L selects every occurrence at once, and
- * Alt+Shift+drag does a column (box) select — the exact modifier VS
- * Code's own mouse handler uses (verified in its source, viewController.
- * ts: plain Alt is "add a cursor", only Alt+Shift is column-select).
+ * the multi-cursor creation commands: Alt+Click adds a cursor (Alt-drag
+ * continuing past the click extends that same cursor into a selection,
+ * exactly like a plain drag extends the primary cursor's own — see
+ * extend_last_added_cursor()'s own doc comment for the deliberate
+ * choice not to special-case what happens when that selection ends up
+ * overlapping another cursor's), Shift+Alt+Up/Down adds one directly
+ * above/below (VS Code's own Linux keybinding for this — see that
+ * check's own comment for why not Ctrl+Alt+Up/Down, its Windows/Mac
+ * one), Ctrl+D adds the next match of the current selection (or
+ * selects the word under the caret on an empty one), Ctrl+Shift+L
+ * selects every occurrence at once, and Alt+Shift+drag does a column
+ * (box) select — the exact modifier VS Code's own mouse handler uses
+ * (verified in its source, viewController.ts: plain Alt is "add a
+ * cursor", only Alt+Shift is column-select).
  */
 public class CursorController : Object {
     private delegate void CursorCommand ();
@@ -42,6 +49,15 @@ public class CursorController : Object {
     // box-selecting right now": a plain drag just extends the primary
     // cursor's own selection instead.
     private int box_select_anchor_offset = -1;
+
+    // Set by on_click() when a plain (non-Shift) Alt+click just added a
+    // new cursor — on_drag_extended() extends that same cursor into a
+    // selection on every subsequent call, exactly like a plain drag
+    // extends the primary cursor's own. Both this and
+    // box_select_anchor_offset are reset on every single click,
+    // regardless of type, so neither can ever linger stale from an
+    // earlier, unrelated drag.
+    private bool alt_drag_active = false;
 
     public CursorController (EditorView editor_view) {
         this.editor_view = editor_view;
@@ -132,11 +148,19 @@ public class CursorController : Object {
             return true;
         }
 
-        if (ctrl && alt && !shift && keyval == Gdk.Key.Up) {
+        // Shift+Alt, not Ctrl+Alt: VS Code's own default for "Add Cursor
+        // Above/Below" is Ctrl+Alt+Up/Down on Windows/Mac, but Shift+Alt+
+        // Up/Down specifically on Linux (confirmed in its keybindings,
+        // multicursor.ts) — because Ctrl+Alt+Up/Down is GNOME's own
+        // default "switch workspace" shortcut (confirmed live: `gsettings
+        // get org.gnome.desktop.wm.keybindings switch-to-workspace-up`),
+        // intercepted by the compositor before any application ever sees
+        // it. Matching VS Code's Linux choice avoids that collision.
+        if (alt && shift && !ctrl && keyval == Gdk.Key.Up) {
             apply_cursor_command (() => active_document.cursors.add_cursor_above (editor_view.get_text ()));
             return true;
         }
-        if (ctrl && alt && !shift && keyval == Gdk.Key.Down) {
+        if (alt && shift && !ctrl && keyval == Gdk.Key.Down) {
             apply_cursor_command (() => active_document.cursors.add_cursor_below (editor_view.get_text ()));
             return true;
         }
@@ -246,33 +270,48 @@ public class CursorController : Object {
         // picks up wherever it lands.
         previous_typed_was_space = false;
         active_document.history.close_current_entry ();
+        box_select_anchor_offset = -1;
+        alt_drag_active = false;
 
         bool alt = (state & Gdk.ModifierType.ALT_MASK) != 0;
-        if (n_press != 1 || !alt) {
+        if (n_press < 1 || n_press > 3 || !alt) {
             return; // not one of ours — native handles it, native_cursor_moved resyncs afterward
         }
 
-        bool shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
-        if (shift) {
-            box_select_anchor_offset = offset;
-            active_document.cursors.box_select (offset, offset, editor_view.get_text ());
+        if (n_press == 2) {
+            active_document.cursors.expand_last_added_cursor_to_word (editor_view.get_text ());
+        } else if (n_press == 3) {
+            active_document.cursors.expand_last_added_cursor_to_line (editor_view.get_text ());
         } else {
-            box_select_anchor_offset = -1;
-            active_document.cursors.add_cursor_at_click (offset);
+            bool shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
+            if (shift) {
+                box_select_anchor_offset = offset;
+                active_document.cursors.box_select (offset, offset, editor_view.get_text ());
+            } else {
+                alt_drag_active = true;
+                active_document.cursors.add_cursor_at_click (offset);
+            }
         }
         render ();
     }
 
-    // Only ever called for the Alt+Shift box-select drag now — EditorView
-    // only claims (and so only keeps driving drag_extended_raw for) that
-    // one case; a plain click-drag-select is entirely native.
+    // Called for both Alt-drag cases now — EditorView keeps driving
+    // drag_extended_raw for either; a plain click-drag-select is
+    // entirely native. box_select_anchor_offset/alt_drag_active are
+    // mutually exclusive and both reset on every click (see on_click),
+    // so exactly one of these branches ever applies for a given drag.
     private void on_drag_extended (int offset, Gdk.ModifierType state) {
-        if (active_document == null || box_select_anchor_offset < 0) {
+        if (active_document == null) {
             return;
         }
 
-        active_document.cursors.box_select (box_select_anchor_offset, offset, editor_view.get_text ());
-        render ();
+        if (box_select_anchor_offset >= 0) {
+            active_document.cursors.box_select (box_select_anchor_offset, offset, editor_view.get_text ());
+            render ();
+        } else if (alt_drag_active) {
+            active_document.cursors.extend_last_added_cursor (offset);
+            render ();
+        }
     }
 
     // The buffer's real marks moved for a reason this controller didn't
