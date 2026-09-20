@@ -2,8 +2,9 @@ using Gtk 4.0;
 using Adw 1;
 
 Adw.ApplicationWindow window {
-  default-width: 900;
-  default-height: 600;
+  // default-width/default-height are set from GLib.Settings instead
+  // (MainWindowView's own constructor) — the last closed window's own
+  // size, not a fixed one.
   // Matches Nautilus: the window itself carries the "view" background;
   // a flat (non-raised) Adw.ToolbarView top bar paints no background of
   // its own, so the window's shows through underneath it uninterrupted.

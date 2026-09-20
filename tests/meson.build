@@ -49,7 +49,14 @@ smoke_test = executable(
 test(
   'smoke',
   smoke_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -62,7 +69,14 @@ escape_test = executable(
 test(
   'escape',
   escape_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -75,7 +89,14 @@ undo_redo_test = executable(
 test(
   'undo-redo',
   undo_redo_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -88,7 +109,14 @@ cursor_merge_test = executable(
 test(
   'cursor-merge',
   cursor_merge_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -101,7 +129,14 @@ word_undo_test = executable(
 test(
   'word-undo',
   word_undo_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -114,7 +149,14 @@ word_jump_test = executable(
 test(
   'word-jump',
   word_jump_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -127,7 +169,14 @@ select_next_match_test = executable(
 test(
   'select-next-match',
   select_next_match_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -140,7 +189,14 @@ select_all_test = executable(
 test(
   'select-all',
   select_all_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -153,7 +209,14 @@ close_tab_test = executable(
 test(
   'close-tab',
   close_tab_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -166,7 +229,14 @@ cut_paste_test = executable(
 test(
   'cut-paste',
   cut_paste_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )
@@ -179,7 +249,14 @@ add_cursor_vertical_test = executable(
 test(
   'add-cursor-vertical',
   add_cursor_vertical_test,
-  env: ['OPUS_BINARY_PATH=' + opus_exe.full_path()],
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
   timeout: 60,
   is_parallel: false,
 )

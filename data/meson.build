@@ -36,3 +36,15 @@ install_data(
   rename: app_id + '.desktop',
   install_dir: get_option('datadir') / 'applications',
 )
+
+install_data(
+  'io.github.nowaos.Opus.gschema.xml',
+  install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
+)
+
+# Compiles every *.gschema.xml in this directory into
+# meson.current_build_dir()/gschemas.compiled — `build_by_default: true`
+# means a plain `ninja` already produces it, no `ninja install` needed, so
+# GLib.Settings works for an uninstalled `just run` too (see the justfile's
+# own GSETTINGS_SCHEMA_DIR, pointed at this same build dir).
+gnome.compile_schemas(build_by_default: true)

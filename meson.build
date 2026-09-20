@@ -41,3 +41,10 @@ subdir('data')
 subdir('src')
 subdir('po')
 subdir('tests')
+
+# Recompiles the system's own GSettings schema cache after `ninja install`
+# copies io.github.nowaos.Opus.gschema.xml into the install prefix — that
+# prefix's cache won't otherwise pick up a newly-installed schema on its
+# own. Irrelevant to `just run`'s own uninstalled dev loop (see the
+# GSETTINGS_SCHEMA_DIR env var in the justfile for that case).
+gnome.post_install(glib_compile_schemas: true)

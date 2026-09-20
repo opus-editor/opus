@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.nowaos.Opus" path="/io/github/nowaos/Opus/">
+    <key name="window-width" type="i">
+      <default>900</default>
+      <summary>Window width</summary>
+      <description>The width of the main window, in pixels, restored the next time Opus is opened.</description>
+    </key>
+    <key name="window-height" type="i">
+      <default>600</default>
+      <summary>Window height</summary>
+      <description>The height of the main window, in pixels, restored the next time Opus is opened.</description>
+    </key>
+    <key name="style-variant" type="s">
+      <choices>
+        <choice value="follow"/>
+        <choice value="light"/>
+        <choice value="dark"/>
+      </choices>
+      <default>'follow'</default>
+      <summary>Style variant</summary>
+      <description>Whether to follow the system's light/dark preference, or force a light/dark style regardless of it.</description>
+    </key>
+  </schema>
+</schemalist>

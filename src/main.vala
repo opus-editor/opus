@@ -25,6 +25,13 @@ private class Session : Object {
 
 private static GenericArray<Session> sessions;
 
+// The app's own single, process-wide GLib.Settings instance
+// (io.github.nowaos.Opus) — window size and the style-variant/theme
+// choice are both genuinely app-wide, not per-window, so this is a
+// module-level static (like `sessions` above) rather than threaded
+// through every window-opening function's own parameters.
+private static GLib.Settings settings;
+
 #if DEBUG
 // See src/modules/dev-server/index.vala's own doc comment — a D-Bus
 // control surface for the terminal, debug builds only.
@@ -53,7 +60,7 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     session.tab_bar_view = new TabBarView ();
     session.editor_view = new EditorView ();
     session.editor_controller = new EditorController (session.tab_bar_view, session.editor_view, editor_root_path);
-    session.window_view = new MainWindowView (app, session.tab_bar_view.widget);
+    session.window_view = new MainWindowView (app, session.tab_bar_view.widget, settings);
 
     // The editor's widget only belongs in the content pane while at least
     // one tab is open — otherwise an empty-state placeholder takes its
@@ -120,6 +127,23 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     });
 
     return session;
+}
+
+/**
+ * Maps the "style-variant" setting ("follow"/"light"/"dark") onto
+ * Adw.StyleManager's own real color-scheme property — confirmed against
+ * GNOME Text Editor's real source (editor-application.c,
+ * style_variant_to_color_scheme()), which does the exact same three-way
+ * mapping via a settings binding. A plain "changed" handler is used here
+ * instead of Vala's own GLib.Settings.bind_with_mapping() — functionally
+ * identical, but this avoids that method's C-shaped GValue/GVariant
+ * callback signature for what's otherwise a three-line mapping.
+ */
+private static void apply_color_scheme () {
+    string variant = settings.get_string ("style-variant");
+    Adw.StyleManager.get_default ().color_scheme = variant == "dark" ? Adw.ColorScheme.FORCE_DARK
+        : variant == "light" ? Adw.ColorScheme.FORCE_LIGHT
+        : Adw.ColorScheme.DEFAULT;
 }
 
 /**
@@ -240,6 +264,7 @@ private static async void on_open_folder_requested (Session session) {
 
 int main (string[] args) {
     sessions = new GenericArray<Session> ();
+    settings = new GLib.Settings ("io.github.nowaos.Opus");
 
     #if DEBUG
     dev_server = new Opus.Dev.DevServer ();
@@ -252,6 +277,26 @@ int main (string[] args) {
     // Workspace.resolve, as decided in the sprint spec, instead of GLib's
     // own GFile-based "open" semantics.
     var app = new Adw.Application ("io.github.nowaos.Opus", ApplicationFlags.HANDLES_COMMAND_LINE);
+
+    // Not any earlier: Adw.StyleManager.get_default() needs a real
+    // Gdk.Display, which doesn't exist until GTK itself has actually
+    // initialized — done by the time `startup` fires, not at
+    // construction (confirmed the hard way: calling this before
+    // app.run() aborts with "gdk_display_manager_get() was called
+    // before gtk_init()"). One-way (settings -> style manager): the
+    // reverse never happens through this app, since nothing here ever
+    // sets color_scheme directly — every actual write goes through the
+    // theme selector's own "settings.style-variant" action (see
+    // MainWindowView's own build_primary_menu()), which writes the
+    // setting, which fires this same "changed" handler right back.
+    // Applied once up front for whatever the setting already held from
+    // a previous run, then again on every future change — covers every
+    // open window at once, since Adw.StyleManager's own color-scheme is
+    // already process-wide.
+    app.startup.connect (() => {
+        apply_color_scheme ();
+        settings.changed["style-variant"].connect (() => apply_color_scheme ());
+    });
 
     #if DEBUG
     // Not any earlier: the application's own D-Bus connection/object path

@@ -20,6 +20,13 @@ public class MainWindowView : Object {
     private Gtk.MenuButton menu_button;
     private Gtk.ToggleButton sidebar_toggle_button;
     private Gtk.Widget close_folder_item;
+    private GLib.Settings settings;
+
+    // The first theme-selector button becomes the group's own leader
+    // (Gtk.CheckButton.group has no getter, so this is the only way to
+    // point every later button at the same group) — see
+    // build_theme_selector().
+    private Gtk.CheckButton? theme_selector_group_leader = null;
 
     // Whether "Open Folder…" has ever linked a folder into this window —
     // the sidebar-reveal button and the primary menu's "Close Folder"
@@ -66,7 +73,9 @@ public class MainWindowView : Object {
     /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window's own Session. */
     public signal void closed ();
 
-    public MainWindowView (Gtk.Application app, Gtk.Widget tab_bar) {
+    public MainWindowView (Gtk.Application app, Gtk.Widget tab_bar, GLib.Settings settings) {
+        this.settings = settings;
+
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/index.ui");
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
@@ -75,6 +84,21 @@ public class MainWindowView : Object {
         content_bin = (Adw.Bin) builder.get_object ("content_bin");
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
         sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
+
+        // Restores whatever size the last window that closed was left at
+        // (window-width/window-height default to the same 900x600 this
+        // window used to hardcode in its own Blueprint template) — saved
+        // back on close_request below. Deliberately session-wide, not
+        // per-window: with several windows open, whichever one closes
+        // last is what the next launch restores, matching most GNOME
+        // apps' own single-shared-size behavior rather than remembering
+        // one size per window.
+        window.set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+        window.close_request.connect (() => {
+            settings.set_int ("window-width", window.get_width ());
+            settings.set_int ("window-height", window.get_height ());
+            return false;
+        });
 
         // Gtk.Window has its own plain destroy() method (calls
         // gtk_window_destroy()), which shadows Gtk.Widget's own `destroy`
@@ -268,6 +292,9 @@ public class MainWindowView : Object {
         var popover = new Gtk.Popover ();
         var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
 
+        box.append (build_theme_selector ());
+        box.append (ContextMenu.separator ());
+
         box.append (ContextMenu.item (_("New File"), () => new_file_requested (), popover, Gtk.accelerator_get_label (Gdk.Key.n, Gdk.ModifierType.CONTROL_MASK)));
         box.append (ContextMenu.item (_("New Window"), () => new_window_requested (), popover, Gtk.accelerator_get_label (Gdk.Key.n, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)));
         box.append (ContextMenu.separator ());
@@ -301,6 +328,118 @@ public class MainWindowView : Object {
         // this call too, but sharing one update function for everything
         // has_linked_folder affects is simpler than two.
         update_folder_dependent_ui ();
+    }
+
+    /**
+     * The primary menu's own light/dark/follow-system radio row — three
+     * grouped Gtk.CheckButtons, each wired straight to the "style-variant"
+     * GLib.Settings key via its own action-name/action-target, with no
+     * manual read/write/sync code of our own: GLib.Settings.create_action()
+     * already returns a real Gio.Action whose state mirrors the setting
+     * both ways (activating it with a target writes the setting; the
+     * setting changing elsewhere updates which button reads as active).
+     * Ported from GNOME Text Editor's own real EditorThemeSelector
+     * (editor-theme-selector.ui + editor-window-actions.c) — same widget
+     * shape (three GtkCheckButtons in one group, `action-name`/
+     * `action-target` on each, no signal handlers), same settings key
+     * name and choices ("follow"/"light"/"dark"), same circular-swatch
+     * look (install_css() below, values taken straight from its own
+     * style.css). The "settings" action-group prefix is inserted on the
+     * window itself, same as Text Editor's own _editor_window_actions_init()
+     * — a popover attached to a descendant Gtk.MenuButton still resolves
+     * action-names up through its attachment widget's own ancestry.
+     */
+    private Gtk.Widget build_theme_selector () {
+        install_theme_selector_css ();
+
+        var action = settings.create_action ("style-variant");
+        var action_group = new SimpleActionGroup ();
+        action_group.add_action (action);
+        ((Gtk.Widget) window).insert_action_group ("settings", action_group);
+
+        var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12) {
+            margin_start = 6, margin_end = 6, margin_top = 6, margin_bottom = 6, hexpand = true,
+        };
+        box.append (theme_selector_button ("follow", _("Follow System Style")));
+        box.append (theme_selector_button ("light", _("Light Style")));
+        box.append (theme_selector_button ("dark", _("Dark Style")));
+        return box;
+    }
+
+    private Gtk.Widget theme_selector_button (string variant, string tooltip_text) {
+        var button = new Gtk.CheckButton () {
+            hexpand = true,
+            halign = Gtk.Align.CENTER,
+            focus_on_click = false,
+            action_name = "settings.style-variant",
+            action_target = new Variant.string (variant),
+            tooltip_text = tooltip_text,
+        };
+        button.add_css_class ("theme-selector");
+        button.add_css_class (variant);
+        if (theme_selector_group_leader == null) {
+            theme_selector_group_leader = button;
+        } else {
+            button.group = theme_selector_group_leader;
+        }
+        return button;
+    }
+
+    /**
+     * Circular swatches (44px, follow = diagonal light/dark split, light
+     * = solid white, dark = solid #202020), a checked one ringed in the
+     * accent color — colors and sizes copied directly from GNOME Text
+     * Editor's own real style.css (`themeselector checkbutton[.variant]`
+     * rules), translated from its GTK3-era `@named_color` syntax to
+     * libadwaita's own CSS custom properties (`var(--accent-bg-color)`,
+     * `var(--border-color)`) already used elsewhere in this codebase
+     * (see EditorView.install_css()) — same colors, current syntax. The
+     * native radio indicator (the small checkmark/dot GTK draws by
+     * default) is fully suppressed — background/border/box-shadow/icon
+     * all cleared, not just the icon — the accent-colored ring alone is
+     * enough to show which one is selected. Text Editor's own version
+     * repositions that indicator instead of removing it; ported here
+     * first, but repositioning it well enough to look right turned out
+     * not to be worth it, so it's just gone.
+     */
+    private void install_theme_selector_css () {
+        var css_provider = new Gtk.CssProvider ();
+        css_provider.load_from_string ("""
+            checkbutton.theme-selector {
+                padding: 1px;
+                min-width: 44px;
+                min-height: 44px;
+                background-clip: content-box;
+                border-radius: 9999px;
+                box-shadow: inset 0 0 0 1px var(--border-color);
+            }
+            checkbutton.theme-selector:checked {
+                box-shadow: inset 0 0 0 2px var(--accent-bg-color);
+            }
+            checkbutton.theme-selector.follow {
+                background-image: linear-gradient(to bottom right, #fff 49.99%, #202020 50.01%);
+            }
+            checkbutton.theme-selector.light {
+                background-color: #fff;
+            }
+            checkbutton.theme-selector.dark {
+                background-color: #202020;
+            }
+            checkbutton.theme-selector radio {
+                -gtk-icon-source: none;
+                background: none;
+                border: none;
+                box-shadow: none;
+                min-width: 0;
+                min-height: 0;
+                padding: 0;
+            }
+        """);
+        // See views/tab-bar/_pill.vala for why add_provider_for_display
+        // despite the GTK 4.10 deprecation with no replacement.
+        Gtk.StyleContext.add_provider_for_display (
+            Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
     }
 
     /** Whether the active tab exists/is dirty — drives the primary menu's Save/Save as… group: hidden entirely with no active tab, "Save" itself disabled while it's clean. */
