@@ -12,14 +12,16 @@
  * or a recolored one is a file dropped there, not a code change.
  */
 public class EditorView : Object {
-    private const string SECONDARY_SELECTION_TAG_NAME = "secondary-selection";
+    private const string SELECTION_TAG_NAME = "cursor-selection";
 
     private Gtk.Box root;
     private Gtk.Revealer change_banner_revealer;
     private Gtk.ScrolledWindow scrolled_window;
     private OpusSourceView text_view;
     private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
-    private Gtk.TextTag secondary_selection_tag;
+    private Gtk.TextTag selection_tag;
+    private Gdk.RGBA focused_selection_background;
+    private Gdk.RGBA backdrop_selection_background;
 
     /** Suppresses `text_changed` while a set_text/set_placeholder call is itself writing the buffer. */
     private bool updating_programmatically = false;
@@ -327,14 +329,33 @@ public class EditorView : Object {
         drop_target.drop.connect (on_drop);
         text_view.add_controller (drop_target);
 
-        // One shared tag applied over every secondary cursor's selection
-        // range (if any) — cleared and reapplied fresh on every
+        // One shared tag applied over every cursor's selection range (if
+        // any), primary included — cleared and reapplied fresh on every
         // render_cursors() call, rather than a distinct tag per cursor:
         // they're all styled identically, so a single tag applied to N
-        // disjoint ranges is just as correct and simpler to manage.
-        secondary_selection_tag = new Gtk.TextTag (SECONDARY_SELECTION_TAG_NAME);
-        secondary_selection_tag.background_set = true;
-        source_buffer.tag_table.add (secondary_selection_tag);
+        // disjoint ranges is just as correct and simpler to manage. The
+        // real native selection_bound/insert range (moved below) still
+        // drives which text counts as selected for copy/cut/drag/IM
+        // purposes — this tag only controls how that range is *painted*
+        // (see install_css()'s own `selection` node rule for why the
+        // native painting itself is suppressed).
+        selection_tag = new Gtk.TextTag (SELECTION_TAG_NAME);
+        selection_tag.background_set = true;
+        source_buffer.tag_table.add (selection_tag);
+
+        // GTK's own native selection (gtktextview.c: gtk_text_view_
+        // state_flags_changed) grays its selection out whenever the
+        // window is inactive, by giving its "selection" CSS node the
+        // widget's full current state flags — BACKDROP included — and
+        // theming that state separately (gtk's own Default theme:
+        // `textview > text > selection { background-color: $backdrop_
+        // selected_bg_color; &:focus-within { ...$selected_text_bg_color; } }`,
+        // where `$backdrop_selected_bg_color` is the selection color
+        // fully desaturated). Reusing that same real BACKDROP flag here
+        // (state_flags_changed already fires on text_view itself: state
+        // flags like BACKDROP propagate down from the toplevel window to
+        // every descendant) reproduces that behavior for our own tag.
+        text_view.state_flags_changed.connect ((previous_state) => update_selection_background ());
 
         var discard_button = (Gtk.Button) builder.get_object ("change_banner_discard_button");
         discard_button.clicked.connect (() => reload_requested ());
@@ -396,6 +417,28 @@ public class EditorView : Object {
             textview > text:drop(active),
             textview > border:drop(active) {
                 box-shadow: none;
+            }
+
+            /* GtkTextView paints its native selection highlight from a
+             * distinct "selection" CSS node, a child of "text" (confirmed
+             * directly in gtktextview.c: gtk_css_node_set_name (priv->
+             * selection_node, "selection"), parented under text_window->
+             * css_node) — it's drawn straight from the real buffer
+             * selection (gtk_text_buffer_get_selection_bounds()) any time
+             * one exists, with no property or flag to gate it off from
+             * application code (unlike the caret's own cursor_visible).
+             * Both background-color and color are set transparent here —
+             * gtktextlayout.c only overrides glyph color when this node's
+             * own color is non-transparent, so leaving color alone would
+             * still recolor the primary selection's text even with an
+             * invisible background. The real selection_bound/insert
+             * range keeps moving and keeps driving copy/cut/drag/IM
+             * exactly as before; only its native *painting* is disabled,
+             * in favor of the same Gtk.TextTag every cursor's selection
+             * now renders through (see EditorView.render_cursors()). */
+            textview > text > selection {
+                background-color: transparent;
+                color: transparent;
             }
         """);
         // See views/tab-bar/_pill.vala for why add_provider_for_display
@@ -463,14 +506,15 @@ public class EditorView : Object {
     }
 
     /**
-     * Copies the current selection to the clipboard, read-only — Cut's
-     * own read half. CursorController pairs this with deleting the
-     * selection through its own apply_edit(), rather than GTK's native
-     * cut-clipboard action, which (like drag-and-drop) wouldn't go
-     * through EditHistory at all.
+     * Writes `text` to the system clipboard — Copy/Cut's own write half.
+     * Not GTK's native copy-to-clipboard action: that only ever copies
+     * the real (primary-only) native selection, which is exactly what
+     * left multi-cursor Cut/Paste silently dropping every cursor but the
+     * primary's — CursorController computes the real joined, every-
+     * cursor text itself and writes it here instead.
      */
-    public void copy_selection_to_clipboard () {
-        source_buffer.copy_clipboard (text_view.get_clipboard ());
+    public void write_clipboard_text (string text) {
+        text_view.get_clipboard ().set_text (text);
     }
 
     /** The clipboard's current text, or null if it has none (or isn't text at all) — Paste's own read half; the caller inserts it through its own apply_edit(), same reasoning as copy_selection_to_clipboard() above. */
@@ -499,14 +543,17 @@ public class EditorView : Object {
 
     /**
      * Shows every cursor in `cursors` (must be non-empty) for the
-     * currently displayed document: the primary's selection still uses
-     * the real native selection_bound/insert range (so it keeps
-     * following the system's own selection-color convention), every
-     * other cursor's selection uses the shared secondary-selection
-     * Gtk.TextTag — but every cursor's *caret*, primary included, is
-     * hand-drawn by OpusSourceView (see its own doc comment for why: the
-     * native caret is never painted at all, only its marks are still
-     * moved). Purely a rendering call — it doesn't read or change the
+     * currently displayed document: every cursor's selection, primary
+     * included, is painted through the same shared Gtk.TextTag (native
+     * selection painting is suppressed entirely — see install_css()'s
+     * own `selection` node rule), and every cursor's *caret*, primary
+     * included, is hand-drawn by OpusSourceView (see its own doc comment
+     * for why: the native caret is never painted at all, only its marks
+     * are still moved). The real native selection_bound/insert range is
+     * still moved for the primary cursor — copy/cut/drag/IM all read it
+     * directly, and native keybindings (arrows, double/triple-click,
+     * Ctrl+A) still drive it — this only changes how that range is
+     * painted. Purely a rendering call — it doesn't read or change the
      * buffer's text.
      */
     public void render_cursors (Cursor[] cursors) {
@@ -531,19 +578,19 @@ public class EditorView : Object {
         Gtk.TextIter buffer_end;
         source_buffer.get_start_iter (out buffer_start);
         source_buffer.get_end_iter (out buffer_end);
-        source_buffer.remove_tag_by_name (SECONDARY_SELECTION_TAG_NAME, buffer_start, buffer_end);
+        source_buffer.remove_tag_by_name (SELECTION_TAG_NAME, buffer_start, buffer_end);
 
         var caret_offsets = new int[cursors.length];
         for (int i = 0; i < cursors.length; i++) {
             var cursor = cursors[i];
             caret_offsets[i] = cursor.position_offset;
 
-            if (i > 0 && !cursor.is_empty) {
+            if (!cursor.is_empty) {
                 Gtk.TextIter selection_start;
                 Gtk.TextIter selection_end;
                 source_buffer.get_iter_at_offset (out selection_start, cursor.selection_start);
                 source_buffer.get_iter_at_offset (out selection_end, cursor.selection_end);
-                source_buffer.apply_tag_by_name (SECONDARY_SELECTION_TAG_NAME, selection_start, selection_end);
+                source_buffer.apply_tag_by_name (SELECTION_TAG_NAME, selection_start, selection_end);
             }
         }
 
@@ -834,14 +881,29 @@ public class EditorView : Object {
 
         var accent = Adw.StyleManager.get_default ().get_accent_color_rgba () ?? Gdk.RGBA () { red = 0.2f, green = 0.4f, blue = 0.85f, alpha = 1.0f };
 
-        var selection_background = accent;
-        selection_background.alpha = 0.35f;
-        secondary_selection_tag.background_rgba = selection_background;
+        focused_selection_background = accent;
+        focused_selection_background.alpha = 0.35f;
+
+        // Mirrors GTK's own ratio between its default (backdrop) and
+        // `:focus-within` selection colors: an opaque, fully desaturated
+        // color at half the alpha of the focused one ($backdrop_selected_
+        // bg_color: transparentize(desaturate($selected_bg_color, 100%), 0.5),
+        // against an otherwise-opaque focused color) — see gtk/theme/
+        // Default/_colors.scss in GTK's own real source.
+        backdrop_selection_background = EditorColors.desaturate (accent);
+        backdrop_selection_background.alpha = focused_selection_background.alpha * 0.5f;
+
+        update_selection_background ();
 
         // Every caret's own color (OpusSourceView.snapshot_layer) reads
         // the widget's resolved foreground color directly at paint time
         // instead of being told it here — see that class's own comment
         // for why (a theme-change callback isn't a reliable place to
         // read freshly-resolved CSS from).
+    }
+
+    private void update_selection_background () {
+        bool backdrop = (text_view.get_state_flags () & Gtk.StateFlags.BACKDROP) != 0;
+        selection_tag.background_rgba = backdrop ? backdrop_selection_background : focused_selection_background;
     }
 }

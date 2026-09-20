@@ -459,6 +459,72 @@ public class CursorCollection : Object {
             attempted.add (tagged);
         }
 
+        return finalize_edits (attempted, out cursors_to_remove);
+    }
+
+    /**
+     * Each cursor's own selected text (codepoint-exact, "" for a cursor
+     * with no selection), in cursor order — Copy/Cut's own per-cursor
+     * read half, mirroring {@link compute_edits}'s own per-cursor
+     * INSERT-range logic. Kept alongside a piece count when writing to
+     * the system clipboard so a later Paste can distribute one piece per
+     * cursor when the counts still match — see {@link
+     * compute_distributed_paste_edits}.
+     */
+    public string[] selected_texts (string text) {
+        var chars = to_chars (text);
+        var texts = new string[cursors.length];
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            texts[i] = cursor.is_empty ? "" : chars_to_string (chars, cursor.selection_start, cursor.selection_end);
+        }
+        return texts;
+    }
+
+    /**
+     * Like {@link compute_edits}'s own EditIntent.INSERT case, but
+     * assigns a distinct replacement text per cursor (`texts[i]` for
+     * `cursors[i]`) instead of one string shared by every cursor —
+     * Paste's own per-cursor distribution, once `texts.length` is
+     * confirmed to match the live cursor count by the caller (see
+     * CursorController's own clipboard handling for when that applies:
+     * VS Code's real `PasteOperation._distributePasteToCursors`,
+     * `src/vs/editor/common/cursor/cursorTypeEditOperations.ts`, is the
+     * verified reference this mirrors).
+     */
+    public TaggedTextEdit[] compute_distributed_paste_edits (string[] texts, string text, out Cursor[] cursors_to_remove) {
+        assert (texts.length == cursors.length);
+
+        var chars = to_chars (text);
+        var attempted = new GenericArray<TaggedTextEdit> ();
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            int start;
+            int end;
+            if (!cursor.is_empty) {
+                start = cursor.selection_start;
+                end = cursor.selection_end;
+            } else {
+                start = end = cursor.position_offset;
+            }
+
+            var edit = new TextEdit ();
+            edit.start_offset = start;
+            edit.end_offset = end;
+            edit.old_text = chars_to_string (chars, start, end);
+            edit.new_text = texts[i];
+
+            var tagged = new TaggedTextEdit ();
+            tagged.edit = edit;
+            tagged.cursor = cursor;
+            attempted.add (tagged);
+        }
+
+        return finalize_edits (attempted, out cursors_to_remove);
+    }
+
+    private TaggedTextEdit[] finalize_edits (GenericArray<TaggedTextEdit> attempted, out Cursor[] cursors_to_remove) {
         stable_sort_edits_by_start (attempted);
 
         // normalize() already keeps every pair of cursors at least one

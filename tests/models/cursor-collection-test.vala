@@ -413,6 +413,48 @@ private void test_two_cursors_extended_down_then_right_merge_once_they_overlap (
     assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 13);
 }
 
+private void test_selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb\nccc";
+    var c0 = new Cursor (0);
+    c0.position_offset = 3; // "aaa"
+    var c1 = new Cursor (4); // collapsed, on line 1
+    var c2 = new Cursor (8);
+    c2.position_offset = 11; // "ccc"
+    cc.set_cursors ({ c0, c1, c2 });
+
+    string[] texts = cc.selected_texts (text);
+
+    assert_cmpint (texts.length, CompareOperator.EQ, 3);
+    assert_cmpstr (texts[0], CompareOperator.EQ, "aaa");
+    assert_cmpstr (texts[1], CompareOperator.EQ, "");
+    assert_cmpstr (texts[2], CompareOperator.EQ, "ccc");
+}
+
+private void test_compute_distributed_paste_edits_assigns_one_text_per_cursor () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb\nccc";
+    var c0 = new Cursor (0);
+    c0.position_offset = 3; // "aaa"
+    var c1 = new Cursor (4);
+    c1.position_offset = 7; // "bbb"
+    var c2 = new Cursor (8);
+    c2.position_offset = 11; // "ccc"
+    cc.set_cursors ({ c0, c1, c2 });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_distributed_paste_edits ({ "111", "222", "333" }, text, out to_remove);
+    assert_cmpint (edits.length, CompareOperator.EQ, 3);
+    assert_cmpint (to_remove.length, CompareOperator.EQ, 0);
+
+    cc.apply_edit_results (edits, to_remove);
+
+    assert_cmpint (cc.count, CompareOperator.EQ, 3);
+    assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 3); // "111" replaces "aaa", same length
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 7);
+    assert_cmpint (cc.at (2).position_offset, CompareOperator.EQ, 11);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/cursor-collection/default_state_is_a_single_collapsed_cursor_at_start", test_default_state_is_a_single_collapsed_cursor_at_start);
@@ -443,5 +485,7 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_insert_repositions_every_cursor", test_multi_cursor_simultaneous_insert_repositions_every_cursor);
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_delete_left", test_multi_cursor_simultaneous_delete_left);
     Test.add_func ("/models/cursor-collection/two_cursors_extended_down_then_right_merge_once_they_overlap", test_two_cursors_extended_down_then_right_merge_once_they_overlap);
+    Test.add_func ("/models/cursor-collection/selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one", test_selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one);
+    Test.add_func ("/models/cursor-collection/compute_distributed_paste_edits_assigns_one_text_per_cursor", test_compute_distributed_paste_edits_assigns_one_text_per_cursor);
     return Test.run ();
 }

@@ -20,11 +20,15 @@
  * `editorCursor.foreground`) rather than trying to approximate it from
  * two different rendering systems.
  *
- * Secondary *selections* are still left to GTK, painted with a plain
- * `Gtk.TextTag` by `EditorView.render_cursors()` (and the primary's own
- * selection still renders through the real, native `selection_bound`↔
- * `insert` range, `cursor_visible` doesn't affect that) — only the caret
- * itself has no native equivalent for more than one cursor.
+ * Every cursor's *selection*, primary included, is painted the same way
+ * too: through a plain `Gtk.TextTag` applied by `EditorView.
+ * render_cursors()`. The real, native `selection_bound`↔`insert` range
+ * still moves normally for the primary cursor (copy/cut/drag/IM and
+ * every native selection keybinding all still depend on it) — only its
+ * *painting* is suppressed, via a CSS rule on GtkTextView's own
+ * `selection` node (see `EditorView.install_css()`), the same kind of
+ * paint-only suppression `cursor_visible = false` already does for the
+ * caret above.
  */
 public class OpusSourceView : GtkSource.View {
     // Matches VS Code's own default (ViewCursors.BLINK_INTERVAL in

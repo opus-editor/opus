@@ -35,6 +35,20 @@ public class CursorController : Object {
     private EditorView editor_view;
     private Document? active_document = null;
 
+    // The exact text most recently written to the clipboard by our own
+    // Cut/Copy, and the per-cursor pieces it was built from (null once
+    // there's only one piece — no distribution is ever possible then).
+    // A later Paste only distributes one piece per cursor when the
+    // clipboard's *current* content still matches this exactly (the
+    // system clipboard could have changed in the meantime — another
+    // app's own copy, or this one's Cut/Copy from a different cursor
+    // count) and the live cursor count still matches `pieces.length` —
+    // mirrors VS Code's own real in-memory clipboard metadata cache
+    // (`InMemoryClipboardMetadataManager`, `clipboardUtils.ts`), keyed
+    // the same way: by the exact clipboard text, not by identity/time.
+    private string? last_clipboard_text = null;
+    private string[]? last_clipboard_pieces = null;
+
     // Whether the most recently typed character (in the still-open
     // typing run) was a space — the only way to tell EditKind.
     // TYPING_FIRST_SPACE apart from TYPING_CONSECUTIVE_SPACE, since that
@@ -129,18 +143,23 @@ public class CursorController : Object {
         }
 
         // Claimed ourselves — same reasoning as select-all's own fix:
-        // GTK's native cut/paste bypass this controller's edit pipeline
-        // entirely (like drag-and-drop's insert/delete), so nothing
-        // would ever reach EditHistory for them. Unlike drag-and-drop,
-        // these are a single keystroke each, so there's no native
-        // interaction (icon, motion, drop target) worth keeping —
+        // GTK's native cut/copy/paste bypass this controller's edit
+        // pipeline entirely (like drag-and-drop's insert/delete), so
+        // nothing would ever reach EditHistory for them. Unlike drag-
+        // and-drop, these are a single keystroke each, so there's no
+        // native interaction (icon, motion, drop target) worth keeping —
         // reusing apply_edit() outright is simpler than reconstructing
-        // after the fact.
+        // after the fact. GTK's own native copy/cut is also *only* ever
+        // aware of the real, primary-only native selection — reusing it
+        // for either is what silently dropped every cursor but the
+        // primary's own text; write_selection_to_clipboard() below reads
+        // every cursor's own selection instead.
+        if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.c) {
+            write_selection_to_clipboard (false);
+            return true;
+        }
         if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.x) {
-            if (!active_document.cursors.primary.is_empty) {
-                editor_view.copy_selection_to_clipboard ();
-                apply_edit (EditIntent.INSERT, "", EditKind.OTHER);
-            }
+            write_selection_to_clipboard (true);
             return true;
         }
         if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.v) {
@@ -428,6 +447,65 @@ public class CursorController : Object {
         render ();
     }
 
+    /**
+     * Copy/Cut's shared write half: joins every cursor's own selected
+     * text with "\n" (matching VS Code's real `getDataToCopy`,
+     * `clipboardUtils.ts` — one system-clipboard string, so pasting into
+     * any other app still gets sensible plain text) and writes it to the
+     * clipboard. Remembers the individual pieces alongside it (only when
+     * there's more than one — a single piece can never be distributed
+     * back across cursors) so a later same-session Paste can hand one
+     * piece back to each cursor; see distributed_paste_pieces().
+     * `remove_after` additionally deletes the selection through the
+     * normal edit pipeline, for Cut.
+     */
+    private void write_selection_to_clipboard (bool remove_after) {
+        if (active_document.cursors.primary.is_empty) {
+            return;
+        }
+
+        var pieces = active_document.cursors.selected_texts (editor_view.get_text ());
+        string joined = string.joinv ("\n", pieces);
+        editor_view.write_clipboard_text (joined);
+        last_clipboard_text = joined;
+        last_clipboard_pieces = pieces.length > 1 ? pieces : null;
+
+        if (remove_after) {
+            apply_edit (EditIntent.INSERT, "", EditKind.OTHER);
+        }
+    }
+
+    /**
+     * What Paste should hand back to each cursor for `pasted_text`, or
+     * null if it should be pasted as one shared string instead (the
+     * existing, single-cursor-shaped behavior). Mirrors VS Code's own
+     * real `PasteOperation._distributePasteToCursors` (`cursorTypeEditOperations.ts`):
+     * an exact match against this session's own remembered Cut/Copy
+     * pieces wins first (their count already matches by construction,
+     * once the clipboard's own content is confirmed unchanged since);
+     * failing that, falls back to splitting `pasted_text` itself by line
+     * (its default `multiCursorPaste: 'spread'` behavior) — covering
+     * plain multi-line text pasted from anywhere else, not just our own
+     * clipboard round-trip, as long as its line count happens to match.
+     */
+    private string[]? distributed_paste_pieces (string pasted_text, int cursor_count) {
+        if (cursor_count == 1) {
+            return null;
+        }
+        if (last_clipboard_pieces != null && pasted_text == last_clipboard_text && last_clipboard_pieces.length == cursor_count) {
+            return last_clipboard_pieces;
+        }
+
+        string trimmed = pasted_text;
+        if (trimmed.has_suffix ("\r\n")) {
+            trimmed = trimmed.substring (0, trimmed.length - 2);
+        } else if (trimmed.has_suffix ("\n") || trimmed.has_suffix ("\r")) {
+            trimmed = trimmed.substring (0, trimmed.length - 1);
+        }
+        string[] lines = trimmed.split ("\n");
+        return lines.length == cursor_count ? lines : null;
+    }
+
     /** Paste's own async half — clipboard reads can't be synchronous in GTK4. Re-checks active_document once the read comes back: the user could have switched tabs in that gap, and this must never land in whatever tab happens to be active by then. */
     private async void paste_from_clipboard (Document document) {
         string? text = yield editor_view.read_clipboard_text ();
@@ -435,19 +513,33 @@ public class CursorController : Object {
             return;
         }
 
-        apply_edit (EditIntent.INSERT, text, EditKind.OTHER);
+        string[]? pieces = distributed_paste_pieces (text, document.cursors.count);
+        if (pieces == null) {
+            apply_edit (EditIntent.INSERT, text, EditKind.OTHER);
+        } else {
+            apply_distributed_paste (pieces);
+        }
     }
 
     private void apply_edit (EditIntent intent, string typed_text, EditKind kind) {
-        var document = active_document;
-        var text = editor_view.get_text ();
-        var before_cursors = document.cursors.snapshot ();
-
         Cursor[] cursors_to_remove;
-        var tagged_edits = document.cursors.compute_edits (intent, typed_text, text, out cursors_to_remove);
+        var tagged_edits = active_document.cursors.compute_edits (intent, typed_text, editor_view.get_text (), out cursors_to_remove);
+        apply_tagged_edits (tagged_edits, cursors_to_remove, kind);
+    }
+
+    private void apply_distributed_paste (string[] texts) {
+        Cursor[] cursors_to_remove;
+        var tagged_edits = active_document.cursors.compute_distributed_paste_edits (texts, editor_view.get_text (), out cursors_to_remove);
+        apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
+    }
+
+    private void apply_tagged_edits (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove, EditKind kind) {
         if (tagged_edits.length == 0) {
             return;
         }
+
+        var document = active_document;
+        var before_cursors = document.cursors.snapshot ();
 
         var edits = new TextEdit[tagged_edits.length];
         for (int i = 0; i < tagged_edits.length; i++) {

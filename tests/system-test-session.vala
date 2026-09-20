@@ -211,6 +211,20 @@ public class SystemTestSession : Object {
         call ("SetActiveCursors", new Variant ("(@ai@ai)", anchors.end (), positions.end ()));
     }
 
+    /** `triples[i] = { line, start_column, end_column }` (0-based) — one cursor per triple, selecting `[start_column, end_column)` on that line, anchored at the start (position/caret lands at the end, matching a left-to-right drag-select). Resolved against the buffer's current text. */
+    public void set_selections (int[,] triples) throws Error {
+        var lines = active_text ().split ("\n");
+
+        var anchors = new VariantBuilder (new VariantType ("ai"));
+        var positions = new VariantBuilder (new VariantType ("ai"));
+        for (int i = 0; i < triples.length[0]; i++) {
+            anchors.add ("i", offset_for_line_column (lines, triples[i, 0], triples[i, 1]));
+            positions.add ("i", offset_for_line_column (lines, triples[i, 0], triples[i, 2]));
+        }
+
+        call ("SetActiveCursors", new Variant ("(@ai@ai)", anchors.end (), positions.end ()));
+    }
+
     public string active_text () throws Error {
         string text;
         call ("GetActiveText").get_child (0, "s", out text);
