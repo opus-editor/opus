@@ -14,6 +14,8 @@ public class MainWindowView : Object {
     private Adw.ApplicationWindow window;
     private Adw.OverlaySplitView split_view;
     private Adw.Bin sidebar_bin;
+    private Gtk.Box sidebar_resize_handle;
+    private Gtk.Box tab_bar_row;
     private Adw.Bin tab_bar_bin;
     private Adw.Bin content_bin;
     private Adw.StatusPage empty_state;
@@ -46,6 +48,19 @@ public class MainWindowView : Object {
     private bool has_active_tab = false;
     private bool active_is_dirty = false;
 
+    // The user-dragged sidebar width, in pixels — kept in sync with
+    // split_view's own min/max-sidebar-width (see setup_sidebar_resize()),
+    // pinned equal to each other so the fraction-based layout
+    // AdwOverlaySplitView actually does internally always resolves to
+    // exactly this value regardless of window width. Saved to
+    // GLib.Settings alongside window-width/window-height, restored the
+    // same way.
+    private const double MIN_SIDEBAR_WIDTH = 180;
+    private const double MAX_SIDEBAR_WIDTH = 600;
+    private double sidebar_width;
+    private double sidebar_drag_start_width;
+    private double sidebar_drag_start_surface_x;
+
     /** Ctrl+W anywhere in the window — the tab context menu's own "Close" item names this same shortcut. */
     public signal void close_active_tab_requested ();
 
@@ -70,6 +85,9 @@ public class MainWindowView : Object {
     /** The primary menu's own "Close Folder" — unlinks whatever folder is currently linked, hiding the sidebar entirely again. */
     public signal void close_folder_requested ();
 
+    /** Double-click on the sidebar's own resize handle — main.vala answers with set_sidebar_width(), computed from FileTreeView's own currently-visible rows. */
+    public signal void sidebar_reset_width_requested ();
+
     /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window's own Session. */
     public signal void closed ();
 
@@ -80,6 +98,8 @@ public class MainWindowView : Object {
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
         sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
+        sidebar_resize_handle = (Gtk.Box) builder.get_object ("sidebar_resize_handle");
+        tab_bar_row = (Gtk.Box) builder.get_object ("tab_bar_row");
         tab_bar_bin = (Adw.Bin) builder.get_object ("tab_bar_bin");
         content_bin = (Adw.Bin) builder.get_object ("content_bin");
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
@@ -97,8 +117,11 @@ public class MainWindowView : Object {
         window.close_request.connect (() => {
             settings.set_int ("window-width", window.get_width ());
             settings.set_int ("window-height", window.get_height ());
+            settings.set_int ("sidebar-width", (int) sidebar_width);
             return false;
         });
+
+        setup_sidebar_resize ();
 
         // Gtk.Window has its own plain destroy() method (calls
         // gtk_window_destroy()), which shadows Gtk.Widget's own `destroy`
@@ -131,6 +154,41 @@ public class MainWindowView : Object {
             tooltip.background {
                 background-color: rgb(0 0 6);
             }
+
+            /* Header/sidebar/main content each get their own flat color
+             * (see the Blueprint's own opus-header/opus-sidebar/opus-main
+             * classes) — overriding libadwaita's own named custom
+             * properties instead of hardcoding background-color directly
+             * on those three nodes means every other place that already
+             * reads the same variables (the tab bar's own edge-fade
+             * gradient, list-view hover/selection tints, …) picks the new
+             * colors up automatically, with no separate override needed.
+             * GTK's CSS parser has no light-dark() (checked — see
+             * TabBarView's own drag-ghost comment for where this was
+             * first hit), so light/dark pick different values through a
+             * plain class on the window instead, toggled in
+             * update_theme_class() below. */
+            window.dark {
+                --headerbar-bg-color: #2e2e32;
+                --sidebar-bg-color: #262629;
+                --view-bg-color: #1d1d20;
+                --window-bg-color: #1d1d20;
+            }
+            window:not(.dark) {
+                --headerbar-bg-color: #ffffff;
+                --sidebar-bg-color: #f5f5f6;
+                --view-bg-color: #ffffff;
+                --window-bg-color: #ffffff;
+            }
+            .opus-header {
+                background-color: var(--headerbar-bg-color);
+            }
+            .opus-sidebar {
+                background-color: var(--sidebar-bg-color);
+            }
+            .opus-main {
+                background-color: var(--view-bg-color);
+            }
         """);
         // See views/tab-bar/_pill.vala for why add_provider_for_display
         // despite the GTK 4.10 deprecation with no replacement.
@@ -138,15 +196,16 @@ public class MainWindowView : Object {
             Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         );
 
+        var style_manager = Adw.StyleManager.get_default ();
+        style_manager.notify["dark"].connect (() => update_theme_class (style_manager.dark));
+        update_theme_class (style_manager.dark);
+
         window.application = app;
         tab_bar_bin.child = tab_bar;
         // No folder is linked at construction — the sidebar has nothing
         // to show until link_folder() gives it one ("Open Folder…", or
         // open_workspace() right after construction when launched with a
-        // folder argument). Adw.HeaderBar's own split-view integration
-        // (see the sidebar header's comment in the Blueprint) already
-        // reacts to this, moving the window's controls to the content
-        // header on its own — same mechanism the width breakpoint uses.
+        // folder argument).
         split_view.show_sidebar = false;
 
         // The button itself just mirrors/drives show-sidebar — the split
@@ -177,24 +236,28 @@ public class MainWindowView : Object {
             description = _("Open a file or folder to start editing."),
             icon_name = "document-open-symbolic",
         };
-        // No tab open yet, so there's nothing to show in content_bin —
-        // stays on empty_state until show_content() says otherwise, rather
-        // than assuming there's always some editor-shaped widget to mount.
-        content_bin.child = empty_state;
+        // No tab open yet, so there's nothing to show in content_bin (or
+        // the tab bar above it) — stays this way until show_content() says
+        // otherwise, rather than assuming there's always some editor-shaped
+        // widget to mount.
+        show_empty_state ();
     }
 
     /**
      * Shows `widget` — the active tab's own content, an {@link EditorView}'s
      * today but not assumed to always be — in the content pane, replacing
-     * whatever was shown before.
+     * whatever was shown before. Also reveals the tab bar, hidden while
+     * there was nothing open for it to show.
      */
     public void show_content (Gtk.Widget widget) {
         content_bin.child = widget;
+        tab_bar_row.visible = true;
     }
 
-    /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes. */
+    /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes — hides the (now empty) tab bar along with it. */
     public void show_empty_state () {
         content_bin.child = empty_state;
+        tab_bar_row.visible = false;
     }
 
     /**
@@ -223,6 +286,93 @@ public class MainWindowView : Object {
         has_linked_folder = false;
         split_view.show_sidebar = false;
         update_folder_dependent_ui ();
+    }
+
+    /** Toggles the "dark" class the opus-header/opus-sidebar/opus-main CSS (see the constructor) keys its colors off of. */
+    private void update_theme_class (bool dark) {
+        if (dark) {
+            window.add_css_class ("dark");
+        } else {
+            window.remove_css_class ("dark");
+        }
+    }
+
+    /**
+     * Drag-to-resize for the sidebar (see the Blueprint's own
+     * sidebar_resize_handle comment for why this is hand-rolled rather
+     * than something AdwOverlaySplitView already provides). Pins
+     * min-sidebar-width and max-sidebar-width to the same value — the
+     * only way to make the fraction-based layout AdwOverlaySplitView
+     * actually does internally resolve to one exact pixel width instead
+     * of a width that also depends on how wide the window itself is.
+     *
+     * Deliberately NOT driven by Gtk.GestureDrag's own offset_x/offset_y
+     * (widget-local coordinates, relative to sidebar_resize_handle
+     * itself): every drag-update here resizes the very box that handle
+     * sits in, which shifts the handle's own on-screen position — GTK
+     * then resolves the *next* event's "local" coordinates against that
+     * already-shifted allocation, so the reported offset no longer means
+     * "distance from where the drag started." That fed back into itself
+     * (every update nudging the widget it was being measured against)
+     * and showed up live as the sidebar width oscillating between two
+     * values many times a second (reported: the handle "duplicating",
+     * the main content "flickering like a quantum tab"). Surface
+     * coordinates (Gdk.Event.get_position(), relative to the whole
+     * window, not any single widget inside it) don't move just because
+     * an inner box got wider, so the same math stays correct for the
+     * whole drag.
+     */
+    private void setup_sidebar_resize () {
+        sidebar_width = ((double) settings.get_int ("sidebar-width")).clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
+        split_view.min_sidebar_width = sidebar_width;
+        split_view.max_sidebar_width = sidebar_width;
+
+        sidebar_resize_handle.set_cursor (new Gdk.Cursor.from_name ("col-resize", null));
+
+        var drag = new Gtk.GestureDrag ();
+        drag.drag_begin.connect ((start_x, start_y) => {
+            var event = drag.get_current_event ();
+            if (event == null) {
+                return;
+            }
+            sidebar_drag_start_width = sidebar_width;
+            double surface_y;
+            event.get_position (out sidebar_drag_start_surface_x, out surface_y);
+        });
+        drag.drag_update.connect ((offset_x, offset_y) => {
+            var event = drag.get_current_event ();
+            if (event == null) {
+                return;
+            }
+            double surface_x, surface_y;
+            event.get_position (out surface_x, out surface_y);
+            sidebar_width = (sidebar_drag_start_width + (surface_x - sidebar_drag_start_surface_x)).clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
+            split_view.min_sidebar_width = sidebar_width;
+            split_view.max_sidebar_width = sidebar_width;
+        });
+        sidebar_resize_handle.add_controller (drag);
+
+        // Double-click resets to "optimal" width — VS Code's own real
+        // behavior (checked its source): sidebar_reset_width_requested is
+        // fired here rather than computed inline because measuring "the
+        // optimal width" needs FileTreeView's own realized row widgets,
+        // and this View has no business knowing FileTreeView's concrete
+        // type — main.vala wires the two together the same way it already
+        // does for "Reveal in Sidebar".
+        var click = new Gtk.GestureClick ();
+        click.pressed.connect ((n_press, x, y) => {
+            if (n_press == 2) {
+                sidebar_reset_width_requested ();
+            }
+        });
+        sidebar_resize_handle.add_controller (click);
+    }
+
+    /** Pins the sidebar to exactly `width` px, clamped to the same range dragging allows — see setup_sidebar_resize(). */
+    public void set_sidebar_width (double width) {
+        sidebar_width = width.clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
+        split_view.min_sidebar_width = sidebar_width;
+        split_view.max_sidebar_width = sidebar_width;
     }
 
     private void update_folder_dependent_ui () {

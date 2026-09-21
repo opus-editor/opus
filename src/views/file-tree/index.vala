@@ -22,6 +22,8 @@ private extern static Gtk.TreeListModel tree_list_model_new_raw (
 );
 
 public class FileTreeView : Object {
+    private Gtk.Box root_box;
+    private Gtk.Label root_label;
     private Gtk.ScrolledWindow scrolled_window;
     private Gtk.ListView list_view;
     private Gtk.TreeListModel? tree_model;
@@ -96,7 +98,7 @@ public class FileTreeView : Object {
     private const uint REVEAL_FLASH_HOLD_MS = 150;
     private const uint REVEAL_FLASH_TRANSITION_MS = 700; // matches the CSS transition's own duration
 
-    public Gtk.Widget widget { get { return scrolled_window; } }
+    public Gtk.Widget widget { get { return root_box; } }
 
     /**
      * A file row was clicked. `open_permanent` is true for a double-click
@@ -230,13 +232,35 @@ public class FileTreeView : Object {
             listview.data-table row.reveal-flash {
                 background-color: var(--warning-bg-color);
             }
+            .file-tree-root-label {
+                font-weight: bold;
+            }
         """);
         Gtk.StyleContext.add_provider_for_display (
             Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         );
 
-        scrolled_window = new Gtk.ScrolledWindow ();
+        scrolled_window = new Gtk.ScrolledWindow () {
+            vexpand = true,
+        };
         scrolled_window.child = list_view;
+
+        // The linked folder's own name — set once populate() actually
+        // knows it. Ellipsizes rather than wrapping/overflowing for a
+        // workspace with a long directory name.
+        root_label = new Gtk.Label ("") {
+            halign = Gtk.Align.START,
+            ellipsize = Pango.EllipsizeMode.END,
+            margin_start = 12,
+            margin_end = 12,
+            margin_top = 8,
+            margin_bottom = 4,
+        };
+        root_label.add_css_class ("file-tree-root-label");
+
+        root_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        root_box.append (root_label);
+        root_box.append (scrolled_window);
 
         setup_context_menu ();
         setup_background_click ();
@@ -246,6 +270,7 @@ public class FileTreeView : Object {
 
     public void populate (FileNode root) {
         root_node = root;
+        root_label.label = root.name;
         var root_store = children_store (root);
         stores_by_path[root.path] = root_store;
 
@@ -253,6 +278,65 @@ public class FileTreeView : Object {
         selection = new Gtk.SingleSelection (tree_model);
         selection.selection_changed.connect (on_selection_changed);
         list_view.model = selection;
+    }
+
+    /**
+     * The width (in px) that would show every *currently visible* row's
+     * full label with nothing clipped — ported from VS Code's own real
+     * ExplorerView.getOptimalWidth() (checked its source: measures every
+     * `.explorer-item .label-name` actually in the DOM right now, i.e.
+     * only realized/on-screen rows — a collapsed folder's children, or
+     * anything scrolled out of view, isn't part of the DOM at all and
+     * doesn't count). Same limitation here for the same reason: list
+     * virtualization means most rows have no widget to measure unless
+     * they're actually on screen.
+     *
+     * Unlike VS Code's version, no separate indentation math is needed:
+     * a row's own top-level widget already includes its
+     * Gtk.TreeExpander, which bakes the tree-depth indent into that
+     * widget's own layout — so this row's natural width already *is*
+     * "indent + icon + label," measured in one call, where VS Code's
+     * DOM-based approach has to add a separately-computed left-offset
+     * onto each label's own text width by hand (see getLargestChildWidth
+     * in its real source, dom.ts).
+     */
+    public double get_optimal_width () {
+        double widest = 0;
+        collect_optimal_width (list_view, ref widest);
+        return widest;
+    }
+
+    // libadwaita's own real ".navigation-sidebar > row" rule
+    // (_sidebars.scss, checked its source) wraps every row in
+    // `padding: 0 8px` and `margin: 0 $menu_margin 2px` ($menu_margin is
+    // 6px, _common.scss) — 28px total, horizontally, that FileTreeRow's
+    // own box (measured below) knows nothing about, since that padding/
+    // margin lives on its *parent*, the native "row" node, not on the
+    // box itself. Without this, get_optimal_width() could measure a name
+    // as "fits" and still see it clipped once the real row's own
+    // padding/margin land on screen — reported live, not just theorized.
+    // Measuring the native row node below already picks up its own
+    // padding (Gtk.Widget.measure() includes a node's own CSS padding);
+    // its CSS *margin* isn't part of that same node's own measured size
+    // (it's applied by the row's parent when placing it), so it's added
+    // back by hand here instead.
+    private const double NATIVE_ROW_HORIZONTAL_MARGIN = 12; // 6px each side
+
+    private static void collect_optimal_width (Gtk.Widget root, ref double widest) {
+        var row = root.get_data<FileTreeRow?> ("row");
+        if (row != null && row.bound_node != null) {
+            // The real native "row" node root sits inside — same wrapper
+            // native_row_widget() already targets for hover/drag-hover
+            // CSS elsewhere in this file.
+            var native_row = root.get_parent () ?? root;
+            int minimum, natural, minimum_baseline, natural_baseline;
+            native_row.measure (Gtk.Orientation.HORIZONTAL, -1, out minimum, out natural, out minimum_baseline, out natural_baseline);
+            widest = double.max (widest, natural + NATIVE_ROW_HORIZONTAL_MARGIN);
+        }
+
+        for (var child = root.get_first_child (); child != null; child = child.get_next_sibling ()) {
+            collect_optimal_width (child, ref widest);
+        }
     }
 
     public void select_path (string path) {

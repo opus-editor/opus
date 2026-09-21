@@ -11,6 +11,11 @@
       <summary>Window height</summary>
       <description>The height of the main window, in pixels, restored the next time Opus is opened.</description>
     </key>
+    <key name="sidebar-width" type="i">
+      <default>240</default>
+      <summary>Sidebar width</summary>
+      <description>The width of the sidebar, in pixels, restored the next time Opus is opened.</description>
+    </key>
     <key name="style-variant" type="s">
       <choices>
         <choice value="follow"/>

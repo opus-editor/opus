@@ -98,6 +98,16 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
         session.file_tree_view.reveal_path (path);
     });
 
+    // Double-click on the sidebar's own resize handle — same
+    // read-fresh-and-guard pattern as "Reveal in Sidebar" above: nothing
+    // to measure with no folder (and so no FileTreeView) linked yet.
+    session.window_view.sidebar_reset_width_requested.connect (() => {
+        if (session.file_tree_view == null) {
+            return;
+        }
+        session.window_view.set_sidebar_width (session.file_tree_view.get_optimal_width ());
+    });
+
     // New File opens a brand-new "Untitled-N" tab with nothing on disk
     // yet — saving it (Save or Save as…, either one) goes through the
     // Save As flow, since there's nowhere existing to plain-save to.
