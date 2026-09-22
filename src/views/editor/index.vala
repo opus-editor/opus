@@ -13,6 +13,8 @@
  */
 public class EditorView : Object {
     private const string SELECTION_TAG_NAME = "cursor-selection";
+    private const string SEARCH_MATCH_TAG_NAME = "search-match";
+    private const string SEARCH_CURRENT_MATCH_TAG_NAME = "search-current-match";
 
     private Gtk.Box root;
     private Gtk.Revealer change_banner_revealer;
@@ -22,6 +24,34 @@ public class EditorView : Object {
     private Gtk.TextTag selection_tag;
     private Gdk.RGBA focused_selection_background;
     private Gdk.RGBA backdrop_selection_background;
+
+    private GtkSource.SearchSettings search_settings;
+    private GtkSource.SearchContext search_context;
+    private Gtk.TextTag search_match_tag;
+    private Gtk.TextTag search_current_match_tag;
+
+    // Anchors the current match's range through buffer edits, same as the
+    // real insert/selection_bound marks already do for the caret — search_
+    // current_match_tag's own applied range already survives edits on its
+    // own (GTK tracks a tag's toggle points internally, the same mechanism
+    // behind the marks below), but Next/Previous still needs to know
+    // *where* to resume searching from, which the tag alone doesn't expose
+    // without scanning for it. Null when there's no current match (no
+    // search text, or the live search matched nothing).
+    private Gtk.TextMark? current_match_start_mark = null;
+    private Gtk.TextMark? current_match_end_mark = null;
+
+    // A second, independent pair — set alongside current_match_start/
+    // end_mark above whenever a match is actually found, but (unlike
+    // that pair) never cleared just because the live search state itself
+    // clears (an empty Find text, no more matches, …). SearchBar's own
+    // real close path always clears its entry first (see SearchBar's own
+    // doc comment), which clears current_match_start/end_mark right
+    // along with it well before SearchController ever hears the bar
+    // closed — this pair is what select_last_match() still has left to
+    // work with at that point.
+    private Gtk.TextMark? last_match_start_mark = null;
+    private Gtk.TextMark? last_match_end_mark = null;
 
     /** Suppresses `text_changed` while a set_text/set_placeholder call is itself writing the buffer. */
     private bool updating_programmatically = false;
@@ -48,6 +78,28 @@ public class EditorView : Object {
     private bool preserve_native_direction = false;
 
     public Gtk.Widget widget { get { return root; } }
+
+    /** Whether the real text view currently holds keyboard focus — SearchController's own "was the user actually in the editor when they pressed Ctrl+F" check, read before show_find() steals focus into the Find entry. */
+    public bool has_focus { get { return text_view.has_focus; } }
+
+    /**
+     * The real primary selection's own text, "" if it's empty/collapsed.
+     * Reads the native insert/selection_bound marks directly rather than
+     * going through CursorController's own CursorCollection: they always
+     * mirror the primary cursor's own selection 1:1 (see render_cursors()'s
+     * own doc comment) — SearchController's own Ctrl+F prefill has no
+     * other reason to reach past this View at all.
+     */
+    public string primary_selection_text {
+        owned get {
+            Gtk.TextIter start;
+            Gtk.TextIter end;
+            if (!source_buffer.get_selection_bounds (out start, out end)) {
+                return "";
+            }
+            return source_buffer.get_text (start, end, false);
+        }
+    }
 
     /** The user edited the text; `new_text` is the buffer's full content. */
     public signal void text_changed (string new_text);
@@ -113,6 +165,16 @@ public class EditorView : Object {
      * back inside the original range); CursorController decides that.
      */
     public signal void selection_dropped (string text, int source_start, int source_end, int drop_offset);
+
+    /**
+     * The live Find search's current match moved — a fresh keystroke or
+     * option toggle re-landing on the nearest match, or an explicit
+     * Next/Previous. `position` is 1-based, `count` the total live
+     * occurrence count; both 0 once nothing matches (search text empty
+     * included). SearchController reflects this straight onto SearchBar's
+     * own "N of M" counter.
+     */
+    public signal void search_position_changed (int position, int count);
 
     /**
      * A right-click landed on the text (widget-relative `x`/`y`) — this
@@ -376,6 +438,34 @@ public class EditorView : Object {
         selection_tag.background_set = true;
         source_buffer.tag_table.add (selection_tag);
 
+        // GtkSourceSearchContext's own real doc comment (gtksourcesearch
+        // context.h) is explicit about this: "The concept of 'current
+        // match' doesn't exist yet. A way to highlight differently the
+        // current match is to select it." — i.e. one match_style for
+        // every occurrence, with no second color for the current one at
+        // all; selecting it is the only native workaround, and that would
+        // fight CursorController's own primary-selection tracking for no
+        // reason. So its own highlighting is left off entirely
+        // (set_highlight (false) below) and both colors are painted by
+        // hand instead, through two tags of our own — same pattern as
+        // selection_tag above. SearchContext itself is still exactly
+        // what drives the actual matching (forward/backward/occurrence
+        // count, regex and all): only the *painting* is reimplemented.
+        search_settings = new GtkSource.SearchSettings ();
+        search_context = new GtkSource.SearchContext (source_buffer, search_settings);
+        search_context.set_highlight (false);
+        search_context.notify["occurrences-count"].connect (() => refresh_search_match_tags ());
+
+        search_match_tag = new Gtk.TextTag (SEARCH_MATCH_TAG_NAME);
+        search_match_tag.background_set = true;
+        source_buffer.tag_table.add (search_match_tag);
+        // Added after search_match_tag, so it wins the tie for whichever
+        // range is both a match and *the* current one — a tag's priority
+        // is its position in the tag table, highest priority last added.
+        search_current_match_tag = new Gtk.TextTag (SEARCH_CURRENT_MATCH_TAG_NAME);
+        search_current_match_tag.background_set = true;
+        source_buffer.tag_table.add (search_current_match_tag);
+
         // GTK's own native selection (gtktextview.c: gtk_text_view_
         // state_flags_changed) grays its selection out whenever the
         // window is inactive, by giving its "selection" CSS node the
@@ -536,6 +626,66 @@ public class EditorView : Object {
     public void simulate_select_all () {
         handle_key_pressed (Gdk.Key.a, Gdk.ModifierType.CONTROL_MASK);
         text_view.select_all (true);
+    }
+
+    /**
+     * Sets the live Find text — "" clears the search (no match, no
+     * highlight) rather than matching everything. Also re-lands on the
+     * nearest match from the real caret, same "search as you type"
+     * incremental jump every other Find bar does — SearchController
+     * doesn't have to ask for that separately on every keystroke.
+     */
+    public void set_search_text (string text) {
+        search_settings.set_search_text (text == "" ? null : text);
+        jump_to_nearest_match ();
+    }
+
+    /** Regular Expressions/Case Sensitive/Match Whole Word Only changed — re-lands on the nearest match the same way set_search_text() does, since any of the three can change which text now counts as a match. */
+    public void set_search_options (bool regex, bool case_sensitive, bool whole_word) {
+        search_settings.set_regex_enabled (regex);
+        search_settings.set_case_sensitive (case_sensitive);
+        search_settings.set_at_word_boundaries (whole_word);
+        jump_to_nearest_match ();
+    }
+
+    /** Next Match — wraps to the first occurrence past the end of the buffer, same as GtkSourceSearchContext's own default wrap-around. */
+    public void search_next () {
+        move_to_match (true);
+    }
+
+    /** Previous Match — see search_next()'s own doc comment. */
+    public void search_previous () {
+        move_to_match (false);
+    }
+
+    /**
+     * Closing the Find bar with a match still live-highlighted hands it
+     * off to the real selection — SearchController calls this once,
+     * right as SearchBar's own closed signal fires, so the found text
+     * ends up genuinely selected with real keyboard focus, ready to type
+     * over or delete, instead of the highlight just disappearing. A
+     * no-op (no focus change either) if nothing was ever found this
+     * search. Deliberately not folded into move_to_match()/set_current_
+     * match() themselves — see those methods' own doc comments for why
+     * Find navigation never touches the real selection while the bar is
+     * still open.
+     */
+    public void select_last_match () {
+        if (last_match_start_mark == null) {
+            return;
+        }
+
+        Gtk.TextIter start;
+        Gtk.TextIter end;
+        source_buffer.get_iter_at_mark (out start, last_match_start_mark);
+        source_buffer.get_iter_at_mark (out end, last_match_end_mark);
+        source_buffer.select_range (end, start);
+        text_view.grab_focus ();
+
+        source_buffer.delete_mark (last_match_start_mark);
+        source_buffer.delete_mark (last_match_end_mark);
+        last_match_start_mark = null;
+        last_match_end_mark = null;
     }
 
     /**
@@ -958,6 +1108,21 @@ public class EditorView : Object {
 
         update_selection_background ();
 
+        // A light desaturation (not the selection's own full grayscale
+        // above) — enough that the two read as visually distinct from
+        // the accent-colored selection, without draining the accent away
+        // entirely. Dark gets double light's amount: the same darker
+        // background these highlights sit on already reads any given
+        // desaturation as more washed-out than light's paler background
+        // does, so it needs more of it to look equally "toned down".
+        var search_base = EditorColors.desaturate (accent, dark ? 0.10f : 0.05f);
+        var search_match_background = search_base;
+        search_match_background.alpha = 0.30f;
+        var search_current_match_background = search_base;
+        search_current_match_background.alpha = 0.60f;
+        search_match_tag.background_rgba = search_match_background;
+        search_current_match_tag.background_rgba = search_current_match_background;
+
         // Every caret's own color (OpusSourceView.snapshot_layer) reads
         // the widget's resolved foreground color directly at paint time
         // instead of being told it here — see that class's own comment
@@ -968,5 +1133,175 @@ public class EditorView : Object {
     private void update_selection_background () {
         bool backdrop = (text_view.get_state_flags () & Gtk.StateFlags.BACKDROP) != 0;
         selection_tag.background_rgba = backdrop ? backdrop_selection_background : focused_selection_background;
+    }
+
+    /**
+     * set_search_text()/set_search_options()'s own shared "land on
+     * whatever's nearest" behavior. Searches from the real selection's
+     * own *start* when there is one, not the caret: render_cursors()
+     * always normalizes the caret to a selection's larger offset (see
+     * its own on_mark_set() doc comment — "the caret always the larger
+     * offset, the anchor always the smaller one"), so searching forward
+     * from the caret would skip straight past whatever's already
+     * selected (e.g. Ctrl+F's own "seed Find from the current
+     * selection") and land on the *next* occurrence instead. Falls back
+     * to the caret with no selection, same as always.
+     */
+    private void jump_to_nearest_match () {
+        Gtk.TextIter from;
+        Gtk.TextIter selection_end;
+        if (!source_buffer.get_selection_bounds (out from, out selection_end)) {
+            source_buffer.get_iter_at_offset (out from, get_position_offset ());
+        }
+        land_on_match (from, true);
+    }
+
+    /**
+     * Next/Previous — resumes from wherever the current match already
+     * ends/starts (so repeated presses actually advance past it) rather
+     * than from the real caret, which Find navigation never moves (see
+     * set_current_match()'s own doc comment for why). Falls back to the
+     * real caret only when there's no current match yet to resume from.
+     */
+    private void move_to_match (bool forward) {
+        Gtk.TextIter from;
+        Gtk.TextIter current_start;
+        Gtk.TextIter current_end;
+        if (get_current_match (out current_start, out current_end)) {
+            from = forward ? current_end : current_start;
+        } else {
+            source_buffer.get_iter_at_offset (out from, get_position_offset ());
+        }
+        land_on_match (from, forward);
+    }
+
+    private void land_on_match (Gtk.TextIter from, bool forward) {
+        Gtk.TextIter match_start;
+        Gtk.TextIter match_end;
+        bool wrapped;
+        bool found = forward
+            ? search_context.forward (from, out match_start, out match_end, out wrapped)
+            : search_context.backward (from, out match_start, out match_end, out wrapped);
+
+        if (found) {
+            set_current_match (match_start, match_end);
+            text_view.scroll_to_iter (match_start, 0.1, false, 0, 0);
+            search_position_changed (search_context.get_occurrence_position (match_start, match_end), search_context.get_occurrences_count ());
+        } else {
+            clear_current_match ();
+            search_position_changed (0, search_context.get_occurrences_count ());
+        }
+    }
+
+    /**
+     * Paints `start`..`end` as the one current match (search_current_
+     * match_tag is cleared from the whole buffer first — there's only
+     * ever one) and anchors current_match_start_mark/end_mark there for
+     * move_to_match() to resume from — plus last_match_start_mark/
+     * end_mark (see its own doc comment for why that's a second,
+     * separately-lived pair rather than just reusing this one).
+     * Deliberately never touches the real insert/selection_bound marks:
+     * doing that would fire mark_set straight into CursorController (see
+     * EditorView's own native_cursor_moved doc comment) and silently
+     * replace whatever the user's actual cursor/selection was with the
+     * match — Find navigation is meant to be purely visual, not to reach
+     * into edit state, until select_last_match() deliberately hands it
+     * off once the bar actually closes.
+     */
+    private void set_current_match (Gtk.TextIter start, Gtk.TextIter end) {
+        Gtk.TextIter buffer_start;
+        Gtk.TextIter buffer_end;
+        source_buffer.get_start_iter (out buffer_start);
+        source_buffer.get_end_iter (out buffer_end);
+        source_buffer.remove_tag (search_current_match_tag, buffer_start, buffer_end);
+        source_buffer.apply_tag (search_current_match_tag, start, end);
+
+        if (current_match_start_mark == null) {
+            current_match_start_mark = source_buffer.create_mark (null, start, true);
+            current_match_end_mark = source_buffer.create_mark (null, end, false);
+        } else {
+            source_buffer.move_mark (current_match_start_mark, start);
+            source_buffer.move_mark (current_match_end_mark, end);
+        }
+
+        if (last_match_start_mark == null) {
+            last_match_start_mark = source_buffer.create_mark (null, start, true);
+            last_match_end_mark = source_buffer.create_mark (null, end, false);
+        } else {
+            source_buffer.move_mark (last_match_start_mark, start);
+            source_buffer.move_mark (last_match_end_mark, end);
+        }
+    }
+
+    private void clear_current_match () {
+        if (current_match_start_mark != null) {
+            source_buffer.delete_mark (current_match_start_mark);
+            source_buffer.delete_mark (current_match_end_mark);
+            current_match_start_mark = null;
+            current_match_end_mark = null;
+        }
+
+        Gtk.TextIter buffer_start;
+        Gtk.TextIter buffer_end;
+        source_buffer.get_start_iter (out buffer_start);
+        source_buffer.get_end_iter (out buffer_end);
+        source_buffer.remove_tag (search_current_match_tag, buffer_start, buffer_end);
+    }
+
+    private bool get_current_match (out Gtk.TextIter start, out Gtk.TextIter end) {
+        if (current_match_start_mark == null) {
+            start = Gtk.TextIter ();
+            end = Gtk.TextIter ();
+            return false;
+        }
+
+        source_buffer.get_iter_at_mark (out start, current_match_start_mark);
+        source_buffer.get_iter_at_mark (out end, current_match_end_mark);
+        return true;
+    }
+
+    /**
+     * Re-tags every live occurrence with search_match_tag — run whenever
+     * search_context's own occurrences-count changes, which covers a
+     * fresh search, an option toggle, and the buffer being edited while
+     * the bar is open alike (all three invalidate its internal scan the
+     * same way). There's no bulk "every match" API to read the scan back
+     * out through (SearchContext only exposes forward/backward, one
+     * match at a time), so this walks the buffer the same way collecting
+     * them all by hand: repeated forward() calls, stopping once the walk
+     * cycles back to whichever match it started from — forward() always
+     * wraps around rather than returning "not found" partway through, so
+     * that's the only reliable end condition, not e.g. reaching the
+     * buffer's own end iter.
+     */
+    private void refresh_search_match_tags () {
+        Gtk.TextIter buffer_start;
+        Gtk.TextIter buffer_end;
+        source_buffer.get_start_iter (out buffer_start);
+        source_buffer.get_end_iter (out buffer_end);
+        source_buffer.remove_tag (search_match_tag, buffer_start, buffer_end);
+
+        if (search_settings.get_search_text () == null) {
+            return;
+        }
+
+        var iter = buffer_start;
+        int first_match_offset = -1;
+        while (true) {
+            Gtk.TextIter match_start;
+            Gtk.TextIter match_end;
+            bool wrapped;
+            if (!search_context.forward (iter, out match_start, out match_end, out wrapped)) {
+                break;
+            }
+            if (first_match_offset == -1) {
+                first_match_offset = match_start.get_offset ();
+            } else if (match_start.get_offset () == first_match_offset) {
+                break;
+            }
+
+            source_buffer.apply_tag (search_match_tag, match_start, match_end);
+            iter = match_end;
+        }
     }
 }

@@ -1,12 +1,25 @@
 /**
  * Find/Replace bar — Ctrl+F shows it in Find mode, Ctrl+H in Replace mode
  * (see MainWindowView's own key handling); its own close button, or
- * Escape while its entry has focus, hide it again. Neither of those
- * needed a line of code here: both are Gtk.SearchBar's own native
- * behavior once connect_entry() wires a real Gtk.SearchEntry to it
- * (checked its real source, gtksearchbar.c) — closing also clears the
- * entry's text automatically, and opening focuses it, for the same
- * reason.
+ * Escape from *anywhere in the window* (not just this bar), closes it
+ * again — the latter isn't anything of this class's own doing: it
+ * implements {@link GlobalPanel}, and MainWindowView's own window-wide
+ * Escape handling is what actually drives close() from that, generically,
+ * the same way it would for any other panel that implements the same
+ * interface (see GlobalPanel's own doc comment for the reasoning).
+ * SearchController drives the actual Find logic against EditorView
+ * (Replace isn't wired yet).
+ *
+ * Gtk.SearchBar's own native behavior (checked its real source,
+ * gtksearchbar.c) matters less here than it first looks: its auto-focus-
+ * on-open only fires for a connected Gtk.Entry/Gtk.SearchEntry — the
+ * connected entry here (SearchCounterEntry's own inner Gtk.Text, plain
+ * Gtk.Editable — see its own doc comment for why) is neither, so
+ * show_find()/show_replace() below grab focus themselves instead. Its
+ * text-clearing behavior cuts the other way: with that same "neither
+ * type" entry, it clears the entry on *every* search-mode-enabled
+ * transition, not just closing — see set_find_text()'s own doc comment,
+ * which relies on that ordering rather than fighting it.
  *
  * Lives at the window level, not inside EditorView, on purpose: it spans
  * the full window width (below the sidebar too), the same way the header
@@ -19,16 +32,14 @@
  * to Replace (showing it) — pressing either while already in the other
  * mode re-targets the bar rather than toggling it shut.
  *
- * Purely visual for now — the panel, the input, the buttons, and the
- * signals below all render/fire, but nothing outside this class listens
- * yet: no controller drives real search against EditorView. Matches
- * GNOME Text Editor's own real search bar (editor-search-bar.ui, checked
- * against its source) minus the options menu (other_buttons stands in
- * for that, as plain toggles instead of a popover menu — a deliberate
- * deviation, not an oversight) and its separate mouse-driven mode toggle
- * button (Ctrl+H is the only trigger for now).
+ * The panel/input/buttons themselves match GNOME Text Editor's own real
+ * search bar (editor-search-bar.ui, checked against its source) minus
+ * the options menu (other_buttons stands in for that, as plain toggles
+ * instead of a popover menu — a deliberate deviation, not an oversight)
+ * and its separate mouse-driven mode toggle button (Ctrl+H is the only
+ * trigger for now).
  */
-public class SearchBar : Object {
+public class SearchBar : Object, GlobalPanel {
     private Gtk.SearchBar search_bar;
     private SearchCounterEntry search_counter_entry;
     private Gtk.ToggleButton regex_button;
@@ -54,6 +65,22 @@ public class SearchBar : Object {
 
     /** Next Match clicked, or plain Return in the Find entry. */
     public signal void search_next_requested ();
+
+    /**
+     * The bar just closed — Escape from anywhere in the window (via
+     * GlobalPanel, see its own doc comment), the native close button, or
+     * close() called directly (e.g. the last open tab closing). By the
+     * time this fires, the live search state is already
+     * cleared (GtkSearchBar's own real close path always clears the
+     * connected entry's text first — checked gtksearchbar.c): Search
+     * Controller listens for this to hand EditorView's last live match
+     * off to the real selection before it's gone for good, not to read
+     * anything live off this bar itself.
+     */
+    public signal void closed ();
+
+    /** GlobalPanel's own is_open — whether the bar is currently revealed. */
+    public bool is_open { get { return search_bar.search_mode_enabled; } }
 
     public bool regex_enabled { get { return regex_button.active; } }
     public bool case_sensitive_enabled { get { return case_sensitive_button.active; } }
@@ -106,6 +133,39 @@ public class SearchBar : Object {
             return false;
         });
         search_counter_entry.entry.add_controller (key_controller);
+
+        // Fires closed() off search-mode-enabled itself, not e.g. inside
+        // hide()/the escape controller above: the native close button
+        // (show-close-button: true) flips that same property directly,
+        // with no code of ours in the loop at all (checked gtksearchbar.c
+        // — close_button's own "clicked" handler just calls gtk_revealer_
+        // set_reveal_child(FALSE), nothing else), so this is the one
+        // place that actually sees every path that closes the bar.
+        search_bar.notify["search-mode-enabled"].connect (() => {
+            if (!search_bar.search_mode_enabled) {
+                closed ();
+            }
+        });
+    }
+
+    /**
+     * Sets the Find entry's text and selects it all — SearchController's
+     * own Ctrl+F "prefill from the current selection". Must be called
+     * *after* show_find(), not before: Gtk.SearchBar's own real
+     * reveal_child_changed_cb (checked gtksearchbar.c) resets its
+     * connected entry's text to "" on every search-mode-enabled
+     * transition where that entry isn't itself a Gtk.Entry/
+     * Gtk.SearchEntry — ours never is (a plain Gtk.Text, see
+     * SearchCounterEntry's own doc comment for why) — so show_find()'s
+     * own transition would otherwise immediately wipe out whatever was
+     * set here first. Setting `entry.text` already fires this same
+     * entry's own `changed` handler synchronously (a plain Gtk.Editable
+     * guarantee), which is what actually runs the search — no separate
+     * call needed here to make that happen.
+     */
+    public void set_find_text (string text) {
+        search_counter_entry.entry.text = text;
+        search_counter_entry.entry.select_region (0, -1);
     }
 
     /**
@@ -142,8 +202,8 @@ public class SearchBar : Object {
         search_counter_entry.grab_focus ();
     }
 
-    /** Hides the bar — its entry's own text clears on its own once it does (see the class's own doc comment). Called directly (not just left to its own close button/Escape) once there's nothing left to search — e.g. the last open tab just closed. */
-    public void hide () {
+    /** GlobalPanel's own close() — its entry's own text clears on its own once it does (see the class's own doc comment). Also called directly (not just reached through GlobalPanel) once there's nothing left to search — e.g. the last open tab just closed. */
+    public void close () {
         search_bar.search_mode_enabled = false;
     }
 

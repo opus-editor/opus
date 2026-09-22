@@ -6,16 +6,26 @@
  */
 namespace EditorColors {
     /**
-     * HSL-desaturates `color` to grayscale (0 saturation) while
-     * preserving its lightness and alpha — the same operation as Sass's
-     * `desaturate($color, 100%)`, which GTK's own real default theme
-     * uses for its backdrop (window-inactive) selection color (see
-     * `gtk/theme/Default/_colors.scss`: `$backdrop_selected_bg_color:
-     * transparentize(desaturate($selected_bg_color, 100%), 0.5)`).
+     * HSL-desaturates `color` toward grayscale by `amount` (0 = unchanged,
+     * 1 = fully desaturated), preserving its lightness and alpha —
+     * the same operation as Sass's `desaturate($color, amount * 100%)`.
+     * `amount`'s default of 1.0 makes this the exact same full
+     * desaturation GTK's own real default theme uses for its backdrop
+     * (window-inactive) selection color (see `gtk/theme/Default/
+     * _colors.scss`: `$backdrop_selected_bg_color: transparentize(
+     * desaturate($selected_bg_color, 100%), 0.5)`); EditorView's own
+     * search-match highlight instead uses a small `amount` — just enough
+     * to keep it visually distinct from the accent-colored selection,
+     * without draining the color away entirely.
      */
-    public Gdk.RGBA desaturate (Gdk.RGBA color) {
+    public Gdk.RGBA desaturate (Gdk.RGBA color, float amount = 1.0f) {
         float lightness = (float.max (float.max (color.red, color.green), color.blue)
             + float.min (float.min (color.red, color.green), color.blue)) / 2.0f;
-        return Gdk.RGBA () { red = lightness, green = lightness, blue = lightness, alpha = color.alpha };
+        return Gdk.RGBA () {
+            red = color.red + (lightness - color.red) * amount,
+            green = color.green + (lightness - color.green) * amount,
+            blue = color.blue + (lightness - color.blue) * amount,
+            alpha = color.alpha,
+        };
     }
 }

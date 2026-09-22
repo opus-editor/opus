@@ -15,6 +15,7 @@ opus_model_sources = files(
 opus_gtk_view_sources = files(
   'views/popover-menu.vala',
   'views/drag-drop.vala',
+  'views/global-panel.vala',
   'views/file-tree/_row.vala',
   'views/file-tree/index.vala',
   'views/tab-bar/_ghost.vala',
@@ -34,6 +35,7 @@ opus_controller_sources = files(
   'controllers/cursor-controller.vala',
   'controllers/editor-controller.vala',
   'controllers/main-controller.vala',
+  'controllers/search-controller.vala',
 )
 
 # Always compiled, same as models/logger.vala — only ever actually used

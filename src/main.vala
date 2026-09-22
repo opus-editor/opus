@@ -21,6 +21,7 @@ private class Session : Object {
     public EditorController editor_controller;
     public MainController? main_controller;
     public MainWindowView window_view;
+    public SearchController search_controller;
 }
 
 private static GenericArray<Session> sessions;
@@ -61,6 +62,8 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     session.editor_view = new EditorView ();
     session.editor_controller = new EditorController (session.tab_bar_view, session.editor_view, editor_root_path);
     session.window_view = new MainWindowView (app, session.tab_bar_view.widget, settings);
+    session.search_controller = new SearchController (session.window_view.search_bar, session.editor_view);
+    session.window_view.find_requested.connect (() => session.search_controller.open_find ());
 
     // The editor's widget only belongs in the content pane while at least
     // one tab is open — otherwise an empty-state placeholder takes its

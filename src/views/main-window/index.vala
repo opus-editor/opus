@@ -19,7 +19,13 @@ public class MainWindowView : Object {
     private Adw.Bin tab_bar_bin;
     private Adw.Bin content_bin;
     private Adw.Bin search_bar_bin;
-    private SearchBar search_bar;
+    private SearchBar _search_bar;
+
+    /** SearchController's own way in — built here, not in Session like TabBarView/EditorView, since it's part of the window chrome itself (see SearchBar's own doc comment for why it lives at the window level). */
+    public SearchBar search_bar { get { return _search_bar; } }
+
+    /** Every GlobalPanel registered via register_global_panel() — see its own doc comment, and GlobalPanel's, for what this drives. */
+    private GenericArray<GlobalPanel> global_panels = new GenericArray<GlobalPanel> ();
 
     // Gates Ctrl+F — kept in sync by show_content()/show_empty_state()
     // rather than queried from content_bin.child, since "there's an
@@ -98,6 +104,9 @@ public class MainWindowView : Object {
     /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window's own Session. */
     public signal void closed ();
 
+    /** Ctrl+F, with at least one tab open — main.vala answers with SearchController.open_find(), which also seeds the bar from the editor's own current selection when there is one. */
+    public signal void find_requested ();
+
     public MainWindowView (Gtk.Application app, Gtk.Widget tab_bar, GLib.Settings settings) {
         this.settings = settings;
 
@@ -113,8 +122,9 @@ public class MainWindowView : Object {
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
         sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
-        search_bar = new SearchBar ();
-        search_bar_bin.child = search_bar.widget;
+        _search_bar = new SearchBar ();
+        search_bar_bin.child = _search_bar.widget;
+        register_global_panel (_search_bar);
 
         // Restores whatever size the last window that closed was left at
         // (window-width/window-height default to the same 900x600 this
@@ -240,6 +250,36 @@ public class MainWindowView : Object {
         // the cast picks the one that actually takes an EventControllerKey.
         ((Gtk.Widget) window).add_controller (key_controller);
 
+        // Escape closes whichever registered GlobalPanel is open, from
+        // anywhere in the window — not just while focus already happens
+        // to be inside it (see GlobalPanel's own doc comment for why
+        // that's genuinely generic, not specific to SearchBar). A
+        // *separate*, CAPTURE-phase controller, not folded into
+        // on_key_pressed above (BUBBLE, and only reacts to a Ctrl
+        // combination in the first place): CAPTURE resolves outer-to-
+        // inner, ancestor before descendant, so this needs to run before
+        // CursorController's own plain-Escape handling (text_view's own
+        // CAPTURE controller, EditorView.handle_key_pressed) — otherwise,
+        // with a selection in the editor (Ctrl+F's own "seed from the
+        // current selection" leaves exactly that), CursorController would
+        // already claim the keystroke to collapse it before this ever got
+        // a turn, and an open panel would only close on a *second* Escape.
+        var escape_controller = new Gtk.EventControllerKey ();
+        escape_controller.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
+        escape_controller.key_pressed.connect ((keyval, keycode, state) => {
+            if (keyval != Gdk.Key.Escape) {
+                return false;
+            }
+            for (uint i = 0; i < global_panels.length; i++) {
+                if (global_panels[i].is_open) {
+                    global_panels[i].close ();
+                    return true;
+                }
+            }
+            return false;
+        });
+        ((Gtk.Widget) window).add_controller (escape_controller);
+
         // Generic on purpose, not "…from the sidebar": a blank/file-only
         // window (no folder linked) has no sidebar to speak of at all.
         empty_state = new Adw.StatusPage () {
@@ -271,7 +311,12 @@ public class MainWindowView : Object {
         content_bin.child = empty_state;
         tab_bar_row.visible = false;
         has_open_tabs = false;
-        search_bar.hide ();
+        _search_bar.close ();
+    }
+
+    /** Registers `panel` for the window-wide "Escape closes it, even without focus" behavior — see GlobalPanel's own doc comment. */
+    public void register_global_panel (GlobalPanel panel) {
+        global_panels.add (panel);
     }
 
     /**
@@ -440,22 +485,23 @@ public class MainWindowView : Object {
                 }
                 return true;
             case Gdk.Key.f:
-                // Handled directly, not re-emitted as a signal like
-                // everything else in this switch: right now this is
-                // purely a "show the bar" visual — nothing outside this
-                // View (no Controller, no search logic) needs to react
-                // to it yet. No open tab means nothing to search, so
-                // there's nothing to show for it either — same guard
-                // show_empty_state() itself uses to hide the bar again
-                // once the last one closes.
+                // Re-emitted as a signal, unlike Ctrl+H right below:
+                // opening Find also needs to prefill it from whatever's
+                // currently selected in the editor, which needs
+                // EditorView — this View has no reference to it (only
+                // its own SearchBar), so SearchController answers
+                // instead (see main.vala's own wiring). No open tab
+                // means nothing to search, so there's nothing to show
+                // for it either — same guard show_empty_state() itself
+                // uses to hide the bar again once the last one closes.
                 if (has_open_tabs) {
-                    search_bar.show_find ();
+                    find_requested ();
                 }
                 return true;
             case Gdk.Key.h:
                 // Same reasoning as Ctrl+F above, just into Replace mode.
                 if (has_open_tabs) {
-                    search_bar.show_replace ();
+                    _search_bar.show_replace ();
                 }
                 return true;
             default:
