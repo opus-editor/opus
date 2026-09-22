@@ -94,6 +94,7 @@ public class FileTreeController : Object {
         view.copy_path_requested.connect ((path) => view.copy_to_clipboard (path));
         view.copy_relative_path_requested.connect ((path) => view.copy_to_clipboard (relative_path (path)));
         view.directory_expanded_changed.connect (on_directory_expanded_changed);
+        view.children_load_requested.connect (on_children_load_requested);
 
         var root_watch = new DirectoryWatch ();
         watches[root_path] = root_watch;
@@ -114,6 +115,15 @@ public class FileTreeController : Object {
      * real `Gio.FileMonitor`s — each one a kernel inotify watch, a
      * genuinely limited resource — many times over for nothing.
      */
+    /** Answers FileTreeView.children_load_requested() synchronously — the one place FileTree's own lazy, one-level-at-a-time scanning actually gets triggered. A no-op if `node` was already scanned (FileTree.ensure_children_loaded() checks that itself). */
+    private void on_children_load_requested (FileNode node) {
+        try {
+            tree.ensure_children_loaded (node);
+        } catch (Error e) {
+            view.show_error (_("Couldn’t read “%s”: %s").printf (node.name, e.message));
+        }
+    }
+
     private void on_directory_expanded_changed (string path, bool expanded) {
         var watch = watches[path];
         if (watch == null) {

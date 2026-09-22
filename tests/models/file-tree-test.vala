@@ -109,6 +109,7 @@ int main (string[] args) {
             var tree = new FileTree (root_path);
             var b_dir = find_child (tree.root, "b-dir");
             assert (b_dir != null);
+            tree.ensure_children_loaded (b_dir);
             assert (b_dir.children.length == 1);
             assert (b_dir.children[0].name == "nested.txt");
         } catch (Error e) {
@@ -126,7 +127,89 @@ int main (string[] args) {
             var b_dir = find_child (tree.root, "b-dir");
             assert (b_dir != null);
             assert (b_dir.is_directory);
+            tree.ensure_children_loaded (b_dir);
             assert (b_dir.children.length == 1);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    // The scanning laziness this whole class exists for (see its own doc
+    // comment) — a directory one level below root starts unscanned right
+    // after construction, only ever loaded on demand.
+    Test.add_func ("/file-tree/children-loaded/directory-starts-unloaded", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+
+            assert (!b_dir.children_loaded);
+            assert (b_dir.children.length == 0);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/children-loaded/root-starts-loaded", () => {
+        // Root is the one exception: FileTree's own constructor builds it
+        // via build_node(), which always scans its *own* immediate
+        // children — the top level has to be there right away for the
+        // sidebar to show anything at all before any row is expanded.
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+
+            assert (tree.root.children_loaded);
+            assert (tree.root.children.length == 5);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/ensure-children-loaded/scans-an-unloaded-directory", () => {
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+
+            tree.ensure_children_loaded (b_dir);
+
+            assert (b_dir.children_loaded);
+            assert (b_dir.children.length == 1);
+            assert (b_dir.children[0].name == "nested.txt");
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/file-tree/ensure-children-loaded/is-a-no-op-once-already-loaded", () => {
+        // Same identity-preservation reasoning as
+        // rescan-children/keeps-the-same-node-for-an-unaffected-entry
+        // below: a redundant rescan would hand back a *different*
+        // FileNode for "nested.txt", silently collapsing anything
+        // expanded under it in the sidebar.
+        string root_path = "";
+        try {
+            root_path = make_fixture ();
+            var tree = new FileTree (root_path);
+            var b_dir = find_child (tree.root, "b-dir");
+            tree.ensure_children_loaded (b_dir);
+            var nested_before = b_dir.children[0];
+
+            tree.ensure_children_loaded (b_dir);
+
+            assert (b_dir.children[0] == nested_before);
         } catch (Error e) {
             error (e.message);
         } finally {
@@ -473,6 +556,7 @@ int main (string[] args) {
             root_path = make_fixture ();
             var tree = new FileTree (root_path);
             var b_dir = find_child (tree.root, "b-dir");
+            tree.ensure_children_loaded (b_dir);
             var c_dir = tree.create_child (tree.root, "c-dir", true);
 
             var copied = tree.copy_child (b_dir, c_dir);
@@ -537,7 +621,9 @@ int main (string[] args) {
         try {
             root_path = make_fixture ();
             var tree = new FileTree (root_path);
-            var expected = find_child (tree.root, "b-dir").children[0];
+            var b_dir = find_child (tree.root, "b-dir");
+            tree.ensure_children_loaded (b_dir);
+            var expected = b_dir.children[0];
 
             var found = tree.find (expected.path);
 

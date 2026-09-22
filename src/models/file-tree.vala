@@ -1,5 +1,16 @@
 /**
- * Builds a {@link FileNode} tree by walking a directory on disk.
+ * Builds a {@link FileNode} tree by walking a directory on disk — one
+ * level at a time, not the whole tree up front: build_node() scans a
+ * node's own immediate children, but a child directory's own children
+ * stay unscanned (FileNode.children_loaded false) until
+ * {@link ensure_children_loaded} is actually asked for them, typically
+ * when the sidebar row for it expands for the first time (see
+ * FileTreeView.children_load_requested). Scanning eagerly and
+ * recursively used to mean opening a folder with a large `node_modules`
+ * walked every single file in it, synchronously, before the window even
+ * showed anything — long enough for the desktop to flag Opus as "Not
+ * Responding". VS Code's own real explorer has the same one-level-at-a-
+ * time design for the same reason.
  *
  * Within each directory, children are ordered directories-first, then
  * alphabetically (case-insensitive). Hidden entries (dotfiles/dotdirs) are
@@ -14,6 +25,14 @@ public class FileTree : Object {
 
     public FileTree (string root_path) throws Error {
         root = build_node (root_path);
+    }
+
+    /** Scans `node`'s own immediate children from disk if that hasn't happened yet — a no-op otherwise. The on-demand half of build_node()'s own one-level-at-a-time design. */
+    public void ensure_children_loaded (FileNode node) throws Error {
+        if (node.children_loaded) {
+            return;
+        }
+        scan_children (node);
     }
 
     /** Finds the node at `path` within this tree, or null if there isn't one. */
@@ -166,6 +185,8 @@ public class FileTree : Object {
                 node.children.remove_index (i);
             }
         }
+
+        node.children_loaded = true;
     }
 
     private static FileNode? find_child_by_name (GenericArray<FileNode> children, string name) {
@@ -205,6 +226,7 @@ public class FileTree : Object {
         }
     }
 
+    /** Builds `path`'s own node — scanning its immediate children if it's a directory (see scan_children()), but no deeper: a child directory's own children stay unscanned. */
     private FileNode build_node (string path) throws Error {
         var file = File.new_for_path (path);
         var file_info = file.query_info (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);
@@ -212,19 +234,27 @@ public class FileTree : Object {
         var node = new FileNode (path, Path.get_basename (path), is_directory);
 
         if (is_directory) {
-            var enumerator = file.enumerate_children (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);
-            FileInfo? entry_info;
-            while ((entry_info = enumerator.next_file ()) != null) {
-                if (entry_info.get_name () == EXCLUDED_ENTRY) {
-                    continue;
-                }
-
-                var child_path = Path.build_filename (path, entry_info.get_name ());
-                insert_sorted (node.children, build_node (child_path));
-            }
+            scan_children (node);
         }
 
         return node;
+    }
+
+    /** Scans `node`'s own immediate children from disk — one level, see the class's own doc comment. Marks `node.children_loaded` true even if the directory turns out empty, so ensure_children_loaded() knows not to redo this. */
+    private void scan_children (FileNode node) throws Error {
+        var file = File.new_for_path (node.path);
+        var enumerator = file.enumerate_children (ENTRY_ATTRIBUTES, FileQueryInfoFlags.NONE);
+        FileInfo? entry_info;
+        while ((entry_info = enumerator.next_file ()) != null) {
+            if (entry_info.get_name () == EXCLUDED_ENTRY) {
+                continue;
+            }
+
+            var child_path = Path.build_filename (node.path, entry_info.get_name ());
+            var is_directory = entry_info.get_file_type () == FileType.DIRECTORY;
+            insert_sorted (node.children, new FileNode (child_path, entry_info.get_name (), is_directory));
+        }
+        node.children_loaded = true;
     }
 
     // Inserts `child` keeping `children` ordered directories-first, then

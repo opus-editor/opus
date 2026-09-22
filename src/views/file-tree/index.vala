@@ -115,6 +115,17 @@ public class FileTreeView : Object {
     /** A directory's expanded state actually changed (not fired for a no-op re-assignment) — `expanded` true means its children are now visible. */
     public signal void directory_expanded_changed (string path, bool expanded);
 
+    /**
+     * `node`'s row is about to show its children for the first time and
+     * has no data for them yet — fired synchronously from
+     * on_create_model_raw(), right before it builds that row's own
+     * ListStore. The handler (FileTreeController) is expected to mutate
+     * `node` in place (FileTree.ensure_children_loaded()) before
+     * returning, since GTK's own create-func is itself synchronous —
+     * there's no later point to fill this in from.
+     */
+    public signal void children_load_requested (FileNode node);
+
     /** A New File/Folder's inline name was confirmed — `is_directory` says which. */
     public signal void create_entry_requested (string parent_path, string name, bool is_directory);
 
@@ -482,6 +493,7 @@ public class FileTreeView : Object {
         }
 
         var self = (FileTreeView) user_data;
+        self.children_load_requested (node);
         var store = children_store (node);
         self.stores_by_path[node.path] = store;
         return store;
