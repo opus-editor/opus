@@ -30,6 +30,11 @@ public class FileTreeView : Object {
     private Gtk.SingleSelection? selection;
     private FileNode? root_node;
 
+    // Set for the one selection_changed this arrow key's own native move
+    // binding is about to cause, then cleared — see on_selection_changed()'s
+    // own comment for why this exists at all.
+    private bool navigated_by_keyboard = false;
+
     // "Symbols" hardcoded for now — a future "pick a different icon
     // theme" feature would swap this constructor call (or make it
     // settable), not anything downstream: every row already resolves its
@@ -178,6 +183,70 @@ public class FileTreeView : Object {
         // Neither one reimplements or races the other.
         list_view.activate.connect (on_activate);
 
+        // GtkListBase's own native move-binding (checked its real source,
+        // gtklistbase.c: gtk_list_base_add_move_binding) is what Up/Down
+        // actually run on this list — it just moves Gtk.SingleSelection's
+        // own `selected` position, the exact same property a mouse click
+        // changes too. Nothing at the GTK level distinguishes "the user
+        // clicked a row" from "the user arrowed onto it", but
+        // on_selection_changed() below needs to: for a *click* it should
+        // toggle a directory's expansion (see its own comment above), but
+        // doing that for every arrow-key press as well made Down feel like
+        // it was "expanding" whatever row you landed on — not something
+        // implemented on purpose, an accidental side effect of the same
+        // signal serving two different real inputs. CAPTURE phase runs
+        // this before the list's own default key handling processes the
+        // move, so the flag is already true by the time selection_changed
+        // fires for it.
+        //
+        // Left/Right ride the same controller but are handled ourselves
+        // instead — GtkListBase's own plain-Left/Right binding is for
+        // *horizontal* movement (a grid view concept, meaningless in this
+        // single-column list) and TreeExpander's own real Left/Right
+        // bindings need Shift held (checked its source: expand_collapse_
+        // left/right are bound at GDK_KEY_Left/Right with GDK_SHIFT_MASK,
+        // never plain). navigate_left()/navigate_right() port VS Code's
+        // own real Explorer keybindings instead (onLeftArrow/onRightArrow,
+        // abstractTree.ts) — checked its source, not assumed.
+        var key_nav_controller = new Gtk.EventControllerKey () {
+            propagation_phase = Gtk.PropagationPhase.CAPTURE,
+        };
+        key_nav_controller.key_pressed.connect ((keyval, keycode, state) => {
+            switch (keyval) {
+                case Gdk.Key.Up:
+                case Gdk.Key.Down:
+                case Gdk.Key.Home:
+                case Gdk.Key.End:
+                case Gdk.Key.Page_Up:
+                case Gdk.Key.Page_Down:
+                    navigated_by_keyboard = true;
+                    return false; // still let GtkListBase move the selection itself
+
+                case Gdk.Key.Left:
+                case Gdk.Key.KP_Left:
+                    // A New File/Folder or Rename is being typed inline —
+                    // let Left move the text cursor instead, same as it
+                    // would in any other Gtk.Text.
+                    if (editing_node != null) {
+                        return false;
+                    }
+                    navigate_left ();
+                    return true;
+
+                case Gdk.Key.Right:
+                case Gdk.Key.KP_Right:
+                    if (editing_node != null) {
+                        return false;
+                    }
+                    navigate_right ();
+                    return true;
+
+                default:
+                    return false;
+            }
+        });
+        list_view.add_controller (key_nav_controller);
+
         // .data-table alone still isn't tight enough; trims it further.
         // Must be a descendant selector ("row", no ">") — row isn't a direct
         // child of listview (some internal wrapper sits between them, found
@@ -248,6 +317,36 @@ public class FileTreeView : Object {
              * snapping off. */
             listview.data-table row.reveal-flash {
                 background-color: var(--warning-bg-color);
+            }
+            /* libadwaita's own default for any `row` (base `_lists.scss`:
+             * `row { @include focus-ring(); }`) draws an accent-colored
+             * outline on keyboard focus — redundant here, since the
+             * selected row's own background-color already shows which
+             * one has focus. */
+            listview.data-table row:focus {
+                outline-style: none;
+            }
+            /* libadwaita's own default keeps a selected row's own
+             * background-color (`row:selected`, _lists.scss) regardless
+             * of whether keyboard focus is actually anywhere in this
+             * list — so it stayed visibly "selected" even after clicking
+             * into the editor. Deliberately checked against the row's
+             * own `:focus` here, not `listview:focus-within` (tried
+             * first, reverted): pressing a different row moves real
+             * focus onto *that* row directly, before Gtk.SingleSelection
+             * itself updates on release — so for that whole press-to-
+             * release window, `listview:focus-within` was already true
+             * while the *previous* row was still the one `:selected`,
+             * bringing its background back for exactly that window. Live
+             * reported as the previous selection "flashing" back, worst
+             * case (mouse held down) frozen on screen next to the row
+             * actually being pressed. Scoped to the row's own `:focus`
+             * instead, this only hides a selected row's background while
+             * *that exact row* isn't the one focused — true the whole
+             * time the previous selection sits there unfocused, false
+             * only once it's it that's actually focused again. */
+            listview.data-table row:selected:not(:focus) {
+                background-color: transparent;
             }
             .file-tree-root-label {
                 font-weight: bold;
@@ -461,6 +560,92 @@ public class FileTreeView : Object {
         return target_path.has_prefix (dir_path + "/");
     }
 
+    /**
+     * Left — ported from VS Code's own real Explorer (onLeftArrow,
+     * abstractTree.ts): collapses the selected row if it's an *expanded
+     * directory*, staying put on it (no selection change at all, so no
+     * navigated_by_keyboard dance needed here). Otherwise — a file, or an
+     * already-collapsed directory — moves to its parent instead, left
+     * exactly as expanded/collapsed as it already was (VS Code's own
+     * fallback branch only calls setFocus, never setCollapsed, on the
+     * parent — checked its source, this isn't the old Backspace behavior
+     * this replaced, which used to also force it collapsed). A no-op at
+     * a top-level entry (Gtk.TreeListRow.get_parent() is null there;
+     * root itself is never a row, see the class's own doc comment).
+     */
+    private void navigate_left () {
+        if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+            return;
+        }
+
+        var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+        var node = (FileNode) list_row.item;
+
+        if (node.is_directory && list_row.expanded) {
+            set_expanded (list_row, node, false);
+            return;
+        }
+
+        var parent_row = list_row.get_parent ();
+        if (parent_row == null) {
+            return;
+        }
+
+        // FOCUS, not just SELECT — see move_focus_and_select()'s own
+        // comment for why the plain selection-only version broke Down
+        // right after.
+        move_focus_and_select (parent_row.get_position ());
+    }
+
+    /**
+     * Right — ported from VS Code's own real Explorer (onRightArrow,
+     * abstractTree.ts): expands the selected row if it's a *collapsed
+     * directory*. Already expanded (or a plain file, which is never
+     * collapsible to begin with) moves down into its own first child
+     * instead of doing nothing — VS Code's own real fallback, not just
+     * "the obvious thing to do": checked its source rather than assumed.
+     * A no-op with no (visible) children to move into — get_child_row(0)
+     * is null for a file, or for a directory that turned out empty.
+     */
+    private void navigate_right () {
+        if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+            return;
+        }
+
+        var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+        var node = (FileNode) list_row.item;
+
+        if (node.is_directory && !list_row.expanded) {
+            set_expanded (list_row, node, true);
+            return;
+        }
+
+        var first_child = list_row.get_child_row (0);
+        if (first_child == null) {
+            return;
+        }
+
+        move_focus_and_select (first_child.get_position ());
+    }
+
+    /**
+     * Moves both Gtk.SingleSelection's own `selected` *and* actual GTK
+     * keyboard focus to `position` — SELECT alone (what select_path()/
+     * reveal_path() use) leaves real focus wherever it already was, on a
+     * row that can end up destroyed by the very navigation that just
+     * happened (e.g. navigate_left() collapsing the row focus used to be
+     * on). With nowhere valid left to be, focus fell back to the list's
+     * own first row — the next Down from there moved relative to
+     * position 0, not to this new selection, reported live as "Down
+     * jumps to the first item" once this shipped for Backspace.
+     * navigated_by_keyboard is set first so this reads as plain
+     * navigation to on_selection_changed(), same as Up/Down.
+     */
+    private void move_focus_and_select (uint position) {
+        navigated_by_keyboard = true;
+        list_view.scroll_to (position, Gtk.ListScrollFlags.FOCUS | Gtk.ListScrollFlags.SELECT, null);
+    }
+
     /** The single place `.expanded` is ever assigned — a plain `row.expanded = x` wouldn't tell anything an expand/collapse actually happened, and directory_expanded_changed needs to fire for exactly that, exactly once per real change (not a same-value re-assignment). */
     private void set_expanded (Gtk.TreeListRow row, FileNode node, bool expanded) {
         if (row.expanded == expanded) {
@@ -499,9 +684,14 @@ public class FileTreeView : Object {
         return store;
     }
 
-    /** A single click (or the first click of a double-click) changed the selected row — see the comment above. */
+    /** A single click (or the first click of a double-click) changed the selected row — see the comment above. Arrow-key navigation lands here too (it's the same underlying `selected` position a click changes) but should only move the highlight, not also toggle a directory or open a preview — see key_nav_controller's own comment in the constructor for why that needs a flag instead of just being "the natural behavior". */
     private void on_selection_changed (uint position, uint n_items) {
         if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+            return;
+        }
+
+        if (navigated_by_keyboard) {
+            navigated_by_keyboard = false;
             return;
         }
 
@@ -516,12 +706,13 @@ public class FileTreeView : Object {
         file_activated (node.path, false);
     }
 
-    /** A row was double-clicked — see the comment above. Promotes a file to a permanent tab. */
+    /** A row was double-clicked, or Enter was pressed on it (GTK's own native "activate" — checked gtklistfactorywidget.c: Return/ISO_Enter/KP_Enter are what actually trigger it; Space only (re)selects, per the same source). Promotes a file to a permanent tab; toggles a directory's expansion, the deliberate keyboard equivalent of single-clicking it. */
     private void on_activate (uint position) {
         var list_row = (Gtk.TreeListRow) selection.get_item (position);
         var node = (FileNode) list_row.item;
 
         if (node.is_directory) {
+            set_expanded (list_row, node, !list_row.expanded);
             return;
         }
 
