@@ -6,6 +6,7 @@ opus_model_sources = files(
   'models/edit-history-entry.vala',
   'models/file-node.vala',
   'models/file-tree.vala',
+  'models/icon-theme.vala',
   'models/logger.vala',
   'models/text-edit.vala',
   'models/workspace.vala',
@@ -53,6 +54,6 @@ opus_exe = executable(
   'opus',
   opus_sources,
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep],
   install: true,
 )

@@ -22,6 +22,7 @@ public class FileTreeRow : Object {
     private Gtk.Image icon;
     private Gtk.Label label;
     private Gtk.Text edit_entry;
+    private IconTheme icon_theme;
 
     /** Whether the current bind()'s edit has already fired edit_committed/edit_cancelled — a focus-leave following either must not re-fire it. */
     private bool resolved = false;
@@ -40,7 +41,9 @@ public class FileTreeRow : Object {
     /** The inline edit was cancelled (Escape, or focus lost with no text). */
     public signal void edit_cancelled ();
 
-    public FileTreeRow () {
+    public FileTreeRow (IconTheme icon_theme) {
+        this.icon_theme = icon_theme;
+
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/file-tree/_row.ui");
         box = (Gtk.Box) builder.get_object ("row");
         expander = (Gtk.TreeExpander) builder.get_object ("expander");
@@ -76,8 +79,8 @@ public class FileTreeRow : Object {
         // of a dedicated CSS class.
         box.opacity = node.is_cut ? 0.5 : 1.0;
 
-        icon.visible = !node.is_directory;
-        icon.icon_name = "text-x-generic-symbolic";
+        icon.visible = true;
+        icon.set_from_resource (node.is_directory ? icon_theme.icon_path_for_folder (node.name) : icon_theme.icon_path_for_file (node.name));
 
         if (node.is_editing_name) {
             label.visible = false;

@@ -30,6 +30,12 @@ public class FileTreeView : Object {
     private Gtk.SingleSelection? selection;
     private FileNode? root_node;
 
+    // "Symbols" hardcoded for now — a future "pick a different icon
+    // theme" feature would swap this constructor call (or make it
+    // settable), not anything downstream: every row already resolves its
+    // own icon through this one instance, theme-agnostically.
+    private IconTheme icon_theme = new IconTheme.symbols ();
+
     // One entry per directory whose children have been turned into a
     // ListStore — the root's from populate(), every other one lazily as
     // on_create_model_raw materializes it on first expand. Kept around (not
@@ -512,7 +518,7 @@ public class FileTreeView : Object {
 
     private void on_setup (Object item) {
         var list_item = (Gtk.ListItem) item;
-        var row = new FileTreeRow ();
+        var row = new FileTreeRow (icon_theme);
         // list_item.child only holds the Gtk.Widget; stash the FileTreeRow
         // facade that owns it so on_bind/on_unbind can get back to it.
         row.widget.set_data ("row", row);

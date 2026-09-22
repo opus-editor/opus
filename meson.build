@@ -13,6 +13,10 @@ gio_dep = dependency('gio-2.0')
 gtk_dep = dependency('gtk4')
 adwaita_dep = dependency('libadwaita-1')
 sourceview_dep = dependency('gtksourceview-5')
+# Parses the bundled "Symbols" icon theme's own JSON (see
+# src/models/icon-theme.vala) — the one place in this app that reads
+# structured data it doesn't own the schema of.
+json_glib_dep = dependency('json-glib-1.0')
 
 gnome = import('gnome')
 i18n = import('i18n')

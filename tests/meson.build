@@ -1,37 +1,48 @@
 document_test = executable(
   'document-test',
   ['models/document-test.vala', opus_model_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('document', document_test)
 
 workspace_test = executable(
   'workspace-test',
   ['models/workspace-test.vala', opus_model_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('workspace', workspace_test)
 
 file_tree_test = executable(
   'file-tree-test',
   ['models/file-tree-test.vala', opus_model_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('file-tree', file_tree_test)
 
 cursor_collection_test = executable(
   'cursor-collection-test',
   ['models/cursor-collection-test.vala', opus_model_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('cursor-collection', cursor_collection_test)
 
 edit_history_test = executable(
   'edit-history-test',
   ['models/edit-history-test.vala', opus_model_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('edit-history', edit_history_test)
+
+# Links opus_resources too (unlike every other model test above) —
+# IconTheme.symbols()'s own test needs the real compiled GResource
+# bundle to actually be present to load the bundled Symbols theme from.
+icon_theme_test = executable(
+  'icon-theme-test',
+  ['models/icon-theme-test.vala', opus_model_sources],
+  opus_resources,
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('icon-theme', icon_theme_test)
 
 opus_system_test_sources = files(
   'system-test-session.vala',
