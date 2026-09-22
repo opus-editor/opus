@@ -286,7 +286,19 @@ int main (string[] args) {
     // Handling it ourselves keeps the folder argument going through
     // Workspace.resolve, as decided in the sprint spec, instead of GLib's
     // own GFile-based "open" semantics.
-    var app = new Adw.Application ("io.github.nowaos.Opus", ApplicationFlags.HANDLES_COMMAND_LINE);
+    //
+    // The app id itself is overridable via OPUS_APP_ID — unset for every
+    // real launch (the normal "io.github.nowaos.Opus" applies), set by
+    // SystemTestSession to a value unique to that one test run. Without
+    // this, a system test's own freshly-spawned process would find
+    // "io.github.nowaos.Opus" already owned by any real Opus window the
+    // developer happens to have open, and GApplication's own single-
+    // instance behavior would silently hand the whole test off to *that*
+    // window instead of the isolated one just spawned for it — reported
+    // live as tests seeming to run in an already-open window, with no
+    // reliable way to tell when they'd actually finished.
+    var app_id = Environment.get_variable ("OPUS_APP_ID") ?? "io.github.nowaos.Opus";
+    var app = new Adw.Application (app_id, ApplicationFlags.HANDLES_COMMAND_LINE);
 
     // Not any earlier: Adw.StyleManager.get_default() needs a real
     // Gdk.Display, which doesn't exist until GTK itself has actually

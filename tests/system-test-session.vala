@@ -20,8 +20,6 @@
  * the shape `gdbus call` itself already uses against the same interface.
  */
 public class SystemTestSession : Object {
-    private const string BUS_NAME = "io.github.nowaos.Opus";
-    private const string OBJECT_PATH = "/io/github/nowaos/Opus/Dev";
     private const string INTERFACE_NAME = "io.github.nowaos.Opus.Dev";
     private const int64 READY_TIMEOUT_USEC = 5 * 1000 * 1000;
     private const uint READY_POLL_INTERVAL_MSEC = 50;
@@ -55,9 +53,20 @@ public class SystemTestSession : Object {
         broadway_process = broadway_launcher.spawnv (broadway_argv);
         wait_for_port ((uint16) (8080 + broadway_display_num));
 
+        // A dedicated app id, unique to this one session (reusing
+        // broadway_display_num — already guaranteed distinct across
+        // every concurrently-running system-test binary, see this
+        // constructor's own doc comment above) — see main.vala's own
+        // OPUS_APP_ID comment for why this matters: without it, this
+        // whole session would silently drive any real Opus window the
+        // developer happens to already have open instead of the
+        // isolated one just spawned for it.
+        var app_id = "io.github.nowaos.Opus.Test%u".printf (broadway_display_num);
+
         var launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         launcher.setenv ("GDK_BACKEND", "broadway", true);
         launcher.setenv ("BROADWAY_DISPLAY", ":%u".printf (broadway_display_num), true);
+        launcher.setenv ("OPUS_APP_ID", app_id, true);
         // spawnv() takes a `const gchar * const *`; valac always marshals
         // a string[] as a plain, non-const `gchar**` — see the identical
         // warning/explanation at file-tree-controller.vala's own spawnv()
@@ -65,8 +74,19 @@ public class SystemTestSession : Object {
         string[] argv = { opus_binary_path };
         process = launcher.spawnv (argv);
 
+        // GApplication's own object path is just its app id with dots
+        // turned into slashes, a leading one added (confirmed against
+        // main.vala's own dev_server.start() call, which reads it
+        // straight back via app.get_dbus_object_path() rather than
+        // building it by hand the way this has to) — "/Dev" is
+        // DevServer's own suffix on top of that, see dev-server/
+        // index.vala's own doc comment for why it piggybacks there
+        // instead of owning a separate name.
+        var bus_name = app_id;
+        var object_path = "/" + app_id.replace (".", "/") + "/Dev";
+
         var connection = Bus.get_sync (BusType.SESSION);
-        proxy = new DBusProxy.sync (connection, DBusProxyFlags.NONE, null, BUS_NAME, OBJECT_PATH, INTERFACE_NAME);
+        proxy = new DBusProxy.sync (connection, DBusProxyFlags.NONE, null, bus_name, object_path, INTERFACE_NAME);
 
         int64 deadline = get_monotonic_time () + READY_TIMEOUT_USEC;
         Error? last_error = null;
