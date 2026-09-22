@@ -18,6 +18,13 @@ public class MainWindowView : Object {
     private Gtk.Box tab_bar_row;
     private Adw.Bin tab_bar_bin;
     private Adw.Bin content_bin;
+    private Adw.Bin search_bar_bin;
+    private SearchBar search_bar;
+
+    // Gates Ctrl+F — kept in sync by show_content()/show_empty_state()
+    // rather than queried from content_bin.child, since "there's an
+    // active tab" is exactly those two methods' own job already.
+    private bool has_open_tabs = false;
     private Adw.StatusPage empty_state;
     private Gtk.MenuButton menu_button;
     private Gtk.ToggleButton sidebar_toggle_button;
@@ -102,8 +109,12 @@ public class MainWindowView : Object {
         tab_bar_row = (Gtk.Box) builder.get_object ("tab_bar_row");
         tab_bar_bin = (Adw.Bin) builder.get_object ("tab_bar_bin");
         content_bin = (Adw.Bin) builder.get_object ("content_bin");
+        search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
         sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
+
+        search_bar = new SearchBar ();
+        search_bar_bin.child = search_bar.widget;
 
         // Restores whatever size the last window that closed was left at
         // (window-width/window-height default to the same 900x600 this
@@ -252,12 +263,15 @@ public class MainWindowView : Object {
     public void show_content (Gtk.Widget widget) {
         content_bin.child = widget;
         tab_bar_row.visible = true;
+        has_open_tabs = true;
     }
 
-    /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes — hides the (now empty) tab bar along with it. */
+    /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes — hides the (now empty) tab bar, and the search bar (there's nothing left for it to search), along with it. */
     public void show_empty_state () {
         content_bin.child = empty_state;
         tab_bar_row.visible = false;
+        has_open_tabs = false;
+        search_bar.hide ();
     }
 
     /**
@@ -423,6 +437,25 @@ public class MainWindowView : Object {
                     open_folder_requested ();
                 } else {
                     open_file_requested ();
+                }
+                return true;
+            case Gdk.Key.f:
+                // Handled directly, not re-emitted as a signal like
+                // everything else in this switch: right now this is
+                // purely a "show the bar" visual — nothing outside this
+                // View (no Controller, no search logic) needs to react
+                // to it yet. No open tab means nothing to search, so
+                // there's nothing to show for it either — same guard
+                // show_empty_state() itself uses to hide the bar again
+                // once the last one closes.
+                if (has_open_tabs) {
+                    search_bar.show_find ();
+                }
+                return true;
+            case Gdk.Key.h:
+                // Same reasoning as Ctrl+F above, just into Replace mode.
+                if (has_open_tabs) {
+                    search_bar.show_replace ();
                 }
                 return true;
             default:

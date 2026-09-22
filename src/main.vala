@@ -318,6 +318,14 @@ int main (string[] args) {
     app.startup.connect (() => {
         apply_color_scheme ();
         settings.changed["style-variant"].connect (() => apply_color_scheme ());
+
+        // GtkText/GtkEntry (and friends) call gtk_widget_error_bell() —
+        // an audible system beep — on actions that can't do anything
+        // (Backspace on an empty entry, Left at position 0, …). Gated by
+        // this one process-wide GtkSettings property, no per-widget way
+        // to scope it (checked gtkwidget.c: gtk_widget_error_bell reads
+        // "gtk-error-bell" straight off Gtk.Settings.get_default()).
+        Gtk.Settings.get_default ().gtk_error_bell = false;
     });
 
     #if DEBUG

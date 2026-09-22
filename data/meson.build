@@ -12,6 +12,7 @@ blueprints = custom_target('blueprints',
     '../src/views/tab-bar/_pill.blp',
     '../src/views/editor/index.blp',
     '../src/views/main-window/index.blp',
+    '../src/views/main-window/_search-bar.blp',
   ),
   output: '.',
   command: [

@@ -24,6 +24,8 @@ opus_gtk_view_sources = files(
   'views/editor/_drag-payload.vala',
   'views/editor/_source-view.vala',
   'views/editor/index.vala',
+  'views/main-window/_search-counter-entry.vala',
+  'views/main-window/_search-bar.vala',
   'views/main-window/index.vala',
 )
 

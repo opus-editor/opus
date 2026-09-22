@@ -1,0 +1,221 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Gtk.SearchBar is a real GTK widget purpose-built for exactly this: its
+// own CSS node is genuinely named "searchbar", so libadwaita's real
+// searchbar stylesheet (background, inset shadow line, padding, and —
+// via show-close-button below — the small circular .close button) applies
+// with zero CSS of our own, the same look GNOME Text Editor's own custom
+// EditorSearchBar widget borrows by hand (checked its source,
+// editor-search-bar.c: gtk_widget_class_set_css_name (widget_class,
+// "searchbar")). connect_entry() in the .vala file wires the rest of the
+// native behavior (Escape-to-close, auto-focus-on-open, auto-clear-on-
+// close) — checked gtksearchbar.c, no code of our own needed for any of
+// it. Only its own internal reveal transition isn't ours to pick (it's
+// private to GtkSearchBar, always a crossfade) — Text Editor's own real
+// bar uses a hand-built revealer specifically to get a slide-up instead;
+// good enough for a first, purely visual pass.
+Gtk.SearchBar search_bar {
+  show-close-button: true;
+
+  // other_buttons + the entry/Previous/Next group are one combined,
+  // width-capped unit here — both centered together, not other_buttons
+  // floating independently over a still-perfectly-centered clamp (tried
+  // first, reverted: real, but read as more machinery than the visual
+  // was worth). Checked GtkSearchBar's own real source (gtksearchbar.c):
+  // whatever `child` we give it lands as the *center* widget of a real
+  // Gtk.CenterBox it already builds internally (hexpand: true), with its
+  // own close button as that CenterBox's *end* widget — so the close
+  // button still sits pinned at the true far edge regardless, only what
+  // "the center" means changed.
+  child: Adw.Clamp {
+    maximum-size: 500;
+
+    // A Gtk.Grid, not two independent rows of boxes — the replace row's
+    // own entry/buttons need to line up under the find row's search
+    // entry/Previous-Next group, the same reason GNOME Text Editor's own
+    // real search bar uses GtkGrid for this (editor-search-bar.ui).
+    // other_buttons + the divider only exist on row 0 (column 0/1) and
+    // are simply absent from row 1 — Grid still reserves their column
+    // widths, which is what keeps column 2 (the entries) aligned between
+    // both rows without needing an invisible placeholder in row 1.
+    child: Gtk.Grid search_grid {
+      row-spacing: 6;
+      column-spacing: 6;
+
+      Gtk.Box other_buttons {
+        spacing: 3;
+
+        layout {
+          column: 0;
+          row: 0;
+        }
+
+        Gtk.ToggleButton regex_button {
+          styles ["flat"]
+          icon-name: "regex-symbolic";
+          tooltip-text: _("Regular Expressions");
+          focus-on-click: false;
+        }
+
+        Gtk.ToggleButton case_sensitive_button {
+          styles ["flat"]
+          icon-name: "case-sensitive-symbolic";
+          tooltip-text: _("Case Sensitive");
+          focus-on-click: false;
+        }
+
+        Gtk.ToggleButton whole_word_button {
+          styles ["flat"]
+          icon-name: "whole-word-symbolic";
+          tooltip-text: _("Match Whole Word Only");
+          focus-on-click: false;
+        }
+      }
+
+      // Same class MainWindowView's own install_css() already styles
+      // (a subtler mix of --border-color, not the default separator's
+      // full-strength one — see its own comment) — reused as-is here,
+      // no new CSS needed. valign: center (not the default fill) plus
+      // an explicit height keeps it a short, centered divider instead
+      // of stretching to the row's own full height — GTK has no
+      // percentage sizing, so this is a fixed guess at roughly half a
+      // button's own height, not a computed 50%; adjust if it looks off
+      // once actually on screen.
+      Gtk.Separator {
+        orientation: vertical;
+        styles ["content-divider"]
+        valign: center;
+        height-request: 18;
+
+        layout {
+          column: 1;
+          row: 0;
+        }
+      }
+
+      // search_grid's (2, 0) cell is deliberately left empty here — no
+      // way for Blueprint to place a SearchCounterEntry (a same-project
+      // custom Gtk.Widget, not something blueprint-compiler has
+      // introspection data for). SearchBar's own constructor builds one
+      // and grid.attach()es it into that exact cell instead — same
+      // "custom widget built in code, blueprint just reserves where it
+      // goes" split EditorView already uses for its own OpusSourceView
+      // (built in code, dropped into scrolled_window via set_child()).
+
+      Gtk.Box {
+        homogeneous: true;
+        spacing: 3;
+
+        layout {
+          column: 3;
+          row: 0;
+        }
+
+        // chevron-up-symbolic.svg/arrow-down-symbolic.svg are
+        // arrow_forward_ios rotated by hand in Inkscape (±90°) — not
+        // chevron-down-symbolic.svg (expand_more), which stays reserved
+        // for the file-tree's own expand/collapse indicator elsewhere in
+        // the project; kept as separate files so rotating one never
+        // risks the other's orientation.
+        Gtk.Button move_previous_button {
+          styles ["flat"]
+          icon-name: "chevron-up-symbolic";
+          tooltip-text: _("Previous Match");
+          focus-on-click: false;
+        }
+
+        Gtk.Button move_next_button {
+          styles ["flat"]
+          icon-name: "arrow-down-symbolic";
+          tooltip-text: _("Next Match");
+          focus-on-click: false;
+        }
+      }
+
+      // Row 1 — Replace mode only. Both hidden by default; SearchBar's
+      // own show_replace()/show_find() flip `visible` on this pair
+      // together. Same column as search_entry/the Previous-Next group
+      // above, so switching modes doesn't shift anything horizontally.
+      // Same column as other_buttons (row 0) — mirrors its position, one
+      // toggle instead of three. halign: end (not the default fill)
+      // keeps it flush against that column's *right* edge instead of
+      // stretching across its full (3-button) width — right next to the
+      // divider/replace_entry, not floating off at the far left.
+      Gtk.ToggleButton preserve_case_button {
+        styles ["flat"]
+        icon-name: "format-size-symbolic";
+        tooltip-text: _("Preserve Case");
+        focus-on-click: false;
+        halign: end;
+        visible: false;
+
+        layout {
+          column: 0;
+          row: 1;
+        }
+      }
+
+      // Same class/sizing as row 0's own divider above — kept as a
+      // second, separate Separator (Grid needs one placed widget per
+      // cell) rather than trying to span one across both rows: row 0's
+      // divider sits between other_buttons and search_entry, this one
+      // between preserve_case_button and replace_entry, same idea.
+      Gtk.Separator replace_divider {
+        orientation: vertical;
+        styles ["content-divider"]
+        valign: center;
+        height-request: 18;
+        visible: false;
+
+        layout {
+          column: 1;
+          row: 1;
+        }
+      }
+
+      Gtk.Entry replace_entry {
+        hexpand: true;
+        visible: false;
+        placeholder-text: _("Replace");
+
+        layout {
+          column: 2;
+          row: 1;
+        }
+      }
+
+      Gtk.Box replace_actions {
+        homogeneous: true;
+        spacing: 3;
+        visible: false;
+
+        layout {
+          column: 3;
+          row: 1;
+        }
+
+        // Material Symbols has no dedicated "replace"/"replace all"
+        // icons. replace-symbolic/replace-all-symbolic (data/icons/) are
+        // reply/reply_all (a single vs. a doubled curved arrow — the
+        // same real pairing Gmail etc. use for Reply/Reply All) rotated
+        // 180° by hand in Inkscape, baked into the SVG's own path data —
+        // same idea as GNOME Text Editor's own edit-find-replace-
+        // symbolic, minus needing a matching icon under that exact name.
+        Gtk.Button replace_button {
+          styles ["flat"]
+          icon-name: "replace-symbolic";
+          tooltip-text: _("Replace");
+          focus-on-click: false;
+        }
+
+        Gtk.Button replace_all_button {
+          styles ["flat"]
+          icon-name: "replace-all-symbolic";
+          tooltip-text: _("Replace All");
+          focus-on-click: false;
+        }
+      }
+    };
+  };
+}

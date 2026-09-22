@@ -22,7 +22,10 @@ Adw.ApplicationWindow window {
     // raised (not flat): "Opaque background with a persistent shadow"
     // (libadwaita's own doc comment, adw-toolbar-view.c) — matches GNOME
     // Text Editor's own header, checked against ~/Downloads/gnome-text-editor.
+    // bottom-bar-style matches, for the search bar below — see
+    // search_bar_bin's own comment.
     top-bar-style: raised;
+    bottom-bar-style: raised;
 
     [top]
     Adw.HeaderBar {
@@ -143,6 +146,21 @@ Adw.ApplicationWindow window {
         }
       };
     };
+
+    // Filled in code (MainWindowView's own constructor) with SearchBar's
+    // widget — see src/views/CLAUDE.md for why a custom type never
+    // appears here by name directly. Sibling of split_view, not nested
+    // inside its content column: spans the *whole* window width, below
+    // the sidebar too, the same way the header above it does — a
+    // per-editor-column bar would've been squeezed to the right of the
+    // sidebar instead. libadwaita's own real toolbarview stylesheet
+    // (_toolbars.scss) already flattens a `searchbar` node nested inside
+    // a toolbarview's own bar slot (`%searchbar-inline` — no background/
+    // shadow of its own) exactly so it reads as part of *this* bar
+    // instead of stacking two bars visually; bottom-bar-style: raised
+    // above is what actually paints that shared background now.
+    [bottom]
+    Adw.Bin search_bar_bin {}
   };
 
   // Collapses the sidebar into an overlay once the window gets narrow —
