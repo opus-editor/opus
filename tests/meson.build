@@ -5,6 +5,20 @@ document_test = executable(
 )
 test('document', document_test)
 
+editor_config_test = executable(
+  'editor-config-test',
+  ['models/editor-config-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('editor-config', editor_config_test)
+
+indent_guides_test = executable(
+  'indent-guides-test',
+  ['models/indent-guides-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('indent-guides', indent_guides_test)
+
 workspace_test = executable(
   'workspace-test',
   ['models/workspace-test.vala', opus_model_sources],

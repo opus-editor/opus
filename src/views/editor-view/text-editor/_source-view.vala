@@ -38,10 +38,29 @@ namespace EditorView {
         // Code also offers as alternatives to its "blink" default.
         private const uint BLINK_INTERVAL_MS = 500;
 
+        // How far past the visible range indent guides look for
+        // interpolation context (see draw_indent_guides()) — a blank run
+        // of lines taller than this just loses its guide past the edge,
+        // same as IndentGuides already treats the real top/bottom of a file.
+        private const int INDENT_GUIDE_CONTEXT_LINES = 300;
+        private const float INDENT_GUIDE_ALPHA = 0.075f;
+        private const float ACTIVE_INDENT_GUIDE_ALPHA = 0.15f;
+
+        // How many characters to measure at once for the per-character
+        // guide width (see draw_indent_guides()) — long enough that
+        // Pango's own integer-pixel rounding of the sample's total width
+        // is a negligible fraction of one column, unlike measuring a
+        // single character.
+        // VS Code measures the same way for the same reason (its own
+        // charWidthReader.ts repeats a character 256 times, reads the
+        // rendered width, and divides by 256).
+        private const int CHAR_WIDTH_SAMPLE_LENGTH = 256;
+
         private int[] caret_offsets = {};
         private bool blink_visible = true;
         private uint blink_timeout_id = 0;
         private int? drop_indicator_offset = null;
+        private int indent_size = 4; // matches EditorController.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
 
         /**
          * A caret means "typing lands here" — showing one while this view
@@ -67,6 +86,12 @@ namespace EditorView {
         /** The codepoint offsets to paint a caret at on the next draw — one per cursor, primary included. Call whenever the cursor set changes, then `reset_blink()`. */
         public void set_carets (int[] offsets) {
             caret_offsets = offsets;
+        }
+
+        /** Columns per indent level, for indent guides — resolved by EditorController from the linked folder's .editorconfig, per file. */
+        public void set_indent_size (int size) {
+            indent_size = size;
+            queue_draw ();
         }
 
         /**
@@ -105,6 +130,11 @@ namespace EditorView {
 
         public override void snapshot_layer (Gtk.TextViewLayer layer, Gtk.Snapshot snapshot) {
             base.snapshot_layer (layer, snapshot);
+
+            if (layer == Gtk.TextViewLayer.BELOW_TEXT) {
+                draw_indent_guides (snapshot);
+                return;
+            }
 
             if (layer != Gtk.TextViewLayer.ABOVE_TEXT) {
                 return;
@@ -156,6 +186,113 @@ namespace EditorView {
         public void set_drop_indicator (int? offset) {
             drop_indicator_offset = offset;
             queue_draw ();
+        }
+
+        /**
+         * Vertical indent-guide lines, painted behind the text (BELOW_TEXT
+         * layer) so glyphs draw over them, same as VS Code. Only ever
+         * analyzes a bounded window of buffer text around what's actually
+         * visible — INDENT_GUIDE_CONTEXT_LINES of slack each side, not the
+         * whole buffer — since this runs on every repaint (scroll, cursor
+         * blink, edits) and re-parsing an entire large file that often
+         * would be wasteful.
+         *
+         * Column-to-pixel math is done by hand (line-start x from
+         * get_iter_location(), plus `level * indent_size` character
+         * widths) rather than looking up a real Gtk.TextIter at that
+         * column: a blank line has no character there for
+         * get_iter_at_line_offset() to find — it would just clamp back to
+         * column 0 — but a guide still needs to draw through it at its
+         * interpolated depth.
+         */
+        private void draw_indent_guides (Gtk.Snapshot snapshot) {
+            Gdk.Rectangle visible_rect;
+            get_visible_rect (out visible_rect);
+
+            Gtk.TextIter top_iter;
+            int top_y;
+            get_line_at_y (out top_iter, visible_rect.y, out top_y);
+            Gtk.TextIter bottom_iter;
+            int bottom_y;
+            get_line_at_y (out bottom_iter, visible_rect.y + visible_rect.height, out bottom_y);
+
+            int line_count = buffer.get_line_count ();
+            int visible_first_line = top_iter.get_line ().clamp (0, line_count - 1);
+            int visible_last_line = bottom_iter.get_line ().clamp (0, line_count - 1);
+            int window_start_line = int.max (0, visible_first_line - INDENT_GUIDE_CONTEXT_LINES);
+            int window_end_line = int.min (line_count - 1, visible_last_line + INDENT_GUIDE_CONTEXT_LINES);
+
+            Gtk.TextIter window_start_iter;
+            buffer.get_iter_at_line (out window_start_iter, window_start_line);
+            Gtk.TextIter window_end_iter;
+            buffer.get_iter_at_line (out window_end_iter, window_end_line);
+            window_end_iter.forward_to_line_end ();
+
+            var guides = new IndentGuides (buffer.get_text (window_start_iter, window_end_iter, true), indent_size);
+
+            int active_start_line = -1;
+            int active_end_line = -1;
+            int active_level = 0;
+            if (caret_offsets.length > 0) {
+                Gtk.TextIter cursor_iter;
+                buffer.get_iter_at_offset (out cursor_iter, caret_offsets[0]);
+
+                int local_start;
+                int local_end;
+                int level;
+                guides.active_guide (cursor_iter.get_line () - window_start_line, out local_start, out local_end, out level);
+                if (level > 0) {
+                    active_start_line = local_start + window_start_line;
+                    active_end_line = local_end + window_start_line;
+                    active_level = level;
+                }
+            }
+
+            // The view is monospace, so one glyph's width stands in for
+            // every character's — the same metric VS Code itself calls
+            // spaceWidth for this exact purpose. Measured over a long
+            // sample and averaged, not from a single character: confirmed
+            // directly (temporary Logger.warn instrumentation, since
+            // reverted) that a single-space Pango layout reports a width
+            // measurably wider than this font's real per-character
+            // advance (9px vs. an actual ~7.56px, measured here over 34
+            // characters) — a fixed per-glyph error that `(level - 1) *
+            // indent_size * char_width` then multiplies by `level`, so
+            // guides drifted further off with every deeper level instead
+            // of by a constant amount.
+            var layout = create_pango_layout (string.nfill (CHAR_WIDTH_SAMPLE_LENGTH, '0'));
+            int sample_width;
+            int sample_height;
+            layout.get_pixel_size (out sample_width, out sample_height);
+            float char_width = sample_width / (float) CHAR_WIDTH_SAMPLE_LENGTH;
+
+            var guide_color = get_color ();
+            guide_color.alpha = INDENT_GUIDE_ALPHA;
+            var active_color = get_color ();
+            active_color.alpha = ACTIVE_INDENT_GUIDE_ALPHA;
+
+            var levels = guides.levels_for_lines (visible_first_line - window_start_line, visible_last_line - window_start_line);
+
+            for (int line = visible_first_line; line <= visible_last_line; line++) {
+                int level_count = levels[line - visible_first_line];
+                if (level_count == 0) {
+                    continue;
+                }
+
+                Gtk.TextIter line_start_iter;
+                buffer.get_iter_at_line (out line_start_iter, line);
+                Gdk.Rectangle line_rect;
+                get_iter_location (line_start_iter, out line_rect);
+
+                for (int level = 1; level <= level_count; level++) {
+                    float x = line_rect.x + (level - 1) * indent_size * char_width;
+                    bool is_active = level == active_level && line >= active_start_line && line <= active_end_line;
+
+                    var rect = Graphene.Rect ();
+                    rect.init (x, line_rect.y, 1, line_rect.height);
+                    snapshot.append_color (is_active ? active_color : guide_color, rect);
+                }
+            }
         }
 
         /**

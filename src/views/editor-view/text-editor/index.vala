@@ -589,6 +589,11 @@ namespace EditorView {
             return text_view.buffer.text;
         }
 
+        /** How many columns one indent level is, for the indent guides — resolved by EditorController from the linked folder's .editorconfig, per file. */
+        public void set_indent_size (int size) {
+            text_view.set_indent_size (size);
+        }
+
         /**
          * The real EventControllerKey callback's own body, factored out so
          * a simulated keystroke (below) runs the exact same code a genuine

@@ -9,6 +9,11 @@ public class EditorController : Object {
     private EditorView.TextEditor editor_view;
     private CursorController cursor_controller;
     private string root_path;
+    private EditorConfig? editor_config;
+
+    // No `.editorconfig`, or none of its sections match a given file — VS
+    // Code's own default `tabSize`, and a reasonable one on its own.
+    private const int DEFAULT_INDENT_SIZE = 4;
 
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
     private string? active_path = null;
@@ -42,6 +47,7 @@ public class EditorController : Object {
         this.tab_bar_view = tab_bar_view;
         this.editor_view = editor_view;
         this.root_path = root_path;
+        editor_config = EditorConfig.load (root_path);
         cursor_controller = new CursorController (editor_view);
 
         editor_view.text_changed.connect (on_text_changed);
@@ -60,6 +66,7 @@ public class EditorController : Object {
     /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" calls resolve against the new root. */
     public void set_root_path (string root_path) {
         this.root_path = root_path;
+        editor_config = EditorConfig.load (root_path);
     }
 
     /**
@@ -567,6 +574,7 @@ public class EditorController : Object {
             editor_view.set_placeholder (_("This file can't be displayed."));
         }
         editor_view.set_change_banner_visible (document.is_externally_modified);
+        editor_view.set_indent_size (editor_config?.indent_size_for (relative_path (path)) ?? DEFAULT_INDENT_SIZE);
         cursor_controller.set_active_document (document);
     }
 
