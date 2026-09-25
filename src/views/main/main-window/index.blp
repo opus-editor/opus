@@ -3,7 +3,7 @@ using Adw 1;
 
 Adw.ApplicationWindow window {
   // default-width/default-height are set from GLib.Settings instead
-  // (MainWindowView's own constructor) — the last closed window's own
+  // (MainWindow's own constructor) — the last closed window's own
   // size, not a fixed one.
   // The window itself carries the "view" background, matching the main
   // content column's own opus-main color underneath everything else.
@@ -37,7 +37,7 @@ Adw.ApplicationWindow window {
       };
 
       // Only shown once the sidebar has actually collapsed AND a folder
-      // is linked (see MainWindowView's own
+      // is linked (see MainWindow's own
       // update_sidebar_toggle_visibility) — with the sidebar sitting
       // permanently side-by-side, or none linked at all, there's nothing
       // useful for it to reveal. Adw.OverlaySplitView already dismisses
@@ -81,7 +81,7 @@ Adw.ApplicationWindow window {
         // in it). Sits right where the sidebar visually ends, so it reads
         // as the boundary between the two panes even though it's actually
         // just the sidebar's own trailing child — see
-        // MainWindowView.setup_sidebar_resize() for the actual drag logic.
+        // MainWindow.setup_sidebar_resize() for the actual drag logic.
         Gtk.Box sidebar_resize_handle {
           styles ["sidebar-resize-handle"]
           width-request: 4;
@@ -104,14 +104,14 @@ Adw.ApplicationWindow window {
             // a Gtk.WindowHandle (drag-to-move-the-window), which raced
             // against — and often won over — the tab bar's own (now
             // removed) hand-rolled drag-to-reorder gesture; kept as a plain
-            // Box since real Gtk.DragSource/DropTarget (see TabBarView's
+            // Box since real Gtk.DragSource/DropTarget (see EditorView.TabBar's
             // own setup_reorder_drag_drop()) has no such conflict, but
             // there's no reason to reintroduce a WindowHandle here now.
             child: Gtk.Box {
               orientation: vertical;
 
               // Hidden entirely with no tabs open (see
-              // MainWindowView.show_empty_state()/show_content()) — an
+              // MainWindow.show_empty_state()/show_content()) — an
               // empty tab bar sitting over the empty-state placeholder has
               // nothing to switch between.
               Gtk.Box tab_bar_row {
@@ -124,7 +124,7 @@ Adw.ApplicationWindow window {
               }
 
               // Holds whatever the active tab shows — today always
-              // EditorView's widget, but not assumed to be: see
+              // EditorView.TextEditor's widget, but not assumed to be: see
               // show_editor()/show_empty_state() in index.vala. Starts
               // (and returns to, once the last tab closes) an empty-state
               // placeholder rather than an editor with nothing open in it.
@@ -147,7 +147,7 @@ Adw.ApplicationWindow window {
       };
     };
 
-    // Filled in code (MainWindowView's own constructor) with SearchBar's
+    // Filled in code (MainWindow's own constructor) with EditorView.FindBar's
     // widget — see src/views/CLAUDE.md for why a custom type never
     // appears here by name directly. Sibling of split_view, not nested
     // inside its content column: spans the *whole* window width, below

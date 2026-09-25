@@ -73,7 +73,7 @@ Gtk.SearchBar search_bar {
         }
       }
 
-      // Same class MainWindowView's own install_css() already styles
+      // Same class MainWindow's own install_css() already styles
       // (a subtler mix of --border-color, not the default separator's
       // full-strength one — see its own comment) — reused as-is here,
       // no new CSS needed. valign: center (not the default fill) plus
@@ -95,12 +95,12 @@ Gtk.SearchBar search_bar {
       }
 
       // search_grid's (2, 0) cell is deliberately left empty here — no
-      // way for Blueprint to place a SearchCounterEntry (a same-project
+      // way for Blueprint to place a SearchInput (a same-project
       // custom Gtk.Widget, not something blueprint-compiler has
-      // introspection data for). SearchBar's own constructor builds one
+      // introspection data for). EditorView.FindBar's own constructor builds one
       // and grid.attach()es it into that exact cell instead — same
       // "custom widget built in code, blueprint just reserves where it
-      // goes" split EditorView already uses for its own OpusSourceView
+      // goes" split EditorView.TextEditor already uses for its own EditorView.TextEditorSourceView
       // (built in code, dropped into scrolled_window via set_child()).
 
       Gtk.Box {
@@ -133,7 +133,7 @@ Gtk.SearchBar search_bar {
         }
       }
 
-      // Row 1 — Replace mode only. Hidden by default; SearchBar's own
+      // Row 1 — Replace mode only. Hidden by default; EditorView.FindBar's own
       // show_replace()/show_find() flip `visible` on this row's widgets
       // together. Same column as search_entry/the Previous-Next group
       // above, so switching modes doesn't shift anything horizontally.

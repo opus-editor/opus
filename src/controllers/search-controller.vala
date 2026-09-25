@@ -1,28 +1,28 @@
 /**
- * Mediates SearchBar <-> EditorView for Find, and SearchBar <->
+ * Mediates EditorView.FindBar <-> EditorView.TextEditor for Find, and EditorView.FindBar <->
  * EditorController for Replace/Replace All: text and option changes
- * drive EditorView's own live search, Next/Previous move through its
+ * drive EditorView.TextEditor's own live search, Next/Previous move through its
  * matches, and the resulting position/count get reflected straight back
- * onto SearchBar's own "N of M" counter. Replace/Replace All build their
- * edits against EditorView (it owns the live match ranges/regex state)
+ * onto EditorView.FindBar's own "N of M" counter. Replace/Replace All build their
+ * edits against EditorView.TextEditor (it owns the live match ranges/regex state)
  * but apply them through EditorController.apply_external_edits() — see
  * its own doc comment for why: none of Find/Replace's edits are
  * produced by a live cursor, so they can't go through CursorController
  * the way every other edit in this app does.
  */
 public class SearchController : Object {
-    private SearchBar search_bar;
-    private EditorView editor_view;
+    private EditorView.FindBar search_bar;
+    private EditorView.TextEditor editor_view;
     private EditorController editor_controller;
 
     // search_position_changed's own (position, count) doesn't say whether
     // count == 0 means "no search text" or "search text with zero
-    // matches" — SearchBar's set_match_info() needs that distinction (see
+    // matches" — EditorView.FindBar's set_match_info() needs that distinction (see
     // its own doc comment), so it's tracked here from search_changed
     // directly instead.
     private bool has_search_text = false;
 
-    public SearchController (SearchBar search_bar, EditorView editor_view, EditorController editor_controller) {
+    public SearchController (EditorView.FindBar search_bar, EditorView.TextEditor editor_view, EditorController editor_controller) {
         this.search_bar = search_bar;
         this.editor_view = editor_view;
         this.editor_controller = editor_controller;
@@ -38,7 +38,7 @@ public class SearchController : Object {
     }
 
     /**
-     * Ctrl+F — MainWindowView's own find_requested, already gated there
+     * Ctrl+F — MainWindow's own find_requested, already gated there
      * on there being an open tab at all. Seeds the Find entry from the
      * editor's own current (primary) selection first, same as most
      * editors' own real Ctrl+F, but only when the editor genuinely had
@@ -52,7 +52,7 @@ public class SearchController : Object {
      * before: Gtk.SearchBar's own real reveal_child_changed_cb (checked
      * gtksearchbar.c) clears its connected entry's text on every single
      * search-mode-enabled transition where that entry isn't itself a
-     * Gtk.Entry/Gtk.SearchEntry — ours (SearchCounterEntry's plain
+     * Gtk.Entry/Gtk.SearchEntry — ours (SearchInput's plain
      * Gtk.Text, see its own doc comment for why) never is, so the
      * transition show_find() triggers would otherwise wipe out whatever
      * was set here first.

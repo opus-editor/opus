@@ -1,16 +1,16 @@
 /**
  * Facade for the application's main window. Loads the window and its named
  * slots straight from the compiled Blueprint via {@link Gtk.Builder} — the
- * same way {@link EditorView} loads its widget tree, no composite-template
+ * same way {@link EditorView.TextEditor} loads its widget tree, no composite-template
  * subclass needed — and composes the sidebar and tab-bar widgets built
  * elsewhere into those slots. The content pane itself is handed whatever
  * widget the active tab owns via show_content(), rather than being wired to
  * one fixed widget at construction — it doesn't assume that's always an
- * {@link EditorView}. Holds no controller logic of its own; whoever wires
+ * {@link EditorView.TextEditor}. Holds no controller logic of its own; whoever wires
  * the app hands it the real widgets and reacts to their own controllers
  * separately.
  */
-public class MainWindowView : Object {
+public class MainWindow : Object {
     private Adw.ApplicationWindow window;
     private Adw.OverlaySplitView split_view;
     private Adw.Bin sidebar_bin;
@@ -19,10 +19,10 @@ public class MainWindowView : Object {
     private Adw.Bin tab_bar_bin;
     private Adw.Bin content_bin;
     private Adw.Bin search_bar_bin;
-    private SearchBar _search_bar;
+    private EditorView.FindBar _search_bar;
 
-    /** SearchController's own way in — built here, not in Session like TabBarView/EditorView, since it's part of the window chrome itself (see SearchBar's own doc comment for why it lives at the window level). */
-    public SearchBar search_bar { get { return _search_bar; } }
+    /** SearchController's own way in — built here, not in Session like EditorView.TabBar/EditorView.TextEditor, since it's part of the window chrome itself (see EditorView.FindBar's own doc comment for why it lives at the window level). */
+    public EditorView.FindBar search_bar { get { return _search_bar; } }
 
     /** Every GlobalPanel registered via register_global_panel() — see its own doc comment, and GlobalPanel's, for what this drives. */
     private GenericArray<GlobalPanel> global_panels = new GenericArray<GlobalPanel> ();
@@ -52,7 +52,7 @@ public class MainWindowView : Object {
 
     // The primary menu's Save/Save as… group — kept live (not rebuilt on
     // each open) via set_active_state(), the same push-on-change pattern
-    // TabPill.set_modified()/mark_preview() already use elsewhere, rather
+    // EditorView.TabBarPill.set_modified()/mark_preview() already use elsewhere, rather
     // than querying EditorController state at popover-open time (which
     // Gtk.MenuButton has no signal for anyway).
     private Gtk.Widget save_group_separator;
@@ -98,7 +98,7 @@ public class MainWindowView : Object {
     /** The primary menu's own "Close Folder" — unlinks whatever folder is currently linked, hiding the sidebar entirely again. */
     public signal void close_folder_requested ();
 
-    /** Double-click on the sidebar's own resize handle — main.vala answers with set_sidebar_width(), computed from FileTreeView's own currently-visible rows. */
+    /** Double-click on the sidebar's own resize handle — main.vala answers with set_sidebar_width(), computed from EditorView.FileTree's own currently-visible rows. */
     public signal void sidebar_reset_width_requested ();
 
     /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window's own Session. */
@@ -107,10 +107,10 @@ public class MainWindowView : Object {
     /** Ctrl+F, with at least one tab open — main.vala answers with SearchController.open_find(), which also seeds the bar from the editor's own current selection when there is one. */
     public signal void find_requested ();
 
-    public MainWindowView (Gtk.Application app, Gtk.Widget tab_bar, GLib.Settings settings) {
+    public MainWindow (Gtk.Application app, Gtk.Widget tab_bar, GLib.Settings settings) {
         this.settings = settings;
 
-        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/index.ui");
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main/main-window/index.ui");
         window = (Adw.ApplicationWindow) builder.get_object ("window");
         split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
         sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
@@ -122,7 +122,7 @@ public class MainWindowView : Object {
         menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
         sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
-        _search_bar = new SearchBar ();
+        _search_bar = new EditorView.FindBar ();
         search_bar_bin.child = _search_bar.widget;
         register_global_panel (_search_bar);
 
@@ -185,7 +185,7 @@ public class MainWindowView : Object {
              * gradient, list-view hover/selection tints, …) picks the new
              * colors up automatically, with no separate override needed.
              * GTK's CSS parser has no light-dark() (checked — see
-             * TabBarView's own drag-ghost comment for where this was
+             * EditorView.TabBar's own drag-ghost comment for where this was
              * first hit), so light/dark pick different values through a
              * plain class on the window instead, toggled in
              * update_theme_class() below. */
@@ -253,13 +253,13 @@ public class MainWindowView : Object {
         // Escape closes whichever registered GlobalPanel is open, from
         // anywhere in the window — not just while focus already happens
         // to be inside it (see GlobalPanel's own doc comment for why
-        // that's genuinely generic, not specific to SearchBar). A
+        // that's genuinely generic, not specific to EditorView.FindBar). A
         // *separate*, CAPTURE-phase controller, not folded into
         // on_key_pressed above (BUBBLE, and only reacts to a Ctrl
         // combination in the first place): CAPTURE resolves outer-to-
         // inner, ancestor before descendant, so this needs to run before
         // CursorController's own plain-Escape handling (text_view's own
-        // CAPTURE controller, EditorView.handle_key_pressed) — otherwise,
+        // CAPTURE controller, EditorView.TextEditor.handle_key_pressed) — otherwise,
         // with a selection in the editor (Ctrl+F's own "seed from the
         // current selection" leaves exactly that), CursorController would
         // already claim the keystroke to collapse it before this ever got
@@ -295,7 +295,7 @@ public class MainWindowView : Object {
     }
 
     /**
-     * Shows `widget` — the active tab's own content, an {@link EditorView}'s
+     * Shows `widget` — the active tab's own content, an {@link EditorView.TextEditor}'s
      * today but not assumed to always be — in the content pane, replacing
      * whatever was shown before. Also reveals the tab bar, hidden while
      * there was nothing open for it to show.
@@ -414,8 +414,8 @@ public class MainWindowView : Object {
         // Double-click resets to "optimal" width — VS Code's own real
         // behavior (checked its source): sidebar_reset_width_requested is
         // fired here rather than computed inline because measuring "the
-        // optimal width" needs FileTreeView's own realized row widgets,
-        // and this View has no business knowing FileTreeView's concrete
+        // optimal width" needs EditorView.FileTree's own realized row widgets,
+        // and this View has no business knowing EditorView.FileTree's concrete
         // type — main.vala wires the two together the same way it already
         // does for "Reveal in Sidebar".
         var click = new Gtk.GestureClick ();
@@ -488,8 +488,8 @@ public class MainWindowView : Object {
                 // Re-emitted as a signal, unlike Ctrl+H right below:
                 // opening Find also needs to prefill it from whatever's
                 // currently selected in the editor, which needs
-                // EditorView — this View has no reference to it (only
-                // its own SearchBar), so SearchController answers
+                // EditorView.TextEditor — this View has no reference to it (only
+                // its own EditorView.FindBar), so SearchController answers
                 // instead (see main.vala's own wiring). No open tab
                 // means nothing to search, so there's nothing to show
                 // for it either — same guard show_empty_state() itself
@@ -622,7 +622,7 @@ public class MainWindowView : Object {
      * rules), translated from its GTK3-era `@named_color` syntax to
      * libadwaita's own CSS custom properties (`var(--accent-bg-color)`,
      * `var(--border-color)`) already used elsewhere in this codebase
-     * (see EditorView.install_css()) — same colors, current syntax. The
+     * (see EditorView.TextEditor.install_css()) — same colors, current syntax. The
      * native radio indicator (the small checkmark/dot GTK draws by
      * default) is fully suppressed — background/border/box-shadow/icon
      * all cleared, not just the icon — the accent-colored ring alone is

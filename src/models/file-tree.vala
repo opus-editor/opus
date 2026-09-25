@@ -5,7 +5,7 @@
  * stay unscanned (FileNode.children_loaded false) until
  * {@link ensure_children_loaded} is actually asked for them, typically
  * when the sidebar row for it expands for the first time (see
- * FileTreeView.children_load_requested). Scanning eagerly and
+ * EditorView.FileTree.children_load_requested). Scanning eagerly and
  * recursively used to mean opening a folder with a large `node_modules`
  * walked every single file in it, synchronously, before the window even
  * showed anything — long enough for the desktop to flag Opus as "Not
@@ -150,7 +150,7 @@ public class FileTree : Object {
      * rebuilt from scratch; only genuinely new entries go through
      * build_node(), and ones no longer on disk are dropped. Preserving
      * identity for anything unaffected matters here the same way it does
-     * for every other tree-mutating method — FileTreeView's own diffing
+     * for every other tree-mutating method — EditorView.FileTree's own diffing
      * (sync_store()) needs it to avoid collapsing unrelated expanded
      * subfolders on every external change, not just the entry that
      * actually changed.

@@ -1,8 +1,8 @@
 /**
  * Drives the currently active document's CursorCollection + EditHistory
- * from EditorView's raw input signals: classifies a keypress/click into
+ * from EditorView.TextEditor's raw input signals: classifies a keypress/click into
  * which Model method to call, then pushes the result back through
- * EditorView's own plain methods. All actual cursor/edit logic (normalize,
+ * EditorView.TextEditor's own plain methods. All actual cursor/edit logic (normalize,
  * offset bookkeeping, coalescing) lives in the Models and is unit-tested
  * headlessly — this class only routes plain data between them, the same
  * shape as EditorController's own on_text_changed().
@@ -32,7 +32,7 @@
 public class CursorController : Object {
     private delegate void CursorCommand ();
 
-    private EditorView editor_view;
+    private EditorView.TextEditor editor_view;
     private Document? active_document = null;
 
     // The exact text most recently written to the clipboard by our own
@@ -73,7 +73,7 @@ public class CursorController : Object {
     // earlier, unrelated drag.
     private bool alt_drag_active = false;
 
-    public CursorController (EditorView editor_view) {
+    public CursorController (EditorView.TextEditor editor_view) {
         this.editor_view = editor_view;
         editor_view.set_undo_enabled (false);
 
@@ -94,7 +94,7 @@ public class CursorController : Object {
      * into whatever was left open.
      *
      * Also renders the newly-active document's own cursors: the native
-     * caret is never painted any more (see EditorView's
+     * caret is never painted any more (see EditorView.TextEditor's
      * cursor_visible = false), so without an explicit render here,
      * activating a document whose cursor happens to already sit at the
      * same buffer position the view was just showing (nothing actually
@@ -284,7 +284,7 @@ public class CursorController : Object {
 
         // Bookkeeping runs for every click, even ones we don't act on
         // further below — a plain/Shift/double/triple-click is a
-        // non-edit action same as any other, and EditorView still claims
+        // non-edit action same as any other, and EditorView.TextEditor still claims
         // nothing for those (see index.vala's click_gesture), so
         // GtkTextView's own native handling runs and native_cursor_moved
         // picks up wherever it lands.
@@ -315,7 +315,7 @@ public class CursorController : Object {
         render ();
     }
 
-    // Called for both Alt-drag cases now — EditorView keeps driving
+    // Called for both Alt-drag cases now — EditorView.TextEditor keeps driving
     // drag_extended_raw for either; a plain click-drag-select is
     // entirely native. box_select_anchor_offset/alt_drag_active are
     // mutually exclusive and both reset on every click (see on_click),
@@ -336,7 +336,7 @@ public class CursorController : Object {
 
     // The buffer's real marks moved for a reason this controller didn't
     // itself drive — a plain/Shift click, a native double/triple-click,
-    // a click-drag-select, or an unclaimed key (EditorView already
+    // a click-drag-select, or an unclaimed key (EditorView.TextEditor already
     // suppresses this during its own render_cursors() call, so a
     // multi-cursor set this controller just rendered doesn't collapse
     // right back to one on its own). Always replacing the whole set with
@@ -347,7 +347,7 @@ public class CursorController : Object {
     // ends up deciding where.
     //
     // Also renders: the native caret is never painted any more (see
-    // EditorView's cursor_visible = false), so nothing else makes this
+    // EditorView.TextEditor's cursor_visible = false), so nothing else makes this
     // new position visible on screen — without this, a plain click
     // updated the model correctly but the caret only actually moved on
     // whatever key was pressed next.
@@ -365,7 +365,7 @@ public class CursorController : Object {
     /**
      * The real buffer changed through some native GTK path this
      * controller didn't drive itself — a defense-in-depth net for
-     * whatever that turns out to be (see EditorView.untracked_edit's own
+     * whatever that turns out to be (see EditorView.TextEditor.untracked_edit's own
      * doc comment; drag-and-drop used to be the concrete example here
      * before Opus reimplemented that itself — see on_selection_dropped
      * — but this stays in place for anything else, e.g. an external
@@ -387,7 +387,7 @@ public class CursorController : Object {
 
     /**
      * The primary selection's own drag-to-move landed — Opus's own
-     * reimplementation of native drag-move (see EditorView.
+     * reimplementation of native drag-move (see EditorView.TextEditor.
      * selection_dropped's own doc comment for why native DnD can't be
      * used here at all). Unlike untracked_edit() above, both halves of
      * the move are known up front here, so they're pushed as a single
@@ -446,7 +446,7 @@ public class CursorController : Object {
      * is multi-cursor-aware, unlike the real native selection this View
      * could otherwise have checked itself) and Undo/Redo (need a history
      * entry to act on) currently apply, then hands the answer back to
-     * EditorView to actually build the menu.
+     * EditorView.TextEditor to actually build the menu.
      */
     private void on_context_menu_requested (double x, double y) {
         bool can_cut_copy_delete = active_document != null && active_document.cursors.has_selection;

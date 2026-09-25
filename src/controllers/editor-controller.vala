@@ -5,8 +5,8 @@
  * close-with-unsaved-changes flow.
  */
 public class EditorController : Object {
-    private TabBarView tab_bar_view;
-    private EditorView editor_view;
+    private EditorView.TabBar tab_bar_view;
+    private EditorView.TextEditor editor_view;
     private CursorController cursor_controller;
     private string root_path;
 
@@ -35,10 +35,10 @@ public class EditorController : Object {
     /** Whether at least one tab is open — whoever hosts the editor's widget uses this to hide it (an empty-state placeholder instead) when it's not. */
     public signal void has_open_tabs_changed (bool has_tabs);
 
-    /** The active tab, or its dirty state, changed — null `path` means no tab is active (`dirty` is meaningless then). Drives the primary menu's Save/Save as… group (see MainWindowView.set_active_state); Save/Save as… now live only there and on Ctrl+S/Ctrl+Shift+S, not per-tab in the tab bar's own context menu. */
+    /** The active tab, or its dirty state, changed — null `path` means no tab is active (`dirty` is meaningless then). Drives the primary menu's Save/Save as… group (see MainWindow.set_active_state); Save/Save as… now live only there and on Ctrl+S/Ctrl+Shift+S, not per-tab in the tab bar's own context menu. */
     public signal void active_state_changed (string? path, bool dirty);
 
-    public EditorController (TabBarView tab_bar_view, EditorView editor_view, string root_path) {
+    public EditorController (EditorView.TabBar tab_bar_view, EditorView.TextEditor editor_view, string root_path) {
         this.tab_bar_view = tab_bar_view;
         this.editor_view = editor_view;
         this.root_path = root_path;
@@ -230,7 +230,7 @@ public class EditorController : Object {
      * Applies `edits` as one atomic, non-coalescing history step — none
      * of them produced by any live cursor, unlike every other edit path
      * in this controller (which all go through CursorController
-     * instead): the real buffer transaction (EditorView.apply_edits(),
+     * instead): the real buffer transaction (EditorView.TextEditor.apply_edits(),
      * already one GTK transaction), every cursor shifted to stay at its
      * own logical position (CursorCollection.shift_for_external_edits(),
      * never collapsed onto any of `edits`), and one EditHistory.push()
@@ -260,7 +260,7 @@ public class EditorController : Object {
      * keypress triggers — Opus.Dev.DevServer's own KeyPress, for the
      * system-test DSL. `modifier_state` is a raw `Gdk.ModifierType`
      * bitmask, kept as a plain `uint` here since this controller never
-     * imports Gdk itself (see EditorView.simulate_key_press(), which
+     * imports Gdk itself (see EditorView.TextEditor.simulate_key_press(), which
      * does the actual cast). Returns whether something claimed the key,
      * same as the real signal.
      */
@@ -268,7 +268,7 @@ public class EditorController : Object {
         return editor_view.simulate_key_press (keyval, modifier_state);
     }
 
-    /** Fires GtkTextView's own native "select-all" (Ctrl+A) action directly — Opus.Dev.DevServer's own SelectAll, for the system-test DSL. See EditorView.simulate_select_all()'s own doc comment for why this reaches GTK's real handling without a raw keystroke. */
+    /** Fires GtkTextView's own native "select-all" (Ctrl+A) action directly — Opus.Dev.DevServer's own SelectAll, for the system-test DSL. See EditorView.TextEditor.simulate_select_all()'s own doc comment for why this reaches GTK's real handling without a raw keystroke. */
     public void simulate_select_all () {
         editor_view.simulate_select_all ();
     }
@@ -453,7 +453,7 @@ public class EditorController : Object {
      * disk with this tab's own content), never by silently landing back
      * in a clean state along the way (e.g. Ctrl+Z undoing back to the
      * original content) or by dismissing the banner's own close button
-     * (that only hides it, see EditorView — the state underneath is
+     * (that only hides it, see EditorView.TextEditor — the state underneath is
      * unaffected). First found live, not assumed: a *second* external
      * edit while already unsynchronized re-ran this same dirty check
      * fresh, and — since the tab had gone clean again via Ctrl+Z in the
@@ -756,11 +756,11 @@ public class EditorController : Object {
     }
 
     /**
-     * Save As: asks EditorView for a destination via the system's own file
+     * Save As: asks EditorView.TextEditor for a destination via the system's own file
      * chooser (an untitled document defaults to the workspace root, since
      * its own synthetic "path" has no real directory to default to),
      * writes the document there, and re-keys both the document (documents
-     * is keyed by path) and its tab (TabBarView.rename_tab) to the new
+     * is keyed by path) and its tab (EditorView.TabBar.rename_tab) to the new
      * path — same pill, same position, just now pointing somewhere else,
      * the way any editor's Save As leaves you editing the new file
      * afterwards, not the old one. Also promotes a preview tab: a

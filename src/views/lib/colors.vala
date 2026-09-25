@@ -1,8 +1,9 @@
 /**
  * Small `Gdk.RGBA` color utilities that don't belong to any one widget —
- * kept alongside {@link EditorView}, the only place using them today,
- * rather than in `src/models/` (a plain color transform needs `Gdk`, and
- * models/ stays Gtk/Adw-free on purpose).
+ * {@link EditorView.TextEditor} is the only place using them today, but
+ * nothing about them is editor-specific, so they live here rather than
+ * next to it; also why not `src/models/` (a plain color transform needs
+ * `Gdk`, and models/ stays Gtk/Adw-free on purpose).
  */
 namespace EditorColors {
     /**
@@ -13,7 +14,7 @@ namespace EditorColors {
      * desaturation GTK's own real default theme uses for its backdrop
      * (window-inactive) selection color (see `gtk/theme/Default/
      * _colors.scss`: `$backdrop_selected_bg_color: transparentize(
-     * desaturate($selected_bg_color, 100%), 0.5)`); EditorView's own
+     * desaturate($selected_bg_color, 100%), 0.5)`); EditorView.TextEditor's own
      * search-match highlight instead uses a small `amount` — just enough
      * to keep it visually distinct from the accent-colored selection,
      * without draining the color away entirely.

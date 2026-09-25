@@ -1,9 +1,9 @@
 using Gtk 4.0;
 
 // GtkScrolledWindow is a final type in GTK4 (it can't be subclassed), so
-// EditorView doesn't use this as a composite template — it loads this as a
+// EditorView.TextEditor doesn't use this as a composite template — it loads this as a
 // plain widget tree via Gtk.Builder and owns the root, per the View-as-facade
-// pattern (see CLAUDE.md). The text view itself (an OpusSourceView, see
+// pattern (see CLAUDE.md). The text view itself (an EditorView.TextEditorSourceView, see
 // _source-view.vala) isn't declared here at all — it's a custom subclass
 // built and attached to scrolled_window in code, not by name in Blueprint;
 // nothing else in this codebase references a custom app-defined type from

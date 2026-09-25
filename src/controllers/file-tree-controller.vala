@@ -12,7 +12,7 @@ private class DirectoryWatch : Object {
 
 /**
  * Builds the {@link FileTree} for a workspace root and drives an
- * {@link FileTreeView} from it — including the sidebar's context menu:
+ * {@link EditorView.FileTree} from it — including the sidebar's context menu:
  * creating, renaming, deleting, moving and copying files/folders on disk
  * (keeping {@link FileTree} in sync), launching the system file
  * manager/terminal, copying paths to the clipboard, and live-tracking
@@ -21,7 +21,7 @@ private class DirectoryWatch : Object {
  *
  * Re-emits the view's `file_activated`/`delete_entry_requested` signals as
  * its own, so callers (`MainController`) never need to depend on
- * `FileTreeView` directly.
+ * `EditorView.FileTree` directly.
  */
 public class FileTreeController : Object {
     // Tried in this order for "Open in Terminal"; the first one actually
@@ -39,7 +39,7 @@ public class FileTreeController : Object {
     // the full reasoning.
     private const uint WATCH_DEBOUNCE_MS = 400;
 
-    private FileTreeView view;
+    private EditorView.FileTree view;
     private FileTree tree;
     private string root_path;
 
@@ -75,7 +75,7 @@ public class FileTreeController : Object {
      */
     public signal void file_moved (string old_path, string new_path);
 
-    public FileTreeController (FileTreeView view, string root_path) throws Error {
+    public FileTreeController (EditorView.FileTree view, string root_path) throws Error {
         this.view = view;
         this.root_path = root_path;
 
@@ -115,7 +115,7 @@ public class FileTreeController : Object {
      * real `Gio.FileMonitor`s — each one a kernel inotify watch, a
      * genuinely limited resource — many times over for nothing.
      */
-    /** Answers FileTreeView.children_load_requested() synchronously — the one place FileTree's own lazy, one-level-at-a-time scanning actually gets triggered. A no-op if `node` was already scanned (FileTree.ensure_children_loaded() checks that itself). */
+    /** Answers EditorView.FileTree.children_load_requested() synchronously — the one place FileTree's own lazy, one-level-at-a-time scanning actually gets triggered. A no-op if `node` was already scanned (FileTree.ensure_children_loaded() checks that itself). */
     private void on_children_load_requested (FileNode node) {
         try {
             tree.ensure_children_loaded (node);

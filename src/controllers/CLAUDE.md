@@ -1,7 +1,7 @@
 # src/controllers/
 
 Mediates Model <-> View. Holds a direct reference to a concrete View class
-(`FileTreeView`, not an interface) — there's no `I*View` seam anymore, it
+(`EditorView.FileTree`, not an interface) — there's no `I*View` seam anymore, it
 was dropped for faster iteration on the UI. What still holds regardless:
 a Controller never imports `Gtk`/`Adw` itself, and only ever calls a View's
 public methods or connects to its signals.

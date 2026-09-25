@@ -6,7 +6,7 @@ public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
 
 /**
  * A small shared builder for the flat-button right-click menus used by
- * FileTreeView, TabBarView, and EditorView — a plain Gtk.Popover
+ * EditorView.FileTree, EditorView.TabBar, and EditorView.TextEditor — a plain Gtk.Popover
  * containing a vertical Gtk.Box of flat Gtk.Buttons and Gtk.Separators,
  * not Gtk.PopoverMenu/GLib.Menu+Gio.SimpleAction: nothing else in this
  * codebase uses that pattern, every interactive row/pill here is plain
@@ -28,11 +28,11 @@ public class ContextMenu : Object {
     // menu) — so there is exactly one place left that can ever forget it.
     private static bool css_installed = false;
 
-    // A menu with only one or two short-word items (EditorView's own —
+    // A menu with only one or two short-word items (EditorView.TextEditor's own —
     // see its show_context_menu()) shrinks to fit its widest label and
     // reads as oddly narrow; every menu gets this same floor rather than
     // each call site guessing its own, since a wider one's own content
-    // already clears it anyway (TabBarView/FileTreeView's own labels and
+    // already clears it anyway (EditorView.TabBar/EditorView.FileTree's own labels and
     // accelerator hints are comfortably past 124px already).
     private const int MIN_WIDTH = 124;
 
@@ -73,14 +73,14 @@ public class ContextMenu : Object {
      * A flat button styled as a menu row; `action` runs once `popover` has
      * popped down. `accel`, if given (build it with
      * `Gtk.accelerator_get_label (keyval, mods)`, not typed out by hand —
-     * see TabBarView.show_context_menu for why), is shown as a dimmed hint
+     * see EditorView.TabBar.show_context_menu for why), is shown as a dimmed hint
      * on the right, matching Nautilus's own popover menus (its own label
      * carries no `dim-label`/similar class of its own — that's a real
      * GtkPopoverMenu's own built-in accelerator column, which this project
      * doesn't use; see the class doc comment — this reproduces the same
      * look with two plain Gtk.Labels instead). `sensitive` false renders
      * it disabled and unclickable, same as any other Gtk.Widget — for a
-     * menu item whose action doesn't apply right now (EditorView's own
+     * menu item whose action doesn't apply right now (EditorView.TextEditor's own
      * Cut/Copy/Delete/Undo/Redo, depending on selection/history state).
      */
     public static Gtk.Widget item (string label_text, owned MenuAction action, Gtk.Popover popover, string? accel = null, bool sensitive = true) {

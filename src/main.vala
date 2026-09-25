@@ -11,16 +11,16 @@
  * `file_tree_view`/`file_tree_controller`/`main_controller` are null until
  * a folder is actually linked — a window opened blank (`opus`) or for a
  * single file (`opus <file>`) has no sidebar at all until "Open Folder…"
- * links one (see MainWindowView.link_folder).
+ * links one (see MainWindow.link_folder).
  */
 private class Session : Object {
-    public FileTreeView? file_tree_view;
-    public TabBarView tab_bar_view;
-    public EditorView editor_view;
+    public EditorView.FileTree? file_tree_view;
+    public EditorView.TabBar tab_bar_view;
+    public EditorView.TextEditor editor_view;
     public FileTreeController? file_tree_controller;
     public EditorController editor_controller;
     public MainController? main_controller;
-    public MainWindowView window_view;
+    public MainWindow window_view;
     public SearchController search_controller;
 }
 
@@ -58,16 +58,16 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
     Gtk.IconTheme.get_for_display (Gdk.Display.get_default ()).add_resource_path ("/io/github/nowaos/Opus/icons");
 
     var session = new Session ();
-    session.tab_bar_view = new TabBarView ();
-    session.editor_view = new EditorView ();
+    session.tab_bar_view = new EditorView.TabBar ();
+    session.editor_view = new EditorView.TextEditor ();
     session.editor_controller = new EditorController (session.tab_bar_view, session.editor_view, editor_root_path);
-    session.window_view = new MainWindowView (app, session.tab_bar_view.widget, settings);
+    session.window_view = new MainWindow (app, session.tab_bar_view.widget, settings);
     session.search_controller = new SearchController (session.window_view.search_bar, session.editor_view, session.editor_controller);
     session.window_view.find_requested.connect (() => session.search_controller.open_find ());
 
     // The editor's widget only belongs in the content pane while at least
     // one tab is open — otherwise an empty-state placeholder takes its
-    // place (see MainWindowView.show_empty_state()).
+    // place (see MainWindow.show_empty_state()).
     session.editor_controller.has_open_tabs_changed.connect ((has_tabs) => {
         if (has_tabs) {
             session.window_view.show_content (session.editor_view.widget);
@@ -103,7 +103,7 @@ private static Session build_session (Gtk.Application app, string editor_root_pa
 
     // Double-click on the sidebar's own resize handle — same
     // read-fresh-and-guard pattern as "Reveal in Sidebar" above: nothing
-    // to measure with no folder (and so no FileTreeView) linked yet.
+    // to measure with no folder (and so no EditorView.FileTree) linked yet.
     session.window_view.sidebar_reset_width_requested.connect (() => {
         if (session.file_tree_view == null) {
             return;
@@ -184,7 +184,7 @@ private static void open_window (Gtk.Application app, string? initial_file) {
 }
 
 private static void open_workspace (Gtk.Application app, string root_path) {
-    var file_tree_view = new FileTreeView ();
+    var file_tree_view = new EditorView.FileTree ();
     FileTreeController file_tree_controller;
     try {
         file_tree_controller = new FileTreeController (file_tree_view, root_path);
@@ -204,7 +204,7 @@ private static void open_workspace (Gtk.Application app, string root_path) {
 }
 
 /** Replaces whichever FileTreeController this session already had (if any) — closing it first (see its own close() doc comment) so its watches/timers don't keep running after nothing references it anymore. */
-private static void link_folder (Session session, FileTreeView file_tree_view, FileTreeController file_tree_controller) {
+private static void link_folder (Session session, EditorView.FileTree file_tree_view, FileTreeController file_tree_controller) {
     if (session.file_tree_controller != null) {
         session.file_tree_controller.close ();
     }
@@ -217,7 +217,7 @@ private static void link_folder (Session session, FileTreeView file_tree_view, F
 
 /**
  * "Close Folder" — the opposite of link_folder(): drops this same
- * window's FileTreeView/FileTreeController/MainController entirely (their
+ * window's EditorView.FileTree/FileTreeController/MainController entirely (their
  * signal connections disconnect on their own once nothing references them
  * — see Session's own doc comment on why that's safe) and hides the
  * sidebar. Open tabs stay exactly as they are; "Copy Relative Path" falls
@@ -252,7 +252,7 @@ private static async void on_open_file_requested (Session session) {
 /**
  * Links `path` into this same window — the open tab bar/editor stay
  * exactly as they are (switching folders doesn't imply discarding
- * whatever's already open), only what FileTreeView shows and what
+ * whatever's already open), only what EditorView.FileTree shows and what
  * EditorController resolves relative paths against. Replaces whichever
  * folder was already linked, if any.
  */
@@ -262,7 +262,7 @@ private static async void on_open_folder_requested (Session session) {
         return;
     }
 
-    var file_tree_view = new FileTreeView ();
+    var file_tree_view = new EditorView.FileTree ();
     FileTreeController file_tree_controller;
     try {
         file_tree_controller = new FileTreeController (file_tree_view, path);
@@ -312,7 +312,7 @@ int main (string[] args) {
     // reverse never happens through this app, since nothing here ever
     // sets color_scheme directly — every actual write goes through the
     // theme selector's own "settings.style-variant" action (see
-    // MainWindowView's own build_primary_menu()), which writes the
+    // MainWindow's own build_primary_menu()), which writes the
     // setting, which fires this same "changed" handler right back.
     // Applied once up front for whatever the setting already held from
     // a previous run, then again on every future change — covers every

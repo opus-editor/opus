@@ -1,18 +1,20 @@
 # Each view owns its own index.blp, colocated with its index.vala under
-# src/views/<name>/ (a private sub-component's is _name.blp next to its
-# _name.vala). The base dir passed to blueprint-compiler is that views/
+# src/views/<domain>/<name>/ (a private sub-component's is _name.blp
+# next to its _name.vala) — see src/views/CLAUDE.md for the domain
+# layout. The base dir passed to blueprint-compiler is the whole views/
 # directory, so batch-compile mirrors that layout into the compiled .ui
-# resources (e.g. src/views/main-window/index.blp -> main-window/index.ui),
-# matching the paths in the .gresource.xml below.
+# resources (e.g. src/views/main/main-window/index.blp ->
+# main/main-window/index.ui), matching the paths in the .gresource.xml
+# below.
 views_dir = meson.project_source_root() / 'src' / 'views'
 
 blueprints = custom_target('blueprints',
   input: files(
-    '../src/views/file-tree/_row.blp',
-    '../src/views/tab-bar/_pill.blp',
-    '../src/views/editor/index.blp',
-    '../src/views/main-window/index.blp',
-    '../src/views/main-window/_search-bar.blp',
+    '../src/views/editor-view/file-tree/_row.blp',
+    '../src/views/editor-view/tab-bar/_pill.blp',
+    '../src/views/editor-view/text-editor/index.blp',
+    '../src/views/editor-view/find-bar/index.blp',
+    '../src/views/main/main-window/index.blp',
   ),
   output: '.',
   command: [

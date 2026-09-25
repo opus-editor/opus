@@ -5,7 +5,7 @@
  * entry.c): a bare `Gtk.Widget` subclass laid out with `Gtk.BoxLayout`,
  * its own css-name set to "entry" so libadwaita's real entry stylesheet
  * (background, border, focus ring, padding) applies with zero CSS of our
- * own — the same reason SearchBar's own outer Gtk.SearchBar borrows
+ * own — the same reason EditorView.FindBar's own outer Gtk.SearchBar borrows
  * "searchbar" as its css-name. A plain Gtk.Entry can't do this itself:
  * it has no way to embed an arbitrary child widget alongside its text.
  *
@@ -21,13 +21,13 @@
  * split (owned/unowned, property-only, method-only) — a real Vala 0.56
  * binding gap for this specific interface shape, not a design choice.
  * `entry` below (the inner Gtk.Text — itself a genuine Gtk.Editable) is
- * what SearchBar wires everything through instead, including
+ * what EditorView.FindBar wires everything through instead, including
  * Gtk.SearchBar.connect_entry().
  */
-public class SearchCounterEntry : Gtk.Widget {
+public class SearchInput : Gtk.Widget {
     private Gtk.Label counter_label;
 
-    /** The real editable text — SearchBar connects its own `changed`/`activate` signals and reads/writes `.text` straight through this, and passes it to Gtk.SearchBar.connect_entry() (a plain Gtk.Text already satisfies Gtk.Editable on its own — see this class's own doc comment for why it's not this outer widget instead). */
+    /** The real editable text — EditorView.FindBar connects its own `changed`/`activate` signals and reads/writes `.text` straight through this, and passes it to Gtk.SearchBar.connect_entry() (a plain Gtk.Text already satisfies Gtk.Editable on its own — see this class's own doc comment for why it's not this outer widget instead). */
     public Gtk.Text entry { get; private set; }
 
     private int occurrence_count = 0;
@@ -37,11 +37,12 @@ public class SearchCounterEntry : Gtk.Widget {
         set_css_name ("entry");
     }
 
-    public SearchCounterEntry () {
+    public SearchInput () {
         layout_manager = new Gtk.BoxLayout (Gtk.Orientation.HORIZONTAL);
 
         entry = new Gtk.Text () {
-            hexpand = true
+            hexpand = true,
+            placeholder_text = _("Find")
         };
         entry.set_parent (this);
 

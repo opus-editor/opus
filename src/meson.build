@@ -14,21 +14,23 @@ opus_model_sources = files(
 )
 
 opus_gtk_view_sources = files(
-  'views/popover-menu.vala',
-  'views/drag-drop.vala',
-  'views/global-panel.vala',
-  'views/file-tree/_row.vala',
-  'views/file-tree/index.vala',
-  'views/tab-bar/_ghost.vala',
-  'views/tab-bar/_pill.vala',
-  'views/tab-bar/index.vala',
-  'views/editor/_colors.vala',
-  'views/editor/_drag-payload.vala',
-  'views/editor/_source-view.vala',
-  'views/editor/index.vala',
-  'views/main-window/_search-counter-entry.vala',
-  'views/main-window/_search-bar.vala',
-  'views/main-window/index.vala',
+  'views/lib/popover-menu.vala',
+  'views/lib/global-panel.vala',
+  'views/lib/colors.vala',
+  'views/lib/file-drag/_payload.vala',
+  'views/lib/file-drag/_candidate.vala',
+  'views/lib/file-drag/index.vala',
+  'views/components/search-input.vala',
+  'views/main/main-window/index.vala',
+  'views/editor-view/file-tree/_row.vala',
+  'views/editor-view/file-tree/index.vala',
+  'views/editor-view/tab-bar/_ghost.vala',
+  'views/editor-view/tab-bar/_pill.vala',
+  'views/editor-view/tab-bar/index.vala',
+  'views/editor-view/text-editor/_drag-payload.vala',
+  'views/editor-view/text-editor/_source-view.vala',
+  'views/editor-view/text-editor/index.vala',
+  'views/editor-view/find-bar/index.vala',
 )
 
 opus_controller_sources = files(

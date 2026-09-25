@@ -80,7 +80,7 @@ namespace Opus.Dev {
          * Not routed through key_press(): unlike an ordinary keystroke,
          * "select-all" is a GTK keybinding-action signal, reachable
          * (and faithfully exercised) without needing a real GTK event
-         * at all — see EditorView.simulate_select_all()'s own doc
+         * at all — see EditorView.TextEditor.simulate_select_all()'s own doc
          * comment for why.
          */
         public abstract void select_all () throws DBusError, IOError;

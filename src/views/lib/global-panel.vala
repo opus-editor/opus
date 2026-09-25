@@ -5,12 +5,12 @@
  * GNOME Text Editor's own preferences window) already gives for free,
  * with GTK itself never needing to know what's actually inside one.
  *
- * MainWindowView's own window-wide Escape handling asks every panel
+ * MainWindow's own window-wide Escape handling asks every panel
  * registered via register_global_panel() whether it's open, closing the
  * first one that is — a panel opts into that by implementing the two
- * members below; nothing else about it (or about MainWindowView) needs
+ * members below; nothing else about it (or about MainWindow) needs
  * to change for a future one (a Go to Line panel, say) to get the same
- * behavior SearchBar already has.
+ * behavior EditorView.FindBar already has.
  */
 public interface GlobalPanel : Object {
     /** Whether this panel is currently shown. */
