@@ -8,6 +8,7 @@ opus_model_sources = files(
   'models/file-tree.vala',
   'models/icon-theme.vala',
   'models/logger.vala',
+  'models/replace-pattern.vala',
   'models/text-edit.vala',
   'models/workspace.vala',
 )

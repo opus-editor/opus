@@ -384,7 +384,6 @@
     <file alias="scalable/actions/whole-word-symbolic.svg" compressed="true">icons/scalable/actions/whole-word-symbolic.svg</file>
     <file alias="scalable/actions/replace-symbolic.svg" compressed="true">icons/scalable/actions/replace-symbolic.svg</file>
     <file alias="scalable/actions/replace-all-symbolic.svg" compressed="true">icons/scalable/actions/replace-all-symbolic.svg</file>
-    <file alias="scalable/actions/format-size-symbolic.svg" compressed="true">icons/scalable/actions/format-size-symbolic.svg</file>
     <file alias="scalable/actions/chevron-up-symbolic.svg" compressed="true">icons/scalable/actions/chevron-up-symbolic.svg</file>
     <file alias="scalable/actions/arrow-down-symbolic.svg" compressed="true">icons/scalable/actions/arrow-down-symbolic.svg</file>
   </gresource>

@@ -33,6 +33,13 @@ edit_history_test = executable(
 )
 test('edit-history', edit_history_test)
 
+replace_pattern_test = executable(
+  'replace-pattern-test',
+  ['models/replace-pattern-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('replace-pattern', replace_pattern_test)
+
 # Links opus_resources too (unlike every other model test above) —
 # IconTheme.symbols()'s own test needs the real compiled GResource
 # bundle to actually be present to load the bundled Symbols theme from.

@@ -227,6 +227,34 @@ public class EditorController : Object {
     }
 
     /**
+     * Applies `edits` as one atomic, non-coalescing history step — none
+     * of them produced by any live cursor, unlike every other edit path
+     * in this controller (which all go through CursorController
+     * instead): the real buffer transaction (EditorView.apply_edits(),
+     * already one GTK transaction), every cursor shifted to stay at its
+     * own logical position (CursorCollection.shift_for_external_edits(),
+     * never collapsed onto any of `edits`), and one EditHistory.push()
+     * (EditKind.OTHER — never coalesces, so this is always its own undo
+     * step). SearchController's own Replace/Replace All; nothing about
+     * this is search-specific, so any future non-cursor-driven bulk edit
+     * can reuse it too. A no-op with no active tab, or an empty `edits`.
+     */
+    public void apply_external_edits (TextEdit[] edits) {
+        if (active_path == null || edits.length == 0) {
+            return;
+        }
+
+        var document = documents[active_path];
+        var before_cursors = document.cursors.snapshot ();
+
+        editor_view.apply_edits (edits);
+        document.cursors.shift_for_external_edits (edits);
+
+        document.history.push (edits, before_cursors, document.cursors.snapshot (), EditKind.OTHER);
+        editor_view.render_cursors (document.cursors.snapshot ());
+    }
+
+    /**
      * Simulates one keystroke exactly as a real EventControllerKey would
      * report it, driving the same CursorController dispatch a genuine
      * keypress triggers — Opus.Dev.DevServer's own KeyPress, for the

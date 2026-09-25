@@ -625,6 +625,31 @@ public class CursorCollection : Object {
     }
 
     /**
+     * Shifts every cursor by the combined length delta of `edits`
+     * landing before it — Find/Replace's own version of
+     * apply_edit_results(): none of `edits` are "produced" by any
+     * cursor here (they come from search matches, not the live cursor
+     * set), so every cursor always takes that method's own "an edit it
+     * didn't produce" branch, never its "collapse onto my own edit"
+     * one. Kept as its own small method rather than routing dummy,
+     * never-matching TaggedTextEdits through apply_edit_results() just
+     * to reach that one branch.
+     */
+    public void shift_for_external_edits (TextEdit[] edits) {
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            int delta = 0;
+            for (int e = 0; e < edits.length; e++) {
+                if (edits[e].end_offset <= cursor.position_offset) {
+                    delta += edits[e].new_text.char_count () - (edits[e].end_offset - edits[e].start_offset);
+                }
+            }
+            cursor.anchor_offset += delta;
+            cursor.position_offset += delta;
+        }
+    }
+
+    /**
      * Sorts cursors by position and merges any that now touch (if either
      * is collapsed) or overlap (if both have a selection), then
      * re-establishes `cursors[0]` as the primary — the same pass runs

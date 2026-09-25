@@ -133,34 +133,20 @@ Gtk.SearchBar search_bar {
         }
       }
 
-      // Row 1 — Replace mode only. Both hidden by default; SearchBar's
-      // own show_replace()/show_find() flip `visible` on this pair
+      // Row 1 — Replace mode only. Hidden by default; SearchBar's own
+      // show_replace()/show_find() flip `visible` on this row's widgets
       // together. Same column as search_entry/the Previous-Next group
       // above, so switching modes doesn't shift anything horizontally.
-      // Same column as other_buttons (row 0) — mirrors its position, one
-      // toggle instead of three. halign: end (not the default fill)
-      // keeps it flush against that column's *right* edge instead of
-      // stretching across its full (3-button) width — right next to the
-      // divider/replace_entry, not floating off at the far left.
-      Gtk.ToggleButton preserve_case_button {
-        styles ["flat"]
-        icon-name: "format-size-symbolic";
-        tooltip-text: _("Preserve Case");
-        focus-on-click: false;
-        halign: end;
-        visible: false;
-
-        layout {
-          column: 0;
-          row: 1;
-        }
-      }
+      // Column 0 has nothing of its own in this row (no Preserve Case
+      // toggle) — Grid still reserves that column's width from row 0's
+      // own other_buttons, so replace_divider/replace_entry below stay
+      // aligned under search_entry regardless.
 
       // Same class/sizing as row 0's own divider above — kept as a
       // second, separate Separator (Grid needs one placed widget per
       // cell) rather than trying to span one across both rows: row 0's
       // divider sits between other_buttons and search_entry, this one
-      // between preserve_case_button and replace_entry, same idea.
+      // plays the same role for replace_entry.
       Gtk.Separator replace_divider {
         orientation: vertical;
         styles ["content-divider"]

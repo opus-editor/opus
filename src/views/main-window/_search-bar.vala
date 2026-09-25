@@ -7,8 +7,8 @@
  * Escape handling is what actually drives close() from that, generically,
  * the same way it would for any other panel that implements the same
  * interface (see GlobalPanel's own doc comment for the reasoning).
- * SearchController drives the actual Find logic against EditorView
- * (Replace isn't wired yet).
+ * SearchController drives the actual Find/Replace logic against
+ * EditorView/EditorController.
  *
  * Gtk.SearchBar's own native behavior (checked its real source,
  * gtksearchbar.c) matters less here than it first looks: its auto-focus-
@@ -49,7 +49,8 @@ public class SearchBar : Object, GlobalPanel {
     private Gtk.Button move_next_button;
     private Gtk.Entry replace_entry;
     private Gtk.Box replace_actions;
-    private Gtk.ToggleButton preserve_case_button;
+    private Gtk.Button replace_button;
+    private Gtk.Button replace_all_button;
     private Gtk.Separator replace_divider;
 
     public Gtk.Widget widget { get { return search_bar; } }
@@ -65,6 +66,12 @@ public class SearchBar : Object, GlobalPanel {
 
     /** Next Match clicked, or plain Return in the Find entry. */
     public signal void search_next_requested ();
+
+    /** "Replace" clicked, or plain Return in the Replace entry. */
+    public signal void replace_requested ();
+
+    /** "Replace All" clicked. */
+    public signal void replace_all_requested ();
 
     /**
      * The bar just closed — Escape from anywhere in the window (via
@@ -85,6 +92,7 @@ public class SearchBar : Object, GlobalPanel {
     public bool regex_enabled { get { return regex_button.active; } }
     public bool case_sensitive_enabled { get { return case_sensitive_button.active; } }
     public bool whole_word_enabled { get { return whole_word_button.active; } }
+    public string replace_text { get { return replace_entry.text; } }
 
     public SearchBar () {
         var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main-window/_search-bar.ui");
@@ -97,7 +105,8 @@ public class SearchBar : Object, GlobalPanel {
         move_next_button = (Gtk.Button) builder.get_object ("move_next_button");
         replace_entry = (Gtk.Entry) builder.get_object ("replace_entry");
         replace_actions = (Gtk.Box) builder.get_object ("replace_actions");
-        preserve_case_button = (Gtk.ToggleButton) builder.get_object ("preserve_case_button");
+        replace_button = (Gtk.Button) builder.get_object ("replace_button");
+        replace_all_button = (Gtk.Button) builder.get_object ("replace_all_button");
         replace_divider = (Gtk.Separator) builder.get_object ("replace_divider");
 
         // Built in code, not declared in the .blp — see
@@ -117,6 +126,9 @@ public class SearchBar : Object, GlobalPanel {
         whole_word_button.toggled.connect (() => search_options_changed ());
         move_previous_button.clicked.connect (() => search_previous_requested ());
         move_next_button.clicked.connect (() => search_next_requested ());
+        replace_entry.activate.connect (() => replace_requested ());
+        replace_button.clicked.connect (() => replace_requested ());
+        replace_all_button.clicked.connect (() => replace_all_requested ());
 
         // CAPTURE: has to see Shift+Return before the entry's own native
         // "activate" (which fires on plain Return regardless of Shift,
@@ -210,7 +222,6 @@ public class SearchBar : Object, GlobalPanel {
     private void set_replace_mode (bool is_replace) {
         replace_entry.visible = is_replace;
         replace_actions.visible = is_replace;
-        preserve_case_button.visible = is_replace;
         replace_divider.visible = is_replace;
     }
 

@@ -1,3 +1,9 @@
+/** One live search match's own [start, end) offsets — see EditorView.enumerate_matches(). Never exposed past this file. */
+private class MatchRange : Object {
+    public int start_offset;
+    public int end_offset;
+}
+
 /**
  * Real Gtk-backed facade for the editor pane: a single {@link GtkSource.View}
  * whose content swaps per active tab. An unreadable file is shown by
@@ -659,6 +665,56 @@ public class EditorView : Object {
     }
 
     /**
+     * Builds the one TextEdit needed to replace the current match with
+     * `replacement` — null if there's no current match right now.
+     * Purely computes; SearchController hands the result to
+     * EditorController.apply_external_edits() to actually apply it (see
+     * EditorController's own doc comment for why edits from Find/
+     * Replace don't go through CursorController like every other one).
+     */
+    public TextEdit? compute_replace_current_match (string replacement) {
+        Gtk.TextIter start;
+        Gtk.TextIter end;
+        if (!get_current_match (out start, out end)) {
+            return null;
+        }
+
+        var pattern = ReplacePattern.parse (replacement, search_settings.get_regex_enabled ());
+        return build_replace_edit (start.get_offset (), end.get_offset (), pattern);
+    }
+
+    /** Builds one TextEdit per live match — same replacement-text resolution as compute_replace_current_match(), applied to every match enumerate_matches() finds. Empty with no active search/no matches. */
+    public TextEdit[] compute_replace_all (string replacement) {
+        var ranges = enumerate_matches ();
+        var pattern = ReplacePattern.parse (replacement, search_settings.get_regex_enabled ());
+
+        var edits = new TextEdit[ranges.length];
+        for (int i = 0; i < ranges.length; i++) {
+            edits[i] = build_replace_edit (ranges[i].start_offset, ranges[i].end_offset, pattern);
+        }
+        return edits;
+    }
+
+    /**
+     * "Replace"'s own follow-up, once SearchController has actually
+     * applied the edit compute_replace_current_match() built: lands on
+     * the next match starting right after the just-inserted replacement
+     * text — same as search_next() would, but from an explicit offset
+     * instead of wherever the (now-stale, already-overwritten) current
+     * match used to be.
+     */
+    public void land_after_replace (int replaced_end_offset) {
+        Gtk.TextIter from;
+        source_buffer.get_iter_at_offset (out from, replaced_end_offset);
+        land_on_match (from, true);
+    }
+
+    /** Replace All's own follow-up: there's no single "next" match to land on afterward, so this just discards whatever was marked current before — its own range no longer means anything once every match has changed. */
+    public void forget_current_match () {
+        clear_current_match ();
+    }
+
+    /**
      * Closing the Find bar with a match still live-highlighted hands it
      * off to the real selection — SearchController calls this once,
      * right as SearchBar's own closed signal fires, so the found text
@@ -1281,9 +1337,35 @@ public class EditorView : Object {
         source_buffer.get_end_iter (out buffer_end);
         source_buffer.remove_tag (search_match_tag, buffer_start, buffer_end);
 
-        if (search_settings.get_search_text () == null) {
-            return;
+        foreach (var range in enumerate_matches ()) {
+            Gtk.TextIter start;
+            Gtk.TextIter end;
+            source_buffer.get_iter_at_offset (out start, range.start_offset);
+            source_buffer.get_iter_at_offset (out end, range.end_offset);
+            source_buffer.apply_tag (search_match_tag, start, end);
         }
+    }
+
+    /**
+     * Every live match's own [start, end) offsets, in document order —
+     * shared by refresh_search_match_tags() (paints them) and
+     * compute_replace_all() (builds one TextEdit per one). Walks by
+     * hand, one match at a time via forward(), same reasoning as
+     * refresh_search_match_tags() used to have written out directly:
+     * there's no bulk "every match" API to read the scan back out
+     * through (SearchContext only exposes forward/backward), so this
+     * collects them all itself — stopping once the walk cycles back to
+     * whichever match it started from, since forward() always wraps
+     * around rather than returning "not found" partway through.
+     */
+    private MatchRange[] enumerate_matches () {
+        var result = new GenericArray<MatchRange> ();
+        if (search_settings.get_search_text () == null) {
+            return {};
+        }
+
+        Gtk.TextIter buffer_start;
+        source_buffer.get_start_iter (out buffer_start);
 
         var iter = buffer_start;
         int first_match_offset = -1;
@@ -1300,8 +1382,75 @@ public class EditorView : Object {
                 break;
             }
 
-            source_buffer.apply_tag (search_match_tag, match_start, match_end);
+            var range = new MatchRange ();
+            range.start_offset = match_start.get_offset ();
+            range.end_offset = match_end.get_offset ();
+            result.add (range);
+
             iter = match_end;
+        }
+
+        var arr = new MatchRange[result.length];
+        for (uint i = 0; i < result.length; i++) {
+            arr[i] = result[i];
+        }
+        return arr;
+    }
+
+    private TextEdit build_replace_edit (int start_offset, int end_offset, ReplacePattern pattern) {
+        Gtk.TextIter start;
+        Gtk.TextIter end;
+        source_buffer.get_iter_at_offset (out start, start_offset);
+        source_buffer.get_iter_at_offset (out end, end_offset);
+        string matched_text = source_buffer.get_text (start, end, false);
+
+        string[] groups;
+        if (pattern.has_replacement_patterns) {
+            groups = capture_groups (matched_text);
+        } else {
+            groups = { matched_text };
+        }
+
+        var edit = new TextEdit ();
+        edit.start_offset = start_offset;
+        edit.end_offset = end_offset;
+        edit.old_text = matched_text;
+        edit.new_text = pattern.build (groups);
+        return edit;
+    }
+
+    /**
+     * Re-matches `matched_text` against the live search pattern with
+     * GLib.Regex to recover its own capture groups — GtkSourceSearch
+     * Context only ever hands back a match's overall [start, end) range
+     * (forward()/backward()), never its submatches, so this is the only
+     * way to get them at all. Safe to match against just this one
+     * already-known occurrence in isolation rather than re-searching
+     * the whole buffer: SearchContext already established these exact
+     * bounds are a real match for the same pattern, so re-matching that
+     * substring alone reproduces the same submatches deterministically.
+     */
+    private string[] capture_groups (string matched_text) {
+        var search_text = search_settings.get_search_text ();
+        if (search_text == null) {
+            return { matched_text };
+        }
+
+        try {
+            var flags = search_settings.get_case_sensitive () ? 0 : RegexCompileFlags.CASELESS;
+            var regex = new Regex (search_text, flags);
+            MatchInfo match_info;
+            if (!regex.match (matched_text, 0, out match_info)) {
+                return { matched_text };
+            }
+
+            var groups = new string[match_info.get_match_count ()];
+            for (int i = 0; i < groups.length; i++) {
+                groups[i] = match_info.fetch (i) ?? "";
+            }
+            return groups;
+        } catch (RegexError e) {
+            return { matched_text };
         }
     }
 }

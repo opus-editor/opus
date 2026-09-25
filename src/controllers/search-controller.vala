@@ -1,13 +1,19 @@
 /**
- * Mediates SearchBar <-> EditorView for Find: text and option changes drive
- * EditorView's own live search, Next/Previous move through its matches, and
- * the resulting position/count get reflected straight back onto SearchBar's
- * own "N of M" counter. Replace isn't wired yet — see SearchBar's own doc
- * comment; this controller only drives Find until that's ready.
+ * Mediates SearchBar <-> EditorView for Find, and SearchBar <->
+ * EditorController for Replace/Replace All: text and option changes
+ * drive EditorView's own live search, Next/Previous move through its
+ * matches, and the resulting position/count get reflected straight back
+ * onto SearchBar's own "N of M" counter. Replace/Replace All build their
+ * edits against EditorView (it owns the live match ranges/regex state)
+ * but apply them through EditorController.apply_external_edits() — see
+ * its own doc comment for why: none of Find/Replace's edits are
+ * produced by a live cursor, so they can't go through CursorController
+ * the way every other edit in this app does.
  */
 public class SearchController : Object {
     private SearchBar search_bar;
     private EditorView editor_view;
+    private EditorController editor_controller;
 
     // search_position_changed's own (position, count) doesn't say whether
     // count == 0 means "no search text" or "search text with zero
@@ -16,14 +22,17 @@ public class SearchController : Object {
     // directly instead.
     private bool has_search_text = false;
 
-    public SearchController (SearchBar search_bar, EditorView editor_view) {
+    public SearchController (SearchBar search_bar, EditorView editor_view, EditorController editor_controller) {
         this.search_bar = search_bar;
         this.editor_view = editor_view;
+        this.editor_controller = editor_controller;
 
         search_bar.search_changed.connect (on_search_changed);
         search_bar.search_options_changed.connect (on_search_options_changed);
         search_bar.search_next_requested.connect (() => editor_view.search_next ());
         search_bar.search_previous_requested.connect (() => editor_view.search_previous ());
+        search_bar.replace_requested.connect (on_replace_requested);
+        search_bar.replace_all_requested.connect (on_replace_all_requested);
         search_bar.closed.connect (() => editor_view.select_last_match ());
         editor_view.search_position_changed.connect (on_search_position_changed);
     }
@@ -57,6 +66,28 @@ public class SearchController : Object {
         if (selected != "") {
             search_bar.set_find_text (selected);
         }
+    }
+
+    /** "Replace" — replaces only the current match, then advances to the next one. A no-op if there's no current match right now. */
+    private void on_replace_requested () {
+        var edit = editor_view.compute_replace_current_match (search_bar.replace_text);
+        if (edit == null) {
+            return;
+        }
+
+        editor_controller.apply_external_edits ({ edit });
+        editor_view.land_after_replace (edit.start_offset + edit.new_text.char_count ());
+    }
+
+    /** "Replace All" — replaces every live match as one undo step; the user's own cursor/selection just shifts to stay at its own logical position (see EditorController.apply_external_edits()). A no-op with no matches. */
+    private void on_replace_all_requested () {
+        var edits = editor_view.compute_replace_all (search_bar.replace_text);
+        if (edits.length == 0) {
+            return;
+        }
+
+        editor_controller.apply_external_edits (edits);
+        editor_view.forget_current_match ();
     }
 
     private void on_search_changed (string text) {
