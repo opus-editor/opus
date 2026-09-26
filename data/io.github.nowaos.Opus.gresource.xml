@@ -2,9 +2,12 @@
 <gresources>
   <gresource prefix="/io/github/nowaos/Opus">
     <file compressed="true">editor-view/file-tree/_row.ui</file>
+    <file compressed="true">editor-view/file-tree/index.ui</file>
     <file compressed="true">editor-view/tab-bar/_pill.ui</file>
+    <file compressed="true">editor-view/tab-bar/index.ui</file>
     <file compressed="true">editor-view/text-editor/index.ui</file>
     <file compressed="true">editor-view/find-bar/index.ui</file>
+    <file compressed="true">components/search-input.ui</file>
     <file compressed="true">main/main-window/index.ui</file>
   </gresource>
   <gresource prefix="/io/github/nowaos/Opus/icons">

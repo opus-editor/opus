@@ -357,27 +357,11 @@ namespace EditorView {
                 Gdk.Display.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             );
 
-            scrolled_window = new Gtk.ScrolledWindow () {
-                vexpand = true,
-            };
+            var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/file-tree/index.ui");
+            root_box = (Gtk.Box) builder.get_object ("root_box");
+            root_label = (Gtk.Label) builder.get_object ("root_label");
+            scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
             scrolled_window.child = list_view;
-
-            // The linked folder's own name — set once populate() actually
-            // knows it. Ellipsizes rather than wrapping/overflowing for a
-            // workspace with a long directory name.
-            root_label = new Gtk.Label ("") {
-                halign = Gtk.Align.START,
-                ellipsize = Pango.EllipsizeMode.END,
-                margin_start = 12,
-                margin_end = 12,
-                margin_top = 8,
-                margin_bottom = 4,
-            };
-            root_label.add_css_class ("file-tree-root-label");
-
-            root_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-            root_box.append (root_label);
-            root_box.append (scrolled_window);
 
             setup_context_menu ();
             setup_background_click ();

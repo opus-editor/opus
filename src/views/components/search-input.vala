@@ -40,25 +40,10 @@ public class SearchInput : Gtk.Widget {
     public SearchInput () {
         layout_manager = new Gtk.BoxLayout (Gtk.Orientation.HORIZONTAL);
 
-        entry = new Gtk.Text () {
-            hexpand = true,
-            placeholder_text = _("Find")
-        };
+        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/components/search-input.ui");
+        entry = (Gtk.Text) builder.get_object ("entry");
+        counter_label = (Gtk.Label) builder.get_object ("counter_label");
         entry.set_parent (this);
-
-        counter_label = new Gtk.Label (null) {
-            xalign = 1,
-            // Reserves space for the widest realistic count ("999 of
-            // 999") up front, so the entry's own typing area doesn't
-            // visibly shrink/grow as this label's text appears, changes
-            // digit count, or clears back to "" — found live: without
-            // this, GtkBoxLayout only ever gives this label exactly as
-            // much width as its *current* text needs, so entry (the
-            // only hexpand child) silently absorbed the difference every
-            // time, reading as the whole input jittering in width.
-            width_chars = 10
-        };
-        counter_label.add_css_class ("dim-label");
         counter_label.set_parent (this);
     }
 

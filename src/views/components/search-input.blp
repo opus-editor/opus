@@ -1,0 +1,27 @@
+using Gtk 4.0;
+
+// Two independent top-level objects, not one nested under a container:
+// SearchInput parents each directly onto itself (via a Gtk.BoxLayout set
+// in code) in its own constructor. Nesting them under a wrapping Gtk.Box
+// here instead would have Gtk.Builder parent them onto *that* box for
+// real — set_parent(this) then fails silently (a widget can't be
+// reparented that way), which is exactly what broke hexpand here the
+// first time around.
+Gtk.Text entry {
+  hexpand: true;
+  placeholder-text: _("Find");
+}
+
+Gtk.Label counter_label {
+  styles ["dim-label"]
+  xalign: 1;
+
+  // Reserves space for the widest realistic count ("999 of 999") up
+  // front, so the entry's own typing area doesn't visibly shrink/grow as
+  // this label's text appears, changes digit count, or clears back to ""
+  // — found live: without this, GtkBoxLayout only ever gives this label
+  // exactly as much width as its *current* text needs, so entry (the
+  // only hexpand child) silently absorbed the difference every time,
+  // reading as the whole input jittering in width.
+  width-chars: 10;
+}

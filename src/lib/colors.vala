@@ -2,8 +2,11 @@
  * Small `Gdk.RGBA` color utilities that don't belong to any one widget —
  * {@link EditorView.TextEditor} is the only place using them today, but
  * nothing about them is editor-specific, so they live here rather than
- * next to it; also why not `src/models/` (a plain color transform needs
- * `Gdk`, and models/ stays Gtk/Adw-free on purpose).
+ * next to it. Not `src/models/` (a plain color transform needs `Gdk`, and
+ * models/ stays Gtk/Adw-free on purpose) and not `src/views/lib/` either
+ * — `Gdk` isn't `Gtk`/`Adw`, the actual boundary `views/` draws (see
+ * `CursorController`'s own `Gdk.Key`/`Gdk.ModifierType` use), so nothing
+ * here needs to live under `views/` at all.
  */
 namespace EditorColors {
     /**

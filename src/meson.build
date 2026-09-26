@@ -15,10 +15,13 @@ opus_model_sources = files(
   'models/workspace.vala',
 )
 
+opus_lib_sources = files(
+  'lib/colors.vala',
+)
+
 opus_gtk_view_sources = files(
   'views/lib/popover-menu.vala',
   'views/lib/global-panel.vala',
-  'views/lib/colors.vala',
   'views/lib/file-drag/_payload.vala',
   'views/lib/file-drag/_candidate.vala',
   'views/lib/file-drag/index.vala',
@@ -53,7 +56,7 @@ opus_module_sources = files(
 
 opus_sources = files(
   'main.vala',
-) + opus_model_sources + opus_gtk_view_sources + opus_controller_sources + opus_module_sources
+) + opus_model_sources + opus_lib_sources + opus_gtk_view_sources + opus_controller_sources + opus_module_sources
 
 # Captured (not just called for its side effect) so tests/meson.build can
 # point SystemTestSession at the real built binary via full_path() — meson

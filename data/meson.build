@@ -11,9 +11,12 @@ views_dir = meson.project_source_root() / 'src' / 'views'
 blueprints = custom_target('blueprints',
   input: files(
     '../src/views/editor-view/file-tree/_row.blp',
+    '../src/views/editor-view/file-tree/index.blp',
     '../src/views/editor-view/tab-bar/_pill.blp',
+    '../src/views/editor-view/tab-bar/index.blp',
     '../src/views/editor-view/text-editor/index.blp',
     '../src/views/editor-view/find-bar/index.blp',
+    '../src/views/components/search-input.blp',
     '../src/views/main/main-window/index.blp',
   ),
   output: '.',

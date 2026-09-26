@@ -1,0 +1,29 @@
+using Gtk 4.0;
+
+// Same reasoning as EditorView.TextEditor's own index.blp: Gtk.ScrolledWindow is
+// final, so this loads as a plain widget tree via Gtk.Builder, not a
+// composite template. list_view isn't declared here — it needs a
+// Gtk.SignalListItemFactory built in code, so it's constructed there and
+// dropped into scrolled_window via set_child(), the same split
+// EditorView.TextEditor uses for its own EditorView.TextEditorSourceView.
+Gtk.Box root_box {
+  orientation: vertical;
+
+  // The linked folder's own name — set once populate() actually knows it.
+  // Ellipsizes rather than wrapping/overflowing for a workspace with a
+  // long directory name.
+  Gtk.Label root_label {
+    styles ["file-tree-root-label"]
+    label: "";
+    halign: start;
+    ellipsize: end;
+    margin-start: 12;
+    margin-end: 12;
+    margin-top: 8;
+    margin-bottom: 4;
+  }
+
+  Gtk.ScrolledWindow scrolled_window {
+    vexpand: true;
+  }
+}

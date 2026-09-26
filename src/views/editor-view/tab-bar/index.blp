@@ -1,0 +1,46 @@
+using Gtk 4.0;
+
+// Same reasoning as EditorView.TextEditor's own index.blp: Gtk.Overlay/
+// Gtk.ScrolledWindow are final, so this loads as a plain widget tree via
+// Gtk.Builder, not a composite template. Every pill is appended into `box`
+// at runtime (see TabBar.add_tab()) — box itself, empty, is still fully
+// static, unlike EditorView.TextEditor's source view or EditorView.FileTree's
+// list_view, which need a factory built in code.
+Gtk.Overlay overlay {
+  styles ["tab-bar"]
+
+  child: Gtk.ScrolledWindow scrolled_window {
+    // EXTERNAL, not AUTOMATIC — see the constructor's own comment: this
+    // opts out of GtkScrolledWindow's built-in wheel/pan handling, which
+    // the fade indicators below and TabBar's own EventControllerScroll
+    // replace by hand.
+    hscrollbar-policy: external;
+    vscrollbar-policy: never;
+
+    child: Gtk.Box box {
+      styles ["tab-row"]
+    };
+  };
+
+  // A thin, click-through strip fading to the window's own background
+  // color — GTK's own undershoot indicators do the same, but aren't
+  // available here (see the constructor's own comment on why EXTERNAL
+  // policy is used above).
+  [overlay]
+  Gtk.Box fade_start {
+    styles ["tab-bar-fade", "start"]
+    halign: start;
+    valign: fill;
+    vexpand: true;
+    can-target: false;
+  }
+
+  [overlay]
+  Gtk.Box fade_end {
+    styles ["tab-bar-fade", "end"]
+    halign: end;
+    valign: fill;
+    vexpand: true;
+    can-target: false;
+  }
+}

@@ -83,14 +83,17 @@ Both hold code shared *across* domains (used by more than one of
 `main/`/`editor-view/`/a future `git-view/`) — the split is whether it's
 itself a `Gtk.Widget`:
 
-- `views/lib/` — supporting code that isn't a widget: plain `Object`
-  helper/data classes, interfaces, delegates, or a namespace of pure
-  functions (`ContextMenu`, `GlobalPanel`, `EditorColors.desaturate()`,
-  the `FileDrag`/`FileDragPayload`/`FileDragCandidate` trio in its own
+- `views/lib/` — supporting code that isn't a widget but still needs
+  `Gtk`/`Adw`: plain `Object` helper/data classes, interfaces, delegates,
+  or a namespace of pure functions (`ContextMenu`, `GlobalPanel`, the
+  `FileDrag`/`FileDragPayload`/`FileDragCandidate` trio in its own
   `file-drag/` — nested one level since the three are only meaningful
   together, same reasoning as a view's own sub-widget). A domain can
   have its own nested `lib/` too (e.g. a future `editor-view/lib/`) for
   something shared only within that domain's own views, not app-wide.
+  Something that *doesn't* need `Gtk`/`Adw` (only `Gdk`, say) belongs in
+  the project-wide `src/lib/` instead — see its own `CLAUDE.md`
+  (`EditorColors.desaturate()` is there, not here, for exactly this).
 - `views/components/` — a real, reusable `Gtk.Widget` subclass meant to
   be dropped into more than one view's own template/tree (`SearchInput`,
   today only used by `EditorView.FindBar` but with nothing Find-specific

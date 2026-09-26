@@ -60,34 +60,18 @@ namespace EditorView {
         }
 
         public TabBar () {
-            box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-            // Scopes the :drop(active) override below to this box specifically
-            // — it has no other distinguishing class of its own otherwise.
-            box.add_css_class ("tab-row");
-
-            scrolled_window = new Gtk.ScrolledWindow ();
-            // EXTERNAL, not NEVER: per GtkPolicyType's own docs, NEVER means
-            // "the content determines the size" — no clipping at all, so the
-            // window would keep growing as tabs are added. EXTERNAL keeps the
-            // row's width independent of its content (clipped, never drawing a
-            // scrollbar, not even an auto-hiding overlay one) — but per its own
-            // docs ("this can be used to make multiple scrolled windows share a
-            // scrollbar"), it also opts the row out of GtkScrolledWindow's own
-            // built-in wheel handling and undershoot-fade indicators, on the
-            // assumption something external drives the adjustment (and draws
-            // its own edge indicators) instead. The EventControllerScroll and
-            // fade_start/fade_end below are that something.
-            //
-            // `AUTOMATIC` was tried instead, to get the wheel handling and the
-            // undershoot fade for free — but it also brings back
-            // GtkScrolledWindow's own click-and-drag-to-pan handling on the
-            // content, which fights the reorder gesture below the same way the
-            // window's own drag-to-move once did (see the [top]-bar history in
-            // main-window/index.blp) — reordering a tab ends up panning the
-            // row instead. EXTERNAL avoids that entirely, at the cost of having
-            // to reimplement the wheel and fade ourselves.
-            scrolled_window.set_policy (Gtk.PolicyType.EXTERNAL, Gtk.PolicyType.NEVER);
-            scrolled_window.set_child (box);
+            // A row with zero tabs has no content to size itself against, so it
+            // collapses to 0px and the content-divider below it rides up next
+            // to the header. 31px (in the CSS below) is a real tab pill's own
+            // natural height (measured from a live render, not guessed) —
+            // pinning the row to it keeps the divider in place whether there
+            // are any tabs or not.
+            var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/tab-bar/index.ui");
+            overlay = (Gtk.Overlay) builder.get_object ("overlay");
+            box = (Gtk.Box) builder.get_object ("box");
+            scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
+            fade_start = (Gtk.Widget) builder.get_object ("fade_start");
+            fade_end = (Gtk.Widget) builder.get_object ("fade_end");
 
             var scroll_controller = new Gtk.EventControllerScroll (Gtk.EventControllerScrollFlags.BOTH_AXES);
             scroll_controller.scroll.connect ((dx, dy) => {
@@ -96,20 +80,6 @@ namespace EditorView {
                 return true;
             });
             scrolled_window.add_controller (scroll_controller);
-
-            fade_start = new_fade_indicator ("start", Gtk.Align.START);
-            fade_end = new_fade_indicator ("end", Gtk.Align.END);
-
-            overlay = new Gtk.Overlay ();
-            // A row with zero tabs has no content to size itself against, so it
-            // collapses to 0px and the content-divider below it rides up next
-            // to the header. 31px is a real tab pill's own natural height
-            // (measured from a live render, not guessed) — pinning the row to
-            // it keeps the divider in place whether there are any tabs or not.
-            overlay.add_css_class ("tab-bar");
-            overlay.set_child (scrolled_window);
-            overlay.add_overlay (fade_start);
-            overlay.add_overlay (fade_end);
 
             var hadjustment = scrolled_window.get_hadjustment ();
             hadjustment.value_changed.connect (update_fade_visibility);
@@ -144,25 +114,6 @@ namespace EditorView {
                 picked = picked.get_parent ();
             }
             return true;
-        }
-
-        /**
-         * A thin, click-through strip fading to the window's own background
-         * color — GTK's own undershoot indicators do the same (a gradient
-         * overlay at the edge, not an actual mask on the clipped content), but
-         * aren't available here (see the constructor). `edge` drives both the
-         * CSS gradient direction and which end of the row this sits at.
-         */
-        private Gtk.Widget new_fade_indicator (string edge, Gtk.Align align) {
-            var indicator = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-            indicator.add_css_class ("tab-bar-fade");
-            indicator.add_css_class (edge);
-            indicator.halign = align;
-            indicator.valign = Gtk.Align.FILL;
-            indicator.vexpand = true;
-            // Let clicks (selecting/reordering a tab underneath) pass through.
-            indicator.can_target = false;
-            return indicator;
         }
 
         /** Shows each fade indicator only while its side actually has tabs scrolled out of view. */

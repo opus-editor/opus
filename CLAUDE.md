@@ -62,6 +62,7 @@ gdbus call --session --dest io.github.nowaos.Opus --object-path /io/github/nowao
 src/
   main.vala        entry point: builds Models, Views, Controllers and wires them together
   models/          see src/models/CLAUDE.md
+  lib/             see src/lib/CLAUDE.md
   controllers/     see src/controllers/CLAUDE.md
   views/           see src/views/CLAUDE.md
 data/              .desktop file, GResource XML, icons
