@@ -35,6 +35,14 @@ public class CursorController : Object {
     private EditorView.TextEditor editor_view;
     private Document? active_document = null;
 
+    // Resolved by EditorController from the linked folder's .editorconfig,
+    // per file — drives Tab/Backspace's own indent-aware behavior. These
+    // defaults match EditorController's own DEFAULT_INDENT_SIZE/
+    // DEFAULT_INSERT_SPACES: current native behavior until a real
+    // document's config is actually pushed.
+    private int indent_size = 4;
+    private bool insert_spaces = false;
+
     // The exact text most recently written to the clipboard by our own
     // Cut/Copy, and the per-cursor pieces it was built from (null once
     // there's only one piece — no distribution is ever possible then).
@@ -114,6 +122,12 @@ public class CursorController : Object {
         if (active_document != null) {
             render ();
         }
+    }
+
+    /** Columns per indent level, and whether Tab inserts that many spaces instead of a literal tab character — resolved by EditorController from the linked folder's .editorconfig, per file. */
+    public void set_indent_config (int indent_size, bool insert_spaces) {
+        this.indent_size = indent_size;
+        this.insert_spaces = insert_spaces;
     }
 
     private bool on_key_pressed (uint keyval, Gdk.ModifierType state) {
@@ -245,9 +259,20 @@ public class CursorController : Object {
             return true;
         }
 
+        // Shift+Tab (outdent) isn't implemented — left unclaimed here,
+        // same as today. Tab while any cursor has a selection isn't
+        // either (VS Code's own block-indent-the-whole-selection is a
+        // distinctly separate feature) — also left unclaimed, falling
+        // through to native handling exactly as it already does.
+        if (!shift && keyval == Gdk.Key.Tab && !active_document.cursors.has_selection) {
+            previous_typed_was_space = false;
+            apply_tab ();
+            return true;
+        }
+
         if (keyval == Gdk.Key.BackSpace) {
             previous_typed_was_space = false;
-            apply_edit (EditIntent.DELETE_LEFT, "", EditKind.DELETING_LEFT);
+            apply_backspace ();
             return true;
         }
         if (keyval == Gdk.Key.Delete || keyval == Gdk.Key.KP_Delete) {
@@ -257,7 +282,7 @@ public class CursorController : Object {
         }
         if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
             previous_typed_was_space = false;
-            apply_edit (EditIntent.INSERT, "\n", EditKind.OTHER);
+            apply_enter ();
             return true;
         }
 
@@ -560,6 +585,26 @@ public class CursorController : Object {
         Cursor[] cursors_to_remove;
         var tagged_edits = active_document.cursors.compute_distributed_paste_edits (texts, editor_view.get_text (), out cursors_to_remove);
         apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
+    }
+
+    private void apply_enter () {
+        Cursor[] cursors_to_remove;
+        var tagged_edits = active_document.cursors.compute_enter_edits (insert_spaces, indent_size, editor_view.get_text (), out cursors_to_remove);
+        apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER); // matches Enter's own undo behavior before this feature
+    }
+
+    private void apply_tab () {
+        Cursor[] cursors_to_remove;
+        var tagged_edits = active_document.cursors.compute_tab_edits (insert_spaces, indent_size, editor_view.get_text (), out cursors_to_remove);
+        // Own undo step, same as Enter/paste — simplest correct choice;
+        // doesn't touch EditHistory's own coalescing rules.
+        apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
+    }
+
+    private void apply_backspace () {
+        Cursor[] cursors_to_remove;
+        var tagged_edits = active_document.cursors.compute_backspace_edits (indent_size, editor_view.get_text (), out cursors_to_remove);
+        apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.DELETING_LEFT);
     }
 
     private void apply_tagged_edits (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove, EditKind kind) {

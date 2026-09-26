@@ -14,6 +14,9 @@ public class EditorController : Object {
     // No `.editorconfig`, or none of its sections match a given file — VS
     // Code's own default `tabSize`, and a reasonable one on its own.
     private const int DEFAULT_INDENT_SIZE = 4;
+    // Matches current native behavior — Tab only switches to inserting
+    // spaces once a file's own .editorconfig explicitly says so.
+    private const bool DEFAULT_INSERT_SPACES = false;
 
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
     private string? active_path = null;
@@ -574,7 +577,12 @@ public class EditorController : Object {
             editor_view.set_placeholder (_("This file can't be displayed."));
         }
         editor_view.set_change_banner_visible (document.is_externally_modified);
-        editor_view.set_indent_size (editor_config?.indent_size_for (relative_path (path)) ?? DEFAULT_INDENT_SIZE);
+
+        var indent_size = editor_config?.indent_size_for (relative_path (path)) ?? DEFAULT_INDENT_SIZE;
+        var insert_spaces = editor_config?.insert_spaces_for (relative_path (path)) ?? DEFAULT_INSERT_SPACES;
+        editor_view.set_indent_size (indent_size);
+        cursor_controller.set_indent_config (indent_size, insert_spaces);
+
         cursor_controller.set_active_document (document);
     }
 

@@ -376,6 +376,216 @@ private void test_multi_cursor_simultaneous_delete_left () {
     assert_cmpint (cc.at (2).position_offset, CompareOperator.EQ, 3);
 }
 
+private void test_compute_enter_edits_carries_forward_the_current_lines_indentation () {
+    var cc = new CursorCollection ();
+    string text = "  abc";
+    cc.set_cursors ({ new Cursor (5) }); // end of the line, after "c"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, text, out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
+}
+
+private void test_compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace () {
+    var cc = new CursorCollection ();
+    string text = "    abc"; // 4 leading spaces
+    cc.set_cursors ({ new Cursor (2) }); // halfway through the leading whitespace
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, text, out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  "); // only what's to the cursor's own left, not the whole 4
+}
+
+private void test_compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false () {
+    var cc = new CursorCollection ();
+    string text = "    abc"; // 4 real spaces, but insert_spaces below is false
+    cc.set_cursors ({ new Cursor (4) }); // end of the leading whitespace
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (false, 2, text, out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n\t\t"); // same visible width (4), re-expressed as tabs
+}
+
+private void test_compute_enter_edits_with_a_selection_replaces_it () {
+    var cc = new CursorCollection ();
+    string text = "  hello world";
+    var cursor = new Cursor (2);
+    cursor.position_offset = 7; // selects "hello"
+    cc.set_cursors ({ cursor });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 7);
+    assert_cmpstr (edits[0].edit.old_text, CompareOperator.EQ, "hello");
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
+}
+
+private void test_compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation () {
+    var cc = new CursorCollection ();
+    string text = "  a\n    b"; // line 0: 2-space indent; line 1: 4-space indent
+    var c0 = new Cursor (3); // end of line 0
+    var c1 = new Cursor (9); // end of line 1
+    cc.set_cursors ({ c0, c1 });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
+    assert_cmpstr (edits[1].edit.new_text, CompareOperator.EQ, "\n    ");
+}
+
+private void test_compute_tab_edits_inserting_spaces_from_column_zero_fills_a_whole_indent_size () {
+    var cc = new CursorCollection ();
+    string text = "abc";
+    cc.set_cursors ({ new Cursor (0) }); // start of the line
+
+    Cursor[] to_remove;
+    var edits = cc.compute_tab_edits (true, 2, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "  ");
+}
+
+private void test_compute_tab_edits_inserting_spaces_from_a_misaligned_column_only_reaches_the_next_stop () {
+    var cc = new CursorCollection ();
+    string text = "abc";
+    cc.set_cursors ({ new Cursor (3) }); // column 3, indent_size 4 — one short of the next stop
+
+    Cursor[] to_remove;
+    var edits = cc.compute_tab_edits (true, 4, text, out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, " ");
+}
+
+private void test_compute_tab_edits_without_insert_spaces_always_inserts_one_literal_tab () {
+    var cc = new CursorCollection ();
+    string text = "abc";
+    cc.set_cursors ({ new Cursor (0) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_tab_edits (false, 4, text, out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\t");
+}
+
+private void test_compute_tab_edits_gives_each_cursor_its_own_independently_computed_text () {
+    var cc = new CursorCollection ();
+    string text = "a\nab"; // line 0: "a" (1 char); line 1: "ab" (2 chars)
+    var c0 = new Cursor (0); // start of line 0
+    var c1 = new Cursor (4); // end of line 1, column 2
+    cc.set_cursors ({ c0, c1 });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_tab_edits (true, 3, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "   "); // column 0 -> needs 3
+    assert_cmpstr (edits[1].edit.new_text, CompareOperator.EQ, " "); // column 2 -> needs 1
+}
+
+private void test_compute_backspace_edits_inside_leading_whitespace_deletes_a_whole_indent_size_at_once () {
+    var cc = new CursorCollection ();
+    string text = "    "; // 4 spaces
+    cc.set_cursors ({ new Cursor (4) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 4);
+    assert_cmpstr (edits[0].edit.old_text, CompareOperator.EQ, "  ");
+}
+
+private void test_compute_backspace_edits_from_a_misaligned_column_only_deletes_back_to_the_previous_stop () {
+    var cc = new CursorCollection ();
+    string text = "   "; // 3 spaces, indent_size 2 — one past a stop
+    cc.set_cursors ({ new Cursor (3) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3);
+}
+
+private void test_compute_backspace_edits_outside_leading_whitespace_still_deletes_one_character () {
+    var cc = new CursorCollection ();
+    string text = "abcd";
+    cc.set_cursors ({ new Cursor (2) }); // after real (non-whitespace) characters
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (4, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 2);
+}
+
+private void test_compute_backspace_edits_with_a_selection_deletes_the_selection () {
+    var cc = new CursorCollection ();
+    string text = "abcd";
+    var cursor = new Cursor (1);
+    cursor.position_offset = 3;
+    cc.set_cursors ({ cursor });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (4, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3);
+    assert_cmpstr (edits[0].edit.old_text, CompareOperator.EQ, "bc");
+}
+
+private void test_compute_backspace_edits_at_document_start_produces_no_edit () {
+    var cc = new CursorCollection ();
+    string text = "abcd";
+    cc.set_cursors ({ new Cursor (0) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (4, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+}
+
+private void test_compute_backspace_edits_on_an_empty_line_deletes_the_newline_above_instead_of_nothing () {
+    // Regression: an empty line has line_start == cursor offset, so
+    // within_leading_whitespace's own (empty) range is vacuously true —
+    // without an explicit guard this used to compute a zero-width
+    // start == end == offset delete instead of merging with the line
+    // above, silently doing nothing.
+    var cc = new CursorCollection ();
+    string text = "abcd\n"; // line 0: "abcd"; line 1: empty
+    cc.set_cursors ({ new Cursor (5) }); // start of the empty line 1
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 4);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 5);
+    assert_cmpstr (edits[0].edit.old_text, CompareOperator.EQ, "\n");
+}
+
+private void test_compute_backspace_edits_mixed_multi_cursor_each_computed_independently () {
+    var cc = new CursorCollection ();
+    string text = "    ab"; // 4 spaces then "ab"
+    var c0 = new Cursor (4); // right after the leading whitespace
+    var c1 = new Cursor (6); // end of "ab" — not leading whitespace
+    cc.set_cursors ({ c0, c1 });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpstr (edits[0].edit.old_text, CompareOperator.EQ, "  "); // c0: back to the previous stop
+    assert_cmpstr (edits[1].edit.old_text, CompareOperator.EQ, "b"); // c1: plain one-character delete
+}
+
 // Reproduces a scenario checked by hand against real VS Code: two
 // collapsed cursors at the same column on two different lines, extended
 // downward (each keeps its own column, they end up touching but not
@@ -484,6 +694,22 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/delete_left_at_document_start_produces_no_edit", test_delete_left_at_document_start_produces_no_edit);
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_insert_repositions_every_cursor", test_multi_cursor_simultaneous_insert_repositions_every_cursor);
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_delete_left", test_multi_cursor_simultaneous_delete_left);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_carries_forward_the_current_lines_indentation", test_compute_enter_edits_carries_forward_the_current_lines_indentation);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace", test_compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false", test_compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_with_a_selection_replaces_it", test_compute_enter_edits_with_a_selection_replaces_it);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation", test_compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation);
+    Test.add_func ("/models/cursor-collection/compute_tab_edits_inserting_spaces_from_column_zero_fills_a_whole_indent_size", test_compute_tab_edits_inserting_spaces_from_column_zero_fills_a_whole_indent_size);
+    Test.add_func ("/models/cursor-collection/compute_tab_edits_inserting_spaces_from_a_misaligned_column_only_reaches_the_next_stop", test_compute_tab_edits_inserting_spaces_from_a_misaligned_column_only_reaches_the_next_stop);
+    Test.add_func ("/models/cursor-collection/compute_tab_edits_without_insert_spaces_always_inserts_one_literal_tab", test_compute_tab_edits_without_insert_spaces_always_inserts_one_literal_tab);
+    Test.add_func ("/models/cursor-collection/compute_tab_edits_gives_each_cursor_its_own_independently_computed_text", test_compute_tab_edits_gives_each_cursor_its_own_independently_computed_text);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_inside_leading_whitespace_deletes_a_whole_indent_size_at_once", test_compute_backspace_edits_inside_leading_whitespace_deletes_a_whole_indent_size_at_once);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_from_a_misaligned_column_only_deletes_back_to_the_previous_stop", test_compute_backspace_edits_from_a_misaligned_column_only_deletes_back_to_the_previous_stop);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_outside_leading_whitespace_still_deletes_one_character", test_compute_backspace_edits_outside_leading_whitespace_still_deletes_one_character);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_with_a_selection_deletes_the_selection", test_compute_backspace_edits_with_a_selection_deletes_the_selection);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_at_document_start_produces_no_edit", test_compute_backspace_edits_at_document_start_produces_no_edit);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_on_an_empty_line_deletes_the_newline_above_instead_of_nothing", test_compute_backspace_edits_on_an_empty_line_deletes_the_newline_above_instead_of_nothing);
+    Test.add_func ("/models/cursor-collection/compute_backspace_edits_mixed_multi_cursor_each_computed_independently", test_compute_backspace_edits_mixed_multi_cursor_each_computed_independently);
     Test.add_func ("/models/cursor-collection/two_cursors_extended_down_then_right_merge_once_they_overlap", test_two_cursors_extended_down_then_right_merge_once_they_overlap);
     Test.add_func ("/models/cursor-collection/selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one", test_selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one);
     Test.add_func ("/models/cursor-collection/compute_distributed_paste_edits_assigns_one_text_per_cursor", test_compute_distributed_paste_edits_assigns_one_text_per_cursor);

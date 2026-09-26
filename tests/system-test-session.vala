@@ -46,7 +46,8 @@ public class SystemTestSession : Object {
      * this number, so two sessions sharing one would fight over the same
      * port instead of getting their own isolated display.
      */
-    public SystemTestSession (string opus_binary_path, uint broadway_display_num) throws Error {
+    /** `folder_path`, if given, is linked as the workspace root exactly like `opus <folder>` on the real command line — for a scenario that needs a real `.editorconfig` picked up (EditorController.root_path/EditorConfig.load()), which no test needed before this. Null (the default) launches a blank window, same as every existing test. */
+    public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null) throws Error {
         var broadway_launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         // See the identical spawnv() argv warning/explanation below.
         string[] broadway_argv = { "gtk4-broadwayd", ":%u".printf (broadway_display_num) };
@@ -71,7 +72,12 @@ public class SystemTestSession : Object {
         // a string[] as a plain, non-const `gchar**` — see the identical
         // warning/explanation at file-tree-controller.vala's own spawnv()
         // call, an upstream wart, not something fixable here.
-        string[] argv = { opus_binary_path };
+        string[] argv;
+        if (folder_path != null) {
+            argv = { opus_binary_path, folder_path };
+        } else {
+            argv = { opus_binary_path };
+        }
         process = launcher.spawnv (argv);
 
         // GApplication's own object path is just its app id with dots
@@ -293,6 +299,18 @@ public class SystemTestSession : Object {
 
     private static void command_keyval (string name, out uint keyval, out uint modifiers) throws Error {
         switch (name) {
+        case "tab":
+            keyval = Gdk.Key.Tab;
+            modifiers = 0;
+            break;
+        case "enter":
+            keyval = Gdk.Key.Return;
+            modifiers = 0;
+            break;
+        case "backspace":
+            keyval = Gdk.Key.BackSpace;
+            modifiers = 0;
+            break;
         case "undo":
             keyval = Gdk.Key.z;
             modifiers = Gdk.ModifierType.CONTROL_MASK;

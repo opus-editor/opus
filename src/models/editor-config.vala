@@ -89,33 +89,44 @@ public class EditorConfig : Object {
      * per spec — and null if that isn't set either.
      */
     public int? indent_size_for (string relative_path) {
-        string? indent_size = null;
-        string? tab_width = null;
-
-        for (int i = 0; i < sections.length; i++) {
-            var section = sections[i];
-            if (!section.pattern.match (relative_path)) {
-                continue;
-            }
-
-            if (section.properties.contains ("indent_size")) {
-                indent_size = section.properties["indent_size"];
-            }
-            if (section.properties.contains ("tab_width")) {
-                tab_width = section.properties["tab_width"];
-            }
-        }
-
+        string? indent_size = resolve_property (relative_path, "indent_size");
         if (indent_size == null) {
             return null;
         }
         if (indent_size == "tab") {
+            string? tab_width = resolve_property (relative_path, "tab_width");
             if (tab_width == null) {
                 return null;
             }
             return int.parse (tab_width);
         }
         return int.parse (indent_size);
+    }
+
+    /** "space" resolves to true, "tab" (or any other value) to false, null if no matching section sets `indent_style` at all. */
+    public bool? insert_spaces_for (string relative_path) {
+        string? indent_style = resolve_property (relative_path, "indent_style");
+        if (indent_style == null) {
+            return null;
+        }
+        return indent_style == "space";
+    }
+
+    /** The resolved value of `key` for `relative_path` — sections matched in file order, last match wins, same rule `indent_size_for`/`insert_spaces_for` both need. Null if none of them set `key`. */
+    private string? resolve_property (string relative_path, string key) {
+        string? value = null;
+
+        for (int i = 0; i < sections.length; i++) {
+            var section = sections[i];
+            if (!section.pattern.match (relative_path)) {
+                continue;
+            }
+            if (section.properties.contains (key)) {
+                value = section.properties[key];
+            }
+        }
+
+        return value;
     }
 
     /**

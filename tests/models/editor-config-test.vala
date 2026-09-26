@@ -108,6 +108,46 @@ indent_size = 2
     assert_cmpint (config.indent_size_for ("main.vala"), CompareOperator.EQ, 2);
 }
 
+private void test_indent_style_space_resolves_to_insert_spaces_true () {
+    var config = EditorConfig.parse ("""
+[*]
+indent_style = space
+""");
+
+    assert_true (config.insert_spaces_for ("main.vala") == true);
+}
+
+private void test_indent_style_tab_resolves_to_insert_spaces_false () {
+    var config = EditorConfig.parse ("""
+[*]
+indent_style = tab
+""");
+
+    assert_true (config.insert_spaces_for ("main.vala") == false);
+}
+
+private void test_indent_style_unset_resolves_to_null () {
+    var config = EditorConfig.parse ("""
+[*]
+indent_size = 2
+""");
+
+    assert_true (config.insert_spaces_for ("main.vala") == null);
+}
+
+private void test_indent_style_language_override_wins_over_the_global_default () {
+    var config = EditorConfig.parse ("""
+[*]
+indent_style = tab
+
+[*.py]
+indent_style = space
+""");
+
+    assert_true (config.insert_spaces_for ("main.vala") == false);
+    assert_true (config.insert_spaces_for ("scripts/build.py") == true);
+}
+
 private void test_load_reads_indent_size_from_a_real_file () {
     string folder = Path.build_filename (Environment.get_tmp_dir (), "opus-editor-config-test-%u".printf (Random.next_int ()));
     DirUtils.create (folder, 0700);
@@ -140,6 +180,10 @@ int main (string[] args) {
     Test.add_func ("/models/editor-config/no_matching_section_is_null", test_no_matching_section_is_null);
     Test.add_func ("/models/editor-config/later_section_wins_when_both_match_the_same_path", test_later_section_wins_when_both_match_the_same_path);
     Test.add_func ("/models/editor-config/comments_and_blank_lines_are_ignored", test_comments_and_blank_lines_are_ignored);
+    Test.add_func ("/models/editor-config/indent_style_space_resolves_to_insert_spaces_true", test_indent_style_space_resolves_to_insert_spaces_true);
+    Test.add_func ("/models/editor-config/indent_style_tab_resolves_to_insert_spaces_false", test_indent_style_tab_resolves_to_insert_spaces_false);
+    Test.add_func ("/models/editor-config/indent_style_unset_resolves_to_null", test_indent_style_unset_resolves_to_null);
+    Test.add_func ("/models/editor-config/indent_style_language_override_wins_over_the_global_default", test_indent_style_language_override_wins_over_the_global_default);
     Test.add_func ("/models/editor-config/load_reads_indent_size_from_a_real_file", test_load_reads_indent_size_from_a_real_file);
     return Test.run ();
 }

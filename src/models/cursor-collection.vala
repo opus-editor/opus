@@ -475,6 +475,181 @@ public class CursorCollection : Object {
     }
 
     /**
+     * Enter, carrying the current line's own leading indentation forward
+     * to the new line — VS Code's own "Keep" auto-indent strategy
+     * (`EnterOperation._enter`, `cursorTypeEditOperations.ts`), the only
+     * one of its several layered strategies this class can port: the
+     * others (Indent/Outdent/IndentOutdent) key off real language
+     * configuration — bracket pairs, onEnterRules — which GtkSourceView's
+     * own `.lang` files don't carry (confirmed earlier this session:
+     * syntax-highlighting metadata only, no indent/outdent rules).
+     *
+     * The carried-forward indentation is each cursor's own selection-
+     * start line's leading whitespace, truncated to the start column
+     * itself when the cursor sits inside that whitespace rather than
+     * past it (so pressing Enter halfway through leading spaces doesn't
+     * grow the indentation) — then re-normalized to `indent_size`/
+     * `insert_spaces` (VS Code's own `normalizeIndentation`), so an
+     * existing indentation that doesn't match the current settings
+     * (leftover tabs in a spaces-configured file, say) still comes out
+     * canonical on the new line. A cursor with a selection replaces it,
+     * same as {@link compute_edits}'s own INSERT case.
+     */
+    public TaggedTextEdit[] compute_enter_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove) {
+        var chars = to_chars (text);
+        var attempted = new GenericArray<TaggedTextEdit> ();
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            int start;
+            int end;
+            if (!cursor.is_empty) {
+                start = cursor.selection_start;
+                end = cursor.selection_end;
+            } else {
+                start = end = cursor.position_offset;
+            }
+
+            int ls = line_start (chars, start);
+            int whitespace_end = ls;
+            while (whitespace_end < chars.length && (chars[whitespace_end] == ' ' || chars[whitespace_end] == '\t')) {
+                whitespace_end++;
+            }
+            int captured_end = int.min (start, whitespace_end);
+            string indentation = normalize_indentation (chars, ls, captured_end, indent_size, insert_spaces);
+
+            var edit = new TextEdit ();
+            edit.start_offset = start;
+            edit.end_offset = end;
+            edit.old_text = chars_to_string (chars, start, end);
+            edit.new_text = "\n" + indentation;
+
+            var tagged = new TaggedTextEdit ();
+            tagged.edit = edit;
+            tagged.cursor = cursor;
+            attempted.add (tagged);
+        }
+
+        return finalize_edits (attempted, out cursors_to_remove);
+    }
+
+    /**
+     * Tab, honoring .editorconfig's `indent_style` — ported from VS
+     * Code's own `_replaceJumpToNextIndent`
+     * (`cursorTypeEditOperations.ts`). Only ever called once the caller
+     * has already confirmed no cursor has a selection (block-indent isn't
+     * implemented — see CursorController's own Tab handling).
+     *
+     * `insert_spaces` true inserts however many space characters reach
+     * the *next* column that's a multiple of `indent_size` — not always a
+     * flat `indent_size` spaces, just enough from wherever the cursor's
+     * own line already puts it (a `\t` already in that prefix jumps to
+     * the next multiple of `indent_size`, same as a real tab stop, any
+     * other character advances by one). `insert_spaces` false inserts a
+     * single literal tab character regardless of column, matching plain
+     * typing.
+     */
+    public TaggedTextEdit[] compute_tab_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove) {
+        var chars = to_chars (text);
+        var attempted = new GenericArray<TaggedTextEdit> ();
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            int offset = cursor.position_offset;
+
+            string new_text;
+            if (insert_spaces) {
+                int column = visible_column (chars, line_start (chars, offset), offset, indent_size);
+                int spaces_needed = indent_size - (column % indent_size);
+                new_text = string.nfill (spaces_needed, ' ');
+            } else {
+                new_text = "\t";
+            }
+
+            var edit = new TextEdit ();
+            edit.start_offset = offset;
+            edit.end_offset = offset;
+            edit.old_text = "";
+            edit.new_text = new_text;
+
+            var tagged = new TaggedTextEdit ();
+            tagged.edit = edit;
+            tagged.cursor = cursor;
+            attempted.add (tagged);
+        }
+
+        return finalize_edits (attempted, out cursors_to_remove);
+    }
+
+    /**
+     * Backspace, honoring .editorconfig's `indent_size` — ported from VS
+     * Code's own `DeleteOperations.getDeleteLeftRange`
+     * (`cursorDeleteOperations.ts`). A cursor with a selection deletes
+     * that selection, same as {@link compute_edits}'s own DELETE_LEFT
+     * case; a cursor already at the document start produces no edit
+     * (`continue`), also unchanged. The only real difference: a collapsed
+     * cursor sitting anywhere within its own line's leading whitespace
+     * deletes back to the *previous* column that's a multiple of
+     * `indent_size` — VS Code's own `prevIndentTabStop`, `max(0, column -
+     * 1 - (column - 1) % indent_size)` — which can remove more than one
+     * real character in a single press (or fewer than `indent_size`, if
+     * the whitespace wasn't already stop-aligned to begin with). Outside
+     * leading whitespace, still exactly one character, unchanged.
+     */
+    public TaggedTextEdit[] compute_backspace_edits (int indent_size, string text, out Cursor[] cursors_to_remove) {
+        var chars = to_chars (text);
+        var attempted = new GenericArray<TaggedTextEdit> ();
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            int start;
+            int end;
+
+            if (!cursor.is_empty) {
+                start = cursor.selection_start;
+                end = cursor.selection_end;
+            } else if (cursor.position_offset == 0) {
+                continue; // nothing before the document start
+            } else {
+                int offset = cursor.position_offset;
+                int ls = line_start (chars, offset);
+                // `offset > ls` first: on an empty (or already-at-its-own-
+                // start) line, ls == offset, and within_leading_whitespace
+                // over that empty range is vacuously true — without this
+                // guard the tab-stop math below computes target_column ==
+                // column == 0, an empty start == end == offset delete
+                // range, instead of falling through to the plain
+                // one-character delete that actually removes the newline
+                // and merges with the line above (VS Code's own real
+                // guard for this, `position.column > 1`, is the same
+                // check in 1-based terms).
+                if (offset > ls && within_leading_whitespace (chars, ls, offset)) {
+                    int column = visible_column (chars, ls, offset, indent_size);
+                    int target_column = int.max (0, column - 1 - (column - 1) % indent_size);
+                    start = ls + offset_for_visible_column (chars, ls, target_column, indent_size);
+                    end = offset;
+                } else {
+                    start = offset - 1;
+                    end = offset;
+                }
+            }
+
+            var edit = new TextEdit ();
+            edit.start_offset = start;
+            edit.end_offset = end;
+            edit.old_text = chars_to_string (chars, start, end);
+            edit.new_text = "";
+
+            var tagged = new TaggedTextEdit ();
+            tagged.edit = edit;
+            tagged.cursor = cursor;
+            attempted.add (tagged);
+        }
+
+        return finalize_edits (attempted, out cursors_to_remove);
+    }
+
+    /**
      * Each cursor's own selected text (codepoint-exact, "" for a cursor
      * with no selection), in cursor order — Copy/Cut's own per-cursor
      * read half, mirroring {@link compute_edits}'s own per-cursor
@@ -811,6 +986,53 @@ public class CursorCollection : Object {
             i--;
         }
         return i;
+    }
+
+    /** Ported from VS Code's own `CursorColumns.visibleColumnFromColumn`: walks `chars[from:to]`, a `\t` jumps to the next multiple of `indent_size`, anything else advances by one. */
+    private static int visible_column (unichar[] chars, int from, int to, int indent_size) {
+        int column = 0;
+        for (int i = from; i < to; i++) {
+            if (chars[i] == '\t') {
+                column = column - column % indent_size + indent_size;
+            } else {
+                column++;
+            }
+        }
+        return column;
+    }
+
+    /** The inverse of {@link visible_column}, ported from `CursorColumns.columnFromVisibleColumn`: how many characters from `from` reach a visible column `>= target_column` — every character in that span must already be space/tab (only ever called within a line's own leading whitespace). Relative to `from`, not an absolute offset. */
+    private static int offset_for_visible_column (unichar[] chars, int from, int target_column, int indent_size) {
+        int column = 0;
+        int i = from;
+        while (column < target_column) {
+            if (chars[i] == '\t') {
+                column = column - column % indent_size + indent_size;
+            } else {
+                column++;
+            }
+            i++;
+        }
+        return i - from;
+    }
+
+    /** Whether every character from `line_start_offset` up to (not including) `offset` is a space or tab — Backspace's own "am I still inside the leading whitespace" check. */
+    private static bool within_leading_whitespace (unichar[] chars, int line_start_offset, int offset) {
+        for (int i = line_start_offset; i < offset; i++) {
+            if (chars[i] != ' ' && chars[i] != '\t') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Re-expresses a whitespace-only run (`chars[from:to]`) using `indent_size`/`insert_spaces` — same visible width (via {@link visible_column}), canonical characters: all spaces when `insert_spaces`, otherwise as many whole `indent_size`-wide tabs as fit plus leftover spaces. Ported from VS Code's own `normalizeIndentation` (`core/misc/indentation.ts`). */
+    private static string normalize_indentation (unichar[] chars, int from, int to, int indent_size, bool insert_spaces) {
+        int width = visible_column (chars, from, to, indent_size);
+        if (insert_spaces) {
+            return string.nfill (width, ' ');
+        }
+        return string.nfill (width / indent_size, '\t') + string.nfill (width % indent_size, ' ');
     }
 
     private static int line_end (unichar[] chars, int offset) {
