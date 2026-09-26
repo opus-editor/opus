@@ -1,11 +1,11 @@
 /** Which kind of edit produced an {@link EditHistoryEntry} — decides whether the next edit coalesces into it or starts a fresh undo step. See {@link EditHistory.push}. */
 public enum EditKind {
-    TYPING_OTHER,
-    TYPING_FIRST_SPACE,
-    TYPING_CONSECUTIVE_SPACE,
-    DELETING_LEFT,
-    DELETING_RIGHT,
-    OTHER
+  TYPING_OTHER,
+  TYPING_FIRST_SPACE,
+  TYPING_CONSECUTIVE_SPACE,
+  DELETING_LEFT,
+  DELETING_RIGHT,
+  OTHER
 }
 
 /**
@@ -19,8 +19,8 @@ public enum EditKind {
  * single push can touch more than one simultaneous cursor.
  */
 public class EditHistoryPush : Object {
-    public TextEdit[] edits;
-    public TextEdit[] inverse_edits;
+  public TextEdit[] edits;
+  public TextEdit[] inverse_edits;
 }
 
 /**
@@ -31,8 +31,8 @@ public class EditHistoryPush : Object {
  * retroactively change what an old entry restores.
  */
 public class EditHistoryEntry : Object {
-    public GenericArray<EditHistoryPush> pushes;
-    public Cursor[] before_cursors;
-    public Cursor[] after_cursors;
-    public EditKind kind { get; set; }
+  public GenericArray<EditHistoryPush> pushes;
+  public Cursor[] before_cursors;
+  public Cursor[] after_cursors;
+  public EditKind kind { get; set; }
 }

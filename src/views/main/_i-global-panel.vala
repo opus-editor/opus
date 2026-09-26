@@ -12,10 +12,10 @@
  * to change for a future one (a Go to Line panel, say) to get the same
  * behavior EditorView.FindBar already has.
  */
-public interface GlobalPanel : Object {
-    /** Whether this panel is currently shown. */
-    public abstract bool is_open { get; }
+public interface IGlobalPanel : Object {
+  /** Whether this panel is currently shown. */
+  public abstract bool is_open { get; }
 
-    /** Closes it — same effect as whatever its own dedicated close button/gesture already does. */
-    public abstract void close ();
+  /** Closes it — same effect as whatever its own dedicated close button/gesture already does. */
+  public abstract void close ();
 }

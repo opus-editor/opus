@@ -1,0 +1,8 @@
+/* libadwaita's own `button { font-weight: bold; }` applies
+ * unconditionally, .flat included — real popover menu items use a
+ * different widget entirely (a legacy `modelbutton`), which never had
+ * this problem to begin with; this undoes it for a plain Gtk.Button
+ * used the same way. */
+.opus-context-menu-item {
+  font-weight: normal;
+}

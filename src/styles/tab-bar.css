@@ -1,0 +1,76 @@
+/* A row with zero tabs has no content to size itself against, so it
+ * collapses to 0px and the content-divider below it rides up next to
+ * the header. 31px is a real tab pill's own natural height (measured
+ * from a live render, not guessed) — pinning the row to it keeps the
+ * divider in place whether there are any tabs or not. */
+.tab-bar {
+  min-height: 31px;
+}
+
+.tab-bar-fade {
+  min-width: 48px;
+}
+
+.tab-bar-fade.start {
+  background: linear-gradient(to right, var(--view-bg-color), transparent);
+}
+
+.tab-bar-fade.end {
+  background: linear-gradient(to left, var(--view-bg-color), transparent);
+}
+
+.tab-drag-ghost {
+  border-radius: 6px;
+}
+
+.tab-drag-ghost-light {
+  background-color: #ebebeb;
+}
+
+.tab-drag-ghost-dark {
+  background-color: #333336;
+}
+
+/* The real pill being dragged — stays in place, invisible, showing just
+ * its empty slot ("hole") while the ghost above follows the pointer
+ * instead. */
+.tab-pill.dragging {
+  opacity: 0;
+}
+
+/* libadwaita's own default for any widget currently holding an "active"
+ * drop target (base.css: `:drop(active)`) is a 1px accent-colored inset
+ * border — suppressed here since this box carries our reorder
+ * Gtk.DropTarget directly, so the descendant-selector suppression
+ * libadwaita ships for other lists (placessidebar, stackswitcher, …)
+ * doesn't catch it. */
+.tab-row:drop(active) {
+  box-shadow: none;
+}
+
+/* Gtk.Button has no size-in-pixels API for icon buttons: the theme's
+ * default flat/circular button padding makes it much larger than the
+ * 24x24 close button in e.g. Nautilus's tabs. */
+.tab-close-button {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+/* Dim inactive tabs instead of a second "selected" background color —
+ * one so close to the view-switcher's own would be more confusing than
+ * clarifying. */
+.tab-pill:not(.active) {
+  opacity: 0.6;
+}
+
+/* Close button only shows on the active tab or on hover, not on every
+ * idle tab. */
+.tab-pill .tab-close-button {
+  opacity: 0;
+}
+
+.tab-pill.active .tab-close-button,
+.tab-pill:hover .tab-close-button {
+  opacity: 1;
+}

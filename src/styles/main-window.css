@@ -1,0 +1,97 @@
+/* GNOME Builder's own header/content divider (libpanel's
+ * panelframeheaderbar) mixes --border-color down to 60% instead of
+ * using it at full strength like Adwaita's default `separator`
+ * does — a visibly subtler line. Matches that here rather than
+ * hardcoding the hex it renders to, so it still tracks the accent
+ * and light/dark theme automatically. */
+separator.content-divider {
+  background: color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+/* libadwaita's own tooltip.background rule (checked its
+ * source, _tooltip.scss) sets RGB(0 0 6 / 80%) — a translucent
+ * near-black, always, regardless of light/dark theme. Fine
+ * for a short label, but this UI packs a lot of text close
+ * together (the tab tooltip's own full path, among others),
+ * so whatever's behind a tooltip keeps showing through enough
+ * to fight with it. Same color, just opaque — only the alpha
+ * changes, kept as `.background` since libadwaita's own
+ * comment there explains why (double-drawing otherwise). */
+tooltip.background {
+  background-color: rgb(0 0 6);
+}
+
+/* Header/sidebar/main content each get their own flat color
+ * (see the Blueprint's own opus-header/opus-sidebar/opus-main
+ * classes) — overriding libadwaita's own named custom
+ * properties instead of hardcoding background-color directly
+ * on those three nodes means every other place that already
+ * reads the same variables (the tab bar's own edge-fade
+ * gradient, list-view hover/selection tints, …) picks the new
+ * colors up automatically, with no separate override needed.
+ * GTK's CSS parser has no light-dark() (see EditorView.TabBar's
+ * own drag-ghost comment for where this was first hit), so
+ * light/dark pick different values through a plain class on
+ * the window instead, toggled in update_theme_class(). */
+window.dark {
+  --headerbar-bg-color: #2e2e32;
+  --sidebar-bg-color: #262629;
+  --view-bg-color: #1d1d20;
+  --window-bg-color: #1d1d20;
+}
+window:not(.dark) {
+  --headerbar-bg-color: #ffffff;
+  --sidebar-bg-color: #f5f5f6;
+  --view-bg-color: #ffffff;
+  --window-bg-color: #ffffff;
+}
+.opus-header {
+  background-color: var(--headerbar-bg-color);
+}
+.opus-sidebar {
+  background-color: var(--sidebar-bg-color);
+}
+.opus-main {
+  background-color: var(--view-bg-color);
+}
+
+/* Circular swatches (44px, follow = diagonal light/dark split, light
+ * = solid white, dark = solid #202020), a checked one ringed in the
+ * accent color — colors and sizes copied directly from GNOME Text
+ * Editor's own real style.css (`themeselector checkbutton[.variant]`
+ * rules), translated from its GTK3-era `@named_color` syntax to
+ * libadwaita's own CSS custom properties (`var(--accent-bg-color)`,
+ * `var(--border-color)`) already used elsewhere in this codebase. The
+ * native radio indicator (the small checkmark/dot GTK draws by
+ * default) is fully suppressed — background/border/box-shadow/icon
+ * all cleared, not just the icon — the accent-colored ring alone is
+ * enough to show which one is selected. */
+checkbutton.theme-selector {
+  padding: 1px;
+  min-width: 44px;
+  min-height: 44px;
+  background-clip: content-box;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px var(--border-color);
+}
+checkbutton.theme-selector:checked {
+  box-shadow: inset 0 0 0 2px var(--accent-bg-color);
+}
+checkbutton.theme-selector.follow {
+  background-image: linear-gradient(to bottom right, #fff 49.99%, #202020 50.01%);
+}
+checkbutton.theme-selector.light {
+  background-color: #fff;
+}
+checkbutton.theme-selector.dark {
+  background-color: #202020;
+}
+checkbutton.theme-selector radio {
+  -gtk-icon-source: none;
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}

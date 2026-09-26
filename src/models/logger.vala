@@ -10,31 +10,31 @@
  */
 namespace Logger {
 #if DEBUG
-    private bool verbose_enabled = false;
+  private bool verbose_enabled = false;
 
-    public void configure (bool verbose) {
-        verbose_enabled = verbose;
-    }
+  public void configure (bool verbose) {
+    verbose_enabled = verbose;
+  }
 
-    public void info (string message) {
-        if (verbose_enabled) {
-            stderr.printf ("INFO: %s\n", message);
-        }
+  public void info (string message) {
+    if (verbose_enabled) {
+      stderr.printf ("INFO: %s\n", message);
     }
+  }
 
-    public void warn (string message) {
-        if (verbose_enabled) {
-            stderr.printf ("WARN: %s\n", message);
-        }
+  public void warn (string message) {
+    if (verbose_enabled) {
+      stderr.printf ("WARN: %s\n", message);
     }
+  }
 #else
-    public void configure (bool verbose) {
-    }
+  public void configure (bool verbose) {
+  }
 
-    public void info (string message) {
-    }
+  public void info (string message) {
+  }
 
-    public void warn (string message) {
-    }
+  public void warn (string message) {
+  }
 #endif
 }

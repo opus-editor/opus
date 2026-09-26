@@ -97,9 +97,13 @@ namespace EditorView {
      * look equally "toned down".
      */
     private void apply_theme_colors (bool dark) {
-      var accent = Colors.accent_color ();
-
-      var search_base = Colors.desaturate (accent, dark ? 0.10f : 0.05f);
+      // .to_rgba() here, not chained further: search_match_background/
+      // search_current_match_background each need their own independent
+      // alpha off this same base — a plain Gdk.RGBA (a value type) copies
+      // safely on assignment, where branching two .transparentize() calls
+      // off the same SystemColor instance would mutate one shared object
+      // instead.
+      var search_base = SystemColor.from_accent ().desaturate (dark ? 0.10f : 0.05f).to_rgba ();
       var search_match_background = search_base;
       search_match_background.alpha = 0.30f;
       var search_current_match_background = search_base;

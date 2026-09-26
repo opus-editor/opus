@@ -1,0 +1,82 @@
+/* 22px, matching VS Code's file explorer row height
+ * (ExplorerDelegate.ITEM_HEIGHT in its own source). */
+listview.data-table row {
+  padding-top: 0;
+  padding-bottom: 0;
+  min-height: 22px;
+  border-radius: 4px;
+}
+/* The transition lives on this separate, briefly-toggled class
+ * (see ExplorerPaneTree's own REVEAL_FLASH_TRANSITION_CSS_CLASS comment)
+ * rather than on every row unconditionally — that made native hover/
+ * selection's own background-color changes fade slowly too, leaving a
+ * laggy "trail" on every hover. Defined here, on *this* class rather
+ * than .reveal-flash itself, so it's active while .reveal-flash is
+ * being *removed* too (a transition defined only inside .reveal-flash
+ * would apply going into the flash, not coming back out of it once
+ * that class is gone). */
+listview.data-table row.reveal-flash-fading {
+  transition: background-color 700ms ease-out;
+}
+treeexpander > expander {
+  -gtk-icon-source: -gtk-icontheme("chevron-right-symbolic");
+}
+treeexpander > expander:checked {
+  -gtk-icon-source: -gtk-icontheme("chevron-down-symbolic");
+}
+/* The folder row directly under a dragged file/folder — accent color
+ * (the system's own, not a hardcoded blue) at partial opacity, so it
+ * tracks the user's own accent choice and still reads correctly in
+ * light/dark. Set on the real "row" node itself (see ExplorerPaneTree's
+ * own native_row_widget() comment) — the 22px height/border-radius
+ * rule right above already covers it too, same as it does for native
+ * hover/selection. */
+listview.data-table row.drag-hover {
+  background-color: color-mix(in srgb, var(--accent-bg-color) 30%, transparent);
+}
+/* libadwaita's own default for any widget currently holding an
+ * "active" drop target (base.css: `:drop(active)`) is a 1px
+ * accent-colored inset border — already suppressed for other sidebar
+ * list types (placessidebar, stackswitcher, …), but only via a
+ * *descendant* selector, which doesn't catch our own Gtk.DropTarget:
+ * it's attached straight to this listview, which already carries
+ * .navigation-sidebar itself rather than being a child of something
+ * that does. .drag-hover above is this tree's own feedback for a drop
+ * target; this outer border is redundant on top of it either way. */
+listview.data-table:drop(active) {
+  box-shadow: none;
+}
+/* "Reveal in Sidebar" — briefly highlights the revealed row, the same
+ * warm/warning color the "File Has Changed on Disk" banner uses (see
+ * EditorView.TextEditor's own styles), not a hardcoded yellow, so it
+ * also tracks light/dark. Added then removed shortly after in code,
+ * with .reveal-flash-fading's own transition (above) fading it back
+ * out instead of snapping off. */
+listview.data-table row.reveal-flash {
+  background-color: var(--warning-bg-color);
+}
+/* libadwaita's own default for any `row` (base `_lists.scss`:
+ * `row { @include focus-ring(); }`) draws an accent-colored outline on
+ * keyboard focus — redundant here, since the selected row's own
+ * background-color already shows which one has focus. */
+listview.data-table row:focus {
+  outline-style: none;
+}
+/* libadwaita's own default keeps a selected row's own background-color
+ * (`row:selected`, _lists.scss) regardless of whether keyboard focus
+ * is actually anywhere in this list — so it stayed visibly "selected"
+ * even after clicking into the editor. Deliberately checked against
+ * the row's own `:focus` here, not `listview:focus-within`: pressing a
+ * different row moves real focus onto *that* row directly, before
+ * Gtk.SingleSelection itself updates on release — so for that whole
+ * press-to-release window, `listview:focus-within` was already true
+ * while the *previous* row was still the one `:selected`, bringing its
+ * background back for exactly that window. Scoped to the row's own
+ * `:focus` instead, this only hides a selected row's background while
+ * *that exact row* isn't the one focused. */
+listview.data-table row:selected:not(:focus) {
+  background-color: transparent;
+}
+.file-tree-root-label {
+  font-weight: bold;
+}

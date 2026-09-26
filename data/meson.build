@@ -10,8 +10,8 @@ views_dir = meson.project_source_root() / 'src' / 'views'
 
 blueprints = custom_target('blueprints',
   input: files(
-    '../src/views/editor-view/file-tree/_row.blp',
-    '../src/views/editor-view/file-tree/index.blp',
+    '../src/views/editor-view/explorer-pane/_tree-row.blp',
+    '../src/views/editor-view/explorer-pane/index.blp',
     '../src/views/editor-view/tab-bar/_pill.blp',
     '../src/views/editor-view/tab-bar/index.blp',
     '../src/views/editor-view/text-editor/index.blp',
@@ -30,10 +30,15 @@ opus_resources = gnome.compile_resources(
   'opus-resources',
   'io.github.nowaos.Opus.gresource.xml',
   # Compiled .ui files land in the build dir; icons/ (a few app-bundled
-  # symbolic icons that don't exist in the system icon theme) ships from the
-  # source tree directly — both are listed here since compile_resources
-  # searches every source_dir for each file in the .gresource.xml.
-  source_dir: [meson.current_build_dir(), meson.current_source_dir()],
+  # symbolic icons that don't exist in the system icon theme) ships from
+  # the source tree directly; ../src/styles holds the plain .css files
+  # every View's own install_css() loads by resource (GlobalCss
+  # .install_from_resource()) — Blueprint can't describe a stylesheet
+  # itself, only a widget tree, so these are separate files, not part of
+  # the blueprints custom_target above. All three are listed here since
+  # compile_resources searches every source_dir for each file in the
+  # .gresource.xml.
+  source_dir: [meson.current_build_dir(), meson.current_source_dir(), meson.project_source_root() / 'src'],
   dependencies: blueprints,
 )
 

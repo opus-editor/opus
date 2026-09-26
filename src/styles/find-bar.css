@@ -1,0 +1,17 @@
+/* libadwaita's own default (_common.scss: $focus_transition,
+ * applied via the focus-ring() mixin) animates outline-color/
+ * width/offset over 200ms on every focus change — the "scale
+ * + fade" as focus moves from one button/entry to the next.
+ * Dropping outline-* from the transition list here removes
+ * just that animation; button still keeps its own separate
+ * background-color hover fade ($button_transition, same
+ * mixin call) since that's listed back in explicitly. entry
+ * has no other transition of its own (checked _entries.scss:
+ * the focus-ring() call is its only one), so it's fine to
+ * drop entirely. */
+searchbar button {
+  transition-property: background;
+}
+searchbar entry {
+  transition-property: none;
+}

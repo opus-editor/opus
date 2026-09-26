@@ -87,7 +87,7 @@ namespace EditorView {
       // CAPTURE: has to see the key before GtkTextView's own built-in bindings do.
       var key_controller = new Gtk.EventControllerKey ();
       key_controller.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
-      key_controller.key_pressed.connect ((keyval, keycode, state) => on_key_pressed (keyval, state));
+      key_controller.key_pressed.connect ((keyval, keycode, state) => key_pressed (keyval, state));
       text_view.add_controller (key_controller);
 
       source_buffer.mark_set.connect (on_mark_set);
@@ -220,7 +220,8 @@ namespace EditorView {
       this.insert_spaces = insert_spaces;
     }
 
-    private bool on_key_pressed (uint keyval, Gdk.ModifierType state) {
+    /** No UI caller today besides its own key controller above — also reachable from EditorView.TextEditor.key_pressed(), for Opus.Dev.DevServer's own KeyPress (the system-test DSL's `type`/`type_cmd`). Runs the exact same dispatch a genuine keystroke does; nothing here is test-specific. */
+    public bool key_pressed (uint keyval, Gdk.ModifierType state) {
       // Reset unconditionally, even with no active_document: a stale true
       // from the last click must never leak into a later, unrelated native
       // mark change (e.g. a native Ctrl+A after this same key falls
@@ -453,6 +454,19 @@ namespace EditorView {
       var before_cursors = active_document.cursors.snapshot ();
       apply_edits (edits);
       active_document.cursors.set_cursors (resulting_cursors);
+      active_document.history.push (edits, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
+      render ();
+    }
+
+    /** Applies `edits` as one atomic, non-coalescing history step not produced by any live cursor (Replace/Replace All results) — every cursor shifts to stay at its own logical position instead of being collapsed onto any of `edits`. */
+    public void apply_external_edit (TextEdit[] edits) {
+      if (active_document == null || edits.length == 0) {
+        return;
+      }
+
+      var before_cursors = active_document.cursors.snapshot ();
+      apply_edits (edits);
+      active_document.cursors.shift_for_external_edits (edits);
       active_document.history.push (edits, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
       render ();
     }
@@ -784,16 +798,15 @@ namespace EditorView {
      * object reaching in from outside.
      */
     private void apply_theme_colors () {
-      var accent = Colors.accent_color ();
-
-      focused_selection_background = accent;
-      focused_selection_background.alpha = 0.35f;
+      focused_selection_background = SystemColor.from_accent ().transparentize (0.35f).to_rgba ();
 
       // Mirrors GTK's own ratio between its default (backdrop) and
       // :focus-within selection colors: an opaque, fully desaturated
       // color at half the alpha of the focused one.
-      backdrop_selection_background = Colors.desaturate (accent);
-      backdrop_selection_background.alpha = focused_selection_background.alpha * 0.5f;
+      backdrop_selection_background = SystemColor.from_accent ()
+        .desaturate ()
+        .transparentize (focused_selection_background.alpha * 0.5f)
+        .to_rgba ();
 
       update_selection_background ();
     }
@@ -807,7 +820,7 @@ namespace EditorView {
       render_cursors (active_document.cursors.snapshot ());
     }
 
-    private void render_cursors (Cursor[] cursors) {
+    public void render_cursors (Cursor[] cursors) {
       assert (cursors.length > 0);
 
       setting_cursors_programmatically = true;

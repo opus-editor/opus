@@ -14,15 +14,15 @@
  * not a paintable of the dragged one).
  */
 public class FileDragCandidate : Object {
-    public string path;
-    public Gtk.Widget preview_widget;
-    public Gtk.Widget? icon_widget;
+  public string path;
+  public Gtk.Widget preview_widget;
+  public Gtk.Widget? icon_widget;
 
-    public FileDragCandidate (string path, Gtk.Widget preview_widget, Gtk.Widget? icon_widget = null) {
-        this.path = path;
-        this.preview_widget = preview_widget;
-        this.icon_widget = icon_widget;
-    }
+  public FileDragCandidate (string path, Gtk.Widget preview_widget, Gtk.Widget? icon_widget = null) {
+    this.path = path;
+    this.preview_widget = preview_widget;
+    this.icon_widget = icon_widget;
+  }
 }
 
 /** Resolves what's being dragged from a point local to whatever widget FileDrag.make_source() was attached to — null means nothing draggable there. */

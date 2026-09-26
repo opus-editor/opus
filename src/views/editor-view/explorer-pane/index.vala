@@ -1,0 +1,383 @@
+namespace EditorView {
+  /**
+   * The sidebar's file tree, composition root for ExplorerPaneTree/
+   * ExplorerPaneInlineEdit/ExplorerPaneDirWatcher/ExplorerPaneDragDrop — absorbs
+   * the real FileTreeController entirely (its CRUD-to-Model translation,
+   * context menu, and clipboard), the same way EditorPane absorbed
+   * EditorController. Named ExplorerPane rather than FileTree: a bare
+   * `new FileTree (root_path)` inside a class also named (even namespaced)
+   * FileTree resolves to itself, not the Model — confirmed with a
+   * standalone valac compile test, not assumed.
+   *
+   * Not ported: DevServer-only glue lives at the app composition level in
+   * v1 (main.vala), not on FileTreeController itself, so there's nothing
+   * of that sort to absorb here.
+   */
+  public class ExplorerPane : Object {
+    private Gtk.Box root_box;
+    private Gtk.Label root_label;
+    private Gtk.ScrolledWindow scrolled_window;
+
+    private FileTree model;
+    private string root_path;
+
+    private ExplorerPaneTree tree;
+    private ExplorerPaneInlineEdit inline_edit;
+    private ExplorerPaneDirWatcher dir_watcher;
+    private ExplorerPaneDragDrop drag_drop;
+
+    // The tree's own internal Cut/Copy clipboard — never the system
+    // clipboard (copy_to_clipboard()/Copy Path are the only things that
+    // touch that). Cutting dims the node (clipboard_node.is_cut, undone on
+    // the next Cut/Copy or once pasted); copying doesn't dim anything and
+    // survives multiple pastes, only a cut is consumed by its one paste.
+    private FileNode? clipboard_node = null;
+
+    public Gtk.Widget widget { get { return root_box; } }
+
+    /** A file row was clicked. `open_permanent` is true for a double-click, false for a single-click (preview). */
+    public signal void file_activated (string path, bool open_permanent);
+
+    /** A New File was just created on disk (not a New Folder — nothing to open for those) — meant to be opened as a permanent tab right away. */
+    public signal void file_created (string path);
+
+    /** "Delete" was chosen for `path` — whether this needs an unsaved-changes confirmation first is the app's own call, since only it can see open tabs' state too; delete_entry() below does the actual deletion once that's decided. */
+    public signal void delete_entry_requested (string path);
+
+    /** `old_path` moved to `new_path` on disk — a Rename, or a Cut+Paste (menu or drag) actually moving something rather than copying it. */
+    public signal void file_moved (string old_path, string new_path);
+
+    public ExplorerPane (string root_path) throws Error {
+      this.root_path = root_path;
+      model = new FileTree (root_path);
+
+      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/explorer-pane/index.ui");
+      root_box = (Gtk.Box) builder.get_object ("root_box");
+      root_label = (Gtk.Label) builder.get_object ("root_label");
+      scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
+
+      tree = new ExplorerPaneTree ();
+      scrolled_window.child = tree.widget;
+      root_label.label = model.root.name;
+      tree.populate (model.root);
+
+      inline_edit = new ExplorerPaneInlineEdit (tree);
+      dir_watcher = new ExplorerPaneDirWatcher (tree, root_path);
+      drag_drop = new ExplorerPaneDragDrop (tree);
+
+      tree.file_activated.connect ((path, open_permanent) => file_activated (path, open_permanent));
+      tree.children_load_requested.connect (on_children_load_requested);
+      tree.context_menu_requested.connect (show_context_menu);
+
+      inline_edit.create_entry_requested.connect (on_create_entry_requested);
+      inline_edit.rename_entry_requested.connect (on_rename_entry_requested);
+
+      dir_watcher.directory_changed.connect (on_directory_changed);
+      drag_drop.moved_via_drag.connect ((source_path, target_path) => do_paste (source_path, true, target_path));
+    }
+
+    /** "Reveal in Sidebar" from a tab's context menu. */
+    public void reveal_path (string path) {
+      tree.reveal_path (path);
+    }
+
+    /** The width (in px) that would show every currently visible row's full label with nothing clipped — used to size the sidebar when first linking a folder. */
+    public double get_optimal_width () {
+      return tree.get_optimal_width ();
+    }
+
+    /** Cancels every pending debounce timer and active filesystem watch — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). */
+    public void close () {
+      dir_watcher.close ();
+    }
+
+    /** Answers ExplorerPaneTree.children_load_requested() synchronously — the one place FileTree's own lazy, one-level-at-a-time scanning actually gets triggered. A no-op if `node` was already scanned (FileTree.ensure_children_loaded() checks that itself). */
+    private void on_children_load_requested (FileNode node) {
+      try {
+        model.ensure_children_loaded (node);
+      } catch (Error e) {
+        show_error (_("Couldn’t read “%s”: %s").printf (node.name, e.message));
+      }
+    }
+
+    /**
+     * An external change to a watched directory's own immediate children
+     * (something this pane didn't do itself — those already update the
+     * tree directly, e.g. on_create_entry_requested()).
+     */
+    private void on_directory_changed (string path) {
+      var node = model.find (path);
+      if (node == null) {
+        return; // gone (deleted/renamed away) before this event was handled
+      }
+
+      try {
+        model.rescan_children (node);
+      } catch (Error e) {
+        return; // the directory itself was likely just deleted/renamed away
+      }
+
+      tree.refresh_children (path, node.children);
+      inline_edit.on_children_refreshed (path);
+    }
+
+    private void on_create_entry_requested (string parent_path, string name, bool is_directory) {
+      var parent = model.find (parent_path);
+      if (parent == null) {
+        inline_edit.discard_pending_entry ();
+        return;
+      }
+
+      FileNode node;
+      try {
+        node = model.create_child (parent, name, is_directory);
+      } catch (Error e) {
+        inline_edit.discard_pending_entry ();
+        show_error (_("Couldn’t create “%s”: %s").printf (name, e.message));
+        return;
+      }
+
+      tree.refresh_children (parent_path, parent.children);
+      inline_edit.on_children_refreshed (parent_path);
+      if (!is_directory) {
+        file_created (node.path);
+      }
+    }
+
+    private void on_rename_entry_requested (string path, string new_name) {
+      var node = model.find (path);
+      var parent = node == null ? null : model.find (Path.get_dirname (path));
+      if (node == null || parent == null) {
+        inline_edit.cancel_rename ();
+        return;
+      }
+
+      FileNode renamed;
+      try {
+        renamed = model.rename_child (parent, node, new_name);
+      } catch (Error e) {
+        inline_edit.cancel_rename ();
+        show_error (_("Couldn’t rename “%s”: %s").printf (node.name, e.message));
+        return;
+      }
+
+      tree.refresh_children (parent.path, parent.children);
+      inline_edit.on_children_refreshed (parent.path);
+      file_moved (path, renamed.path);
+    }
+
+    /** Actually deletes `path` — called by the app once it's decided it's safe to (a folder, or a file with no dirty open tab, or one whose unsaved changes the user explicitly confirmed losing). */
+    public void delete_entry (string path) {
+      var node = model.find (path);
+      var parent = node == null ? null : model.find (Path.get_dirname (path));
+      if (node == null || parent == null) {
+        return;
+      }
+
+      try {
+        model.delete_child (parent, node);
+      } catch (Error e) {
+        show_error (_("Couldn’t delete “%s”: %s").printf (node.name, e.message));
+        return;
+      }
+
+      tree.refresh_children (parent.path, parent.children);
+      inline_edit.on_children_refreshed (parent.path);
+    }
+
+    /** The system's own confirmation for deleting `filename` while it has unsaved changes open — Cancel, or lose them and delete anyway. */
+    public async bool confirm_delete_with_unsaved_changes (string filename) {
+      var dialog = new Adw.AlertDialog (
+        _("You are deleting “%s” with unsaved changes. Do you want to continue?").printf (filename),
+        _("Your changes will be lost if you don't save them.")
+      );
+      dialog.add_response ("cancel", _("Cancel"));
+      dialog.add_response ("delete", _("Move to Trash"));
+      dialog.set_response_appearance ("delete", Adw.ResponseAppearance.DESTRUCTIVE);
+      dialog.set_default_response ("cancel");
+      dialog.set_close_response ("cancel");
+      // See TabBar.confirm_unsaved_close's own comment: Adw.AlertDialog
+      // stacks buttons vertically by default at medium sizes.
+      dialog.prefer_wide_layout = true;
+
+      var response = yield dialog.choose (widget, null);
+      return response == "delete";
+    }
+
+    private void do_paste (string source_path, bool is_cut, string target_path) {
+      var source = model.find (source_path);
+      var source_parent = source == null ? null : model.find (Path.get_dirname (source_path));
+      var target = model.find (target_path);
+      if (source == null || source_parent == null || target == null) {
+        return;
+      }
+
+      FileNode result;
+      try {
+        if (is_cut) {
+          result = model.move_child (source_parent, source, target);
+        } else {
+          result = model.copy_child (source, target);
+        }
+      } catch (Error e) {
+        show_error (_("Couldn’t paste “%s”: %s").printf (source.name, e.message));
+        return;
+      }
+
+      tree.refresh_children (target.path, target.children);
+      inline_edit.on_children_refreshed (target.path);
+      if (is_cut) {
+        tree.refresh_children (source_parent.path, source_parent.children);
+        inline_edit.on_children_refreshed (source_parent.path);
+        // A Copy leaves the original right where it was — nothing moved
+        // for any tab open on it to care about; only a Cut actually needs
+        // this.
+        file_moved (source_path, result.path);
+      }
+
+      if (is_cut) {
+        clipboard_node = null;
+      }
+    }
+
+    private void open_in_files (string path) {
+      try {
+        AppInfo.launch_default_for_uri (File.new_for_path (path).get_uri (), null);
+      } catch (Error e) {
+        show_error (_("Couldn’t open “%s” in the file manager: %s").printf (path, e.message));
+      }
+    }
+
+    private void open_in_terminal (string path) {
+      foreach (var command in TERMINAL_COMMANDS) {
+        if (Environment.find_program_in_path (command) == null) {
+          continue;
+        }
+
+        var launcher = new SubprocessLauncher (SubprocessFlags.NONE);
+        launcher.set_cwd (path);
+        string[] argv = { command };
+        try {
+          launcher.spawnv (argv);
+        } catch (Error e) {
+          show_error (_("Couldn’t launch %s: %s").printf (command, e.message));
+        }
+        return;
+      }
+
+      show_error (_("No terminal emulator was found on this system."));
+    }
+
+    // Tried in this order for "Open in Terminal"; the first one actually
+    // installed wins. Spawned with its working directory set directly
+    // (see open_in_terminal()) rather than passed a
+    // `--working-directory`-style flag, since those differ per terminal and
+    // a process's own cwd doesn't.
+    private const string[] TERMINAL_COMMANDS = { "gnome-terminal", "kgx", "konsole", "xfce4-terminal", "xterm" };
+
+    private void copy_to_clipboard (string text) {
+      widget.get_clipboard ().set_text (text);
+    }
+
+    /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */
+    private string relative_path (string path) {
+      var prefix = root_path + "/";
+      return path.has_prefix (prefix) ? path.substring (prefix.length) : path;
+    }
+
+    /**
+     * `target` null means the workspace root (background click). A
+     * directory (the root included) can hold a New File/Folder, be opened
+     * in a file manager/terminal, and — the root aside — Cut/Copy an
+     * existing folder; either kind of directory is also a valid Paste
+     * destination, shown only when the clipboard actually holds something.
+     * A file only has Cut/Copy. Rename/Delete/Copy Path/Copy Relative Path
+     * apply to any *existing* entry, just not the workspace root itself.
+     */
+    private void show_context_menu (FileNode? target, double x, double y) {
+      var context_path = target == null ? model.root.path : target.path;
+      var has_clipboard = clipboard_node != null;
+
+      ContextMenu.popup_at (tree.widget, x, y, (popover, box) => {
+        if (target == null || target.is_directory) {
+          box.append (ContextMenu.item (_("New File…"), () => inline_edit.request_new_entry (target, false), popover));
+          box.append (ContextMenu.item (_("New Folder…"), () => inline_edit.request_new_entry (target, true), popover));
+          box.append (ContextMenu.separator ());
+          box.append (ContextMenu.item (_("Open in Files"), () => open_in_files (context_path), popover));
+          box.append (ContextMenu.item (_("Open in Terminal"), () => open_in_terminal (context_path), popover));
+
+          if (target != null || has_clipboard) {
+            box.append (ContextMenu.separator ());
+          }
+          if (target != null) {
+            box.append (ContextMenu.item (_("Cut"), () => request_cut (target), popover));
+            box.append (ContextMenu.item (_("Copy"), () => request_copy (target), popover));
+          }
+          if (has_clipboard) {
+            box.append (ContextMenu.item (_("Paste"), () => request_paste (target), popover));
+          }
+        } else {
+          box.append (ContextMenu.item (_("Cut"), () => request_cut (target), popover));
+          box.append (ContextMenu.item (_("Copy"), () => request_copy (target), popover));
+        }
+
+        // Renaming/deleting the workspace root itself isn't offered — only an actual file/folder target has this group.
+        if (target != null) {
+          box.append (ContextMenu.separator ());
+          box.append (ContextMenu.item (_("Rename…"), () => inline_edit.request_rename (target), popover));
+          box.append (ContextMenu.item (_("Delete"), () => delete_entry_requested (target.path), popover));
+        }
+
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Copy Path"), () => copy_to_clipboard (context_path), popover));
+        box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_to_clipboard (relative_path (context_path)), popover));
+      });
+    }
+
+    /**
+     * Cut/Copy/Paste here are the tree's own internal concept, deliberately
+     * not the system clipboard (that's what copy_to_clipboard() above,
+     * used only by Copy Path/Copy Relative Path, is for) — there's no
+     * interoperability need with an external file manager, so no reason to
+     * take on a real clipboard format for it.
+     */
+    private void request_cut (FileNode target) {
+      set_clipboard (target, true);
+    }
+
+    private void request_copy (FileNode target) {
+      set_clipboard (target, false);
+    }
+
+    private void set_clipboard (FileNode node, bool is_cut) {
+      clear_cut_dim ();
+      clipboard_node = node;
+      if (is_cut) {
+        node.is_cut = true;
+        tree.rebind (node);
+      }
+    }
+
+    private void request_paste (FileNode? target) {
+      if (clipboard_node == null) {
+        return;
+      }
+      do_paste (clipboard_node.path, clipboard_node.is_cut, target == null ? model.root.path : target.path);
+    }
+
+    /** Undims whatever's currently on the Cut clipboard, if anything — called before replacing it with a new Cut/Copy. */
+    private void clear_cut_dim () {
+      if (clipboard_node == null || !clipboard_node.is_cut) {
+        return;
+      }
+      clipboard_node.is_cut = false;
+      tree.rebind (clipboard_node);
+    }
+
+    public void show_error (string message) {
+      var dialog = new Adw.AlertDialog (_("Error"), message);
+      dialog.add_response ("ok", _("OK"));
+      dialog.present (widget);
+    }
+  }
+}

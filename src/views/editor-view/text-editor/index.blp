@@ -1,25 +1,14 @@
 using Gtk 4.0;
 
-// GtkScrolledWindow is a final type in GTK4 (it can't be subclassed), so
-// EditorView.TextEditor doesn't use this as a composite template — it loads this as a
-// plain widget tree via Gtk.Builder and owns the root, per the View-as-facade
-// pattern (see CLAUDE.md). The text view itself (an EditorView.TextEditorSourceView, see
-// _source-view.vala) isn't declared here at all — it's a custom subclass
-// built and attached to scrolled_window in code, not by name in Blueprint;
-// nothing else in this codebase references a custom app-defined type from
-// a .blp file, so this avoids being the first to rely on that working.
+// The "template" half of this SFC-style pair — index.vala is the
+// "ViewModel" half. Same reasoning as the real EditorView.TextEditor's
+// own index.blp: Gtk.ScrolledWindow is final, so this loads as a plain
+// widget tree via Gtk.Builder, not a composite template. text_view isn't
+// declared here — it's a custom GtkSource.View subclass built in code and
+// dropped into scrolled_window via set_child().
 Gtk.Box root {
   orientation: vertical;
 
-  // Matches GNOME Text Editor's own "File Has Changed on Disk" banner
-  // (EditorInfoBar, built on GtkInfoBar — deprecated in GTK4 with no
-  // direct replacement, so not used here directly): the size/color below
-  // is copied straight out of GTK's own real "infobar > revealer > box" /
-  // "infobar.warning" rules (extracted from libgtk-4.so's compiled CSS,
-  // not guessed), so it comes from the same system tokens GtkInfoBar
-  // itself uses and still tracks light/dark and the accent color
-  // automatically. Deliberately without its own close button — see
-  // change_banner_discard_button's own comment below for why.
   Gtk.Revealer change_banner_revealer {
     transition-type: slide_down;
 
@@ -48,12 +37,6 @@ Gtk.Box root {
         }
       }
 
-      // No close button: dismissing it without resolving anything was
-      // exactly what "unsynchronized" — the underlying state the banner
-      // itself is showing (see EditorController.mark_externally_modified)
-      // — needs to *not* let happen; the tab itself already carries its
-      // own persistent reminder (the modified dot, and its tooltip) once
-      // this closes, so there's nothing extra lost by not offering one.
       Gtk.Button change_banner_discard_button {
         valign: center;
         label: _("_Discard Changes and Reload");

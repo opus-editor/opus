@@ -25,56 +25,56 @@
  * Gtk.SearchBar.connect_entry().
  */
 public class SearchInput : Gtk.Widget {
-    private Gtk.Label counter_label;
+  private Gtk.Label counter_label;
 
-    /** The real editable text — EditorView.FindBar connects its own `changed`/`activate` signals and reads/writes `.text` straight through this, and passes it to Gtk.SearchBar.connect_entry() (a plain Gtk.Text already satisfies Gtk.Editable on its own — see this class's own doc comment for why it's not this outer widget instead). */
-    public Gtk.Text entry { get; private set; }
+  /** The real editable text — EditorView.FindBar connects its own `changed`/`activate` signals and reads/writes `.text` straight through this, and passes it to Gtk.SearchBar.connect_entry() (a plain Gtk.Text already satisfies Gtk.Editable on its own — see this class's own doc comment for why it's not this outer widget instead). */
+  public Gtk.Text entry { get; private set; }
 
-    private int occurrence_count = 0;
-    private int occurrence_position = -1;
+  private int occurrence_count = 0;
+  private int occurrence_position = -1;
 
-    static construct {
-        set_css_name ("entry");
+  static construct {
+    set_css_name ("entry");
+  }
+
+  public SearchInput () {
+    layout_manager = new Gtk.BoxLayout (Gtk.Orientation.HORIZONTAL);
+
+    var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/components/search-input.ui");
+    entry = (Gtk.Text) builder.get_object ("entry");
+    counter_label = (Gtk.Label) builder.get_object ("counter_label");
+    entry.set_parent (this);
+    counter_label.set_parent (this);
+  }
+
+  public override void dispose () {
+    Gtk.Widget? child;
+    while ((child = get_first_child ()) != null) {
+      child.unparent ();
     }
+    base.dispose ();
+  }
 
-    public SearchInput () {
-        layout_manager = new Gtk.BoxLayout (Gtk.Orientation.HORIZONTAL);
+  /** Focuses the real inner text, not this composite widget itself — same reason EditorSearchEntry overrides grab_focus in its own real source. */
+  public override bool grab_focus () {
+    return entry.grab_focus ();
+  }
 
-        var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/components/search-input.ui");
-        entry = (Gtk.Text) builder.get_object ("entry");
-        counter_label = (Gtk.Label) builder.get_object ("counter_label");
-        entry.set_parent (this);
-        counter_label.set_parent (this);
+  /**
+   * Shows "`position` of `count`" right-aligned inside the entry, or
+   * nothing at all once `count` is 0 — matching GNOME Text Editor's
+   * own real search entry (editor-search-entry.c:
+   * `if (occurrence_count == 0) gtk_label_set_label (info, NULL)`).
+   */
+  public void set_match_info (int position, int count) {
+    occurrence_position = int.max (-1, position);
+    occurrence_count = int.max (0, count);
+
+    if (occurrence_count == 0) {
+      counter_label.label = "";
+    } else {
+      // translators: the first %d is the current match's position, the second is the total match count
+      counter_label.label = _("%d of %d").printf (int.max (0, occurrence_position), occurrence_count);
     }
-
-    public override void dispose () {
-        Gtk.Widget? child;
-        while ((child = get_first_child ()) != null) {
-            child.unparent ();
-        }
-        base.dispose ();
-    }
-
-    /** Focuses the real inner text, not this composite widget itself — same reason EditorSearchEntry overrides grab_focus in its own real source. */
-    public override bool grab_focus () {
-        return entry.grab_focus ();
-    }
-
-    /**
-     * Shows "`position` of `count`" right-aligned inside the entry, or
-     * nothing at all once `count` is 0 — matching GNOME Text Editor's
-     * own real search entry (editor-search-entry.c:
-     * `if (occurrence_count == 0) gtk_label_set_label (info, NULL)`).
-     */
-    public void set_match_info (int position, int count) {
-        occurrence_position = int.max (-1, position);
-        occurrence_count = int.max (0, count);
-
-        if (occurrence_count == 0) {
-            counter_label.label = "";
-        } else {
-            // translators: the first %d is the current match's position, the second is the total match count
-            counter_label.label = _("%d of %d").printf (int.max (0, occurrence_position), occurrence_count);
-        }
-    }
+  }
 }

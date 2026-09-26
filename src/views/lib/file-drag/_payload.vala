@@ -1,6 +1,6 @@
 /**
  * Payload for an in-app drag of a single file/folder path — a
- * EditorView.FileTreeRow (a sidebar entry) or a EditorView.TabBarPill (an open tab), dropped onto
+ * EditorView.ExplorerPaneTreeRow (a sidebar entry) or a EditorView.TabBarPill (an open tab), dropped onto
  * a EditorView.FileTree folder row or another EditorView.TabBarPill (to reorder). A distinct
  * GType, not a plain string: Gtk.DropTarget matches by GType, and a plain
  * string would also match GtkTextView's own built-in text-drop handling
@@ -12,9 +12,9 @@
  * built for it.
  */
 public class FileDragPayload : Object {
-    public string path { get; private set; }
+  public string path { get; private set; }
 
-    public FileDragPayload (string path) {
-        this.path = path;
-    }
+  public FileDragPayload (string path) {
+    this.path = path;
+  }
 }
