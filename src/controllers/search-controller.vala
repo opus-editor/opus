@@ -33,7 +33,7 @@ public class SearchController : Object {
         search_bar.search_previous_requested.connect (() => editor_view.search_previous ());
         search_bar.replace_requested.connect (on_replace_requested);
         search_bar.replace_all_requested.connect (on_replace_all_requested);
-        search_bar.closed.connect (() => editor_view.select_last_match ());
+        search_bar.closed.connect (on_search_bar_closed);
         editor_view.search_position_changed.connect (on_search_position_changed);
     }
 
@@ -103,5 +103,24 @@ public class SearchController : Object {
 
     private void on_search_position_changed (int position, int count) {
         search_bar.set_match_info (position, count, has_search_text);
+    }
+
+    /**
+     * select_last_match() only moves focus back into the editor when a
+     * match was actually live-highlighted (see its own doc comment) — a
+     * no-op close (bar opened, nothing searched/found, then dismissed)
+     * left focus stuck whatever it was, typically still the bar's own
+     * entry. Grabbing it here too covers that case as well, harmlessly
+     * redundant with select_last_match()'s own grab in the case it
+     * already handled. Gated on there still being an active tab: FindBar.
+     * close() is also called directly when the last open tab closes
+     * while the bar is still open (see its own doc comment) — nothing to
+     * focus then.
+     */
+    private void on_search_bar_closed () {
+        editor_view.select_last_match ();
+        if (editor_controller.active_document_path != null) {
+            editor_view.grab_focus ();
+        }
     }
 }
