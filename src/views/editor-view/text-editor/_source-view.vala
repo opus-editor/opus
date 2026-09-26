@@ -88,9 +88,17 @@ namespace EditorView {
             caret_offsets = offsets;
         }
 
-        /** Columns per indent level, for indent guides — resolved by EditorController from the linked folder's .editorconfig, per file. */
+        /**
+         * Columns per indent level, resolved by EditorController from the
+         * linked folder's .editorconfig, per file — drives both the
+         * indent guides' own spacing and, via `tab_width`, how wide a
+         * literal `\t` character actually renders (`indent_width` is left
+         * at its own default of -1, GtkSource.View's own "follow
+         * tab_width" value, rather than set separately here).
+         */
         public void set_indent_size (int size) {
             indent_size = size;
+            tab_width = (uint) size;
             queue_draw ();
         }
 

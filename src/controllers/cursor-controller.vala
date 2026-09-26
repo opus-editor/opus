@@ -374,6 +374,19 @@ public class CursorController : Object {
      * EditKind.OTHER just means "its own undo step," not "approximate"
      * — the edit itself came straight from Gtk.TextBuffer's own
      * insert-text/delete-range parameters, not a reconstructed diff.
+     *
+     * Cursor resync for a native insert (e.g. GtkSourceView's own Tab/
+     * indent-on-tab) is handled separately, by EditorView.TextEditor
+     * itself re-emitting native_cursor_moved from *after* the real
+     * insertion completes (see its own on_insert_text_after() doc
+     * comment) — not from here. An earlier version of this method tried
+     * to hand-compute and apply the post-insert offset right here
+     * instead, but this fires from the "before" phase of `insert-text`,
+     * while the buffer doesn't have the new text yet — resolving that
+     * computed offset against the *old* buffer landed on a different,
+     * wrong position (confirmed directly: reproduced exactly the
+     * reported symptom — Tab looked right once, then every following
+     * Tab landed on the line below instead).
      */
     private void on_untracked_edit (TextEdit edit) {
         if (active_document == null) {

@@ -223,6 +223,12 @@ namespace EditorView {
             // data, not something reconstructed afterward.
             text_view.buffer.insert_text.connect (on_insert_text);
             text_view.buffer.delete_range.connect (on_delete_range);
+            // _after counterparts of the same two signals, purely to resync
+            // the tracked cursor once the mutation has actually landed —
+            // see resync_native_cursor_after_native_edit()'s own doc comment
+            // for why this can't just happen inside the pair above.
+            text_view.buffer.insert_text.connect_after ((ref pos, new_text, len) => resync_native_cursor_after_native_edit ());
+            text_view.buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
 
             // CAPTURE, not the default BUBBLE phase: this has to see a key
             // before GtkTextView's own built-in bindings do, so returning
@@ -980,6 +986,43 @@ namespace EditorView {
                 start_offset = start.get_offset (), end_offset = end.get_offset (),
                 old_text = source_buffer.get_text (start, end, false), new_text = ""
             });
+        }
+
+        /**
+         * Re-fires native_cursor_moved from *after* an untracked native
+         * edit has actually landed (see the insert_text/delete_range
+         * `_after` connections above) — reading the real insert/
+         * selection_bound marks' own current position rather than trying
+         * to compute where they'll end up.
+         *
+         * Needed because mark-set, this class's usual resync signal (see
+         * on_mark_set()), doesn't reliably fire for this case at all:
+         * confirmed directly that a plain Gtk.TextBuffer.insert() (what
+         * GtkSourceView's own native Tab/indent-on-tab handling almost
+         * certainly does) moves a mark sitting at the insertion point via
+         * that mark's own gravity, but never emits mark-set for it — only
+         * an explicit place_cursor()/move_mark() call does that.
+         *
+         * This has to be a *separate* pass, not folded into on_insert_text/
+         * on_delete_range themselves: those run from the "before" phase of
+         * their signals (deliberately — see the plain .connect() calls'
+         * own comment, they need `pos`/`start`/`end` as they are *before*
+         * the mutation, to build an accurate TextEdit), which means the
+         * buffer doesn't have the change applied yet. A first version of
+         * this fix computed the post-edit offset by hand and applied it
+         * right there instead — resolving that computed offset against the
+         * still-old buffer landed on a different, wrong position. This
+         * reads the marks' own real position only once the buffer
+         * actually reflects the edit, so there's nothing to get wrong.
+         */
+        private void resync_native_cursor_after_native_edit () {
+            if (updating_programmatically) {
+                return;
+            }
+
+            int anchor = get_anchor_offset ();
+            int position = get_position_offset ();
+            native_cursor_moved (int.min (anchor, position), int.max (anchor, position));
         }
 
         /**
