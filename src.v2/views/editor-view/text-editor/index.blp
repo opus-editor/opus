@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+// The "template" half of this SFC-style pair — index.vala is the
+// "ViewModel" half. Same reasoning as the real EditorView.TextEditor's
+// own index.blp: Gtk.ScrolledWindow is final, so this loads as a plain
+// widget tree via Gtk.Builder, not a composite template. text_view isn't
+// declared here — it's a custom GtkSource.View subclass built in code and
+// dropped into scrolled_window via set_child().
+Gtk.Box root {
+  orientation: vertical;
+
+  Gtk.Revealer change_banner_revealer {
+    transition-type: slide_down;
+
+    Gtk.Box {
+      styles ["change-banner"]
+      orientation: horizontal;
+      spacing: 6;
+
+      Gtk.Box {
+        orientation: vertical;
+        spacing: 6;
+        hexpand: true;
+        valign: center;
+
+        Gtk.Label {
+          styles ["change-banner-title"]
+          halign: start;
+          wrap: true;
+          label: _("File Has Changed on Disk");
+        }
+
+        Gtk.Label {
+          halign: start;
+          wrap: true;
+          label: _("The file has been changed by another program.");
+        }
+      }
+
+      Gtk.Button change_banner_discard_button {
+        valign: center;
+        label: _("_Discard Changes and Reload");
+        use-underline: true;
+      }
+    }
+  }
+
+  Gtk.ScrolledWindow scrolled_window {
+    vexpand: true;
+    hscrollbar-policy: automatic;
+    vscrollbar-policy: automatic;
+  }
+}
