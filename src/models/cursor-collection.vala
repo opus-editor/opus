@@ -650,6 +650,175 @@ public class CursorCollection : Object {
     }
 
     /**
+     * Alt+Up/Alt+Down — moves every cursor's own touched lines (the
+     * lines its selection spans, whole lines regardless of column) up or
+     * down by swapping them with the adjacent line. Ported from VS
+     * Code's own MoveLinesCommand (moveLinesCommand.ts), with its
+     * language-configuration-aware indentation adjustment of the moved
+     * block left out entirely — needs real bracket/onEnter rules Opus
+     * has nowhere to source (same cut already made for
+     * compute_enter_edits()).
+     *
+     * The core swap, per touched cursor:
+     * - Moving down: delete from the end of the selection's last line
+     *   through the end of the line right below it (removing the
+     *   separating newline plus that line's own content), then insert
+     *   that removed line's text + "\n" at the very start of the
+     *   selection's first line.
+     * - Moving up: mirrored — delete the line right above (its own
+     *   content plus trailing newline), insert "\n" plus that text at
+     *   the end of the selection's last line.
+     *
+     * Both are pure whole-line insert/delete around the selection, never
+     * touching text *inside* it — this is what makes the selection's own
+     * shape (both ends, whichever direction) survive intact: its offsets
+     * just shift by the moved line's length (+1 newline), computed
+     * directly rather than through any generic "track this selection
+     * through the edit" machinery. GtkSourceView's own native move-lines
+     * (what Alt+Up/Down fell through to before this) collapses the
+     * selection to the whole moved line instead — the bug this fixes.
+     *
+     * `resulting_cursors` always has the same length/order as the live
+     * cursor set: a cursor already at the buffer's own edge in the
+     * requested direction comes back unchanged, not dropped — matches VS
+     * Code, where each selection's own MoveLinesCommand instance no-ops
+     * independently without blocking any other selection's own move. The
+     * one case that *does* block everything: two cursors whose own
+     * touched line ranges (their selected lines, plus the one line each
+     * is about to swap into) collide — realistic here (Ctrl+D, Alt+Click
+     * can land cursors on adjacent lines, unlike compute_edits()'s own
+     * "always a full edit apart" assumption) — the whole call no-ops
+     * rather than attempt an undefined partial move.
+     */
+    public TextEdit[] compute_move_lines_edits (bool down, string text, out Cursor[] resulting_cursors) {
+        var chars = to_chars (text);
+        int line_count = line_number_at (chars, chars.length) + 1;
+
+        var start_lines = new int[cursors.length];
+        var end_lines = new int[cursors.length];
+        var effective_ends = new int[cursors.length];
+        var movable = new bool[cursors.length];
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            // A selection that merely touches the next line's own start
+            // (Shift+Down after triple-click, say) doesn't count as
+            // touching that line — VS Code's own endColumn === 1 check.
+            // The *tracked* selection uses this adjusted end too, not the
+            // raw one: same rule VS Code's own setEndPosition() applies
+            // (its own comment: "we still honor that"), otherwise the
+            // resulting cursor's own offset could land inside the
+            // deleted "moving" line's own range entirely, past the end
+            // of the buffer in the down+last-line case.
+            int effective_end = cursor.selection_end;
+            if (cursor.selection_end > cursor.selection_start && effective_end > 0 && chars[effective_end - 1] == NEWLINE) {
+                effective_end -= 1;
+            }
+            effective_ends[i] = effective_end;
+
+            start_lines[i] = line_number_at (chars, cursor.selection_start);
+            end_lines[i] = line_number_at (chars, effective_end);
+            movable[i] = down ? end_lines[i] < line_count - 1 : start_lines[i] > 0;
+        }
+
+        for (uint i = 0; i < cursors.length; i++) {
+            if (!movable[i]) {
+                continue;
+            }
+            int touched_start_i = down ? start_lines[i] : start_lines[i] - 1;
+            int touched_end_i = down ? end_lines[i] + 1 : end_lines[i];
+            for (uint j = i + 1; j < cursors.length; j++) {
+                if (!movable[j]) {
+                    continue;
+                }
+                int touched_start_j = down ? start_lines[j] : start_lines[j] - 1;
+                int touched_end_j = down ? end_lines[j] + 1 : end_lines[j];
+                if (touched_start_i <= touched_end_j && touched_start_j <= touched_end_i) {
+                    var unchanged = new Cursor[cursors.length];
+                    for (uint k = 0; k < cursors.length; k++) {
+                        unchanged[k] = cursors[k];
+                    }
+                    resulting_cursors = unchanged;
+                    return new TextEdit[0];
+                }
+            }
+        }
+
+        var edits = new GenericArray<TextEdit> ();
+        var new_cursors = new Cursor[cursors.length];
+
+        for (uint i = 0; i < cursors.length; i++) {
+            var cursor = cursors[i];
+            if (!movable[i]) {
+                new_cursors[i] = cursor;
+                continue;
+            }
+
+            int start_line_offset = find_line_start_offset (chars, start_lines[i]);
+            int end_line_end_offset = line_end (chars, find_line_start_offset (chars, end_lines[i]));
+
+            TextEdit delete_edit;
+            TextEdit insert_edit;
+            int shift;
+
+            if (down) {
+                int moving_line_start = find_line_start_offset (chars, end_lines[i] + 1);
+                int moving_line_end = line_end (chars, moving_line_start);
+                string moving_line_text = chars_to_string (chars, moving_line_start, moving_line_end);
+
+                delete_edit = new TextEdit () {
+                    start_offset = end_line_end_offset, end_offset = moving_line_end,
+                    old_text = chars_to_string (chars, end_line_end_offset, moving_line_end), new_text = ""
+                };
+                insert_edit = new TextEdit () {
+                    start_offset = start_line_offset, end_offset = start_line_offset,
+                    old_text = "", new_text = moving_line_text + "\n"
+                };
+                shift = moving_line_text.char_count () + 1;
+            } else {
+                int moving_line_start = find_line_start_offset (chars, start_lines[i] - 1);
+                string moving_line_text = chars_to_string (chars, moving_line_start, line_end (chars, moving_line_start));
+
+                delete_edit = new TextEdit () {
+                    start_offset = moving_line_start, end_offset = start_line_offset,
+                    old_text = chars_to_string (chars, moving_line_start, start_line_offset), new_text = ""
+                };
+                insert_edit = new TextEdit () {
+                    start_offset = end_line_end_offset, end_offset = end_line_end_offset,
+                    old_text = "", new_text = "\n" + moving_line_text
+                };
+                shift = -(moving_line_text.char_count () + 1);
+            }
+
+            edits.add (delete_edit);
+            edits.add (insert_edit);
+
+            // Tracks [selection_start, effective_end] through the shift,
+            // not the raw anchor/position — see effective_ends' own
+            // comment above for why — preserving which of anchor/
+            // position was which side (a reversed selection stays
+            // reversed).
+            int new_start = cursor.selection_start + shift;
+            int new_end = effective_ends[i] + shift;
+            bool anchor_was_end = cursor.anchor_offset > cursor.position_offset;
+
+            var moved = cursor.clone ();
+            moved.anchor_offset = anchor_was_end ? new_end : new_start;
+            moved.position_offset = anchor_was_end ? new_start : new_end;
+            new_cursors[i] = moved;
+        }
+
+        resulting_cursors = new_cursors;
+        stable_sort_text_edits_by_start (edits);
+
+        var result = new TextEdit[edits.length];
+        for (uint k = 0; k < edits.length; k++) {
+            result[k] = edits[k];
+        }
+        return result;
+    }
+
+    /**
      * Each cursor's own selected text (codepoint-exact, "" for a cursor
      * with no selection), in cursor order — Copy/Cut's own per-cursor
      * read half, mirroring {@link compute_edits}'s own per-cursor
@@ -1221,6 +1390,19 @@ public class CursorCollection : Object {
             var key = items[i];
             int j = (int) i - 1;
             while (j >= 0 && items[(uint) j].edit.start_offset > key.edit.start_offset) {
+                items[(uint) (j + 1)] = items[(uint) j];
+                j--;
+            }
+            items[(uint) (j + 1)] = key;
+        }
+    }
+
+    /** Same as {@link stable_sort_edits_by_start}, for plain TextEdit[] (compute_move_lines_edits()'s own return, not tagged to any cursor). */
+    private static void stable_sort_text_edits_by_start (GenericArray<TextEdit> items) {
+        for (uint i = 1; i < items.length; i++) {
+            var key = items[i];
+            int j = (int) i - 1;
+            while (j >= 0 && items[(uint) j].start_offset > key.start_offset) {
                 items[(uint) (j + 1)] = items[(uint) j];
                 j--;
             }

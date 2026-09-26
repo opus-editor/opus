@@ -311,6 +311,14 @@ public class SystemTestSession : Object {
             keyval = Gdk.Key.BackSpace;
             modifiers = 0;
             break;
+        case "alt+up":
+            keyval = Gdk.Key.Up;
+            modifiers = Gdk.ModifierType.ALT_MASK;
+            break;
+        case "alt+down":
+            keyval = Gdk.Key.Down;
+            modifiers = Gdk.ModifierType.ALT_MASK;
+            break;
         case "undo":
             keyval = Gdk.Key.z;
             modifiers = Gdk.ModifierType.CONTROL_MASK;

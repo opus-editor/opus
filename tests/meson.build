@@ -332,3 +332,23 @@ test(
   timeout: 60,
   is_parallel: false,
 )
+
+move_lines_test = executable(
+  'move-lines-test',
+  ['system/move-lines-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'move-lines',
+  move_lines_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)

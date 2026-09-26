@@ -24,10 +24,13 @@
  * check's own comment for why not Ctrl+Alt+Up/Down, its Windows/Mac
  * one), Ctrl+D adds the next match of the current selection (or
  * selects the word under the caret on an empty one), Ctrl+Shift+L
- * selects every occurrence at once, and Alt+Shift+drag does a column
- * (box) select — the exact modifier VS Code's own mouse handler uses
- * (verified in its source, viewController.ts: plain Alt is "add a
- * cursor", only Alt+Shift is column-select).
+ * selects every occurrence at once, Alt+Shift+drag does a column (box)
+ * select — the exact modifier VS Code's own mouse handler uses (verified
+ * in its source, viewController.ts: plain Alt is "add a cursor", only
+ * Alt+Shift is column-select) — and plain Alt+Up/Down moves the current
+ * line (or every line a selection spans) up/down, selection shape
+ * preserved (see apply_move_lines()'s own doc comment for why this isn't
+ * just left to GtkSourceView's own native move-lines).
  */
 public class CursorController : Object {
     private delegate void CursorCommand ();
@@ -198,6 +201,17 @@ public class CursorController : Object {
             apply_cursor_command (() => active_document.cursors.add_cursor_below (editor_view.get_text ()));
             return true;
         }
+
+        // Move Lines Up/Down — plain Alt (no Shift), has to be checked
+        // before the `if (ctrl || alt) return false;` catch-all below,
+        // same as Shift+Alt+Up/Down just above. Left unclaimed for
+        // Ctrl+Alt (no binding assigned there) and any other combination.
+        if (alt && !shift && !ctrl && (keyval == Gdk.Key.Up || keyval == Gdk.Key.Down)) {
+            previous_typed_was_space = false;
+            apply_move_lines (keyval == Gdk.Key.Down);
+            return true;
+        }
+
         if (ctrl && !alt && !shift && lower_keyval == Gdk.Key.d) {
             apply_cursor_command (() => active_document.cursors.add_cursor_at_next_match (editor_view.get_text ()));
             return true;
@@ -605,6 +619,29 @@ public class CursorController : Object {
         Cursor[] cursors_to_remove;
         var tagged_edits = active_document.cursors.compute_backspace_edits (indent_size, editor_view.get_text (), out cursors_to_remove);
         apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.DELETING_LEFT);
+    }
+
+    /**
+     * Alt+Up/Alt+Down. Bypasses apply_tagged_edits() — same reason
+     * on_selection_dropped() does: compute_move_lines_edits() already
+     * knows each cursor's own exact resulting selection (preserving its
+     * shape, not collapsing it to a point the way apply_tagged_edits()'s
+     * own apply_edit_results() call always does for whichever cursor
+     * produced an edit), so there's nothing left for that generic path
+     * to add here.
+     */
+    private void apply_move_lines (bool down) {
+        Cursor[] resulting_cursors;
+        var edits = active_document.cursors.compute_move_lines_edits (down, editor_view.get_text (), out resulting_cursors);
+        if (edits.length == 0) {
+            return;
+        }
+
+        var before_cursors = active_document.cursors.snapshot ();
+        editor_view.apply_edits (edits);
+        active_document.cursors.set_cursors (resulting_cursors);
+        active_document.history.push (edits, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
+        render ();
     }
 
     private void apply_tagged_edits (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove, EditKind kind) {

@@ -376,6 +376,118 @@ private void test_multi_cursor_simultaneous_delete_left () {
     assert_cmpint (cc.at (2).position_offset, CompareOperator.EQ, 3);
 }
 
+private void test_compute_move_lines_edits_moves_a_single_collapsed_cursor_down () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb\nccc";
+    cc.set_cursors ({ new Cursor (1) }); // 2nd char of "aaa"
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (true, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].start_offset, CompareOperator.EQ, 0);
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "bbb\n");
+    assert_cmpint (edits[1].start_offset, CompareOperator.EQ, 3);
+    assert_cmpint (edits[1].end_offset, CompareOperator.EQ, 7);
+    assert_cmpstr (edits[1].new_text, CompareOperator.EQ, "");
+    // "aaa\nbbb\nccc" -> "bbb\naaa\nccc": the caret stays on its own
+    // 2nd-character column, just on the line's new position.
+    assert_cmpint (resulting[0].anchor_offset, CompareOperator.EQ, 5);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 5);
+}
+
+private void test_compute_move_lines_edits_moves_a_single_collapsed_cursor_up () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb\nccc";
+    cc.set_cursors ({ new Cursor (5) }); // 2nd char of "bbb"
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (false, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    // "aaa\nbbb\nccc" -> "bbb\naaa\nccc": "bbb" is now the first line.
+    assert_cmpint (resulting[0].anchor_offset, CompareOperator.EQ, 1);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 1);
+}
+
+private void test_compute_move_lines_edits_preserves_a_multi_line_selections_shape () {
+    var cc = new CursorCollection ();
+    string text = "one\ntwo\nthree\nfour"; // one(0-2) two(4-6) three(8-12) four(14-17)
+    var cursor = new Cursor (4); // anchor: start of "two"
+    cursor.position_offset = 14; // position: start of "four" (selects "two\nthree\n")
+    cc.set_cursors ({ cursor });
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (true, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    // "one\ntwo\nthree\nfour" -> "one\nfour\ntwo\nthree": the selection
+    // keeps spanning "two\nthree", now after "four" — its end lands on
+    // the buffer's own new end (three has no trailing newline of its
+    // own), not one character past it, which is the regression this
+    // test exists for (a naive "shift the raw offset" computation lands
+    // out of bounds here — see this method's own doc comment for why).
+    assert_cmpint (resulting[0].anchor_offset, CompareOperator.EQ, 9);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 18);
+}
+
+private void test_compute_move_lines_edits_preserves_a_reversed_selections_direction () {
+    var cc = new CursorCollection ();
+    string text = "one\ntwo\nthree\nfour";
+    var cursor = new Cursor (14); // anchor: start of "four"
+    cursor.position_offset = 4; // position: start of "two" — selected upward
+    cc.set_cursors ({ cursor });
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (true, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    // Same move as the forward-selection test above, but anchor/position
+    // stay swapped — the selection is still "held" from the same end.
+    assert_cmpint (resulting[0].anchor_offset, CompareOperator.EQ, 18);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 9);
+}
+
+private void test_compute_move_lines_edits_at_the_bottom_edge_is_a_no_op () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb";
+    cc.set_cursors ({ new Cursor (5) }); // inside "bbb", the last line
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (true, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 5);
+}
+
+private void test_compute_move_lines_edits_at_the_top_edge_is_a_no_op () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb";
+    cc.set_cursors ({ new Cursor (1) }); // inside "aaa", the first line
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (false, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 1);
+}
+
+private void test_compute_move_lines_edits_two_cursors_on_adjacent_lines_is_a_full_no_op () {
+    var cc = new CursorCollection ();
+    string text = "aaa\nbbb\nccc";
+    var c0 = new Cursor (1); // "aaa"
+    var c1 = new Cursor (5); // "bbb" — adjacent to c0's own line
+    cc.set_cursors ({ c0, c1 });
+
+    Cursor[] resulting;
+    var edits = cc.compute_move_lines_edits (true, text, out resulting);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+    assert_cmpint (resulting.length, CompareOperator.EQ, 2);
+    assert_cmpint (resulting[0].position_offset, CompareOperator.EQ, 1);
+    assert_cmpint (resulting[1].position_offset, CompareOperator.EQ, 5);
+}
+
 private void test_compute_enter_edits_carries_forward_the_current_lines_indentation () {
     var cc = new CursorCollection ();
     string text = "  abc";
@@ -694,6 +806,13 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/delete_left_at_document_start_produces_no_edit", test_delete_left_at_document_start_produces_no_edit);
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_insert_repositions_every_cursor", test_multi_cursor_simultaneous_insert_repositions_every_cursor);
     Test.add_func ("/models/cursor-collection/multi_cursor_simultaneous_delete_left", test_multi_cursor_simultaneous_delete_left);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_moves_a_single_collapsed_cursor_down", test_compute_move_lines_edits_moves_a_single_collapsed_cursor_down);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_moves_a_single_collapsed_cursor_up", test_compute_move_lines_edits_moves_a_single_collapsed_cursor_up);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_preserves_a_multi_line_selections_shape", test_compute_move_lines_edits_preserves_a_multi_line_selections_shape);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_preserves_a_reversed_selections_direction", test_compute_move_lines_edits_preserves_a_reversed_selections_direction);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_at_the_bottom_edge_is_a_no_op", test_compute_move_lines_edits_at_the_bottom_edge_is_a_no_op);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_at_the_top_edge_is_a_no_op", test_compute_move_lines_edits_at_the_top_edge_is_a_no_op);
+    Test.add_func ("/models/cursor-collection/compute_move_lines_edits_two_cursors_on_adjacent_lines_is_a_full_no_op", test_compute_move_lines_edits_two_cursors_on_adjacent_lines_is_a_full_no_op);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_carries_forward_the_current_lines_indentation", test_compute_enter_edits_carries_forward_the_current_lines_indentation);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace", test_compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false", test_compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false);
