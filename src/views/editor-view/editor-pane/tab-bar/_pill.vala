@@ -6,7 +6,7 @@
  * signals; this widget knows nothing about `EditorView.TabBar` — that class
  * translates its signals into its own, keyed by path.
  */
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   public class TabBarPill : Object {
     private Gtk.Box box;
     private Gtk.Label title_label;
@@ -39,7 +39,7 @@ namespace EditorView {
     public bool is_unsynchronized { get; private set; default = false; }
 
     public TabBarPill () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/tab-bar/_pill.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/_pill.ui");
       box = (Gtk.Box) builder.get_object ("pill");
       title_label = (Gtk.Label) builder.get_object ("title_label");
       close_button = (Gtk.Button) builder.get_object ("close_button");

@@ -10,7 +10,7 @@ public enum DiscardChoice {
  * pane: a horizontal, scrollable row of {@link TabBarPill}s, one per open file,
  * keyed by path.
  */
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   public class TabBar : Object {
     // Pixels scrolled per wheel notch (a discrete GtkEventControllerScroll
     // delta is usually ±1; trackpads report fractional deltas, scaling
@@ -56,7 +56,7 @@ namespace EditorView {
     public signal void new_file_requested ();
 
     public TabBar () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/tab-bar/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/index.ui");
       overlay = (Gtk.Overlay) builder.get_object ("overlay");
       box = (Gtk.Box) builder.get_object ("box");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");

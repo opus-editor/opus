@@ -1,4 +1,4 @@
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   /**
    * Drag-to-move-selection, split out of TextEditorCursors — matches VS
    * Code's own real split: its DragAndDropController lives in its own

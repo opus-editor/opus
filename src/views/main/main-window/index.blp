@@ -100,37 +100,14 @@ Adw.ApplicationWindow window {
             title: _("Editor");
             icon-name: "code-symbolic";
 
-            // Not an Adw.ToolbarView: ANY top/bottom bar of one doubles as
-            // a Gtk.WindowHandle (drag-to-move-the-window), which raced
-            // against — and often won over — the tab bar's own (now
-            // removed) hand-rolled drag-to-reorder gesture; kept as a plain
-            // Box since real Gtk.DragSource/DropTarget (see EditorView.TabBar's
-            // own setup_reorder_drag_drop()) has no such conflict, but
-            // there's no reason to reintroduce a WindowHandle here now.
-            child: Gtk.Box {
-              orientation: vertical;
-
-              // Hidden entirely with no tabs open (see
-              // MainWindow.show_empty_state()/show_content()) — an
-              // empty tab bar sitting over the empty-state placeholder has
-              // nothing to switch between.
-              Gtk.Box tab_bar_row {
-                orientation: vertical;
-
-                Adw.Bin tab_bar_bin {}
-                Gtk.Separator {
-                  styles ["content-divider"]
-                }
-              }
-
-              // Holds whatever the active tab shows — today always
-              // EditorView.TextEditor's widget, but not assumed to be: see
-              // show_content()/show_empty_state() in index.vala. Starts
-              // (and returns to, once the last tab closes) an empty-state
-              // placeholder rather than an editor with nothing open in it.
-              Adw.Bin content_bin {
-                vexpand: true;
-              }
+            // Holds whatever the active tab shows — today always
+            // EditorView.EditorPane's own widget (tab bar + editor,
+            // assembled by EditorPane itself), but not assumed to be: see
+            // show_content()/show_empty_state() in index.vala. Starts
+            // (and returns to, once the last tab closes) an empty-state
+            // placeholder rather than an editor with nothing open in it.
+            child: Adw.Bin content_bin {
+              vexpand: true;
             };
           }
 

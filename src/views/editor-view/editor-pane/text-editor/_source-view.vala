@@ -30,7 +30,7 @@
  * paint-only suppression `cursor_visible = false` already does for the
  * caret above.
  */
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   public class TextEditorSourceView : GtkSource.View {
     // Matches VS Code's own default (ViewCursors.BLINK_INTERVAL in
     // src/vs/editor/browser/viewParts/viewCursors/viewCursors.ts) — a

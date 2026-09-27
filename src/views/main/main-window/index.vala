@@ -19,8 +19,6 @@ public class MainWindow : Object {
   private Adw.OverlaySplitView split_view;
   private Adw.Bin sidebar_bin;
   private Gtk.Box sidebar_resize_handle;
-  private Gtk.Box tab_bar_row;
-  private Adw.Bin tab_bar_bin;
   private Adw.Bin content_bin;
   private Adw.Bin search_bar_bin;
   private GLib.Settings settings;
@@ -41,11 +39,10 @@ public class MainWindow : Object {
   /** Every IGlobalPanel registered via register_global_panel() — see its own doc comment, and IGlobalPanel's, for what this drives. */
   private GenericArray<IGlobalPanel> global_panels = new GenericArray<IGlobalPanel> ();
 
-  // Gates Ctrl+F — kept in sync by show_content()/show_empty_state()
-  // rather than queried from content_bin.child, since "there's an
-  // active tab" is exactly those two methods' own job already.
+  // Gates Ctrl+F/Ctrl+H — kept in sync by on_has_open_tabs_changed()
+  // rather than queried from editor_pane itself, since this is the one
+  // piece of that state MainWindow's own key handling needs directly.
   private bool has_open_tabs = false;
-  private Adw.StatusPage empty_state;
   private Gtk.MenuButton menu_button;
   private Gtk.ToggleButton sidebar_toggle_button;
   private Gtk.Widget close_folder_item;
@@ -101,15 +98,15 @@ public class MainWindow : Object {
     split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
     sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
     sidebar_resize_handle = (Gtk.Box) builder.get_object ("sidebar_resize_handle");
-    tab_bar_row = (Gtk.Box) builder.get_object ("tab_bar_row");
-    tab_bar_bin = (Adw.Bin) builder.get_object ("tab_bar_bin");
     content_bin = (Adw.Bin) builder.get_object ("content_bin");
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
     menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
     editor_pane = new EditorView.EditorPane (root_path);
-    tab_bar_bin.child = editor_pane.tab_bar_widget;
+    // Set once — editor_pane.widget's own child already toggles itself
+    // between its real content and its own empty state as tabs open/close.
+    content_bin.child = editor_pane.widget;
     editor_pane.has_open_tabs_changed.connect (on_has_open_tabs_changed);
     editor_pane.active_state_changed.connect ((path, dirty) => set_active_state (path != null, dirty));
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
@@ -219,19 +216,6 @@ public class MainWindow : Object {
       return false;
     });
     ((Gtk.Widget) window).add_controller (escape_controller);
-
-    // Generic on purpose, not "…from the sidebar": a blank/file-only
-    // window (no folder linked) has no sidebar to speak of at all.
-    empty_state = new Adw.StatusPage () {
-      title = _("No File Open"),
-      description = _("Open a file or folder to start editing."),
-      icon_name = "document-open-symbolic",
-    };
-    // No tab open yet, so there's nothing to show in content_bin (or
-    // the tab bar above it) — stays this way until show_content() says
-    // otherwise, rather than assuming there's always some editor-shaped
-    // widget to mount.
-    show_empty_state ();
   }
 
   /**
@@ -407,7 +391,7 @@ public class MainWindow : Object {
    * select_last_match()'s own grab in the case it already handled.
    * Gated on there still being an active tab: close() is also called
    * directly when the last open tab closes while the bar is still open
-   * (see show_empty_state()) — nothing to focus then.
+   * (see on_has_open_tabs_changed()) — nothing to focus then.
    */
   private void on_search_bar_closed () {
     editor_pane.select_last_match ();
@@ -416,32 +400,15 @@ public class MainWindow : Object {
     }
   }
 
+  // editor_pane.widget already swaps its own content for its own empty
+  // state internally — nothing left to do here besides tracking the
+  // flag Ctrl+F/Ctrl+H gate on, and closing the search bar once there's
+  // nothing left for it to search.
   private void on_has_open_tabs_changed (bool has_tabs) {
-    if (has_tabs) {
-      show_content (editor_pane.text_editor_widget);
-    } else {
-      show_empty_state ();
+    has_open_tabs = has_tabs;
+    if (!has_tabs) {
+      find_bar.close ();
     }
-  }
-
-  /**
-   * Shows `widget` — the active tab's own content, an {@link
-   * EditorView.TextEditor}'s today but not assumed to always be — in
-   * the content pane, replacing whatever was shown before. Also reveals
-   * the tab bar, hidden while there was nothing open for it to show.
-   */
-  private void show_content (Gtk.Widget widget) {
-    content_bin.child = widget;
-    tab_bar_row.visible = true;
-    has_open_tabs = true;
-  }
-
-  /** Shows the empty-state placeholder in the content pane, e.g. once the last open tab closes — hides the (now empty) tab bar, and the search bar (there's nothing left for it to search), along with it. */
-  private void show_empty_state () {
-    content_bin.child = empty_state;
-    tab_bar_row.visible = false;
-    has_open_tabs = false;
-    find_bar.close ();
   }
 
   /** Registers `panel` for the window-wide "Escape closes it, even without focus" behavior — see IGlobalPanel's own doc comment. */
@@ -593,7 +560,7 @@ public class MainWindow : Object {
       case Gdk.Key.f:
         // Gated here, not inside open_find(): no open tab means nothing
         // to search, so there's nothing to show for it either — same
-        // guard show_empty_state() itself uses to hide the bar again
+        // guard on_has_open_tabs_changed() itself uses to close the bar
         // once the last one closes.
         if (has_open_tabs) {
           open_find ();

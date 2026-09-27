@@ -1,4 +1,4 @@
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   /**
   * TextEditor's own cursor sub-component — every key/edit/clipboard/
   * undo command that acts on the current cursor(s), plus keeping the

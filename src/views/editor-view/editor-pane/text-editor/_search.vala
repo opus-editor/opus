@@ -1,4 +1,4 @@
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   /** One live search match's own [start, end) offsets — see TextEditorSearch.enumerate_matches(). Never exposed past this file. */
   private class MatchRange : Object {
     public int start_offset;

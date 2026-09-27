@@ -36,7 +36,7 @@
 * actual menu-building code — see TextEditorCursors' own doc comment).
 * See the real src/views/editor-view/text-editor/index.vala for that.
 */
-namespace EditorView {
+namespace EditorView.EditorPane_ {
   public class TextEditor : Object {
     private Gtk.Box root;
     private Gtk.Revealer change_banner_revealer;
@@ -80,7 +80,7 @@ namespace EditorView {
     public signal void search_position_changed (int position, int count);
 
     public TextEditor () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/text-editor/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/text-editor/index.ui");
       root = (Gtk.Box) builder.get_object ("root");
       change_banner_revealer = (Gtk.Revealer) builder.get_object ("change_banner_revealer");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");

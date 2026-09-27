@@ -9,10 +9,13 @@
  * sibling this class has no reference to; MainWindow, which composes both,
  * is what actually wires it through.
  *
- * tab_bar_widget/text_editor_widget are exposed separately, not one
- * `widget` — the real app places them in different parts of the window
- * (the tab bar in the header, the editor in the content pane), so
- * whoever composes *this* still needs to reach each independently.
+ * Assembles its own widget — a vertical Box, TabBar's own widget on top,
+ * a divider, TextEditor's own widget below (vexpand) — rather than
+ * exposing the two separately for MainWindow to place into different
+ * regions of its own window template: they were never actually placed
+ * in different regions (both already sat in the same vertical Box in
+ * MainWindow's own Blueprint), so MainWindow reaching in for each one
+ * independently was only ever indirection, not a real layout need.
  *
  * External file-watching (start_watching/stop_watching's own
  * Gio.FileMonitor lifecycle) is split into its own EditorPaneFileWatcher
@@ -35,7 +38,15 @@ namespace EditorView {
     // spaces once a file's own .editorconfig explicitly says so.
     private const bool DEFAULT_INSERT_SPACES = false;
 
-    private TabBar tab_bar;
+    // The one widget actually exposed via `widget` below — its own
+    // `.child` toggles between `content` (tab bar + editor) and
+    // `empty_state`, kept in sync with has_open_tabs_changed right in
+    // the constructor, so whoever hosts `widget` never needs to touch
+    // it again after placing it once.
+    private Adw.Bin container;
+    private Gtk.Box content;
+    private Adw.StatusPage empty_state;
+    private EditorPane_.TabBar tab_bar;
     private EditorPaneFileWatcher file_watcher;
     private string root_path;
     private EditorConfig? editor_config;
@@ -44,13 +55,12 @@ namespace EditorView {
     private string? active_path = null;
     private int untitled_counter = 0;
 
-    public Gtk.Widget tab_bar_widget { get { return tab_bar.widget; } }
-    public Gtk.Widget text_editor_widget { get { return text_editor.widget; } }
+    public Gtk.Widget widget { get { return container; } }
 
     /** The real TextEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPane wrapping each one in a forwarding method of its own. */
-    public TextEditor text_editor { get; private set; }
+    public EditorPane_.TextEditor text_editor { get; private set; }
 
-    /** Whether at least one tab is open — whoever hosts the editor's widget uses this to hide it (an empty-state placeholder instead) when it's not. */
+    /** Whether at least one tab is open — `widget` itself already reacts to this (see the constructor); still re-emitted for whoever hosts it to gate its own tab-dependent behavior (MainWindow's own Ctrl+F/Ctrl+H). */
     public signal void has_open_tabs_changed (bool has_tabs);
 
     /** The active tab, or its dirty state, changed — null `path` means no tab is active (`dirty` is meaningless then). */
@@ -66,9 +76,31 @@ namespace EditorView {
       this.root_path = root_path;
       editor_config = EditorConfig.load (root_path);
 
-      tab_bar = new TabBar ();
-      text_editor = new TextEditor ();
+      tab_bar = new EditorPane_.TabBar ();
+      text_editor = new EditorPane_.TextEditor ();
       file_watcher = new EditorPaneFileWatcher ();
+
+      content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+      content.append (tab_bar.widget);
+      content.append (new Gtk.Separator (Gtk.Orientation.HORIZONTAL) { css_classes = { "content-divider" } });
+      text_editor.widget.vexpand = true;
+      content.append (text_editor.widget);
+
+      // Generic on purpose, not "…from the sidebar": a blank/file-only
+      // window (no folder linked) has no sidebar to speak of at all.
+      empty_state = new Adw.StatusPage () {
+        title = _("No File Open"),
+        description = _("Open a file or folder to start editing."),
+        icon_name = "document-open-symbolic",
+      };
+
+      // No tab open yet at construction, so there's nothing to show
+      // besides the empty state — stays this way until has_open_tabs_changed
+      // says otherwise.
+      container = new Adw.Bin () { child = empty_state };
+      has_open_tabs_changed.connect ((has_tabs) => {
+        container.child = has_tabs ? (Gtk.Widget) content : (Gtk.Widget) empty_state;
+      });
 
       text_editor.text_changed.connect (on_text_changed);
       tab_bar.tab_selected.connect (on_tab_selected);
