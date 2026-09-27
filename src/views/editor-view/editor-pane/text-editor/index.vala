@@ -1,5 +1,5 @@
 /**
-* Architecture prototype, not wired into the real app. .blp = template,
+* .blp = template,
 * .vala = "ViewModel": owns lifecycle + logic, composed of sub-components
 * the same way a Vue SFC composes child components — cursor movement/
 * rendering lives in TextEditorCursors (_cursors.vala) now, not here, once
@@ -32,9 +32,8 @@
 * freshly-loaded document as an untracked user edit.
 *
 * Everything CursorController/EditorController/SearchController's real
-* jobs covered is ported except the right-click context menu (needs
-* actual menu-building code — see TextEditorCursors' own doc comment).
-* See the real src/views/editor-view/text-editor/index.vala for that.
+* jobs covered is ported, right-click context menu included — see
+* TextEditorCursors' own show_context_menu().
 */
 namespace EditorView.EditorPane_ {
   public class TextEditor : Object {

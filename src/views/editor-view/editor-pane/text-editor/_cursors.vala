@@ -20,9 +20,9 @@ namespace EditorView.EditorPane_ {
   * shared canvas draw has nothing per-cursor left over to be its own
   * object once render_cursors()'s loop already does that math).
   *
-  * Still a slice: right-click's own context menu isn't claimed (it needs
-  * actual menu-building code, out of scope here) — everything else,
-  * keyboard and mouse, is.
+  * Covers keyboard, mouse, and the right-click context menu — the last
+  * built with the shared ContextMenu (views/components), same as
+  * EditorView.FileTree/TabBar's own — see show_context_menu().
   */
   public class TextEditorCursors : Object {
     private delegate void CursorCommand ();
@@ -125,17 +125,36 @@ namespace EditorView.EditorPane_ {
 
       // CAPTURE, so this gets first refusal before GtkTextView's own
       // internal click gesture — same reasoning as key_controller above.
-      // Left at its default button (primary only): right-click isn't
-      // claimed in this slice (see the class's own doc comment), so there's
-      // nothing here that needs to see it.
+      // Widened to any button (GtkGestureSingle reacts to the primary
+      // button only by default — confirmed in gtkgesturesingle.c): a
+      // right-click has to reach this same handler too, or there'd be
+      // nothing here to stop gtk_text_view_do_popup()'s own native menu
+      // from running underneath ours.
       var click_gesture = new Gtk.GestureClick ();
       click_gesture.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
+      click_gesture.button = 0;
       click_gesture.pressed.connect ((n_press, x, y) => {
         var state = click_gesture.get_current_event_state ();
         bool alt = (state & Gdk.ModifierType.ALT_MASK) != 0;
         bool shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
+        uint button = click_gesture.get_current_button ();
 
-        preserve_native_direction = n_press == 1;
+        preserve_native_direction = n_press == 1 && button == Gdk.BUTTON_PRIMARY;
+
+        if (button == Gdk.BUTTON_SECONDARY && n_press == 1) {
+          // Claimed outright, same as Alt+Click below: this is what stops
+          // GTK's own native Cut/Copy/Paste/Delete menu from popping up —
+          // it calls GtkTextBuffer's clipboard methods directly, the exact
+          // non-EditHistory path Cut/Copy/Paste are already claimed away
+          // from at the keyboard level (see key_pressed()'s Ctrl+X/C/V).
+          click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
+          show_context_menu (x, y);
+          return;
+        }
+
+        if (button != Gdk.BUTTON_PRIMARY) {
+          return; // no other button is claimed
+        }
 
         if (n_press <= 3 && alt) {
           click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
@@ -191,6 +210,30 @@ namespace EditorView.EditorPane_ {
     /** Cascades to the drag-selection sub-component's own close() — nothing of this class's own needs unregistering (same reasoning as TextEditor.close(), see its own comment). */
     public void close () {
       drag_selection.close ();
+    }
+
+    /**
+     * A right-click landed on the editor. Cut/Copy/Delete need a
+     * selection *somewhere* (has_selection is multi-cursor-aware, unlike
+     * the real native selection); Undo/Redo need a history entry to act
+     * on. Each item runs through key_pressed() with the same keyval/state
+     * a real keystroke would carry, rather than duplicating what it
+     * already dispatches to.
+     */
+    private void show_context_menu (double x, double y) {
+      bool can_cut_copy_delete = active_document != null && active_document.cursors.has_selection;
+      bool can_undo = active_document != null && active_document.history.can_undo;
+      bool can_redo = active_document != null && active_document.history.can_redo;
+
+      ContextMenu.popup_at (text_view, x, y, (popover, box) => {
+        box.append (ContextMenu.item (_("Cut"), () => { key_pressed (Gdk.Key.x, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_cut_copy_delete));
+        box.append (ContextMenu.item (_("Copy"), () => { key_pressed (Gdk.Key.c, Gdk.ModifierType.CONTROL_MASK); }, popover, null, can_cut_copy_delete));
+        box.append (ContextMenu.item (_("Paste"), () => { key_pressed (Gdk.Key.v, Gdk.ModifierType.CONTROL_MASK); }, popover));
+        box.append (ContextMenu.item (_("Delete"), () => { key_pressed (Gdk.Key.Delete, 0); }, popover, null, can_cut_copy_delete));
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Undo"), () => { key_pressed (Gdk.Key.z, Gdk.ModifierType.CONTROL_MASK); }, popover, Gtk.accelerator_get_label (Gdk.Key.z, Gdk.ModifierType.CONTROL_MASK), can_undo));
+        box.append (ContextMenu.item (_("Redo"), () => { key_pressed (Gdk.Key.y, Gdk.ModifierType.CONTROL_MASK); }, popover, Gtk.accelerator_get_label (Gdk.Key.y, Gdk.ModifierType.CONTROL_MASK), can_redo));
+      });
     }
 
     public void set_active_document (Document? document) {
