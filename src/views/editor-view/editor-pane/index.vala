@@ -66,6 +66,12 @@ namespace EditorView {
     /** The active tab, or its dirty state, changed — null `path` means no tab is active (`dirty` is meaningless then). */
     public signal void active_state_changed (string? path, bool dirty);
 
+    /** A tab for `path` just started existing (opened permanent or preview) — unlike active_state_changed, this fires once per tab regardless of focus, for whoever needs to know a specific path is open at all rather than merely active (MainWindow's own settings.json live-reload watch). */
+    public signal void tab_opened (string path);
+
+    /** A tab for `path` just stopped existing (closed, discarded, or evicted as an old preview) — see tab_opened()'s own doc comment. */
+    public signal void tab_closed (string path);
+
     /** Re-emitted from TextEditor's own search sub-component — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
     public signal void search_position_changed (int position, int count);
 
@@ -384,6 +390,7 @@ namespace EditorView {
         tab_bar.remove_tab (existing_preview.path);
         documents.remove (existing_preview.path);
         file_watcher.stop_watching (existing_preview.path);
+        tab_closed (existing_preview.path);
       }
 
       var document = Document.load (path);
@@ -391,6 +398,7 @@ namespace EditorView {
       documents[path] = document;
       tab_bar.add_tab (path, Path.get_basename (path), folder_name_of (path), true);
       file_watcher.start_watching (path);
+      tab_opened (path);
       if (documents.size () == 1) {
         has_open_tabs_changed (true);
       }
@@ -403,6 +411,7 @@ namespace EditorView {
       documents[path] = document;
       tab_bar.add_tab (path, Path.get_basename (path), folder_name_of (path), false);
       file_watcher.start_watching (path);
+      tab_opened (path);
       if (documents.size () == 1) {
         has_open_tabs_changed (true);
       }
@@ -686,6 +695,7 @@ namespace EditorView {
       file_watcher.stop_watching (path);
       tab_bar.remove_tab (path);
       documents.remove (path);
+      tab_closed (path);
 
       if (active_path == path) {
         // Prefer another still-open tab over going empty — the

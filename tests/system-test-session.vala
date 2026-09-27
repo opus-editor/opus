@@ -68,6 +68,12 @@ public class SystemTestSession : Object {
         launcher.setenv ("GDK_BACKEND", "broadway", true);
         launcher.setenv ("BROADWAY_DISPLAY", ":%u".printf (broadway_display_num), true);
         launcher.setenv ("OPUS_APP_ID", app_id, true);
+        // GLib.Environment.get_user_config_dir() (what UserSettings.ensure_exists()
+        // resolves against) already respects XDG_CONFIG_HOME — same
+        // isolation reasoning as OPUS_APP_ID just above, so a test
+        // opening the primary menu's "Settings" writes into a throwaway
+        // directory instead of the developer's real ~/.config/opus.
+        launcher.setenv ("XDG_CONFIG_HOME", Path.build_filename (Environment.get_tmp_dir (), "opus-test-config-%u".printf (broadway_display_num)), true);
         // spawnv() takes a `const gchar * const *`; valac always marshals
         // a string[] as a plain, non-const `gchar**` — see the identical
         // warning/explanation at file-tree-controller.vala's own spawnv()

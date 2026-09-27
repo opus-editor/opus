@@ -14,6 +14,13 @@
 [CCode (cname = "gtk_style_context_add_provider_for_display")]
 private extern static void add_provider_for_display_raw (Gdk.Display display, Gtk.StyleProvider provider, uint priority);
 
+// Same deprecated-wholesale-class reasoning as add_provider_for_display_raw
+// above — this is its removal counterpart, needed by install_from_string()'s
+// own re-install (see GlobalCss.uninstall()'s doc comment for why a
+// re-install needs one at all).
+[CCode (cname = "gtk_style_context_remove_provider_for_display")]
+private extern static void remove_provider_for_display_raw (Gdk.Display display, Gtk.StyleProvider provider);
+
 namespace GlobalCss {
   /**
    * Installs the .css file at `resource_path` as an application-priority,
@@ -30,5 +37,37 @@ namespace GlobalCss {
     var provider = new Gtk.CssProvider ();
     provider.load_from_resource (resource_path);
     add_provider_for_display_raw (Gdk.Display.get_default (), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+  }
+
+  /**
+   * Same as install_from_resource(), but for CSS generated at runtime
+   * rather than baked into a resource — TextEditor's own font rules,
+   * built from the user's settings.json, are the one stylesheet this
+   * app doesn't know the contents of at build time. Returns the
+   * provider so a caller that re-installs this on every change (that
+   * same TextEditor, on live-reload) can uninstall() the previous one
+   * first — see uninstall()'s own doc comment for why that matters here
+   * specifically.
+   */
+  public Gtk.CssProvider install_from_string (string css) {
+    var provider = new Gtk.CssProvider ();
+    provider.load_from_string (css);
+    add_provider_for_display_raw (Gdk.Display.get_default (), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+    return provider;
+  }
+
+  /**
+   * Removes a provider previously returned by install_from_string() —
+   * CSS providers only ever add rules, they don't replace one another:
+   * a property this app set on the first install and *omits* on a
+   * later one (e.g. settings.json's editor.fontFamily going back to
+   * null) doesn't revert on its own, the first install's own rule for
+   * it is still active and wins since nothing overrides it. Uninstalling
+   * the previous provider before installing the next is what actually
+   * makes "no longer setting X" mean "back to default" rather than
+   * "still whatever X last was."
+   */
+  public void uninstall (Gtk.CssProvider provider) {
+    remove_provider_for_display_raw (Gdk.Display.get_default (), provider);
   }
 }

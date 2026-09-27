@@ -14,6 +14,7 @@ opus_model_sources = files(
   'models/selection-snapshot.vala',
   'models/session.vala',
   'models/text-edit.vala',
+  'models/user-settings.vala',
   'models/workspace.vala',
 )
 

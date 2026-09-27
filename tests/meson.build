@@ -61,6 +61,13 @@ replace_pattern_test = executable(
 )
 test('replace-pattern', replace_pattern_test)
 
+user_settings_test = executable(
+  'user-settings-test',
+  ['models/user-settings-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('user-settings', user_settings_test)
+
 # Links opus_resources too (unlike every other model test above) —
 # IconTheme.symbols()'s own test needs the real compiled GResource
 # bundle to actually be present to load the bundled Symbols theme from.

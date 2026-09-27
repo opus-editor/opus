@@ -44,6 +44,7 @@ namespace EditorView.EditorPane_ {
     private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
     private TextEditorCursors cursors;
     private TextEditorSearch search;
+    private Gtk.CssProvider? font_provider;
 
     public Gtk.Widget widget { get { return root; } }
 
@@ -93,6 +94,7 @@ namespace EditorView.EditorPane_ {
         show_line_numbers = true,
         cursor_visible = false, // every caret is hand-drawn by TextEditorSourceView instead — see its own doc comment
       };
+      text_view.add_css_class ("opus-editor-font");
       scrolled_window.set_child (text_view);
 
       cursors = new TextEditorCursors (text_view);
@@ -105,6 +107,7 @@ namespace EditorView.EditorPane_ {
       discard_button.clicked.connect (() => reload_requested ());
 
       install_css ();
+      reload_font_settings ();
 
       // GtkSource.Buffer paints with a StyleScheme's own fixed colors
       // instead of following the app's GTK theme, so it stays put through
@@ -122,6 +125,90 @@ namespace EditorView.EditorPane_ {
     private void apply_style_scheme (bool dark) {
       var scheme_id = dark ? "Adwaita-dark" : "Adwaita";
       source_buffer.style_scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (scheme_id);
+    }
+
+    /**
+     * A transient adjustment on top of settings.json's own
+     * editor.fontSize — Ctrl+Plus/Minus/0, never written to disk. Ported
+     * from VS Code's own real EditorZoom (checked editorZoom.ts): a
+     * plain in-memory value, gone on restart. Static, not per-instance:
+     * this app has no per-window zoom concept, one shared level applies
+     * everywhere at once — matches the font CSS itself already being
+     * display-wide (see reload_font_settings()), so any one instance
+     * recomputing it after a change is enough to re-render every open
+     * window's text.
+     */
+    private static int zoom_level = 0;
+
+    /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.fontSize is already a plain point size, so a flat step matches it more directly than a percentage would. */
+    public void zoom_in () {
+      zoom_level += 1;
+      reload_font_settings ();
+    }
+
+    /** Ctrl+Minus — see zoom_in()'s own doc comment. */
+    public void zoom_out () {
+      zoom_level -= 1;
+      reload_font_settings ();
+    }
+
+    /** Ctrl+0 — back to settings.json's own editor.fontSize exactly, same as VS Code's real EditorFontZoomReset. */
+    public void reset_zoom () {
+      zoom_level = 0;
+      reload_font_settings ();
+    }
+
+    /**
+     * Reads settings.json's `editor.*` keys and turns them into a real
+     * stylesheet targeting `.opus-editor-font` (text_view's own class,
+     * set above) — run once at construction, again whenever
+     * MainWindow's own settings.json live-reload watch (armed only
+     * while that file's tab is open — see its own on_settings_tab_opened())
+     * detects a change, and again on every zoom_in()/zoom_out()/reset_zoom().
+     * Uninstalls the previous provider first — a property the last
+     * reload set and this one omits (e.g. editor.fontFamily going back
+     * to null) needs the old rule gone, not just left uncontested by a
+     * new one that doesn't mention it.
+     */
+    public void reload_font_settings () {
+      var settings = UserSettings.load (Environment.get_user_config_dir ());
+      if (font_provider != null) {
+        GlobalCss.uninstall (font_provider);
+      }
+      font_provider = GlobalCss.install_from_string (font_css (settings));
+    }
+
+    /**
+     * `font-family` only goes in when the user actually set one — left
+     * out entirely otherwise, so `monospace = true` above keeps
+     * resolving fontconfig's own "monospace" alias untouched, same as
+     * before settings.json existed. `font-size` defaults to the point
+     * size straight out of `font_size` plus the current zoom_level
+     * (floored at 1pt) — `font_size` itself is whatever UserSettings
+     * already resolved from the user's real system default rather than
+     * a number this app invented, this CSS never has to know that.
+     * `font-size` in `pt`, not `px`, and `line-height` as a bare
+     * multiplier (never `px`, unlike VS Code's own editor.lineHeight) —
+     * both checked against GNOME Text Editor's real font CSS for the
+     * same GtkSourceView-based widget (editor-utils.c's
+     * _editor_font_description_to_css(), editor-source-view.c's own
+     * "line-height" property).
+     */
+    private string font_css (UserSettingsValues settings) {
+      var css = new StringBuilder ("textview.opus-editor-font {\n");
+      if (settings.font_family != null) {
+        css.append ("  font-family: \"%s\";\n".printf (settings.font_family.replace ("\"", "'")));
+      }
+      if (settings.font_size > 0) {
+        int effective_size = int.max (1, settings.font_size + zoom_level);
+        css.append ("  font-size: %dpt;\n".printf (effective_size));
+      }
+      css.append ("  font-weight: %s;\n".printf (settings.font_weight));
+      css.append ("  font-feature-settings: %s;\n".printf (settings.font_ligatures ? "\"liga\" 1, \"calt\" 1" : "\"liga\" 0, \"calt\" 0"));
+      css.append ("  letter-spacing: %gpx;\n".printf (settings.letter_spacing));
+      css.append ("  line-height: %g;\n".printf (settings.line_height));
+      css.append ("}\n");
+      return css.str;
     }
 
     /**

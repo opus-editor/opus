@@ -71,6 +71,13 @@ public class MainWindow : Object {
   private bool has_active_tab = false;
   private bool active_is_dirty = false;
 
+  // Live for exactly as long as settings.json's own tab is open —
+  // armed on EditorPane's tab_opened, disarmed on tab_closed, not tied
+  // to which tab is active: a background tab still open keeps this
+  // armed too, matching a real editor's own live-reload scope rather
+  // than only-while-focused.
+  private FileMonitor? settings_monitor = null;
+
   // The user-dragged sidebar width, in pixels — kept in sync with
   // split_view's own min/max-sidebar-width (see setup_sidebar_resize()),
   // pinned equal to each other so the fraction-based layout
@@ -110,6 +117,8 @@ public class MainWindow : Object {
     editor_pane.has_open_tabs_changed.connect (on_has_open_tabs_changed);
     editor_pane.active_state_changed.connect ((path, dirty) => set_active_state (path != null, dirty));
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
+    editor_pane.tab_opened.connect (on_settings_tab_opened);
+    editor_pane.tab_closed.connect (on_settings_tab_closed);
 
     find_bar = new EditorView.FindBar ();
     search_bar_bin.child = find_bar.widget;
@@ -150,6 +159,7 @@ public class MainWindow : Object {
         explorer_pane.close ();
       }
       editor_pane.close ();
+      settings_monitor?.cancel ();
       closed ();
     });
     build_primary_menu ();
@@ -267,6 +277,43 @@ public class MainWindow : Object {
     } catch (Error e) {
       show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
     }
+  }
+
+  /** The primary menu's own "Settings" — creates settings.json with its defaults on first use, then opens it as a permanent tab, same as any other file. */
+  private void open_settings () {
+    try {
+      var path = UserSettings.ensure_exists (Environment.get_user_config_dir ());
+      editor_pane.open (path, true);
+    } catch (Error e) {
+      show_error (_("Couldn’t open settings: %s").printf (e.message));
+    }
+  }
+
+  /**
+   * Arms a live-reload watch on settings.json for exactly as long as
+   * its own tab stays open — every open tab's font re-renders on each
+   * change (the font CSS is display-wide, see TextEditor's own
+   * font_css()), not just whichever tab happens to be active.
+   */
+  private void on_settings_tab_opened (string path) {
+    if (path != UserSettings.path (Environment.get_user_config_dir ()) || settings_monitor != null) {
+      return;
+    }
+
+    try {
+      settings_monitor = File.new_for_path (path).monitor_file (FileMonitorFlags.NONE, null);
+      settings_monitor.changed.connect (() => editor_pane.text_editor.reload_font_settings ());
+    } catch (Error e) {
+      Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
+    }
+  }
+
+  private void on_settings_tab_closed (string path) {
+    if (path != UserSettings.path (Environment.get_user_config_dir ()) || settings_monitor == null) {
+      return;
+    }
+    settings_monitor.cancel ();
+    settings_monitor = null;
   }
 
   /**
@@ -558,6 +605,21 @@ public class MainWindow : Object {
           on_open_file_requested.begin ();
         }
         return true;
+      case Gdk.Key.comma:
+        open_settings ();
+        return true;
+      case Gdk.Key.plus:
+      case Gdk.Key.equal:
+      case Gdk.Key.KP_Add:
+        editor_pane.text_editor.zoom_in ();
+        return true;
+      case Gdk.Key.minus:
+      case Gdk.Key.KP_Subtract:
+        editor_pane.text_editor.zoom_out ();
+        return true;
+      case Gdk.Key.@0:
+        editor_pane.text_editor.reset_zoom ();
+        return true;
       case Gdk.Key.f:
         // Gated here, not inside open_find(): no open tab means nothing
         // to search, so there's nothing to show for it either — same
@@ -655,6 +717,9 @@ public class MainWindow : Object {
     box.append (save_item);
     save_as_item = ContextMenu.item (_("Save as…"), () => editor_pane.save_as_active.begin (), popover, Gtk.accelerator_get_label (Gdk.Key.s, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK));
     box.append (save_as_item);
+
+    box.append (ContextMenu.separator ());
+    box.append (ContextMenu.item (_("Settings"), () => open_settings (), popover, Gtk.accelerator_get_label (Gdk.Key.comma, Gdk.ModifierType.CONTROL_MASK)));
 
     popover.child = box;
     // Not the `popover` property: the vapi types it as Gtk.Popover,
