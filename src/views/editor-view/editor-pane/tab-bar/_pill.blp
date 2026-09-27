@@ -4,6 +4,15 @@ Gtk.Box pill {
   orientation: horizontal;
   spacing: 4;
   css-classes: ["tab-pill"];
+  // Locked, not left to GTK's own per-child default: showing this pill's
+  // context menu parents a Gtk.Popover on it (ContextMenu.popup_at), and
+  // a visible Popover child counts towards its parent's own recomputed
+  // hexpand even though it's excluded from that parent's actual layout
+  // (confirmed live with GtkInspector) — without this, the right-
+  // clicked pill would expand to grab the whole row's leftover width,
+  // shoving every pill after it to the far right for as long as the
+  // menu stayed open.
+  hexpand: false;
 
   Gtk.Label title_label {
     use-markup: true;

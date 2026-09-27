@@ -237,7 +237,16 @@ namespace EditorView {
     /**
      * "Reveal in Sidebar" from a tab's context menu: same as select_path()
      * (expands every collapsed ancestor, selects it), plus scrolls it into
-     * view and briefly flashes its row a warm highlight.
+     * view and briefly flashes its row a warm highlight. Also moves real
+     * keyboard focus onto the row (see flash_path()'s own comment for
+     * why that has to happen there, not here) — matching VS Code's own
+     * real revealAndSelect, which setFocus()es the revealed item too.
+     * select_path() alone left the row `:selected` but never `:focus`,
+     * and row:selected:not(:focus)'s own transparent background-color
+     * override (see the CSS below) beats both the flash's own
+     * background-color rule and native :hover by specificity, so the
+     * row never visibly flashed and silently stopped hovering too, both
+     * for as long as it stayed selected.
      */
     public void reveal_path (string path) {
       if (tree_model == null) {
@@ -258,6 +267,16 @@ namespace EditorView {
       });
     }
 
+    /**
+     * `path`'s row isn't a real widget yet at reveal_path()'s own point
+     * in the call stack — find_position() only just expanded its
+     * ancestors in the *model*, and GtkListView only materializes the
+     * actual row widgets for that on its own next layout pass. Deferred
+     * one Idle turn (same as this method's own caller already was)
+     * gives that pass time to run first — confirmed live: a grab_focus()
+     * attempted synchronously in reveal_path() silently no-ops (nothing
+     * to focus yet), while this same call succeeds once run from here.
+     */
     private void flash_path (string path) {
       var widget = find_realized_row_widget (list_view, path);
       var row_widget = widget == null ? null : native_row_widget (widget);
@@ -265,6 +284,7 @@ namespace EditorView {
         return;
       }
 
+      row_widget.grab_focus ();
       row_widget.add_css_class (REVEAL_FLASH_TRANSITION_CSS_CLASS);
       row_widget.add_css_class (REVEAL_FLASH_CSS_CLASS);
       Timeout.add (REVEAL_FLASH_HOLD_MS, () => {
