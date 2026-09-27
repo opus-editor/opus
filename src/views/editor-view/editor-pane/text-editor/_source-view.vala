@@ -59,6 +59,7 @@ namespace EditorView.EditorPane_ {
     private int[] caret_offsets = {};
     private bool blink_visible = true;
     private uint blink_timeout_id = 0;
+    private uint overscroll_idle_id = 0;
     private int? drop_indicator_offset = null;
     private int indent_size = 4; // matches EditorController.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
 
@@ -105,6 +106,64 @@ namespace EditorView.EditorPane_ {
       indent_size = size;
       tab_width = (uint) size;
       queue_draw ();
+    }
+
+    /**
+     * "Scroll beyond last line": without this, once the document's own
+     * last line reaches the bottom of the viewport there's nothing left
+     * to scroll, so a short file (or scrolling all the way down a long
+     * one) pins the last line to the very bottom edge of the window —
+     * both VS Code and GNOME Text Editor instead leave room to keep
+     * scrolling until only the last line remains, right at the top.
+     *
+     * `size_allocate` fires repeatedly while a window resize is still in
+     * progress (every intermediate frame, not just the final size) —
+     * recomputing on every single one would mean redoing this on every
+     * pixel dragged. GNOME Text Editor's own EditorSourceView (src/
+     * editor-source-view.c) debounces the exact same way: base class
+     * first, then queue at most one GLib.Idle recompute per batch of
+     * allocations, guarded by overscroll_idle_id so a second
+     * size_allocate before the idle has run doesn't queue a duplicate.
+     */
+    public override void size_allocate (int width, int height, int baseline) {
+      base.size_allocate (width, height, baseline);
+
+      if (overscroll_idle_id != 0) {
+        return;
+      }
+      overscroll_idle_id = Idle.add (() => {
+        overscroll_idle_id = 0;
+        update_overscroll_margin ();
+        return Source.REMOVE;
+      });
+    }
+
+    /**
+     * VS Code's own formula (viewLayout.ts, _getContentHeight): extra
+     * space = visible height minus one line's height, clamped to never
+     * go negative — scrolled all the way down, exactly one line of real
+     * content stays visible at the top instead of the document either
+     * vanishing entirely or leaving an arbitrary fraction of empty
+     * viewport (GNOME Text Editor's own simpler alternative is a flat
+     * 75% of the viewport height, unconditionally — VS Code's is
+     * pixel-exact to "one line remains" instead, which is why this
+     * measures a real line via get_iter_location() rather than using a
+     * fraction).
+     */
+    private void update_overscroll_margin () {
+      if (!get_mapped ()) {
+        return;
+      }
+
+      Gdk.Rectangle visible_rect;
+      get_visible_rect (out visible_rect);
+
+      Gtk.TextIter start_iter;
+      buffer.get_start_iter (out start_iter);
+      Gdk.Rectangle line_rect;
+      get_iter_location (start_iter, out line_rect);
+
+      bottom_margin = int.max (0, visible_rect.height - line_rect.height);
     }
 
     /**
