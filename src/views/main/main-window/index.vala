@@ -434,6 +434,7 @@ public class MainWindow : Object {
 
   private void install_css () {
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/main-window.css");
+    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
   }
 
   /**

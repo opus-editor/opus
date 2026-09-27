@@ -15,10 +15,7 @@ public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
  *
  * A real Gtk.Popover subclass — not a plain Object with only static
  * methods, the shape this had before — so it belongs in views/components/
- * (a real, reusable widget) rather than views/lib/, and static construct
- * actually runs: a GObject class only registers its type (which is what
- * triggers static construct) on its first real instantiation, and a
- * class used purely through static methods never gets one. show() below
+ * (a real, reusable widget) rather than views/lib/. popup_at() below
  * still instantiates one per call and throws it away once closed, same
  * lifecycle as before — just hidden inside the static method instead of
  * left to the caller, so every call site keeps the same one-call
@@ -32,10 +29,6 @@ public class ContextMenu : Gtk.Popover {
   private const int MIN_WIDTH = 124;
 
   private Gtk.Box box;
-
-  static construct {
-    install_css ();
-  }
 
   public ContextMenu () {
     has_arrow = false;
@@ -85,7 +78,7 @@ public class ContextMenu : Gtk.Popover {
     // unconditionally, .flat included — real popover menu items use a
     // different widget entirely (a legacy `modelbutton`, styled
     // separately) that never had this problem to begin with;
-    // install_css() below undoes it for a plain Gtk.Button used the
+    // styles/context-menu.css undoes it for a plain Gtk.Button used the
     // same way.
     button.add_css_class ("flat");
     button.add_css_class ("opus-context-menu-item");
@@ -108,9 +101,5 @@ public class ContextMenu : Gtk.Popover {
       action ();
     });
     return button;
-  }
-
-  private static void install_css () {
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
   }
 }
