@@ -26,6 +26,13 @@ workspace_test = executable(
 )
 test('workspace', workspace_test)
 
+session_test = executable(
+  'session-test',
+  ['models/session-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('session', session_test)
+
 file_tree_test = executable(
   'file-tree-test',
   ['models/file-tree-test.vala', opus_model_sources],
@@ -341,6 +348,26 @@ move_lines_test = executable(
 test(
   'move-lines',
   move_lines_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+overtype_test = executable(
+  'overtype-test',
+  ['system/overtype-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'overtype',
+  overtype_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find

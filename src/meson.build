@@ -12,6 +12,7 @@ opus_model_sources = files(
   'models/logger.vala',
   'models/replace-pattern.vala',
   'models/selection-snapshot.vala',
+  'models/session.vala',
   'models/text-edit.vala',
   'models/workspace.vala',
 )

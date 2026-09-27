@@ -16,7 +16,8 @@ public enum CursorMoveOp {
 public enum EditIntent {
   INSERT,
   DELETE_LEFT,
-  DELETE_RIGHT
+  DELETE_RIGHT,
+  OVERTYPE
 }
 
 /**
@@ -395,16 +396,58 @@ public class CursorCollection : Object {
   }
 
   /**
+   * The overtype-mode replacement range's end offset: extends `from`
+   * forward by up to `length` codepoints, but never past the current
+   * line's own end (a newline is never crossed — degrades to a plain
+   * insert right at the line's own end) nor past `limit` — mirrors VS
+   * Code's real ReplaceOvertypeCommand (the line-break clamp) plus a
+   * same-line neighbor-cursor clamp VS Code's own single-character model
+   * never needs (see {@link closest_following_cursor_start}).
+   */
+  private static int overtype_end (unichar[] chars, int from, int length, int limit) {
+    int end = from;
+    for (int i = 0; i < length && end < limit && chars[end] != '\n'; i++) {
+      end++;
+    }
+    return end;
+  }
+
+  /**
+   * The smallest selection_start among every *other* cursor at or after
+   * `after_offset`, or `chars.length` if none — an overtype edit's own
+   * upper bound, so a long paste at one cursor can never eat into a
+   * neighboring cursor's own range. A plain scan, not an assumption that
+   * cursors are stored in position order ({@link normalize}'s own doc
+   * comment: survivors keep insertion order, not sorted order). Cheap:
+   * cursor counts here are always small.
+   */
+  private int closest_following_cursor_start (Cursor exclude, int after_offset) {
+    int limit = int.MAX;
+    for (uint i = 0; i < cursors.length; i++) {
+      if (cursors[i] == exclude) {
+        continue;
+      }
+      int start = cursors[i].selection_start;
+      if (start >= after_offset && start < limit) {
+        limit = start;
+      }
+    }
+    return limit;
+  }
+
+  /**
    * Builds one text edit per cursor for a single keystroke (typed
-   * insertion, or a left/right delete), tagged with the cursor that
-   * produced it. `cursors_to_remove` is always empty today — given
-   * {@link normalize}'s own invariant (no two cursors closer than one
-   * character apart) and that every edit here is either a cursor's own
-   * pre-existing selection or an at-most-one-character extension of a
-   * collapsed cursor, two cursors' edits can never truly overlap yet.
-   * It stays part of the contract for when a future edit intent (e.g.
-   * auto-closing a bracket) can produce a real collision between
-   * cursors, and needs one of them dropped.
+   * insertion, overtype, or a left/right delete), tagged with the
+   * cursor that produced it. `cursors_to_remove` is always empty today —
+   * given {@link normalize}'s own invariant (no two cursors closer than
+   * one character apart) and that every edit here is either a cursor's
+   * own pre-existing selection, an at-most-one-character extension of a
+   * collapsed cursor, or an EditIntent.OVERTYPE extension explicitly
+   * clamped by the next cursor's own start (see {@link overtype_end}),
+   * two cursors' edits can never truly overlap yet. It stays part of the
+   * contract for when a future edit intent (e.g. auto-closing a bracket)
+   * can produce a real collision between cursors, and needs one of them
+   * dropped.
    *
    * Purely computes what *should* happen — it doesn't touch the
    * cursors themselves. Call {@link apply_edit_results} with the
@@ -454,6 +497,19 @@ public class CursorCollection : Object {
           continue; // nothing after the document end
         }
         new_text = "";
+        break;
+      case EditIntent.OVERTYPE:
+        if (!cursor.is_empty) {
+          start = cursor.selection_start;
+          int replace_length = int.max (0, typed_text.char_count () - 1);
+          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.selection_end));
+          end = overtype_end (chars, cursor.selection_end, replace_length, limit);
+        } else {
+          start = cursor.position_offset;
+          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.position_offset));
+          end = overtype_end (chars, cursor.position_offset, typed_text.char_count (), limit);
+        }
+        new_text = typed_text;
         break;
       default:
         continue;
@@ -843,12 +899,15 @@ public class CursorCollection : Object {
    * `cursors[i]`) instead of one string shared by every cursor —
    * Paste's own per-cursor distribution, once `texts.length` is
    * confirmed to match the live cursor count by the caller (see
-   * CursorController's own clipboard handling for when that applies:
+   * TextEditorCursors's own clipboard handling for when that applies:
    * VS Code's real `PasteOperation._distributePasteToCursors`,
    * `src/vs/editor/common/cursor/cursorTypeEditOperations.ts`, is the
-   * verified reference this mirrors).
+   * verified reference this mirrors). `overtype` applies the same
+   * per-cursor replacement-range clamp as {@link compute_edits}'s own
+   * EditIntent.OVERTYPE case, using each cursor's own `texts[i]` as the
+   * replacement length instead of one shared `typed_text`.
    */
-  public TaggedTextEdit[] compute_distributed_paste_edits (string[] texts, string text, out Cursor[] cursors_to_remove) {
+  public TaggedTextEdit[] compute_distributed_paste_edits (string[] texts, bool overtype, string text, out Cursor[] cursors_to_remove) {
     assert (texts.length == cursors.length);
 
     var chars = to_chars (text);
@@ -860,9 +919,21 @@ public class CursorCollection : Object {
       int end;
       if (!cursor.is_empty) {
         start = cursor.selection_start;
-        end = cursor.selection_end;
+        if (overtype) {
+          int replace_length = int.max (0, texts[i].char_count () - 1);
+          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.selection_end));
+          end = overtype_end (chars, cursor.selection_end, replace_length, limit);
+        } else {
+          end = cursor.selection_end;
+        }
       } else {
-        start = end = cursor.position_offset;
+        start = cursor.position_offset;
+        if (overtype) {
+          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.position_offset));
+          end = overtype_end (chars, cursor.position_offset, texts[i].char_count (), limit);
+        } else {
+          end = cursor.position_offset;
+        }
       }
 
       var edit = new TextEdit ();
@@ -885,14 +956,16 @@ public class CursorCollection : Object {
 
     // normalize() already keeps every pair of cursors at least one
     // character apart, and each edit above is either a cursor's own
-    // pre-existing (already non-overlapping) selection or an
-    // at-most-one-character extension of a collapsed cursor — so two
-    // cursors' edits can at most touch here, never truly overlap,
-    // and nothing needs to be dropped. `cursors_to_remove` stays
-    // part of the contract for when a future edit intent (e.g.
-    // auto-closing a bracket, or any other command that can produce
-    // more than one edit per cursor) makes a real collision
-    // possible, and needs this same resolution restored.
+    // pre-existing (already non-overlapping) selection, an
+    // at-most-one-character extension of a collapsed cursor, or an
+    // EditIntent.OVERTYPE extension explicitly clamped (via
+    // overtype_end()'s own `limit` parameter) to never reach past the
+    // next cursor's own start — so two cursors' edits can at most touch
+    // here, never truly overlap, and nothing needs to be dropped.
+    // `cursors_to_remove` stays part of the contract for when a future
+    // edit intent (e.g. auto-closing a bracket, or any other command
+    // that can produce more than one edit per cursor) makes a real
+    // collision possible, and needs this same resolution restored.
     cursors_to_remove = new Cursor[0];
 
     var result = new TaggedTextEdit[attempted.length];

@@ -81,6 +81,11 @@ namespace EditorView.EditorPane_ {
           queue_draw ();
         }
       });
+
+      // The block-vs-bar shape depends on this session-wide flag —
+      // reset_blink() both redraws and makes the caret solid right on
+      // toggle, instead of possibly landing mid-blink-off.
+      Session.get_default ().notify["insert-mode"].connect (() => reset_blink ());
     }
 
     /** The codepoint offsets to paint a caret at on the next draw — one per cursor, primary included. Call whenever the cursor set changes, then `reset_blink()`. */
@@ -169,10 +174,89 @@ namespace EditorView.EditorPane_ {
         Gdk.Rectangle weak;
         get_cursor_locations (iter, out strong, out weak);
 
-        var rect = Graphene.Rect ();
-        rect.init (strong.x, strong.y, 2, strong.height);
-        snapshot.append_color (color, rect);
+        if (!Session.get_default ().insert_mode) {
+          var rect = Graphene.Rect ();
+          rect.init (strong.x, strong.y, 2, strong.height);
+          snapshot.append_color (color, rect);
+          continue;
+        }
+
+        draw_overtype_block (snapshot, iter, strong, color);
       }
+    }
+
+    /**
+     * The block-cursor's own rect (same caret color the bar uses) at
+     * `strong`, sized to whatever's actually under the cursor — a tab, a
+     * newline, or nothing (end of buffer/empty line) all fall back to a
+     * single-space-wide block with no glyph redrawn inside it; any real
+     * character is measured the same way draw_indent_guides() already
+     * measures per-character width elsewhere in this class, applied here
+     * to just the one character under the caret.
+     */
+    private void draw_overtype_block (Gtk.Snapshot snapshot, Gtk.TextIter iter, Gdk.Rectangle strong, Gdk.RGBA caret_color) {
+      unichar ch = iter.get_char (); // 0 at end-of-buffer/no real character there
+      bool has_glyph = ch != 0 && ch != '\n' && ch != '\t';
+
+      float width;
+      if (has_glyph) {
+        Gtk.TextIter next = iter;
+        next.forward_char ();
+        Gdk.Rectangle next_strong;
+        Gdk.Rectangle next_weak;
+        get_cursor_locations (next, out next_strong, out next_weak);
+        width = next_strong.x - strong.x;
+      } else {
+        var layout = create_pango_layout (" ");
+        int w;
+        int h;
+        layout.get_pixel_size (out w, out h);
+        width = w;
+      }
+
+      var block_rect = Graphene.Rect ();
+      block_rect.init (strong.x, strong.y, width, strong.height);
+      snapshot.append_color (caret_color, block_rect);
+
+      if (!has_glyph) {
+        return;
+      }
+
+      var glyph_layout = create_pango_layout (ch.to_string ());
+      var point = Graphene.Point ();
+      point.init (strong.x, strong.y);
+
+      snapshot.save ();
+      snapshot.translate (point);
+      snapshot.append_layout (glyph_layout, inverted_glyph_color (caret_color));
+      snapshot.restore ();
+    }
+
+    /**
+     * The buffer's own real background, as its GtkSource.StyleScheme
+     * defines it (get_style("text").background) — confirmed against
+     * GTK's own native overwrite-mode rendering (gtk/gtktextlayout.c,
+     * gtk/gskpango.c): the plain CSS background-color on GtkTextView's
+     * own "text" node is transparent by design in Adwaita, so this is
+     * the real, public equivalent for a GtkSourceView specifically.
+     * Falls back to the caret color's own arithmetic inverse only if
+     * the scheme has no such style set.
+     */
+    private Gdk.RGBA inverted_glyph_color (Gdk.RGBA caret_color) {
+      var scheme = ((GtkSource.Buffer) buffer).style_scheme;
+      var style = scheme != null ? scheme.get_style ("text") : null;
+      if (style != null && style.background_set) {
+        Gdk.RGBA parsed = { 0, 0, 0, 1 };
+        if (parsed.parse (style.background)) {
+          return parsed;
+        }
+      }
+
+      var inverted = caret_color;
+      inverted.red = 1.0f - caret_color.red;
+      inverted.green = 1.0f - caret_color.green;
+      inverted.blue = 1.0f - caret_color.blue;
+      return inverted;
     }
 
     /**

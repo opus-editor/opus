@@ -375,6 +375,10 @@ public class SystemTestSession : Object {
             keyval = Gdk.Key.Down;
             modifiers = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK;
             break;
+        case "insert":
+            keyval = Gdk.Key.Insert;
+            modifiers = 0;
+            break;
         default:
             throw new IOError.INVALID_ARGUMENT ("Unknown type_cmd: %s".printf (name));
         }

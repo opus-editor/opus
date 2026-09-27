@@ -765,7 +765,7 @@ private void test_compute_distributed_paste_edits_assigns_one_text_per_cursor ()
     cc.set_cursors ({ c0, c1, c2 });
 
     Cursor[] to_remove;
-    var edits = cc.compute_distributed_paste_edits ({ "111", "222", "333" }, text, out to_remove);
+    var edits = cc.compute_distributed_paste_edits ({ "111", "222", "333" }, false, text, out to_remove);
     assert_cmpint (edits.length, CompareOperator.EQ, 3);
     assert_cmpint (to_remove.length, CompareOperator.EQ, 0);
 
@@ -775,6 +775,93 @@ private void test_compute_distributed_paste_edits_assigns_one_text_per_cursor ()
     assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 3); // "111" replaces "aaa", same length
     assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 7);
     assert_cmpint (cc.at (2).position_offset, CompareOperator.EQ, 11);
+}
+
+private void test_overtype_collapsed_cursor_mid_line_replaces_the_next_characters () {
+    var cc = new CursorCollection ();
+    string text = "abcdefgh";
+    cc.move (CursorMoveOp.RIGHT, false, text); // position_offset = 1
+
+    Cursor[] to_remove;
+    var edits = cc.compute_edits (EditIntent.OVERTYPE, "XY", text, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3); // "bc" eaten
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "XY");
+}
+
+private void test_overtype_collapsed_cursor_before_a_newline_degrades_to_insert () {
+    var cc = new CursorCollection ();
+    string text = "abc\ndef";
+    cc.move (CursorMoveOp.RIGHT, false, text);
+    cc.move (CursorMoveOp.RIGHT, false, text);
+    cc.move (CursorMoveOp.RIGHT, false, text); // position_offset = 3, right before "\n"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_edits (EditIntent.OVERTYPE, "XY", text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 3);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3); // never crosses the line break
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "XY");
+}
+
+private void test_overtype_collapsed_cursor_at_buffer_end_degrades_to_insert () {
+    var cc = new CursorCollection ();
+    string text = "abc";
+    cc.move (CursorMoveOp.DOCUMENT_END, false, text);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_edits (EditIntent.OVERTYPE, "XY", text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 3);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3);
+}
+
+private void test_overtype_selection_with_multi_character_replacement_eats_one_extra_character_past_its_end () {
+    var cc = new CursorCollection ();
+    string text = "abcdefgh";
+    var cursor = new Cursor (1);
+    cursor.position_offset = 3; // selects "bc" ([1,3))
+    cc.set_cursors ({ cursor });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_edits (EditIntent.OVERTYPE, "XY", text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 4); // "bcd": the selection plus one extra character
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "XY");
+}
+
+private void test_overtype_selection_with_a_single_character_replacement_eats_nothing_extra () {
+    var cc = new CursorCollection ();
+    string text = "abcdefgh";
+    var cursor = new Cursor (1);
+    cursor.position_offset = 3;
+    cc.set_cursors ({ cursor });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_edits (EditIntent.OVERTYPE, "X", text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 3); // exactly the selection, nothing extra
+}
+
+private void test_overtype_distributed_paste_clamps_at_the_next_cursors_own_start () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij";
+    var c0 = new Cursor (2);
+    var c1 = new Cursor (6);
+    cc.set_cursors ({ c0, c1 });
+
+    Cursor[] to_remove;
+    // c0's own piece is long enough (7 chars) to want to reach offset 9,
+    // well past c1's own position at 6 — must clamp there instead.
+    var edits = cc.compute_distributed_paste_edits ({ "WXYZ123", "Q" }, true, text, out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 6); // clamped at c1's own start, not 9
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "WXYZ123"); // the full pasted text still lands — only how much gets eaten is capped
 }
 
 int main (string[] args) {
@@ -832,5 +919,11 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/two_cursors_extended_down_then_right_merge_once_they_overlap", test_two_cursors_extended_down_then_right_merge_once_they_overlap);
     Test.add_func ("/models/cursor-collection/selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one", test_selected_texts_returns_each_cursors_own_selection_empty_string_for_a_collapsed_one);
     Test.add_func ("/models/cursor-collection/compute_distributed_paste_edits_assigns_one_text_per_cursor", test_compute_distributed_paste_edits_assigns_one_text_per_cursor);
+    Test.add_func ("/models/cursor-collection/overtype_collapsed_cursor_mid_line_replaces_the_next_characters", test_overtype_collapsed_cursor_mid_line_replaces_the_next_characters);
+    Test.add_func ("/models/cursor-collection/overtype_collapsed_cursor_before_a_newline_degrades_to_insert", test_overtype_collapsed_cursor_before_a_newline_degrades_to_insert);
+    Test.add_func ("/models/cursor-collection/overtype_collapsed_cursor_at_buffer_end_degrades_to_insert", test_overtype_collapsed_cursor_at_buffer_end_degrades_to_insert);
+    Test.add_func ("/models/cursor-collection/overtype_selection_with_multi_character_replacement_eats_one_extra_character_past_its_end", test_overtype_selection_with_multi_character_replacement_eats_one_extra_character_past_its_end);
+    Test.add_func ("/models/cursor-collection/overtype_selection_with_a_single_character_replacement_eats_nothing_extra", test_overtype_selection_with_a_single_character_replacement_eats_nothing_extra);
+    Test.add_func ("/models/cursor-collection/overtype_distributed_paste_clamps_at_the_next_cursors_own_start", test_overtype_distributed_paste_clamps_at_the_next_cursors_own_start);
     return Test.run ();
 }

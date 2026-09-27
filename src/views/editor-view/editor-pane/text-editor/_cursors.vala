@@ -313,6 +313,11 @@ namespace EditorView.EditorPane_ {
         return false; // no other Ctrl/Alt combination is claimed yet
       }
 
+      if (!shift && keyval == Gdk.Key.Insert) {
+        Session.get_default ().insert_mode = !Session.get_default ().insert_mode;
+        return true;
+      }
+
       CursorMoveOp move_op;
       if (move_op_for_keyval (keyval, out move_op)) {
         apply_cursor_command (() => active_document.cursors.move (move_op, shift, get_text ()));
@@ -343,7 +348,8 @@ namespace EditorView.EditorPane_ {
 
       unichar ch = (unichar) Gdk.keyval_to_unicode (keyval);
       if (ch != 0 && !ch.iscntrl ()) {
-        apply_edit (EditIntent.INSERT, ch.to_string (), typing_kind (ch));
+        var intent = Session.get_default ().insert_mode ? EditIntent.OVERTYPE : EditIntent.INSERT;
+        apply_edit (intent, ch.to_string (), typing_kind (ch));
         return true;
       }
 
@@ -399,11 +405,12 @@ namespace EditorView.EditorPane_ {
         return;
       }
 
+      bool overtype = Session.get_default ().insert_mode;
       string[]? pieces = distributed_paste_pieces (text, document.cursors.count);
       if (pieces == null) {
-        apply_edit (EditIntent.INSERT, text, EditKind.OTHER);
+        apply_edit (overtype ? EditIntent.OVERTYPE : EditIntent.INSERT, text, EditKind.OTHER);
       } else {
-        apply_distributed_paste (pieces);
+        apply_distributed_paste (pieces, overtype);
       }
     }
 
@@ -420,9 +427,9 @@ namespace EditorView.EditorPane_ {
       apply_tagged_edits (tagged_edits, cursors_to_remove, kind);
     }
 
-    private void apply_distributed_paste (string[] texts) {
+    private void apply_distributed_paste (string[] texts, bool overtype) {
       Cursor[] cursors_to_remove;
-      var tagged_edits = active_document.cursors.compute_distributed_paste_edits (texts, get_text (), out cursors_to_remove);
+      var tagged_edits = active_document.cursors.compute_distributed_paste_edits (texts, overtype, get_text (), out cursors_to_remove);
       apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
     }
 
