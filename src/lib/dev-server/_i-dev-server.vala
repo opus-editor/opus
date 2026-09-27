@@ -85,5 +85,20 @@ namespace Opus.Dev {
     public abstract string get_active_tab () throws DBusError, IOError;
 
     public abstract bool is_dirty (string path) throws DBusError, IOError;
+
+    /** Sets the active tab's live Find search text — same as typing into FindBar's own entry, minus the widget. "" clears the search, same as an empty Find entry. */
+    public abstract void search_set_text (string text) throws DBusError, IOError;
+
+    /** Sets the active tab's Regular Expressions/Case Sensitive/Match Whole Word Only search options — same as FindBar's own three toggle buttons. */
+    public abstract void search_set_options (bool regex, bool case_sensitive, bool whole_word) throws DBusError, IOError;
+
+    /** Next Match — same as FindBar's own move_next_button/plain Return. */
+    public abstract void search_next () throws DBusError, IOError;
+
+    /** Previous Match — same as FindBar's own move_previous_button/Shift+Return. */
+    public abstract void search_previous () throws DBusError, IOError;
+
+    /** The live search's current (position, count) as of the last search_position_changed — the same numbers FindBar's own "N of M" counter would show. Both 0 with no active search/no matches. */
+    public abstract void search_get_position (out int position, out int count) throws DBusError, IOError;
   }
 }

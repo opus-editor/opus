@@ -65,6 +65,7 @@ namespace EditorView.EditorPane_ {
       // highlighting is left off entirely (set_highlight (false)) and both
       // colors are painted by hand instead, through two tags of our own.
       search_settings = new GtkSource.SearchSettings ();
+      search_settings.set_wrap_around (true);
       search_context = new GtkSource.SearchContext (source_buffer, search_settings);
       search_context.set_highlight (false);
       search_context.notify["occurrences-count"].connect (() => refresh_search_match_tags ());
@@ -130,7 +131,7 @@ namespace EditorView.EditorPane_ {
       jump_to_nearest_match ();
     }
 
-    /** Next Match — wraps to the first occurrence past the end of the buffer, same as GtkSourceSearchContext's own default wrap-around. */
+    /** Next Match — wraps to the first occurrence past the end of the buffer, via search_settings.set_wrap_around(true) above (not GtkSourceSearchContext's own default, which is false — see the constructor's own comment on that call). */
     public void search_next () {
       move_to_match (true);
     }

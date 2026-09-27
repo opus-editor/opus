@@ -18,6 +18,17 @@
  * places. Calling by name avoids both: this file only needs to agree
  * with dev-server/index.vala's own method names/signatures, in exactly
  * the shape `gdbus call` itself already uses against the same interface.
+ *
+ * This class itself is just the orchestrator: session lifecycle
+ * (spawning Broadway + Opus, waiting for the D-Bus name to come up,
+ * closing both down again) plus one forwarder per DSL method, each
+ * delegating to whichever composed module actually implements it
+ * (SystemTestTabs/SystemTestEditorText/SystemTestCursors/
+ * SystemTestSearch, each in its own file) — the same split TextEditor
+ * itself uses for TextEditorCursors/TextEditorSearch, applied here so
+ * this file doesn't keep growing with every new area of the app a
+ * system test needs to drive. Forwarders stay undocumented on purpose:
+ * the real doc comment lives on each module's own implementation.
  */
 public class SystemTestSession : Object {
     private const string INTERFACE_NAME = "io.github.nowaos.Opus.Dev";
@@ -27,6 +38,11 @@ public class SystemTestSession : Object {
     private Subprocess broadway_process;
     private Subprocess process;
     private DBusProxy proxy;
+
+    private SystemTestTabs tabs;
+    private SystemTestEditorText editor_text;
+    private SystemTestCursors cursors;
+    private SystemTestSearch search;
 
     /**
      * Launches a headless Broadway display server plus a fresh Opus
@@ -102,20 +118,29 @@ public class SystemTestSession : Object {
 
         int64 deadline = get_monotonic_time () + READY_TIMEOUT_USEC;
         Error? last_error = null;
+        bool ready = false;
         while (get_monotonic_time () < deadline) {
             try {
                 // A cheap, real call — proves the object is actually
                 // reachable, not just that constructing the proxy
                 // itself didn't throw (it doesn't, even before the
                 // name has an owner).
-                call ("ListOpenTabs");
-                return;
+                proxy.call_sync ("ListOpenTabs", null, DBusCallFlags.NONE, -1);
+                ready = true;
+                break;
             } catch (Error e) {
                 last_error = e;
                 Thread.usleep (READY_POLL_INTERVAL_MSEC * 1000);
             }
         }
-        throw last_error ?? new IOError.TIMED_OUT ("Opus never became reachable over D-Bus");
+        if (!ready) {
+            throw last_error ?? new IOError.TIMED_OUT ("Opus never became reachable over D-Bus");
+        }
+
+        tabs = new SystemTestTabs (proxy);
+        editor_text = new SystemTestEditorText (proxy);
+        cursors = new SystemTestCursors (proxy, editor_text);
+        search = new SystemTestSearch (proxy);
     }
 
     /**
@@ -164,233 +189,32 @@ public class SystemTestSession : Object {
         throw last_error ?? new IOError.TIMED_OUT ("broadwayd never started listening");
     }
 
-    public void new_file () throws Error {
-        call ("NewFile");
-    }
+    // --- SystemTestTabs ---
+    public void new_file () throws Error { tabs.new_file (); }
+    public void close_tab (string path) throws Error { tabs.close_tab (path); }
+    public string active_tab () throws Error { return tabs.active_tab (); }
+    public void assert_active_tab (string expected) throws Error { tabs.assert_active_tab (expected); }
 
-    /** Closes `path`'s tab outright, no unsaved-changes prompt (matching CloseTab's own semantics — see dev-server/index.vala) — fine for a clean, just-created test document. */
-    public void close_tab (string path) throws Error {
-        call ("CloseTab", new Variant ("(s)", path));
-    }
+    // --- SystemTestEditorText ---
+    public void editor_write (string text) throws Error { editor_text.editor_write (text); }
+    public void type (string text) throws Error { editor_text.type (text); }
+    public bool type_cmd (string name) throws Error { return editor_text.type_cmd (name); }
+    public bool key_press (uint keyval, uint modifiers) throws Error { return editor_text.key_press (keyval, modifiers); }
+    public void select_all () throws Error { editor_text.select_all (); }
+    public string active_text () throws Error { return editor_text.active_text (); }
+    public void assert_editor_text (string expected) throws Error { editor_text.assert_editor_text (expected); }
 
-    /** The active tab's path, or "" if none is. */
-    public string active_tab () throws Error {
-        string path;
-        call ("GetActiveTab").get_child (0, "s", out path);
-        return path;
-    }
+    // --- SystemTestCursors ---
+    public void set_cursors (int[,] pairs) throws Error { cursors.set_cursors (pairs); }
+    public void set_selections (int[,] triples) throws Error { cursors.set_selections (triples); }
+    public void active_cursors (out int[] anchors, out int[] positions) throws Error { cursors.active_cursors (out anchors, out positions); }
+    public void assert_cursors (int[,] expected) throws Error { cursors.assert_cursors (expected); }
 
-    public void assert_active_tab (string expected) throws Error {
-        assert_cmpstr (active_tab (), CompareOperator.EQ, expected);
-    }
-
-    /**
-     * Sets the active tab's buffer content directly, for arranging a
-     * scenario's starting text — unlike type(), this doesn't simulate
-     * keystrokes and leaves no undo entry behind, so a test's setup
-     * never becomes something a later type_cmd("undo") could reach.
-     */
-    public void editor_write (string text) throws Error {
-        call ("SetActiveText", new Variant ("(s)", text));
-    }
-
-    /** Simulates typing `text` one character at a time, exactly as real keystrokes would arrive. */
-    public void type (string text) throws Error {
-        int index = 0;
-        unichar c;
-        while (text.get_next_char (ref index, out c)) {
-            key_press (Gdk.unicode_to_keyval (c), 0);
-        }
-    }
-
-    /** Runs a named command exactly as its real keyboard shortcut would — see command_keyval() for the supported names. Returns whether the key was claimed, same as key_press(). */
-    public bool type_cmd (string name) throws Error {
-        uint keyval;
-        uint modifiers;
-        command_keyval (name, out keyval, out modifiers);
-        return key_press (keyval, modifiers);
-    }
-
-    /** Returns whether anything claimed the key — same as a real keypress's own dispatch result. */
-    public bool key_press (uint keyval, uint modifiers) throws Error {
-        bool claimed;
-        call ("KeyPress", new Variant ("(uu)", keyval, modifiers)).get_child (0, "b", out claimed);
-        return claimed;
-    }
-
-    /**
-     * Fires GtkTextView's own native "select-all" (Ctrl+A) action
-     * directly, not via key_press(): unlike an ordinary keystroke,
-     * "select-all" is a GTK keybinding-action signal — reachable (and
-     * exercised faithfully, not approximated) without a real GTK event.
-     */
-    public void select_all () throws Error {
-        call ("SelectAll");
-    }
-
-    /** `pairs[i] = { line, column }` (both 0-based) — one collapsed cursor per pair, resolved against the buffer's current text. */
-    public void set_cursors (int[,] pairs) throws Error {
-        var lines = active_text ().split ("\n");
-
-        var anchors = new VariantBuilder (new VariantType ("ai"));
-        var positions = new VariantBuilder (new VariantType ("ai"));
-        for (int i = 0; i < pairs.length[0]; i++) {
-            int offset = offset_for_line_column (lines, pairs[i, 0], pairs[i, 1]);
-            anchors.add ("i", offset);
-            positions.add ("i", offset);
-        }
-
-        call ("SetActiveCursors", new Variant ("(@ai@ai)", anchors.end (), positions.end ()));
-    }
-
-    /** `triples[i] = { line, start_column, end_column }` (0-based) — one cursor per triple, selecting `[start_column, end_column)` on that line, anchored at the start (position/caret lands at the end, matching a left-to-right drag-select). Resolved against the buffer's current text. */
-    public void set_selections (int[,] triples) throws Error {
-        var lines = active_text ().split ("\n");
-
-        var anchors = new VariantBuilder (new VariantType ("ai"));
-        var positions = new VariantBuilder (new VariantType ("ai"));
-        for (int i = 0; i < triples.length[0]; i++) {
-            anchors.add ("i", offset_for_line_column (lines, triples[i, 0], triples[i, 1]));
-            positions.add ("i", offset_for_line_column (lines, triples[i, 0], triples[i, 2]));
-        }
-
-        call ("SetActiveCursors", new Variant ("(@ai@ai)", anchors.end (), positions.end ()));
-    }
-
-    public string active_text () throws Error {
-        string text;
-        call ("GetActiveText").get_child (0, "s", out text);
-        return text;
-    }
-
-    public void assert_editor_text (string expected) throws Error {
-        assert_cmpstr (active_text (), CompareOperator.EQ, expected);
-    }
-
-    /** The current cursor set as raw buffer offsets — anchors[i]/positions[i] pair up into one cursor each (equal when collapsed). */
-    public void active_cursors (out int[] anchors, out int[] positions) throws Error {
-        var result = call ("GetActiveCursors");
-        anchors = variant_to_int_array (result.get_child_value (0));
-        positions = variant_to_int_array (result.get_child_value (1));
-    }
-
-    /** Asserts the current cursor set matches exactly: expected[i] = { anchor_offset, position_offset } (equal when collapsed) — raw buffer offsets, since a selection's anchor and position can't both be expressed as one line/column pair the way set_cursors()'s collapsed cursors can. */
-    public void assert_cursors (int[,] expected) throws Error {
-        int[] anchors;
-        int[] positions;
-        active_cursors (out anchors, out positions);
-
-        assert_cmpint (anchors.length, CompareOperator.EQ, expected.length[0]);
-        for (int i = 0; i < expected.length[0]; i++) {
-            assert_cmpint (anchors[i], CompareOperator.EQ, expected[i, 0]);
-            assert_cmpint (positions[i], CompareOperator.EQ, expected[i, 1]);
-        }
-    }
-
-    private static int[] variant_to_int_array (Variant array_variant) {
-        var result = new int[array_variant.n_children ()];
-        for (size_t i = 0; i < array_variant.n_children (); i++) {
-            result[i] = array_variant.get_child_value (i).get_int32 ();
-        }
-        return result;
-    }
-
-    private static int offset_for_line_column (string[] lines, int line, int column) {
-        int offset = 0;
-        for (int i = 0; i < line; i++) {
-            offset += lines[i].char_count () + 1; // +1 for the newline split() consumed
-        }
-        return offset + column;
-    }
-
-    private static void command_keyval (string name, out uint keyval, out uint modifiers) throws Error {
-        switch (name) {
-        case "tab":
-            keyval = Gdk.Key.Tab;
-            modifiers = 0;
-            break;
-        case "enter":
-            keyval = Gdk.Key.Return;
-            modifiers = 0;
-            break;
-        case "backspace":
-            keyval = Gdk.Key.BackSpace;
-            modifiers = 0;
-            break;
-        case "alt+up":
-            keyval = Gdk.Key.Up;
-            modifiers = Gdk.ModifierType.ALT_MASK;
-            break;
-        case "alt+down":
-            keyval = Gdk.Key.Down;
-            modifiers = Gdk.ModifierType.ALT_MASK;
-            break;
-        case "undo":
-            keyval = Gdk.Key.z;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "redo":
-            keyval = Gdk.Key.z;
-            modifiers = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK;
-            break;
-        case "escape":
-            keyval = Gdk.Key.Escape;
-            modifiers = 0;
-            break;
-        case "shift+left":
-            keyval = Gdk.Key.Left;
-            modifiers = Gdk.ModifierType.SHIFT_MASK;
-            break;
-        case "shift+right":
-            keyval = Gdk.Key.Right;
-            modifiers = Gdk.ModifierType.SHIFT_MASK;
-            break;
-        case "shift+up":
-            keyval = Gdk.Key.Up;
-            modifiers = Gdk.ModifierType.SHIFT_MASK;
-            break;
-        case "shift+down":
-            keyval = Gdk.Key.Down;
-            modifiers = Gdk.ModifierType.SHIFT_MASK;
-            break;
-        case "ctrl+left":
-            keyval = Gdk.Key.Left;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "ctrl+right":
-            keyval = Gdk.Key.Right;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "ctrl+d":
-            keyval = Gdk.Key.d;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "ctrl+x":
-            keyval = Gdk.Key.x;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "ctrl+v":
-            keyval = Gdk.Key.v;
-            modifiers = Gdk.ModifierType.CONTROL_MASK;
-            break;
-        case "shift+alt+up":
-            keyval = Gdk.Key.Up;
-            modifiers = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK;
-            break;
-        case "shift+alt+down":
-            keyval = Gdk.Key.Down;
-            modifiers = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK;
-            break;
-        case "insert":
-            keyval = Gdk.Key.Insert;
-            modifiers = 0;
-            break;
-        default:
-            throw new IOError.INVALID_ARGUMENT ("Unknown type_cmd: %s".printf (name));
-        }
-    }
-
-    private Variant call (string method_name, Variant? parameters = null) throws Error {
-        return proxy.call_sync (method_name, parameters, DBusCallFlags.NONE, -1);
-    }
+    // --- SystemTestSearch ---
+    public void search_set_text (string text) throws Error { search.search_set_text (text); }
+    public void search_set_options (bool regex, bool case_sensitive, bool whole_word) throws Error { search.search_set_options (regex, case_sensitive, whole_word); }
+    public void search_next () throws Error { search.search_next (); }
+    public void search_previous () throws Error { search.search_previous (); }
+    public void search_position (out int position, out int count) throws Error { search.search_position (out position, out count); }
+    public void assert_search_position (int expected_position, int expected_count) throws Error { search.assert_search_position (expected_position, expected_count); }
 }

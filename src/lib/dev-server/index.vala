@@ -42,8 +42,23 @@ namespace Opus.Dev {
     private GenericArray<EditorView.EditorPane> editor_panes = new GenericArray<EditorView.EditorPane> ();
     private uint registration_id = 0;
 
+    // search_position_changed is an event, not a queryable property —
+    // search_get_position() (the only reader) needs the *last* reported
+    // (position, count) to still be around after the signal itself has
+    // already fired and returned. Lives here, not on EditorPane: this
+    // bookkeeping exists purely so a system test (with no real FindBar
+    // to read a counter label off of) can ask "what did it last say",
+    // same reasoning as every other field on this class — EditorPane
+    // itself has no use for its own past search results.
+    private int last_search_position = 0;
+    private int last_search_count = 0;
+
     public void add_session (EditorView.EditorPane editor_pane) {
       editor_panes.add (editor_pane);
+      editor_pane.search_position_changed.connect ((position, count) => {
+        last_search_position = position;
+        last_search_count = count;
+      });
     }
 
     public void remove_session (EditorView.EditorPane editor_pane) {
@@ -127,6 +142,28 @@ namespace Opus.Dev {
 
     public bool is_dirty (string path) throws DBusError, IOError {
       return current_editor_pane ().is_dirty (path);
+    }
+
+    public void search_set_text (string text) throws DBusError, IOError {
+      current_editor_pane ().set_search_text (text);
+    }
+
+    public void search_set_options (bool regex, bool case_sensitive, bool whole_word) throws DBusError, IOError {
+      current_editor_pane ().set_search_options (regex, case_sensitive, whole_word);
+    }
+
+    public void search_next () throws DBusError, IOError {
+      current_editor_pane ().search_next ();
+    }
+
+    public void search_previous () throws DBusError, IOError {
+      current_editor_pane ().search_previous ();
+    }
+
+    public void search_get_position (out int position, out int count) throws DBusError, IOError {
+      current_editor_pane (); // Throws if no window is open — same guard every other method here gets, even though the actual read is off this class's own fields.
+      position = last_search_position;
+      count = last_search_count;
     }
   }
 }

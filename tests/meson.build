@@ -81,6 +81,10 @@ test('icon-theme', icon_theme_test)
 
 opus_system_test_sources = files(
   'system-test-session.vala',
+  'support/system-test-session-tabs.vala',
+  'support/system-test-session-editor-text.vala',
+  'support/system-test-session-cursors.vala',
+  'support/system-test-session-search.vala',
 )
 
 smoke_test = executable(
@@ -109,7 +113,7 @@ test(
 
 escape_test = executable(
   'escape-test',
-  ['system/escape-test.vala', opus_system_test_sources],
+  ['system/cursors/escape-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -129,7 +133,7 @@ test(
 
 undo_redo_test = executable(
   'undo-redo-test',
-  ['system/undo-redo-test.vala', opus_system_test_sources],
+  ['system/editing/undo-redo-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -149,7 +153,7 @@ test(
 
 cursor_merge_test = executable(
   'cursor-merge-test',
-  ['system/cursor-merge-test.vala', opus_system_test_sources],
+  ['system/cursors/cursor-merge-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -169,7 +173,7 @@ test(
 
 word_undo_test = executable(
   'word-undo-test',
-  ['system/word-undo-test.vala', opus_system_test_sources],
+  ['system/editing/word-undo-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -189,7 +193,7 @@ test(
 
 word_jump_test = executable(
   'word-jump-test',
-  ['system/word-jump-test.vala', opus_system_test_sources],
+  ['system/cursors/word-jump-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -209,7 +213,7 @@ test(
 
 select_next_match_test = executable(
   'select-next-match-test',
-  ['system/select-next-match-test.vala', opus_system_test_sources],
+  ['system/cursors/select-next-match-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -229,7 +233,7 @@ test(
 
 select_all_test = executable(
   'select-all-test',
-  ['system/select-all-test.vala', opus_system_test_sources],
+  ['system/cursors/select-all-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -249,7 +253,7 @@ test(
 
 close_tab_test = executable(
   'close-tab-test',
-  ['system/close-tab-test.vala', opus_system_test_sources],
+  ['system/tabs/close-tab-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -269,7 +273,7 @@ test(
 
 cut_paste_test = executable(
   'cut-paste-test',
-  ['system/cut-paste-test.vala', opus_system_test_sources],
+  ['system/editing/cut-paste-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -289,7 +293,7 @@ test(
 
 add_cursor_vertical_test = executable(
   'add-cursor-vertical-test',
-  ['system/add-cursor-vertical-test.vala', opus_system_test_sources],
+  ['system/cursors/add-cursor-vertical-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -309,7 +313,7 @@ test(
 
 tab_backspace_test = executable(
   'tab-backspace-test',
-  ['system/tab-backspace-test.vala', opus_system_test_sources],
+  ['system/editing/tab-backspace-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -329,7 +333,7 @@ test(
 
 enter_indent_test = executable(
   'enter-indent-test',
-  ['system/enter-indent-test.vala', opus_system_test_sources],
+  ['system/editing/enter-indent-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -349,7 +353,7 @@ test(
 
 move_lines_test = executable(
   'move-lines-test',
-  ['system/move-lines-test.vala', opus_system_test_sources],
+  ['system/editing/move-lines-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
@@ -369,12 +373,32 @@ test(
 
 overtype_test = executable(
   'overtype-test',
-  ['system/overtype-test.vala', opus_system_test_sources],
+  ['system/editing/overtype-test.vala', opus_system_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
 )
 test(
   'overtype',
   overtype_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+find_wrap_test = executable(
+  'find-wrap-test',
+  ['system/find/find-wrap-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'find-wrap',
+  find_wrap_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
