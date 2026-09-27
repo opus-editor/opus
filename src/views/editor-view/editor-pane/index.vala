@@ -347,6 +347,11 @@ namespace EditorView {
       text_editor.select_last_match ();
     }
 
+    /** See TextEditorCursors.select_all_occurrences()'s own doc comment. */
+    public void select_all_occurrences () {
+      text_editor.select_all_occurrences ();
+    }
+
     /** Closes `path`'s tab outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. No-op if `path` isn't open. */
     public void discard_tab (string path) {
       if (documents.contains (path)) {

@@ -324,7 +324,7 @@ namespace EditorView.EditorPane_ {
         return true;
       }
       if (ctrl && !alt && shift && lower_keyval == Gdk.Key.l) {
-        apply_cursor_command (() => active_document.cursors.select_all_occurrences (get_text ()));
+        select_all_occurrences ();
         return true;
       }
       if (ctrl && !alt && (keyval == Gdk.Key.Left || keyval == Gdk.Key.Right)) {
@@ -519,6 +519,11 @@ namespace EditorView.EditorPane_ {
       active_document.cursors.shift_for_external_edits (edits);
       active_document.history.push (edits, before_cursors, active_document.cursors.snapshot (), EditKind.OTHER);
       render ();
+    }
+
+    /** Selects every occurrence of whatever the primary cursor currently has selected — same command Ctrl+Shift+L already runs from a real keypress; also reachable from EditorView.FindBar's own Alt+Return ("Select All Occurrences", matching VS Code) once the live match has already been handed to the real selection (see EditorView.TextEditor.select_last_match()). A no-op if the primary selection is empty. */
+    public void select_all_occurrences () {
+      apply_cursor_command (() => active_document.cursors.select_all_occurrences (get_text ()));
     }
 
     private void apply_tagged_edits (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove, EditKind kind) {

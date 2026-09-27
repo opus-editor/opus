@@ -348,5 +348,10 @@ namespace EditorView.EditorPane_ {
     public void select_last_match () {
       search.select_last_match ();
     }
+
+    /** See TextEditorCursors.select_all_occurrences()'s own doc comment. */
+    public void select_all_occurrences () {
+      cursors.select_all_occurrences ();
+    }
   }
 }

@@ -74,6 +74,9 @@ namespace EditorView {
     /** Next Match clicked, or plain Return in the Find entry. */
     public signal void search_next_requested ();
 
+    /** Alt+Return in the Find entry — matches VS Code's own "Select All Occurrences" (no dedicated button there either, same reasoning here: Previous/Next stay as the only two buttons, keyboard-only for this one). */
+    public signal void select_all_requested ();
+
     /** "Replace" clicked, or plain Return in the Replace entry. */
     public signal void replace_requested ();
 
@@ -147,6 +150,10 @@ namespace EditorView {
       key_controller.key_pressed.connect ((keyval, keycode, state) => {
         if (keyval == Gdk.Key.Return && (state & Gdk.ModifierType.SHIFT_MASK) != 0) {
           search_previous_requested ();
+          return true;
+        }
+        if (keyval == Gdk.Key.Return && (state & Gdk.ModifierType.ALT_MASK) != 0) {
+          select_all_requested ();
           return true;
         }
         return false;

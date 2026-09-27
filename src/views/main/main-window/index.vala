@@ -127,6 +127,7 @@ public class MainWindow : Object {
     find_bar.search_options_changed.connect (on_search_options_changed);
     find_bar.search_next_requested.connect (() => editor_pane.search_next ());
     find_bar.search_previous_requested.connect (() => editor_pane.search_previous ());
+    find_bar.select_all_requested.connect (on_select_all_requested);
     find_bar.replace_requested.connect (on_replace_requested);
     find_bar.replace_all_requested.connect (on_replace_all_requested);
     find_bar.closed.connect (on_search_bar_closed);
@@ -445,6 +446,25 @@ public class MainWindow : Object {
     if (editor_pane.active_document_path != null) {
       editor_pane.grab_focus ();
     }
+  }
+
+  /**
+   * Alt+Return in the Find entry — matches VS Code's own "Select All
+   * Occurrences of Find Match" (no toolbar button there either, see
+   * EditorView.FindBar's own doc comment on select_all_requested).
+   * select_last_match() first, same as a plain Escape close would do:
+   * select_all_occurrences() reads its needle off the real primary
+   * selection, not off the find bar's own live (visual-only) match —
+   * without this, it would select occurrences of whatever the editor's
+   * selection happened to be *before* Ctrl+F was pressed. close()
+   * re-triggers on_search_bar_closed()'s own select_last_match() call,
+   * a safe no-op by then (it clears its own marks the first time it
+   * actually finds something to hand off).
+   */
+  private void on_select_all_requested () {
+    editor_pane.select_last_match ();
+    editor_pane.select_all_occurrences ();
+    find_bar.close ();
   }
 
   // editor_pane.widget already swaps its own content for its own empty
