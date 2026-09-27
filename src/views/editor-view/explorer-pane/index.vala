@@ -68,6 +68,11 @@ namespace EditorView {
       tree.file_activated.connect ((path, open_permanent) => file_activated (path, open_permanent));
       tree.children_load_requested.connect (on_children_load_requested);
       tree.context_menu_requested.connect (show_context_menu);
+      // Same two entry points the "Rename…"/"Delete" context menu items
+      // already use (see show_context_menu()) — F2/Delete are just
+      // another way to reach them, keyboard-only, no menu involved.
+      tree.rename_requested.connect ((node) => inline_edit.request_rename (node));
+      tree.delete_requested.connect ((node) => delete_entry_requested (node.path));
 
       inline_edit.create_entry_requested.connect (on_create_entry_requested);
       inline_edit.rename_entry_requested.connect (on_rename_entry_requested);
@@ -163,6 +168,11 @@ namespace EditorView {
 
       tree.refresh_children (parent.path, parent.children);
       inline_edit.on_children_refreshed (parent.path);
+      // refresh_children() just replaced `node` with `renamed` in the
+      // tree's own model — same selection-invalidating effect as
+      // ExplorerPaneInlineEdit.cancel_rename()'s own rebind(), see
+      // ExplorerPaneTree.focus_path()'s own comment for why this matters.
+      tree.focus_path (renamed.path);
       file_moved (path, renamed.path);
     }
 

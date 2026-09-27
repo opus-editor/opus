@@ -101,6 +101,12 @@ namespace EditorView {
     /** Right click landed at `(x, y)` — on `target`, or on the tree's own empty background (`target == null`, meaning the workspace root). */
     public signal void context_menu_requested (FileNode? target, double x, double y);
 
+    /** F2 pressed with `node` selected — same entry point the "Rename…" context menu item already uses. */
+    public signal void rename_requested (FileNode node);
+
+    /** Delete pressed with `node` selected — same entry point the "Delete" context menu item already uses. */
+    public signal void delete_requested (FileNode node);
+
     public ExplorerPaneTree () {
       var factory = new Gtk.SignalListItemFactory ();
       factory.setup.connect (on_setup);
@@ -160,6 +166,30 @@ namespace EditorView {
               return false;
             }
             navigate_right ();
+            return true;
+
+          case Gdk.Key.F2:
+            if (editing_active) {
+              return false;
+            }
+            var rename_node = selected_node ();
+            if (rename_node != null) {
+              rename_requested (rename_node);
+            }
+            return true;
+
+          case Gdk.Key.Delete:
+          case Gdk.Key.KP_Delete:
+            // Same reasoning as Left/Right above: a new-entry/rename text
+            // field being typed into needs its own native "delete the
+            // character ahead of the cursor" binding, not this one.
+            if (editing_active) {
+              return false;
+            }
+            var delete_node = selected_node ();
+            if (delete_node != null) {
+              delete_requested (delete_node);
+            }
             return true;
 
           default:
@@ -231,6 +261,23 @@ namespace EditorView {
       uint position;
       if (find_position (path, out position)) {
         selection.selected = position;
+      }
+    }
+
+    /**
+     * select_path() plus real keyboard focus (see reveal_path()'s own
+     * comment on why those two aren't the same thing) — needed after
+     * rebind()'s own remove+insert dance (rename entering/leaving edit
+     * mode, in either direction) invalidates Gtk.SingleSelection's own
+     * `selected` the same way any other structural change would, which
+     * otherwise silently starves the key_nav_controller above: with
+     * nothing selected *and* focused, F2/Delete's own selected_node()
+     * finds nothing to act on the next time either is pressed.
+     */
+    public void focus_path (string path) {
+      uint position;
+      if (find_position (path, out position)) {
+        move_focus_and_select (position);
       }
     }
 
@@ -495,6 +542,15 @@ namespace EditorView {
     public FileNode? node_at (double x, double y) {
       var row = row_at (x, y);
       return row == null ? null : row.bound_node;
+    }
+
+    /** Whatever Gtk.SingleSelection's own `selected` currently points at — the keyboard-driven counterpart to node_at(), which needs a mouse position instead. Null with nothing selected (an empty tree). */
+    private FileNode? selected_node () {
+      if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+        return null;
+      }
+      var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+      return (FileNode) list_row.item;
     }
 
     /** The ExplorerPaneTreeRow (the one on_setup() stashed onto its widget) under `(x, y)`, or null over the tree's empty background. */

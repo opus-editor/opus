@@ -135,6 +135,7 @@ namespace EditorView {
       clear_editing_state ();
       node.is_editing_name = false;
       tree.rebind (node);
+      tree.focus_path (node.path);
     }
 
     /**
@@ -148,7 +149,7 @@ namespace EditorView {
       if (pending_parent_path == parent_path) {
         clear_editing_state ();
       } else if (editing_node != null && Path.get_dirname (editing_node.path) == parent_path) {
-        editing_node = null;
+        clear_editing_state ();
       }
     }
 
