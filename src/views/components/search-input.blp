@@ -5,8 +5,7 @@ using Gtk 4.0;
 // in code) in its own constructor. Nesting them under a wrapping Gtk.Box
 // here instead would have Gtk.Builder parent them onto *that* box for
 // real — set_parent(this) then fails silently (a widget can't be
-// reparented that way), which is exactly what broke hexpand here the
-// first time around.
+// reparented that way), which is exactly what broke hexpand here.
 Gtk.Text entry {
   hexpand: true;
   placeholder-text: _("Find");

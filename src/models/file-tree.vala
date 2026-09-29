@@ -6,11 +6,10 @@
  * {@link ensure_children_loaded} is actually asked for them, typically
  * when the sidebar row for it expands for the first time (see
  * EditorView.FileTree.children_load_requested). Scanning eagerly and
- * recursively used to mean opening a folder with a large `node_modules`
- * walked every single file in it, synchronously, before the window even
- * showed anything — long enough for the desktop to flag Opus as "Not
- * Responding". VS Code's own real explorer has the same one-level-at-a-
- * time design for the same reason.
+ * recursively would walk every file in a large `node_modules`
+ * synchronously before the window even showed anything — long enough
+ * for the desktop to flag Opus as "Not Responding". VS Code's own real
+ * explorer has the same one-level-at-a-time design for the same reason.
  *
  * Within each directory, children are ordered directories-first, then
  * alphabetically (case-insensitive). Hidden entries (dotfiles/dotdirs) are

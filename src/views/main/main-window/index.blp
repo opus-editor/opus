@@ -9,15 +9,13 @@ Adw.ApplicationWindow window {
   // content column's own opus-main color underneath everything else.
   styles ["view"]
 
-  // Single header spanning the full window width, above both the sidebar
-  // and the main content — unlike the old per-pane headers (one on the
-  // sidebar, one on the content), there's now only one, so it's a sibling
-  // of split_view rather than nested inside either of its panes. That also
-  // means Adw.HeaderBar's own "Split View Integration" (relocating the
-  // window's close/minimize/maximize controls once a nested sidebar
-  // collapses) doesn't come into play here: with one header always on
-  // top regardless of collapse state, the controls just always live here,
-  // no special-casing needed.
+  // A single header spans the full window width, above both the sidebar
+  // and the main content, as a sibling of split_view rather than nested
+  // inside either of its panes. That also means Adw.HeaderBar's own
+  // "Split View Integration" (relocating the window's close/minimize/
+  // maximize controls once a nested sidebar collapses) doesn't come into
+  // play here: with one header always on top regardless of collapse
+  // state, the controls just always live here, no special-casing needed.
   content: Adw.ToolbarView {
     // raised (not flat): "Opaque background with a persistent shadow"
     // (libadwaita's own doc comment, adw-toolbar-view.c) — matches GNOME

@@ -215,8 +215,8 @@ namespace EditorView.EditorPane_ {
     * Cascades to both sub-components' own close() — the same "parent
     * tears down its children" shape Vue's onUnmounted has. Nothing of
     * TextEditor's own needs unregistering: its one signal connection
-    * closes over `this` (g_signal_connect_object — see the conversation
-    * this came out of), so it disconnects itself once this object dies.
+    * closes over `this` (g_signal_connect_object), so it disconnects
+    * itself once this object dies.
     */
     public void close () {
       cursors.close ();

@@ -365,9 +365,8 @@ public class FindInFilesSearch : Object {
   private static GenericArray<FindInFilesBlock> merge_into_blocks (string[] lines, GenericArray<FindInFilesMatch> matches, int context_lines) {
     // One range per match, unmerged — the sort+sweep below is already a
     // complete, correct merge on its own; scanning for a mergeable
-    // target here too (an earlier version of this method did) was
-    // strictly redundant work thrown away by that same sort+sweep right
-    // after, not a real optimization.
+    // target here too would be strictly redundant work thrown away by
+    // that same sort+sweep right after, not a real optimization.
     var ranges = new GenericArray<LineRange> ();
     for (uint i = 0; i < matches.length; i++) {
       var match = matches[i];

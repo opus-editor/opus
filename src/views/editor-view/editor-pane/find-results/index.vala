@@ -135,8 +135,7 @@ namespace EditorView.EditorPane_ {
 
       // Only on Enter, not on every keystroke like VS Code's own
       // onDidChange — a fresh cross-file disk search per digit typed
-      // would be a real, felt cost here (no ripgrep backing this one,
-      // see the conversation this came out of on search performance).
+      // would be a real, felt cost here (no ripgrep backing this search).
       context_lines_entry.activate.connect (() => context_lines_changed ());
       context_lines_toggle.toggled.connect (() => context_lines_changed ());
       // Same floor as VS Code's own contextLinesInput — a typed "-"
@@ -617,7 +616,7 @@ namespace EditorView.EditorPane_ {
       return offset;
     }
 
-    /** "N results in M files" — the header's own line now; previously duplicated as the results body's own opening line. */
+    /** "N results in M files" — shown in the header, above the results body. */
     private string summary_label_for (FindInFilesResult result) {
       return "%d %s in %d %s%s".printf (
         result.total_match_count, result.total_match_count == 1 ? _("result") : _("results"),

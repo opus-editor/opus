@@ -20,9 +20,9 @@ Gtk.SearchBar search_bar {
 
   // other_buttons + the entry/Previous/Next group are one combined,
   // width-capped unit here — both centered together, not other_buttons
-  // floating independently over a still-perfectly-centered clamp (tried
-  // first, reverted: real, but read as more machinery than the visual
-  // was worth). Checked GtkSearchBar's own real source (gtksearchbar.c):
+  // floating independently over a still-perfectly-centered clamp: a
+  // real tradeoff, but more visual machinery than it's worth here.
+  // Checked GtkSearchBar's own real source (gtksearchbar.c):
   // whatever `child` we give it lands as the *center* widget of a real
   // Gtk.CenterBox it already builds internally (hexpand: true), with its
   // own close button as that CenterBox's *end* widget — so the close

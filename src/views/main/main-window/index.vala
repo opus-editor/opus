@@ -3,11 +3,9 @@
  * EditorView.EditorPane (always) and EditorView.FindBar/EditorView.FindInFilesBar
  * (always) directly, and EditorView.ExplorerPane once a folder is linked. Absorbs the real
  * MainController (the ExplorerPane<->EditorPane glue) and SearchController
- * (the FindBar<->EditorPane glue) entirely, plus all the ad hoc wiring that
- * used to sit in main.vala's own build_session() — there's no Session
- * object left, this class *is* what Session used to hold together. What's
- * left for main.vala: reading argv/GLib.Settings/DevServer and constructing
- * one of these per window.
+ * (the FindBar<->EditorPane glue) entirely. What's left for main.vala:
+ * reading argv/GLib.Settings/DevServer and constructing one of these per
+ * window.
  *
  * Loads the window and its named slots straight from the compiled
  * Blueprint via {@link Gtk.Builder} — the same way {@link
@@ -160,16 +158,13 @@ public class MainWindow : Object {
     // FindBar's own doc comment), and two of those animating at once in
     // a shared Gtk.Box would show both partially expanded mid-switch —
     // reparenting keeps only the active one in the tree at all, so only
-    // its own reveal animation ever plays. find_bar starts mounted here
-    // (matching this window's own previous single-bar behavior); it's
+    // its own reveal animation ever plays. find_bar starts mounted here,
     // collapsed by default, so nothing shows until show_find()/
     // show_replace() actually opens it.
     search_bar_bin.child = find_bar.widget;
 
-    // Restores whatever size the last window that closed was left at
-    // (window-width/window-height default to the same 900x600 this
-    // window used to hardcode in its own Blueprint template) — saved
-    // back on close_request below. Deliberately session-wide, not
+    // Restores whatever size the last window that closed was left at —
+    // saved back on close_request below. Deliberately session-wide, not
     // per-window: with several windows open, whichever one closes
     // last is what the next launch restores, matching most GNOME
     // apps' own single-shared-size behavior rather than remembering

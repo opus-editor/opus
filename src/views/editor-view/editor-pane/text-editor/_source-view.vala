@@ -4,11 +4,7 @@
  * primary included — instead of splitting the work between GTK's native
  * caret and custom-drawn secondary ones.
  *
- * That split existed early on and looked inconsistent: the native caret
- * blinks on GTK's own internal timer with GTK's own color, while a
- * hand-drawn secondary caret had to be reimplemented from scratch — two
- * independent systems that couldn't be kept pixel- and timing-identical.
- * `EditorView.TextEditor` now sets `cursor_visible = false` on this view, which
+ * `EditorView.TextEditor` sets `cursor_visible = false` on this view, which
  * suppresses only the native caret's *painting* — the real `insert`/
  * `selection_bound` marks it wraps still move normally, so IM
  * composition, bracket-matching, accessibility, and scroll-to-cursor all
@@ -402,15 +398,13 @@ namespace EditorView.EditorPane_ {
       // The view is monospace, so one glyph's width stands in for
       // every character's — the same metric VS Code itself calls
       // spaceWidth for this exact purpose. Measured over a long
-      // sample and averaged, not from a single character: confirmed
-      // directly (temporary Logger.warn instrumentation, since
-      // reverted) that a single-space Pango layout reports a width
-      // measurably wider than this font's real per-character
-      // advance (9px vs. an actual ~7.56px, measured here over 34
-      // characters) — a fixed per-glyph error that `(level - 1) *
-      // indent_size * char_width` then multiplies by `level`, so
-      // guides drifted further off with every deeper level instead
-      // of by a constant amount.
+      // sample and averaged, not from a single character: a
+      // single-space Pango layout reports a width measurably wider
+      // than this font's real per-character advance (9px vs. an
+      // actual ~7.56px, measured over 34 characters) — a fixed
+      // per-glyph error that `(level - 1) * indent_size * char_width`
+      // then multiplies by `level`, so guides drifted further off
+      // with every deeper level instead of by a constant amount.
       var layout = create_pango_layout (string.nfill (CHAR_WIDTH_SAMPLE_LENGTH, '0'));
       int sample_width;
       int sample_height;

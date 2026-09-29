@@ -13,13 +13,11 @@ public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
  * here is plain widgets wired to signals, and a menu isn't reason enough
  * to introduce a whole new action-group convention just for itself.
  *
- * A real Gtk.Popover subclass — not a plain Object with only static
- * methods, the shape this had before — so it belongs in views/components/
- * (a real, reusable widget) rather than views/lib/. popup_at() below
- * still instantiates one per call and throws it away once closed, same
- * lifecycle as before — just hidden inside the static method instead of
- * left to the caller, so every call site keeps the same one-call
- * ergonomics (no `var menu` needed) this had as a plain Object too.
+ * A real Gtk.Popover subclass — so it belongs in views/components/ (a
+ * real, reusable widget) rather than views/lib/. popup_at() instantiates
+ * one per call and throws it away once closed, hidden inside the static
+ * method so every call site keeps one-call ergonomics (no `var menu`
+ * needed).
  */
 public class ContextMenu : Gtk.Popover {
   // A menu with only one or two short-word items (EditorView.TextEditor's own)

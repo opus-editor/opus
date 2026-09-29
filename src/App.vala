@@ -2,9 +2,8 @@
  * The application itself — a real Adw.Application subclass, not a plain
  * instance wired up procedurally from main(). Owns every window this
  * process has open, the app-wide GLib.Settings instance, and (debug
- * builds only) the Opus.Dev.DevServer — the same things main.vala used to
- * hold as module-level statics, now real instance state on the one object
- * that actually represents the running app.
+ * builds only) the Opus.Dev.DevServer, as real instance state on the one
+ * object that actually represents the running app.
  *
  * `windows` keeps every open MainWindow alive: a `this`-capturing closure
  * connects through `g_signal_connect_object`, which only guarantees a
@@ -100,8 +99,8 @@ public class App : Adw.Application {
    * without it, a bare positional argument is treated as a file to open
    * and aborts with "This application can not open files" unless
    * HANDLES_OPEN is also set. Handling it ourselves keeps the folder
-   * argument going through Workspace.resolve, as decided in the sprint
-   * spec, instead of GLib's own GFile-based "open" semantics.
+   * argument going through Workspace.resolve instead of GLib's own
+   * GFile-based "open" semantics.
    */
   public override int command_line (ApplicationCommandLine command_line) {
     string[] argv = command_line.get_arguments ();
@@ -162,7 +161,7 @@ public class App : Adw.Application {
     window.present ();
   }
 
-  /** Builds a window and registers it with everything app-wide that needs to know about it — the one bit both open_window()/open_workspace() actually share, now that MainWindow itself owns everything else a window used to need wired in from outside. */
+  /** Builds a window and registers it with everything app-wide that needs to know about it — the one bit both open_window()/open_workspace() actually share, now that MainWindow itself owns everything else a window needs wired in. */
   private MainWindow create_window (string root_path) {
     var window = new MainWindow (this, settings, root_path);
     windows.add (window);

@@ -17,14 +17,13 @@
  *
  * `active_guide` ports VS Code's own `getActiveIndentGuide`
  * (`guidesTextModelPart.ts:41`) faithfully — control flow included, not
- * just the visible effect (an earlier version here didn't, and picked the
- * cursor's own line's level as the target unconditionally; confirmed
- * directly it was wrong: clicking a line that opens a block, e.g. `def
- * foo`, made the "active" block span every sibling `def` in the same
- * class, since they all share that same, uninterrupted outer guide level
- * — VS Code retargets a scope-opening/closing line to the block it
- * opens/closes for exactly this reason, see that method's own doc
- * comment below). Simplified only in *how* each line's own level is
+ * just the visible effect: picking the cursor's own line's level as the
+ * target unconditionally is wrong the moment that line opens a block
+ * (e.g. `def foo`) — every sibling `def` in the same class shares that
+ * same, uninterrupted outer guide level, so they'd all get highlighted
+ * as one block. VS Code retargets a scope-opening/closing line to the
+ * block it opens/closes for exactly this reason, see that method's own
+ * doc comment below. Simplified only in *how* each line's own level is
  * looked up: VS Code computes it lazily, walking outward for the nearest
  * non-blank neighbor on demand (its own document has no bound on size);
  * this class already has every line's level precomputed in `all_levels`

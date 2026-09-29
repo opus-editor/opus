@@ -1,6 +1,6 @@
 /**
  * Tab/Backspace honoring .editorconfig's `indent_style` — two real bugs
- * found by hand in the running app this session, both already covered at
+ * found by hand in the running app, both already covered at
  * the model level (cursor-collection-test.vala's own compute_tab_edits/
  * compute_backspace_edits cases): first Tab/Backspace not respecting
  * `indent_style = space` at all, then Backspace silently doing nothing on

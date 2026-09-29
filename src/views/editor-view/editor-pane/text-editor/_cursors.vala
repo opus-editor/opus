@@ -13,12 +13,11 @@ namespace EditorView.EditorPane_ {
   *
   * Plural, matching VS Code's own real ViewCursors (checked its source,
   * browser/viewParts/viewCursors/): the manager for however many
-  * cursors currently exist, not one instance per cursor — see the
-  * conversation this came out of for why there's no singular
-  * counterpart here the way VS Code has ViewCursor (that split is about
-  * each DOM node needing its own on-screen position computed; GTK's
-  * shared canvas draw has nothing per-cursor left over to be its own
-  * object once render_cursors()'s loop already does that math).
+  * cursors currently exist, not one instance per cursor. There's no
+  * singular counterpart here the way VS Code has ViewCursor: that split
+  * is about each DOM node needing its own on-screen position computed;
+  * GTK's shared canvas draw has nothing per-cursor left over to be its
+  * own object once render_cursors()'s loop already does that math.
   *
   * Covers keyboard, mouse, and the right-click context menu — the last
   * built with the shared ContextMenu (views/components), same as

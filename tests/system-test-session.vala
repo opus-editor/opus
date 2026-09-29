@@ -62,7 +62,7 @@ public class SystemTestSession : Object {
      * this number, so two sessions sharing one would fight over the same
      * port instead of getting their own isolated display.
      */
-    /** `folder_path`, if given, is linked as the workspace root exactly like `opus <folder>` on the real command line — for a scenario that needs a real `.editorconfig` picked up (EditorController.root_path/EditorConfig.load()), which no test needed before this. Null (the default) launches a blank window, same as every existing test. */
+    /** `folder_path`, if given, is linked as the workspace root exactly like `opus <folder>` on the real command line — for a scenario that needs a real `.editorconfig` picked up (EditorController.root_path/EditorConfig.load()). Null (the default) launches a blank window, same as every existing test. */
     public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null) throws Error {
         var broadway_launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         // See the identical spawnv() argv warning/explanation below.

@@ -4,9 +4,8 @@ namespace Workspace {
    * the workspace root or a file to open with no folder linked at all —
    * `folder_path`/`file_path` come back mutually exclusive, both null
    * when no argument was given (a blank window, no tab, no sidebar
-   * until "Open Folder…" links one). Touches the filesystem (needs to
-   * know whether the given path is actually a directory), unlike the
-   * plain string logic this used to be.
+   * until "Open Folder…" links one). Touches the filesystem: it needs
+   * to know whether the given path is actually a directory.
    *
    * Always resolved to an absolute path — `opus .`/`opus justfile` (a
    * relative argument) would otherwise leave every FileNode built under

@@ -17,8 +17,7 @@ private class ReplacePiece : Object {
  * real `parseReplaceString`/`buildReplaceString`
  * (`src/vs/editor/contrib/find/browser/replacePattern.ts`) —
  * `gnome-text-editor` has no equivalent feature at all to check against
- * instead (see `replace-todo.md`'s own research trail, including where
- * this project's own Preserve Case idea got dropped along the way).
+ * instead.
  *
  * Supported once Regex is on:
  *   `$$`          → a literal `$`

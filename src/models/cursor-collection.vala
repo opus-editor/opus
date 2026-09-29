@@ -537,8 +537,8 @@ public class CursorCollection : Object {
    * one of its several layered strategies this class can port: the
    * others (Indent/Outdent/IndentOutdent) key off real language
    * configuration — bracket pairs, onEnterRules — which GtkSourceView's
-   * own `.lang` files don't carry (confirmed earlier this session:
-   * syntax-highlighting metadata only, no indent/outdent rules).
+   * own `.lang` files don't carry (syntax-highlighting metadata only,
+   * no indent/outdent rules).
    *
    * The carried-forward indentation is each cursor's own selection-
    * start line's leading whitespace, truncated to the start column

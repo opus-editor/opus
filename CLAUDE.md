@@ -34,6 +34,13 @@ One test binary per Model. Views are currently untested — see
   namespace to no-ops — leave the calls in place after debugging.
 - Use sparingly: real points of interest only, never routine narration.
 
+## Comments
+
+Keep them short, and only add one when the code can't carry the reason
+on its own. A comment explains WHY, never WHAT or HOW — and never the
+history of how the code got here (tried X, reverted, discussed); that
+belongs in git history/PR descriptions and rots as the code moves on.
+
 ## Dev D-Bus control surface
 
 Debug builds expose `io.github.nowaos.Opus.Dev` (`src/lib/dev-server/`)
