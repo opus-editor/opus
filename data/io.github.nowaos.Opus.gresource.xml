@@ -402,6 +402,6 @@
     <file alias="scalable/actions/gitignore-symbolic.svg" compressed="true">icons/scalable/actions/gitignore-symbolic.svg</file>
     <file alias="scalable/actions/more-symbolic.svg" compressed="true">icons/scalable/actions/more-symbolic.svg</file>
     <file alias="scalable/actions/search-symbolic.svg" compressed="true">icons/scalable/actions/search-symbolic.svg</file>
-    <file alias="scalable/actions/segment-symbolic.svg" compressed="true">icons/scalable/actions/segment-symbolic.svg</file>
+    <file alias="scalable/actions/content-lines-symbolic.svg" compressed="true">icons/scalable/actions/content-lines-symbolic.svg</file>
   </gresource>
 </gresources>
