@@ -102,6 +102,39 @@ namespace EditorView.EditorPane_ {
       refresh_label ();
     }
 
+    /** A plugin's own decoration for this tab's file (git status, a future linter badge, …), or null with nothing to show — tints the label text itself, not appended text like is_modified/is_deleted above. Same `tone-<name>` CSS vocabulary and toggle-by-switch technique as ExplorerPaneTreeRow.update_decoration(). */
+    public void set_decoration (FileDecoration.State? decoration) {
+      title_label.remove_css_class ("tone-accent");
+      title_label.remove_css_class ("tone-success");
+      title_label.remove_css_class ("tone-warning");
+      title_label.remove_css_class ("tone-alert");
+      title_label.remove_css_class ("tone-error");
+
+      if (decoration == null) {
+        return;
+      }
+
+      switch (decoration.tone) {
+        case FileDecoration.Tone.ACCENT:
+          title_label.add_css_class ("tone-accent");
+          break;
+        case FileDecoration.Tone.SUCCESS:
+          title_label.add_css_class ("tone-success");
+          break;
+        case FileDecoration.Tone.WARNING:
+          title_label.add_css_class ("tone-warning");
+          break;
+        case FileDecoration.Tone.ALERT:
+          title_label.add_css_class ("tone-alert");
+          break;
+        case FileDecoration.Tone.ERROR:
+          title_label.add_css_class ("tone-error");
+          break;
+        default:
+          break;
+      }
+    }
+
     private void refresh_label () {
       var file_part = Markup.escape_text (file_name);
       // The same dot already used for "unsaved changes" — an

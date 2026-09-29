@@ -270,6 +270,19 @@ namespace EditorView.EditorPane_ {
         : display_path (pill.tooltip_path);
     }
 
+    /** A plugin's own decoration for the file behind `path` (git status, a future linter badge, …), or null with nothing to show. Same "just overwrite tooltip_text" simplification mark_deleted()/mark_unsynchronized() above already make — doesn't try to compose with either of their own tooltip suffixes if more than one happens to apply at once. */
+    public void mark_decoration (string path, FileDecoration.State? decoration) {
+      var pill = pills[path];
+      if (pill == null) {
+        return;
+      }
+
+      pill.set_decoration (decoration);
+      pill.widget.tooltip_text = decoration?.tooltip != null
+        ? "%s · %s".printf (display_path (pill.tooltip_path), decoration.tooltip)
+        : display_path (pill.tooltip_path);
+    }
+
     /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. `tooltip_path` — see add_tab()'s own doc comment. */
     public void rename_tab (string old_path, string new_path, string file_name, string folder_name, string tooltip_path) {
       var pill = pills[old_path];

@@ -60,6 +60,13 @@ namespace EditorView {
     private string? active_path = null;
     private int untitled_counter = 0;
 
+    // Owned by MainWindow (outlives a single linked folder — see
+    // GIT_STATUS_PLUGIN_PLAN.md's own "Host wiring" section), handed here
+    // via set_decorations() so every open tab, not just the active one,
+    // can be tinted — null with no folder linked, same nullable pattern
+    // ExplorerPane's own ExplorerPane? field on MainWindow already uses.
+    private FileDecoration.Registry? decorations = null;
+
     // Find in Files' own synthetic tab — reuses the plain string-keyed
     // documents/tab_bar machinery exactly like new_untitled()'s
     // "Untitled-N" already does, rather than inventing a second tab
@@ -157,6 +164,33 @@ namespace EditorView {
     public void set_root_path (string root_path) {
       this.root_path = root_path;
       editor_config = EditorConfig.load (root_path);
+    }
+
+    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), clearing every open tab's own tint the same way it applied one. */
+    public void set_decorations (FileDecoration.Registry? new_decorations) {
+      if (decorations != null) {
+        decorations.changed.disconnect (refresh_tab_decorations);
+      }
+      decorations = new_decorations;
+      if (decorations != null) {
+        decorations.changed.connect (refresh_tab_decorations);
+      }
+      refresh_tab_decorations ();
+    }
+
+    /** Re-stamps every open tab (not just the active one — a background tab whose file changes elsewhere still needs its own tint to update) from the current `decorations` snapshot. */
+    private void refresh_tab_decorations () {
+      foreach (var document in documents.get_values ()) {
+        stamp_tab_decoration (document);
+      }
+    }
+
+    /** A synthetic tab (Untitled-N, Find Results — no real `pathname`) never has anything to decorate. `decorations == null` (no folder linked) explicitly clears rather than skipping, so a tab tinted before "Close Folder" doesn't keep showing a stale tint afterward. */
+    private void stamp_tab_decoration (Document document) {
+      if (document.pathname == null) {
+        return;
+      }
+      tab_bar.mark_decoration (document.uri, decorations == null ? null : decorations.decoration_for (document.pathname, false));
     }
 
     /**
@@ -514,6 +548,7 @@ namespace EditorView {
       file_watcher.start_watching (new_path);
 
       tab_bar.rename_tab (old_uri, new_uri, document.name, folder_name_of (new_path), document.title);
+      stamp_tab_decoration (document);
 
       if (active_path == old_uri) {
         active_path = new_uri;
@@ -543,6 +578,7 @@ namespace EditorView {
       document.is_preview = true;
       documents[document.uri] = document;
       tab_bar.add_tab (document.uri, document.name, folder_name_of (path), true, document.title);
+      stamp_tab_decoration (document);
       file_watcher.start_watching (path);
       tab_opened (document.uri);
       if (documents.size () == 1) {
@@ -556,6 +592,7 @@ namespace EditorView {
       document.is_preview = false;
       documents[document.uri] = document;
       tab_bar.add_tab (document.uri, document.name, folder_name_of (path), false, document.title);
+      stamp_tab_decoration (document);
       file_watcher.start_watching (path);
       tab_opened (document.uri);
       if (documents.size () == 1) {
@@ -1023,6 +1060,7 @@ namespace EditorView {
       tab_bar.mark_modified (new_uri, false);
       tab_bar.mark_deleted (new_uri, false);
       tab_bar.mark_unsynchronized (new_uri, false); // save_as() already reset is_externally_modified too
+      stamp_tab_decoration (document);
       if (was_active) {
         text_editor.set_change_banner_visible (false);
       }

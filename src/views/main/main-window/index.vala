@@ -312,6 +312,7 @@ public class MainWindow : Object {
     workspace_context = new_workspace_context;
     decorations = new_decorations;
     decoration_providers = new_decoration_providers;
+    editor_pane.set_decorations (new_decorations);
 
     if (explorer_pane != null) {
       explorer_pane.close ();
@@ -349,6 +350,7 @@ public class MainWindow : Object {
     decoration_providers = null;
     decorations = null;
     workspace_context = null;
+    editor_pane.set_decorations (null);
   }
 
   /** Opens `path` as a permanent tab right at startup (`opus <file>`) — failures are reported through this same window's own show_error() rather than left for main.vala to handle, since main.vala no longer holds a reference to anything that could report one itself. */
