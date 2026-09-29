@@ -51,6 +51,15 @@ public class MainWindow : Object {
   private Gtk.ToggleButton sidebar_toggle_button;
   private Gtk.Widget close_folder_item;
 
+  // The Find menu's own three items — kept live via update_find_menu(),
+  // same push-on-change pattern as the primary menu's Save/Save as…
+  // group (save_item/save_as_item above) rather than rebuilt lazily on
+  // open.
+  private Gtk.MenuButton find_menu_button;
+  private Gtk.Widget find_item;
+  private Gtk.Widget replace_item;
+  private Gtk.Widget find_in_files_item;
+
   // The first theme-selector button becomes the group's own leader
   // (Gtk.CheckButton.group has no getter, so this is the only way to
   // point every later button at the same group) — see
@@ -112,6 +121,7 @@ public class MainWindow : Object {
     content_bin = (Adw.Bin) builder.get_object ("content_bin");
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
     menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
+    find_menu_button = (Gtk.MenuButton) builder.get_object ("find_menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
     editor_pane = new EditorView.EditorPane (root_path);
@@ -186,6 +196,10 @@ public class MainWindow : Object {
       settings_monitor?.cancel ();
       closed ();
     });
+    // build_find_menu() first: build_primary_menu() ends by calling
+    // update_folder_dependent_ui(), which (see its own doc comment) also
+    // updates find_in_files_item — needs to already exist by then.
+    build_find_menu ();
     build_primary_menu ();
 
     install_css ();
@@ -590,6 +604,7 @@ public class MainWindow : Object {
     if (!has_tabs) {
       find_bar.close ();
     }
+    update_find_menu ();
   }
 
   /** Registers `panel` for the window-wide "Escape closes it, even without focus" behavior — see IGlobalPanel's own doc comment. */
@@ -725,6 +740,7 @@ public class MainWindow : Object {
   private void update_folder_dependent_ui () {
     sidebar_toggle_button.visible = has_linked_folder && split_view.collapsed;
     close_folder_item.visible = has_linked_folder;
+    update_find_menu ();
   }
 
   public void show_error (string message) {
@@ -926,6 +942,48 @@ public class MainWindow : Object {
   }
 
   /**
+   * Builds the Find menu once, at construction — kept in sync afterwards
+   * via update_find_menu() the same way build_primary_menu()'s own
+   * Save/Save as… group is, rather than rebuilt lazily on open.
+   */
+  private void build_find_menu () {
+    var popover = new Gtk.Popover ();
+    var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+
+    find_item = ContextMenu.item (_("Find…"), () => open_find (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK));
+    box.append (find_item);
+    replace_item = ContextMenu.item (_("Replace…"), () => {
+      set_active_bottom_panel (find_bar);
+      find_bar.show_replace ();
+    }, popover, Gtk.accelerator_get_label (Gdk.Key.h, Gdk.ModifierType.CONTROL_MASK));
+    box.append (replace_item);
+
+    box.append (ContextMenu.separator ());
+    find_in_files_item = ContextMenu.item (_("Find in Files"), () => open_find_in_files (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK));
+    box.append (find_in_files_item);
+
+    popover.child = box;
+    find_menu_button.set_popover (popover);
+
+    update_find_menu ();
+  }
+
+  /**
+   * Find…/Replace… only make sense against a real, editable text tab —
+   * disabled (not hidden, same sensitive-not-visible split as Save's own
+   * "nothing to save yet") while there's no open tab, or the active one
+   * is Find Results itself, which has no single-file buffer to search.
+   * Find in Files only ever makes sense with something to search across,
+   * so it's hidden entirely without a linked folder, not just disabled.
+   */
+  private void update_find_menu () {
+    bool can_find_in_active_tab = has_open_tabs && !editor_pane.is_find_results_active ();
+    find_item.sensitive = can_find_in_active_tab;
+    replace_item.sensitive = can_find_in_active_tab;
+    find_in_files_item.visible = has_linked_folder;
+  }
+
+  /**
    * The primary menu's own light/dark/follow-system radio row — three
    * grouped Gtk.CheckButtons, each wired straight to the "style-variant"
    * GLib.Settings key via its own action-name/action-target, with no
@@ -975,6 +1033,9 @@ public class MainWindow : Object {
     this.has_active_tab = has_active_tab;
     this.active_is_dirty = dirty;
     update_save_group ();
+    // Switching tabs (e.g. onto/off of Find Results) changes whether
+    // Find…/Replace… apply, even when has_open_tabs itself doesn't.
+    update_find_menu ();
   }
 
   private void update_save_group () {

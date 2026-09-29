@@ -56,6 +56,19 @@ Adw.ApplicationWindow window {
         icon-name: "open-menu-symbolic";
         tooltip-text: _("Main Menu");
       }
+
+      // Declared after menu_button — Adw.HeaderBar packs each further
+      // [end] child inward from the previous one, so this lands to
+      // menu_button's own left, not its right. The system's own
+      // edit-find-symbolic (checked GNOME Text Editor's real
+      // editor-search-entry.ui), not a bundled icon of our own: this is
+      // exactly the standard freedesktop icon-naming-spec "find" glyph
+      // already shipped with the icon theme.
+      [end]
+      Gtk.MenuButton find_menu_button {
+        icon-name: "edit-find-symbolic";
+        tooltip-text: _("Find");
+      }
     }
 
     content: Adw.OverlaySplitView split_view {
