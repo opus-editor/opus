@@ -184,6 +184,8 @@ namespace EditorView.EditorPane_ {
       // (see apply_replace_outcome()).
       replace_text.sensitive = true;
       replace_confirm_button.sensitive = true;
+      context_lines_entry.sensitive = true;
+      context_lines_toggle.sensitive = true;
       // A still-open Find/Replace row is talking about the *previous*
       // query — closed here rather than left open with a stale find_text,
       // same reasoning as resetting replace_summary_skipped_paths above.
@@ -203,6 +205,8 @@ namespace EditorView.EditorPane_ {
       replace_summary_skipped_paths = null;
       replace_text.sensitive = true;
       replace_confirm_button.sensitive = true;
+      context_lines_entry.sensitive = true;
+      context_lines_toggle.sensitive = true;
       replace_button.active = false;
       replace_revealer.reveal_child = false;
       render ();
@@ -366,6 +370,11 @@ namespace EditorView.EditorPane_ {
       }
 
       replace_summary_skipped_paths = outcome.skipped_paths;
+      // Moved off replace_text *before* disabling/hiding it below — GTK4
+      // warns ("GtkText - did not receive a focus-out event") when a
+      // focused Gtk.Text is disabled or unmapped without focus leaving it
+      // first, same as the Escape handler above already does.
+      results_view.grab_focus ();
       // Clicking Replace All again right now would silently do nothing —
       // result.query's own regex was already matched against and
       // replaced, so it no longer matches what's here (repeating a
@@ -378,6 +387,14 @@ namespace EditorView.EditorPane_ {
       // (on_replace_button_toggled reacts to it).
       replace_text.sensitive = false;
       replace_confirm_button.sensitive = false;
+      // Also disabled, same reasoning: adjusting context lines here would
+      // need to either re-run the original search (which no longer
+      // matches anything Replace All just removed) or rebuild blocks off
+      // matches this class doesn't keep around — not worth the edge
+      // cases either way, so the control itself is just frozen until the
+      // next real search re-enables it above.
+      context_lines_entry.sensitive = false;
+      context_lines_toggle.sensitive = false;
       replace_button.active = false;
       render ();
     }
