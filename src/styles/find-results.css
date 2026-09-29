@@ -5,3 +5,14 @@
 .find-results-header {
   padding: 8px 12px;
 }
+
+/* The Find/Replace row's own background-color is added separately, at
+ * runtime (find-results/index.vala's own apply_style_scheme()) — it has
+ * to match results_view's real GtkSource.StyleScheme background exactly
+ * (Adwaita/Adwaita-dark aren't plain GTK theme colors), which isn't
+ * knowable from a static stylesheet. No border of its own: the point is
+ * to read as part of the results view, not a distinct bar sitting on it. */
+.find-results-replace-row {
+  padding: 6px 12px;
+  border: none;
+}

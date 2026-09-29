@@ -14,16 +14,21 @@
  * A brand-new View, not a read-only mode bolted onto the shared
  * TextEditor: EditorPane's TextEditor is one widget reused across every
  * tab with no header slot at all, and this tab needs its own (the
- * results count, plus Replace's own dialog trigger and context_lines'
- * controls; a real "Where" scope filter is still a later part of this
- * same feature — see `_language-highlighter.vala`'s own directory for
- * where a further split, `_header.vala`, would live if this grows).
+ * results count, the Find/Replace row and its confirmation dialog, and
+ * context_lines' controls — see `_language-highlighter.vala`'s own
+ * directory for where a further split, `_header.vala`, would live if
+ * this grows).
  */
 namespace EditorView.EditorPane_ {
   public class FindResults : Object {
     private Gtk.Box root;
     private Gtk.Label header_label;
-    private Gtk.Button replace_button;
+    private Gtk.ToggleButton replace_button;
+    private Gtk.Revealer replace_revealer;
+    private Gtk.Text find_text;
+    private Gtk.Box find_icons;
+    private Gtk.Text replace_text;
+    private Gtk.Button replace_confirm_button;
     private Gtk.Entry context_lines_entry;
     private Gtk.ToggleButton context_lines_toggle;
     private Gtk.ScrolledWindow scrolled_window;
@@ -34,6 +39,15 @@ namespace EditorView.EditorPane_ {
     private Gtk.TextTag filename_tag;
     private Gtk.TextTag line_number_tag;
     private Gtk.TextTag match_highlight_tag;
+
+    // Recreated on every apply_style_scheme() — the Find/Replace row's own
+    // background has to match results_view's *real* GtkSource.StyleScheme
+    // color, only known at runtime (see its own doc comment in
+    // find-results.css). Same "uninstall the previous one first" pattern
+    // TextEditor's own font_provider already uses, and for the same
+    // reason: a provider only ever adds rules, it never un-sets one from
+    // an earlier install on its own.
+    private Gtk.CssProvider? replace_row_provider = null;
 
     // Whichever of these two is non-null drives render() — kept around
     // so a theme change alone (no new search) can re-render with fresh
@@ -78,12 +92,46 @@ namespace EditorView.EditorPane_ {
       var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/find-results/index.ui");
       root = (Gtk.Box) builder.get_object ("root");
       header_label = (Gtk.Label) builder.get_object ("header_label");
-      replace_button = (Gtk.Button) builder.get_object ("replace_button");
+      replace_button = (Gtk.ToggleButton) builder.get_object ("replace_button");
+      replace_revealer = (Gtk.Revealer) builder.get_object ("replace_revealer");
+      find_text = (Gtk.Text) builder.get_object ("find_text");
+      find_icons = (Gtk.Box) builder.get_object ("find_icons");
+      replace_text = (Gtk.Text) builder.get_object ("replace_text");
+      replace_confirm_button = (Gtk.Button) builder.get_object ("replace_confirm_button");
       context_lines_entry = (Gtk.Entry) builder.get_object ("context_lines_entry");
       context_lines_toggle = (Gtk.ToggleButton) builder.get_object ("context_lines_toggle");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
 
-      replace_button.clicked.connect (() => on_replace_button_clicked.begin ());
+      replace_button.toggled.connect (on_replace_button_toggled);
+      // Mirrors FindBar's own auto-focus-on-reveal (Gtk.SearchBar's real
+      // behavior, checked gtksearchbar.c) — fires on every reveal-child
+      // flip, but only the closed → open direction has anything worth
+      // focusing.
+      replace_revealer.notify["reveal-child"].connect (() => {
+        if (replace_revealer.reveal_child) {
+          replace_text.grab_focus ();
+        }
+      });
+
+      replace_confirm_button.clicked.connect (() => confirm_and_replace_all.begin ());
+      replace_text.activate.connect (() => confirm_and_replace_all.begin ());
+
+      // Escape closes the row and hands focus back to the results —
+      // same local, this-widget-only handling _tree-row.vala's own
+      // inline-edit entry already uses for its own Escape, not the
+      // window-wide IGlobalPanel mechanism (MainWindow's own
+      // Escape-closes-whichever-panel-is-open): this row isn't a
+      // separate panel, just a sub-part of this already-open tab.
+      var replace_text_key_controller = new Gtk.EventControllerKey ();
+      replace_text_key_controller.key_pressed.connect ((keyval) => {
+        if (keyval != Gdk.Key.Escape) {
+          return false;
+        }
+        replace_button.active = false;
+        results_view.grab_focus ();
+        return true;
+      });
+      replace_text.add_controller (replace_text_key_controller);
 
       // Only on Enter, not on every keystroke like VS Code's own
       // onDidChange — a fresh cross-file disk search per digit typed
@@ -132,12 +180,20 @@ namespace EditorView.EditorPane_ {
       last_error_query = null;
       last_error_message = null;
       replace_summary_skipped_paths = null;
-      // A fresh search's own matches are real again (unlike whatever's
-      // currently tracked after a replace, which repeating Replace All
-      // as-is can't safely act on yet — see the conversation this came
-      // out of) — hidden below once Replace All actually runs, back for
-      // a real new search.
-      replace_button.visible = true;
+      // A fresh search's own matches are real again — re-enabled here in
+      // case the previous search's own Replace All left them disabled
+      // (see apply_replace_outcome()).
+      replace_text.sensitive = true;
+      replace_confirm_button.sensitive = true;
+      // A still-open Find/Replace row is talking about the *previous*
+      // query — closed here rather than left open with a stale find_text,
+      // same reasoning as resetting replace_summary_skipped_paths above.
+      // replace_button.active = false first: it's what drives the row
+      // via on_replace_button_toggled(), setting reveal_child directly
+      // would leave the button's own :checked state stuck showing
+      // "pressed" for a row that's actually now closed.
+      replace_button.active = false;
+      replace_revealer.reveal_child = false;
       render ();
     }
 
@@ -146,7 +202,10 @@ namespace EditorView.EditorPane_ {
       last_error_query = query;
       last_error_message = message;
       replace_summary_skipped_paths = null;
-      replace_button.visible = true;
+      replace_text.sensitive = true;
+      replace_confirm_button.sensitive = true;
+      replace_button.active = false;
+      replace_revealer.reveal_child = false;
       render ();
     }
 
@@ -155,36 +214,90 @@ namespace EditorView.EditorPane_ {
       GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/find-results.css");
     }
 
+    /** MainWindow's own Ctrl+H, while this tab is the active one — same effect as clicking replace_button itself, including its own no-op guard (see on_replace_button_toggled()) when there's nothing currently shown. */
+    public void open_replace_row () {
+      replace_button.active = true;
+    }
+
     /**
-     * A centered Adw.AlertDialog, same pattern as every other modal in
-     * this app (TabBar/ExplorerPane's own confirm_* dialogs, MainWindow's
-     * show_error()) — not a Gtk.Popover bubble anchored to the button.
-     * A no-op with nothing currently shown (no result to replace into).
+     * Shows/hides the Find/Replace row and fills find_text/find_icons in
+     * from last_result.query — the actual replace happens separately, in
+     * confirm_and_replace_all(). replace_button's own :checked state (a
+     * ToggleButton) is what reads as "pressed" while the row is open;
+     * this just keeps the row itself in sync with it. A no-op — button
+     * pressed back up immediately — with nothing currently shown (no
+     * query to reference).
      */
-    private async void on_replace_button_clicked () {
+    private void on_replace_button_toggled () {
+      if (!replace_button.active) {
+        replace_revealer.reveal_child = false;
+        return;
+      }
+
+      if (last_result == null) {
+        replace_button.active = false;
+        return;
+      }
+
+      find_text.text = last_result.query.text;
+      populate_find_icons (last_result.query);
+      replace_revealer.reveal_child = true;
+    }
+
+    /**
+     * One icon per toggle `query` actually used, in the same order
+     * FindInFilesBar's own regex/case-sensitive/whole-word buttons are
+     * laid out — same icon names as those, so a user who already knows
+     * that row's own icons recognizes these instead of learning a second
+     * set. A toggle that wasn't on contributes no icon at all, rather
+     * than a dimmed/inactive one: this row has no interactive toggles of
+     * its own, only a record of what the search already used.
+     */
+    private void populate_find_icons (FindInFilesQuery query) {
+      Gtk.Widget? child = find_icons.get_first_child ();
+      while (child != null) {
+        var next = child.get_next_sibling ();
+        find_icons.remove (child);
+        child = next;
+      }
+
+      if (query.regex_enabled) {
+        find_icons.append (find_icon ("regex-symbolic", _("Regular Expression")));
+      }
+      if (query.case_sensitive_enabled) {
+        find_icons.append (find_icon ("case-sensitive-symbolic", _("Case Sensitive")));
+      }
+      if (query.whole_word_enabled) {
+        find_icons.append (find_icon ("whole-word-symbolic", _("Match Whole Word Only")));
+      }
+    }
+
+    private Gtk.Image find_icon (string icon_name, string tooltip_text) {
+      return new Gtk.Image.from_icon_name (icon_name) { tooltip_text = tooltip_text };
+    }
+
+    /**
+     * The actual Replace All flow — confirms, then runs it. A centered
+     * Adw.AlertDialog, same pattern as every other modal in this app
+     * (TabBar/ExplorerPane's own confirm_* dialogs, MainWindow's
+     * show_error()). Both responses stay neutral (no
+     * Adw.ResponseAppearance.SUGGESTED/DESTRUCTIVE): this overwrites
+     * files on disk, but not in a way meaningfully riskier than Save
+     * itself, so it doesn't need the red "destructive" treatment — and
+     * suggesting one specific response over the other isn't warranted
+     * either. A no-op with nothing currently shown (no result to
+     * replace into).
+     */
+    private async void confirm_and_replace_all () {
       if (last_result == null) {
         return;
       }
 
-      var dialog = new Adw.AlertDialog (_("Replace All"), replace_all_body_text (last_result));
-      var entry = new Gtk.Entry () {
-        placeholder_text = _("Replace"),
-        // Routes plain Return in this entry to the dialog's own default
-        // response below, the same way any GTK dialog's body already
-        // works — no signal wiring of our own needed for that.
-        activates_default = true,
-      };
-      dialog.extra_child = entry;
+      var dialog = new Adw.AlertDialog (_("Replace All"), replace_all_body_text (last_result, replace_text.text));
       dialog.add_response ("cancel", _("Cancel"));
-      dialog.add_response ("replace", _("Replace All"));
-      dialog.set_response_appearance ("replace", Adw.ResponseAppearance.SUGGESTED);
+      dialog.add_response ("replace", _("Replace"));
       dialog.set_default_response ("replace");
       dialog.set_close_response ("cancel");
-      // Adw.AlertDialog otherwise focuses its own default response
-      // button once shown — grabbed here, after mapping (so this runs
-      // after that default focus assignment, not before it), to win the
-      // typing focus for the entry instead.
-      dialog.map.connect (() => entry.grab_focus ());
 
       var response = yield dialog.choose (widget, null);
       if (response != "replace") {
@@ -192,7 +305,7 @@ namespace EditorView.EditorPane_ {
       }
 
       try {
-        var outcome = FindInFilesReplace.run (last_result, entry.text);
+        var outcome = FindInFilesReplace.run (last_result, replace_text.text);
         apply_replace_outcome (outcome);
       } catch (Error e) {
         show_replace_error (e.message);
@@ -254,13 +367,19 @@ namespace EditorView.EditorPane_ {
       }
 
       replace_summary_skipped_paths = outcome.skipped_paths;
-      // Clicking Replace All again right now would silently do nothing
-      // — result.query's own regex was already matched against and
+      // Clicking Replace All again right now would silently do nothing —
+      // result.query's own regex was already matched against and
       // replaced, so it no longer matches what's here (repeating a
       // replace against the *new* tracked text is a real feature, just
-      // not this one yet — see the conversation this came out of).
-      // Hidden until the next real search brings it back.
-      replace_button.visible = false;
+      // not this one yet). Disabled, not hidden: replace_button itself
+      // stays available so the row (with its still-relevant find_text)
+      // can be reopened to look at; only actually replacing again is
+      // blocked, until the next real search re-enables it above.
+      // replace_button.active = false closes the row itself for now
+      // (on_replace_button_toggled reacts to it).
+      replace_text.sensitive = false;
+      replace_confirm_button.sensitive = false;
+      replace_button.active = false;
       render ();
     }
 
@@ -273,18 +392,25 @@ namespace EditorView.EditorPane_ {
       return false;
     }
 
-    /** "This will replace “<query>” N times in M files." — same pluralization style as summary_label_for()'s own "N results in M files". */
-    private string replace_all_body_text (FindInFilesResult result) {
-      return _("This will replace “%s” %d %s in %d %s.").printf (
-        result.query.text,
-        result.total_match_count, result.total_match_count == 1 ? _("time") : _("times"),
-        result.file_count, result.file_count == 1 ? _("file") : _("files")
+    /** "Replace N occurrence(s) across M file(s) with "<replacement>"?" — same pluralization style as summary_label_for()'s own "N results in M files". */
+    private string replace_all_body_text (FindInFilesResult result, string replacement) {
+      return _("Replace %d %s across %d %s with “%s”?").printf (
+        result.total_match_count, result.total_match_count == 1 ? _("occurrence") : _("occurrences"),
+        result.file_count, result.file_count == 1 ? _("file") : _("files"),
+        replacement
       );
     }
 
     private void apply_style_scheme (bool dark) {
       var scheme_id = dark ? "Adwaita-dark" : "Adwaita";
       results_buffer.style_scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (scheme_id);
+
+      if (replace_row_provider != null) {
+        GlobalCss.uninstall (replace_row_provider);
+      }
+      replace_row_provider = GlobalCss.install_from_string (
+        ".find-results-replace-row { background-color: %s; }".printf (replace_row_background (dark))
+      );
 
       filename_tag.weight = Pango.Weight.BOLD;
 
@@ -305,6 +431,25 @@ namespace EditorView.EditorPane_ {
       if (last_result != null || last_error_message != null) {
         render ();
       }
+    }
+
+    /**
+     * results_view's *real* background, straight off its own
+     * GtkSource.StyleScheme (get_style("text").background) — same
+     * technique TextEditor's own _source-view.vala uses for the same
+     * reason (see its inverted_glyph_color()'s doc comment): a plain CSS
+     * background-color on a GtkSourceView is transparent by design in
+     * Adwaita, so the scheme's own style is the only real source for
+     * this color. Falls back to Adwaita's own plain light/dark window
+     * background only if the scheme has none set — not expected for
+     * Adwaita/Adwaita-dark (both real schemes do), just defensive.
+     */
+    private string replace_row_background (bool dark) {
+      var style = results_buffer.style_scheme?.get_style ("text");
+      if (style != null && style.background_set) {
+        return style.background;
+      }
+      return dark ? "#1e1e1e" : "#ffffff";
     }
 
     private class TagRange : Object {

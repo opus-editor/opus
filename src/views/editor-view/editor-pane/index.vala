@@ -305,6 +305,28 @@ namespace EditorView {
       get { return active_path != null && is_find_results_tab (active_path) ? last_find_in_files_query : null; }
     }
 
+    /**
+     * MainWindow's own Ctrl+H reads this first to decide whether to open
+     * this tab's own inline Find/Replace row (open_internal_replace())
+     * instead of the regular FindBar (see editor-pane-tab-dispatch.md,
+     * root — this is exactly the kind of per-internal-tab special case
+     * that file's proposed registry would take over once a second
+     * internal tab kind exists; one `if` here isn't worth pulling that
+     * forward yet).
+     */
+    public bool is_find_results_active () {
+      return active_path != null && is_find_results_tab (active_path);
+    }
+
+    /** Opens the Find Results tab's own inline Find/Replace row — a no-op if that tab isn't actually open/active, same as every other action method here (save_active(), close_active(), ...) trusting its own guard over the caller's. */
+    public void open_internal_replace () {
+      if (!is_find_results_active () || find_results == null) {
+        return;
+      }
+
+      find_results.open_replace_row ();
+    }
+
     /** Every currently open tab's own clean, user-facing name — Opus.Dev.DevServer's own ListOpenTabs, no UI caller today. */
     public string[] open_paths () {
       string[] paths = {};

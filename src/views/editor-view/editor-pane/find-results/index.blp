@@ -17,24 +17,6 @@ Gtk.Box root {
       hexpand: true;
     }
 
-    // Opens an Adw.AlertDialog (built in code — see on_replace_button_
-    // clicked()), same centered-modal pattern as every other dialog in
-    // this app (TabBar/ExplorerPane's own confirm_* dialogs, MainWindow's
-    // show_error()), not a Gtk.Popover bubble anchored to the button.
-    // The actual cross-file replace itself isn't wired yet (see
-    // FindResults' own doc comment), only the dialog and its entry.
-    // compact-control (styles/common.css) is a shared, app-wide utility
-    // class, not specific to this view — see its own doc comment. Not
-    // "flat" — that class is what removes a button's own background
-    // until hover (checked libadwaita's own _buttons.scss), fine for the
-    // icon-only toolbar buttons elsewhere in this app but not for a
-    // labeled action button meant to read as clickable at rest.
-    Gtk.Button replace_button {
-      styles ["compact-control"]
-      label: _("Replace");
-      focus-on-click: false;
-    }
-
     // The context-lines control — a single Gtk.Entry (not a
     // Gtk.SpinButton: no up/down steppers in the requested layout) plus
     // a toggle that shows/hides context without losing the typed
@@ -64,6 +46,102 @@ Gtk.Box root {
         tooltip-text: _("Show Context Lines");
         active: true;
         focus-on-click: false;
+      }
+    }
+
+    // Toggles replace_revealer below — see on_replace_button_toggled().
+    // A ToggleButton, not a plain Button: its own :checked state (kept
+    // in sync with replace_revealer.reveal-child there) is what makes it
+    // read as pressed/active while the row is open, same as
+    // context_lines_toggle above already does for its own row.
+    // compact-control (styles/common.css) is a shared, app-wide utility
+    // class, not specific to this view — see its own doc comment. Not
+    // "flat" — that class is what removes a button's own background
+    // until hover (checked libadwaita's own _buttons.scss), fine for the
+    // icon-only toolbar buttons elsewhere in this app but not for a
+    // labeled action button meant to read as clickable at rest.
+    Gtk.ToggleButton replace_button {
+      styles ["compact-control"]
+      focus-on-click: false;
+
+      // label + a chevron together — Gtk.Button's own icon-name is
+      // icon-only (fine for context_lines_toggle above), so this needs
+      // its own child instead.
+      Gtk.Box {
+        spacing: 4;
+
+        Gtk.Label {
+          label: _("Replace");
+        }
+
+        Gtk.Image {
+          icon-name: "chevron-down-symbolic";
+        }
+      }
+    }
+  }
+
+  // Slides down between the header and the results — same Gtk.Revealer
+  // technique FindBar's own real search bar uses for its slide-up
+  // (see its own index.blp comment for why a plain Revealer, not
+  // Gtk.SearchBar: that widget bakes in its own libadwaita "searchbar"
+  // background/shadow, which is exactly wrong here — this row's whole
+  // point is to look like part of the results view itself, not a
+  // distinct bar floating over it.
+  Gtk.Revealer replace_revealer {
+    transition-type: slide_down;
+    reveal-child: false;
+
+    Gtk.Box replace_row {
+      styles ["find-results-replace-row"]
+      orientation: vertical;
+      spacing: 8;
+
+      // The searched term, read-only — not a Gtk.Entry: it needs more
+      // than one trailing icon (one per active toggle), which Entry's
+      // own single secondary-icon slot can't do. find_icons is
+      // populated in code (find-results/index.vala's own
+      // on_replace_button_toggled()), one per toggle the search
+      // actually used. outline-input-disabled (on top of the plain
+      // outline-input both sides share — see common.css) is what gives
+      // this side its own muted background — sensitive: false alone
+      // would otherwise still read as a plain, active-looking field.
+      Gtk.Box {
+        styles ["outline-input", "outline-input-disabled"]
+
+        Gtk.Text find_text {
+          hexpand: true;
+          editable: false;
+          sensitive: false;
+        }
+
+        Gtk.Box find_icons {
+          spacing: 4;
+          halign: end;
+        }
+      }
+
+      Gtk.Box {
+        orientation: horizontal;
+        spacing: 8;
+
+        Gtk.Text replace_text {
+          styles ["outline-input"]
+          hexpand: true;
+          placeholder-text: _("Type the replacement text…");
+        }
+
+        // The actual Replace action — see confirm_and_replace_all() for
+        // the confirmation dialog it opens. Same icon/tooltip as
+        // FindBar's own replace_all_button (data/icons/ has no dedicated
+        // "replace"/"replace all" icon in Material Symbols, see that
+        // button's own comment) — reusing it here instead of a second
+        // one under a different name.
+        Gtk.Button replace_confirm_button {
+          styles ["compact-control", "suggested-action"]
+          icon-name: "replace-all-symbolic";
+          tooltip-text: _("Replace All");
+        }
       }
     }
   }

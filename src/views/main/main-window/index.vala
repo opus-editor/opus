@@ -805,10 +805,18 @@ public class MainWindow : Object {
         }
         return true;
       case Gdk.Key.h:
-        // Same reasoning as plain Ctrl+F above, just into Replace mode.
+        // Same reasoning as plain Ctrl+F above, just into Replace mode —
+        // except on the Find Results tab, which has no single-file
+        // buffer for FindBar to act on: opens that tab's own inline
+        // Find/Replace row instead, falling back to the regular FindBar
+        // for every other tab.
         if (has_open_tabs) {
-          set_active_bottom_panel (find_bar);
-          find_bar.show_replace ();
+          if (editor_pane.is_find_results_active ()) {
+            editor_pane.open_internal_replace ();
+          } else {
+            set_active_bottom_panel (find_bar);
+            find_bar.show_replace ();
+          }
         }
         return true;
       default:

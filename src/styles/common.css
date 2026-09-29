@@ -62,3 +62,69 @@
 .linked > .compact-control:checked {
   background-color: color-mix(in srgb, currentColor 10%, transparent);
 }
+
+/* A narrower, "web input"-styled text field — transparent background
+ * plus a plain border, rather than Adwaita's own filled/inset Gtk.Entry
+ * chrome. Works on a bare Gtk.Text directly (no Gtk.Entry frame) or on a
+ * wrapping Gtk.Box around one (e.g. when trailing icons/adornments need
+ * room a plain Gtk.Entry's own single secondary-icon slot can't give).
+ * Same min-height/vertical padding as .compact-control above, so it
+ * reads the same size as a button/toggle sitting next to it. */
+.outline-input {
+  background-color: transparent;
+  border: 1px solid alpha(currentColor, 0.2);
+  border-radius: 6px;
+  min-height: 24px;
+  padding: 2px 8px;
+}
+
+/* The system's own real focus color, not plain var(--accent-color) —
+ * checked libadwaita's actual _drawing.scss/_colors.scss: every native
+ * focus-ring() is $focus_border_color, defined as accent at 50% opacity
+ * (color-mix(in srgb, var(--accent-color) 50%, transparent)), not the
+ * full-strength accent. */
+.outline-input:focus-within {
+  border-color: color-mix(in srgb, var(--accent-color) 50%, transparent);
+}
+
+/* A muted fill on top of the plain border, so a disabled field reads as
+ * inactive/reference-only at a glance instead of just looking dimmer.
+ * currentColor-mix rather than a hardcoded gray, same reasoning as
+ * .compact-control's own :checked fill above. Two selectors for the two
+ * ways a field can end up disabled: .outline-input-disabled is a plain
+ * class for when the wrapping Box carries it while the actual Gtk.Text
+ * inside is what's insensitive (the real :disabled pseudo-class never
+ * applies to an ancestor); .outline-input:disabled covers a bare
+ * Gtk.Text carrying the class directly. */
+.outline-input-disabled,
+.outline-input:disabled {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* A real Gtk.Entry dims its placeholder via a real GTK theme rule scoped
+ * to `entry > text > placeholder` (checked libadwaita's own
+ * _entries.scss) — a bare Gtk.Text has no `entry` node, so that selector
+ * never matches it. Same var(--dim-opacity) the real rule itself uses
+ * (`.dimmed`, _labels.scss), just re-scoped to whichever node actually
+ * carries this class. */
+.outline-input placeholder {
+  opacity: var(--dim-opacity);
+}
+
+/* A disabled Gtk.Text somewhere in .outline-input — styled to still read
+ * clearly instead of Adwaita's own heavily-dimmed :disabled look, for a
+ * field that's disabled because it's reference-only, not because it's
+ * an inactive control the user might wonder how to enable. Same two-
+ * selector split as .outline-input-disabled/.outline-input:disabled
+ * above, for the same reason: a wrapping Box (Find's own structure)
+ * needs the descendant form to reach the actual Gtk.Text inside it,
+ * while a bare Gtk.Text carrying the class directly (Replace's own
+ * structure) only matches its own :disabled state, not a descendant's. */
+.outline-input text:disabled,
+.outline-input:disabled {
+  opacity: 0.7;
+}
+
+.outline-input image {
+  opacity: 0.85;
+}

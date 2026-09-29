@@ -223,10 +223,15 @@ namespace EditorView.EditorPane_ {
       search.close ();
     }
 
-    /** Shows `text`, highlighted as whichever language `path`'s name/extension matches (none, if it matches none). */
+    /**
+     * Shows `text`, highlighted as whichever language `path`'s name/
+     * extension matches (none, if it matches none, or if `path` is "" —
+     * guess_language() itself asserts on an empty filename with no
+     * content_type either, checked gtksourcelanguage-manager.c).
+     */
     public void set_text (string text, string path) {
       text_view.editable = true;
-      source_buffer.language = GtkSource.LanguageManager.get_default ().guess_language (path, null);
+      source_buffer.language = path == "" ? null : GtkSource.LanguageManager.get_default ().guess_language (path, null);
       cursors.load_text (text);
     }
 
