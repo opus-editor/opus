@@ -86,15 +86,27 @@ private void test_invalid_utf8_is_unreadable () {
 }
 
 private void test_untitled_document_starts_clean_and_untitled () {
-    var document = Document.untitled ("Untitled-1");
+    var document = Document.untitled ("1", "Untitled-1");
 
     assert_true (document.is_untitled);
-    assert_cmpstr (document.path, CompareOperator.EQ, "Untitled-1");
+    assert_cmpstr (document.uri, CompareOperator.EQ, "untitled://1");
+    assert_null (document.pathname);
+    assert_cmpstr (document.name, CompareOperator.EQ, "Untitled-1");
     assert_cmpstr (document.content, CompareOperator.EQ, "");
     assert_false (document.dirty);
 
     document.content = "typed something";
     assert_true (document.dirty);
+}
+
+private void test_untitled_uri_and_title_are_independent () {
+    // The uri's own slug is a stable identity key, never shown to the
+    // user — it must not have to match `title` (the display text,
+    // exactly the kind of string that gets reworded/localized later).
+    var document = Document.untitled ("7", "Sem título 7");
+
+    assert_cmpstr (document.uri, CompareOperator.EQ, "untitled://7");
+    assert_cmpstr (document.name, CompareOperator.EQ, "Sem título 7");
 }
 
 private void test_save_as_clears_untitled_and_moves_the_document_to_the_new_path () {
@@ -104,13 +116,15 @@ private void test_save_as_clears_untitled_and_moves_the_document_to_the_new_path
     );
 
     try {
-        var document = Document.untitled ("Untitled-1");
+        var document = Document.untitled ("1", "Untitled-1");
         document.content = "hello";
 
         document.save_as (path);
 
         assert_false (document.is_untitled);
-        assert_cmpstr (document.path, CompareOperator.EQ, path);
+        assert_cmpstr (document.uri, CompareOperator.EQ, Document.uri_for_path (path));
+        assert_cmpstr (document.pathname, CompareOperator.EQ, path);
+        assert_cmpstr (document.name, CompareOperator.EQ, Path.get_basename (path));
         assert_false (document.dirty);
 
         string on_disk;
@@ -204,9 +218,93 @@ private void test_reload_replaces_in_memory_content_with_whats_on_disk () {
     }
 }
 
+private void test_load_sets_a_file_scheme_uri_and_the_real_pathname () {
+    string path = make_temp_file ("content".data);
+
+    try {
+        var document = Document.load (path);
+
+        assert_cmpstr (document.uri, CompareOperator.EQ, Document.uri_for_path (path));
+        assert_cmpstr (document.pathname, CompareOperator.EQ, path);
+        assert_cmpstr (document.name, CompareOperator.EQ, Path.get_basename (path));
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_move_to_updates_uri_and_pathname_together () {
+    string path = make_temp_file ("content".data);
+    string new_path = path + "-moved";
+
+    try {
+        var document = Document.load (path);
+        document.move_to (new_path);
+
+        assert_cmpstr (document.uri, CompareOperator.EQ, Document.uri_for_path (new_path));
+        assert_cmpstr (document.pathname, CompareOperator.EQ, new_path);
+        assert_cmpstr (document.name, CompareOperator.EQ, Path.get_basename (new_path));
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_internal_tab_is_synthetic_and_not_saveable () {
+    var document = Document.internal_tab ("find-in-files-results", "Find Results");
+
+    assert_cmpstr (document.uri, CompareOperator.EQ, "opus://find-in-files-results");
+    assert_null (document.pathname);
+    assert_true (document.is_internal);
+    assert_false (document.is_saveable);
+    assert_false (document.is_untitled);
+    assert_cmpstr (document.name, CompareOperator.EQ, "Find Results");
+    assert_cmpstr (document.title, CompareOperator.EQ, "Find Results");
+}
+
+private void test_save_is_a_no_op_on_a_non_saveable_document () {
+    var document = Document.internal_tab ("find-in-files-results", "Find Results");
+    document.content = "should never reach disk";
+
+    try {
+        document.save ();
+    } catch (Error e) {
+        error ("save() must not throw on a non-saveable document, got: %s", e.message);
+    }
+
+    assert_null (document.pathname);
+}
+
+private void test_save_as_is_a_no_op_on_a_non_saveable_document () {
+    string path = Path.build_filename (
+        Environment.get_tmp_dir (),
+        "opus-document-test-%u-%u".printf (Random.next_int (), Random.next_int ())
+    );
+
+    var document = Document.internal_tab ("find-in-files-results", "Find Results");
+    document.content = "should never reach disk";
+
+    try {
+        document.save_as (path);
+    } catch (Error e) {
+        error ("save_as() must not throw on a non-saveable document, got: %s", e.message);
+    }
+
+    assert_false (FileUtils.test (path, FileTest.EXISTS));
+    assert_null (document.pathname);
+    assert_cmpstr (document.uri, CompareOperator.EQ, "opus://find-in-files-results");
+}
+
+private void test_title_falls_back_to_the_bare_name_without_a_pathname () {
+    var untitled = Document.untitled ("1", "Untitled-1");
+    assert_cmpstr (untitled.title, CompareOperator.EQ, "Untitled-1");
+}
+
 private void test_each_document_owns_its_own_independent_cursors_and_history () {
-    var a = Document.untitled ("Untitled-1");
-    var b = Document.untitled ("Untitled-2");
+    var a = Document.untitled ("1", "Untitled-1");
+    var b = Document.untitled ("2", "Untitled-2");
 
     assert_nonnull (a.cursors);
     assert_nonnull (a.history);
@@ -225,7 +323,14 @@ int main (string[] args) {
     Test.add_func ("/models/document/preview_document", test_preview_document);
     Test.add_func ("/models/document/invalid_utf8_is_unreadable", test_invalid_utf8_is_unreadable);
     Test.add_func ("/models/document/untitled_document_starts_clean_and_untitled", test_untitled_document_starts_clean_and_untitled);
+    Test.add_func ("/models/document/untitled_uri_and_title_are_independent", test_untitled_uri_and_title_are_independent);
     Test.add_func ("/models/document/save_as_clears_untitled_and_moves_the_document_to_the_new_path", test_save_as_clears_untitled_and_moves_the_document_to_the_new_path);
+    Test.add_func ("/models/document/load_sets_a_file_scheme_uri_and_the_real_pathname", test_load_sets_a_file_scheme_uri_and_the_real_pathname);
+    Test.add_func ("/models/document/move_to_updates_uri_and_pathname_together", test_move_to_updates_uri_and_pathname_together);
+    Test.add_func ("/models/document/internal_tab_is_synthetic_and_not_saveable", test_internal_tab_is_synthetic_and_not_saveable);
+    Test.add_func ("/models/document/save_is_a_no_op_on_a_non_saveable_document", test_save_is_a_no_op_on_a_non_saveable_document);
+    Test.add_func ("/models/document/save_as_is_a_no_op_on_a_non_saveable_document", test_save_as_is_a_no_op_on_a_non_saveable_document);
+    Test.add_func ("/models/document/title_falls_back_to_the_bare_name_without_a_pathname", test_title_falls_back_to_the_bare_name_without_a_pathname);
     Test.add_func ("/models/document/is_deleted_does_not_affect_dirty_on_its_own", test_is_deleted_does_not_affect_dirty_on_its_own);
     Test.add_func ("/models/document/save_recreates_a_deleted_document_and_clears_the_flag", test_save_recreates_a_deleted_document_and_clears_the_flag);
     Test.add_func ("/models/document/is_externally_modified_does_not_affect_dirty_on_its_own", test_is_externally_modified_does_not_affect_dirty_on_its_own);

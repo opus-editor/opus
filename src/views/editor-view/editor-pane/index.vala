@@ -46,6 +46,11 @@ namespace EditorView {
     private Adw.Bin container;
     private Gtk.Box content;
     private Adw.StatusPage empty_state;
+    // TextEditor is one shared widget reused across every real file tab
+    // — this Bin is what lets the Find Results tab swap in a completely
+    // different widget (EditorPane_.FindResults) instead, without
+    // TextEditor itself needing any notion of a "results" mode.
+    private Adw.Bin editor_area_bin;
     private EditorPane_.TabBar tab_bar;
     private EditorPaneFileWatcher file_watcher;
     private string root_path;
@@ -54,6 +59,25 @@ namespace EditorView {
     private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
     private string? active_path = null;
     private int untitled_counter = 0;
+
+    // Find in Files' own synthetic tab — reuses the plain string-keyed
+    // documents/tab_bar machinery exactly like new_untitled()'s
+    // "Untitled-N" already does, rather than inventing a second tab
+    // concept. find_results is created lazily (first search only).
+    private const string FIND_RESULTS_TAB_URI = "opus://find-in-files-results";
+    // Only the very first search ever run (find_results doesn't exist
+    // yet to read its own context_lines off) — every search after that
+    // reads the live value straight from FindResults' own control.
+    private const int DEFAULT_FIND_IN_FILES_CONTEXT_LINES = 1;
+    private EditorPane_.FindResults? find_results = null;
+    // The most recently run Find in Files query — re-issued as-is when
+    // FindResults' own context_lines_changed fires, so adjusting that
+    // control re-searches without the user retyping anything.
+    private FindInFilesQuery? last_find_in_files_query = null;
+    // Bumped on every new search_in_files() call (and once more on
+    // close()) so a search still running when a newer one starts, or
+    // the window closes, never renders its own stale result afterward.
+    private int search_generation = 0;
 
     public Gtk.Widget widget { get { return container; } }
 
@@ -89,8 +113,8 @@ namespace EditorView {
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       content.append (tab_bar.widget);
       content.append (new Gtk.Separator (Gtk.Orientation.HORIZONTAL) { css_classes = { "content-divider" } });
-      text_editor.widget.vexpand = true;
-      content.append (text_editor.widget);
+      editor_area_bin = new Adw.Bin () { child = text_editor.widget, vexpand = true };
+      content.append (editor_area_bin);
 
       // Generic on purpose, not "…from the sidebar": a blank/file-only
       // window (no folder linked) has no sidebar to speak of at all.
@@ -115,10 +139,15 @@ namespace EditorView {
       tab_bar.preview_demoted.connect (on_preview_demoted);
       tab_bar.close_others_requested.connect (close_others);
       tab_bar.close_all_requested.connect (close_all);
-      tab_bar.copy_path_requested.connect ((path) => tab_bar.copy_to_clipboard (path));
-      tab_bar.copy_relative_path_requested.connect ((path) => tab_bar.copy_to_clipboard (relative_path (path)));
+      // Copy Path / Reveal in Sidebar only ever mean something for a
+      // real file — tab_bar's own key is a uri, so each is resolved back
+      // to the document's real pathname (falling back to the uri itself,
+      // which should never actually happen for these two menu items —
+      // TabBar only offers them at all for tabs backed by a real file).
+      tab_bar.copy_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (documents[uri]?.pathname ?? uri));
+      tab_bar.copy_relative_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (relative_path (documents[uri]?.pathname ?? uri)));
       tab_bar.new_file_requested.connect (new_untitled);
-      tab_bar.reveal_in_sidebar_requested.connect ((path) => reveal_in_sidebar_requested (path));
+      tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (documents[uri]?.pathname ?? uri));
       text_editor.reload_requested.connect (on_reload_requested);
       text_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
       file_watcher.file_changed.connect (on_file_changed);
@@ -136,11 +165,12 @@ namespace EditorView {
      * keyboard focus into the editor.
      */
     public void open (string path, bool as_permanent) throws Error {
-      if (documents.contains (path)) {
+      var existing = find_by_title (path);
+      if (existing != null) {
         if (as_permanent) {
-          promote (documents[path]);
+          promote (existing);
         }
-        activate (path);
+        activate (existing.uri);
       } else if (as_permanent) {
         open_permanent (path);
       } else {
@@ -157,20 +187,86 @@ namespace EditorView {
       untitled_counter++;
       var name = "Untitled-%d".printf (untitled_counter);
 
-      var document = Document.untitled (name);
-      documents[name] = document;
-      tab_bar.add_tab (name, name, "", false);
+      var document = Document.untitled (untitled_counter.to_string (), name);
+      documents[document.uri] = document;
+      tab_bar.add_tab (document.uri, document.name, "", false, document.title);
       if (documents.size () == 1) {
         has_open_tabs_changed (true);
       }
-      activate (name);
+      activate (document.uri);
       text_editor.grab_focus ();
     }
 
-    /** Saves the active document, if any and if dirty — see save_path(). */
+    /**
+     * Find in Files — searches the whole linked workspace folder for
+     * `query.text` and shows the results in the "Find Results" tab
+     * (opened, or refreshed in place if already open). A no-op with an
+     * empty query. `search_generation` is bumped before awaiting the
+     * actual search so a second call started before the first
+     * finishes supersedes it outright — whichever finishes last simply
+     * discards its own result instead of clobbering a newer one, and
+     * close() bumps it once more so a search still running when the
+     * window closes never touches a torn-down pane either.
+     */
+    public async void search_in_files (FindInFilesQuery query) {
+      if (query.text == "") {
+        return;
+      }
+      last_find_in_files_query = query;
+      int generation = ++search_generation;
+
+      // find_results doesn't exist yet on the very first search ever
+      // run — every search after that reads its own live control instead
+      // of this default.
+      int context_lines = find_results != null ? find_results.context_lines : DEFAULT_FIND_IN_FILES_CONTEXT_LINES;
+
+      FindInFilesResult? result = null;
+      Error? error = null;
+      try {
+        result = yield FindInFilesSearch.run_async (root_path, query, context_lines);
+      } catch (Error e) {
+        error = e;
+      }
+      if (generation != search_generation) {
+        return;
+      }
+
+      if (find_results == null) {
+        find_results = new EditorPane_.FindResults ();
+        // Re-issues last_find_in_files_query as-is — adjusting context
+        // lines re-searches without the user retyping anything. Replace
+        // All has no equivalent hookup here: FindResults reconciles its
+        // own last-shown result and re-renders itself once
+        // FindInFilesReplace.run() lands — re-running the original
+        // search afterward would search for the *old* term, no longer
+        // there to find.
+        find_results.context_lines_changed.connect (() => search_in_files.begin (last_find_in_files_query));
+      }
+      if (error != null) {
+        find_results.show_error (query, error.message);
+      } else {
+        find_results.show_results (result);
+      }
+      open_or_focus_find_results_tab ();
+    }
+
+    private void open_or_focus_find_results_tab () {
+      if (!documents.contains (FIND_RESULTS_TAB_URI)) {
+        var document = Document.internal_tab ("find-in-files-results", _("Find Results"));
+        documents[FIND_RESULTS_TAB_URI] = document;
+        tab_bar.add_tab (FIND_RESULTS_TAB_URI, document.name, "", false, document.title);
+        tab_opened (FIND_RESULTS_TAB_URI);
+        if (documents.size () == 1) {
+          has_open_tabs_changed (true);
+        }
+      }
+      activate (FIND_RESULTS_TAB_URI);
+    }
+
+    /** Saves the active document, if any and if dirty — see save_uri(). */
     public async void save_active () {
       if (active_path != null) {
-        yield save_path (active_path);
+        yield save_uri (active_path);
       }
     }
 
@@ -190,20 +286,30 @@ namespace EditorView {
 
     /** Whether `path` is currently open as a tab with unsaved changes. */
     public bool is_dirty (string path) {
-      var document = documents[path];
+      var document = find_by_title (path);
       return document != null && document.dirty;
     }
 
-    /** The active tab's path, or null if none. */
+    /** The active tab's own clean, user-facing name — its real path for a file, a plain display name otherwise — or null if none. Opus.Dev.DevServer's own GetActiveTab. */
     public string? active_document_path {
-      get { return active_path; }
+      owned get { return active_path == null ? null : documents[active_path].title; }
     }
 
-    /** Every currently open tab's path — Opus.Dev.DevServer's own ListOpenTabs, no UI caller today. */
+    /** The currently linked folder — MainWindow's own "Add Folder…" (FindInFilesBar's where_entry) reads this to validate a chosen folder is actually inside it before appending anything. */
+    public string linked_folder_path {
+      get { return root_path; }
+    }
+
+    /** The query behind the "Find Results" tab, but only while that's actually the active tab — null otherwise, even if a "Find Results" tab still exists somewhere in the background. MainWindow's own Ctrl+Shift+F reads this to decide whether reopening FindInFilesBar should restore the last search or start blank. */
+    public FindInFilesQuery? current_find_in_files_query {
+      get { return active_path != null && is_find_results_tab (active_path) ? last_find_in_files_query : null; }
+    }
+
+    /** Every currently open tab's own clean, user-facing name — Opus.Dev.DevServer's own ListOpenTabs, no UI caller today. */
     public string[] open_paths () {
       string[] paths = {};
-      foreach (var path in documents.get_keys ()) {
-        paths += path;
+      foreach (var document in documents.get_values ()) {
+        paths += document.title;
       }
       return paths;
     }
@@ -232,8 +338,8 @@ namespace EditorView {
       if (document.is_preview) {
         promote (document);
       }
-      text_editor.set_text (text, active_path);
-      tab_bar.mark_modified (document.path, document.dirty);
+      text_editor.set_text (text, document.pathname ?? active_path);
+      tab_bar.mark_modified (document.uri, document.dirty);
       notify_active_state ();
     }
 
@@ -352,34 +458,43 @@ namespace EditorView {
       text_editor.select_all_occurrences ();
     }
 
-    /** Closes `path`'s tab outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. No-op if `path` isn't open. */
+    /**
+     * Closes `path`'s tab outright, no unsaved-changes prompt — for when
+     * the file itself is already gone (deleted from the sidebar) and
+     * there's nothing left to save it to. No-op if `path` isn't open.
+     */
     public void discard_tab (string path) {
-      if (documents.contains (path)) {
-        finish_close (path);
+      var document = find_by_title (path);
+      if (document != null) {
+        finish_close (document.uri);
       }
     }
 
     /**
      * `old_path` moved to `new_path` on disk (a sidebar Rename, or a
-     * Cut+Paste actually moving rather than copying). Only ever
-     * matches a path that was directly opened as its own tab.
+     * Cut+Paste actually moving rather than copying). Only ever matches a
+     * path that was directly opened as its own tab — same structural
+     * guarantee as discard_tab() above, since both arguments are always
+     * real OS paths.
      */
     public void file_moved (string old_path, string new_path) {
-      var document = documents[old_path];
+      var old_uri = Document.uri_for_path (old_path);
+      var document = documents[old_uri];
       if (document == null) {
         return;
       }
 
       file_watcher.stop_watching (old_path);
       document.move_to (new_path);
-      documents.remove (old_path);
-      documents[new_path] = document;
+      var new_uri = document.uri;
+      documents.remove (old_uri);
+      documents[new_uri] = document;
       file_watcher.start_watching (new_path);
 
-      tab_bar.rename_tab (old_path, new_path, Path.get_basename (new_path), folder_name_of (new_path));
+      tab_bar.rename_tab (old_uri, new_uri, document.name, folder_name_of (new_path), document.title);
 
-      if (active_path == old_path) {
-        active_path = new_path;
+      if (active_path == old_uri) {
+        active_path = new_uri;
       }
       notify_active_state ();
     }
@@ -387,40 +502,44 @@ namespace EditorView {
     /** Cascades to the file-watcher sub-component's own close(). */
     public void close () {
       file_watcher.close ();
+      // Discards any Find in Files search still in flight — see
+      // search_in_files()'s own doc comment for what search_generation
+      // guards against.
+      search_generation++;
     }
 
     private void open_preview (string path) throws Error {
       var existing_preview = find_preview ();
       if (existing_preview != null) {
-        tab_bar.remove_tab (existing_preview.path);
-        documents.remove (existing_preview.path);
-        file_watcher.stop_watching (existing_preview.path);
-        tab_closed (existing_preview.path);
+        tab_bar.remove_tab (existing_preview.uri);
+        documents.remove (existing_preview.uri);
+        file_watcher.stop_watching (existing_preview.pathname);
+        tab_closed (existing_preview.uri);
       }
 
       var document = Document.load (path);
       document.is_preview = true;
-      documents[path] = document;
-      tab_bar.add_tab (path, Path.get_basename (path), folder_name_of (path), true);
+      documents[document.uri] = document;
+      tab_bar.add_tab (document.uri, document.name, folder_name_of (path), true, document.title);
       file_watcher.start_watching (path);
-      tab_opened (path);
+      tab_opened (document.uri);
       if (documents.size () == 1) {
         has_open_tabs_changed (true);
       }
-      activate (path);
+      activate (document.uri);
     }
 
     private void open_permanent (string path) throws Error {
       var document = Document.load (path);
       document.is_preview = false;
-      documents[path] = document;
-      tab_bar.add_tab (path, Path.get_basename (path), folder_name_of (path), false);
+      documents[document.uri] = document;
+      tab_bar.add_tab (document.uri, document.name, folder_name_of (path), false, document.title);
       file_watcher.start_watching (path);
-      tab_opened (path);
+      tab_opened (document.uri);
       if (documents.size () == 1) {
         has_open_tabs_changed (true);
       }
-      activate (path);
+      activate (document.uri);
     }
 
     /**
@@ -434,7 +553,7 @@ namespace EditorView {
      * known deleted.
      */
     private void on_file_changed (string path, FileMonitorEvent event_type, string? other_file_path) {
-      var document = documents[path];
+      var document = documents[Document.uri_for_path (path)];
       if (document == null) {
         return;
       }
@@ -442,23 +561,23 @@ namespace EditorView {
       switch (event_type) {
         case FileMonitorEvent.DELETED:
         case FileMonitorEvent.MOVED_OUT:
-          mark_file_deleted (path, document, true);
+          mark_file_deleted (document, true);
           break;
         case FileMonitorEvent.CREATED:
-          mark_file_deleted (path, document, false);
+          mark_file_deleted (document, false);
           break;
         case FileMonitorEvent.RENAMED:
           if (other_file_path == null || other_file_path != path) {
             break;
           }
           if (document.is_deleted) {
-            mark_file_deleted (path, document, false);
+            mark_file_deleted (document, false);
           } else {
-            mark_externally_modified (path, document);
+            mark_externally_modified (document);
           }
           break;
         case FileMonitorEvent.CHANGED:
-          mark_externally_modified (path, document);
+          mark_externally_modified (document);
           break;
         default:
           break;
@@ -466,7 +585,7 @@ namespace EditorView {
     }
 
     /**
-     * `path`'s content changed on disk. is_externally_modified is a
+     * `document`'s content changed on disk. is_externally_modified is a
      * sticky "unsynchronized" state: once set, `document` stays
      * unsynchronized through any number of further external changes,
      * only resolved by an explicit choice (Discard and Reload, or a
@@ -475,22 +594,22 @@ namespace EditorView {
      * Only on the *first* transition into this state does dirty
      * actually matter: a clean tab has nothing of its own at stake, so
      * it's just silently reloaded instead of ever becoming
-     * unsynchronized at all; a dirty one shows the banner (if `path`
+     * unsynchronized at all; a dirty one shows the banner (if `document`
      * is the active tab).
      */
-    private void mark_externally_modified (string path, Document document) {
+    private void mark_externally_modified (Document document) {
       if (document.is_externally_modified) {
         return;
       }
 
       if (!document.dirty) {
-        reload_document (path, document);
+        reload_document (document);
         return;
       }
 
       document.is_externally_modified = true;
-      tab_bar.mark_unsynchronized (path, true);
-      if (path == active_path) {
+      tab_bar.mark_unsynchronized (document.uri, true);
+      if (document.uri == active_path) {
         text_editor.set_change_banner_visible (true);
       }
     }
@@ -506,35 +625,35 @@ namespace EditorView {
         return;
       }
 
-      reload_document (active_path, document);
+      reload_document (document);
     }
 
-    /** Discards `document`'s in-memory content in favor of what's on disk right now. Only touches the editor buffer itself if `path` is the active tab; the tab pill's own state updates either way. */
-    private void reload_document (string path, Document document) {
+    /** Discards `document`'s in-memory content in favor of what's on disk right now. Only touches the editor buffer itself if it's the active tab; the tab pill's own state updates either way. */
+    private void reload_document (Document document) {
       try {
         document.reload ();
       } catch (Error e) {
-        warning ("failed to reload %s: %s", path, e.message);
+        warning ("failed to reload %s: %s", document.pathname, e.message);
         return;
       }
 
-      if (path == active_path) {
-        show_in_editor (path);
+      if (document.uri == active_path) {
+        show_in_editor (document.uri);
       }
-      tab_bar.mark_modified (path, document.dirty);
-      tab_bar.mark_deleted (path, false);
-      tab_bar.mark_unsynchronized (path, false);
+      tab_bar.mark_modified (document.uri, document.dirty);
+      tab_bar.mark_deleted (document.uri, false);
+      tab_bar.mark_unsynchronized (document.uri, false);
       notify_active_state ();
     }
 
-    private void mark_file_deleted (string path, Document document, bool deleted) {
+    private void mark_file_deleted (Document document, bool deleted) {
       if (document.is_deleted == deleted) {
         return;
       }
 
       document.is_deleted = deleted;
-      tab_bar.mark_deleted (path, deleted);
-      tab_bar.mark_modified (path, document.dirty);
+      tab_bar.mark_deleted (document.uri, deleted);
+      tab_bar.mark_modified (document.uri, document.dirty);
       notify_active_state ();
     }
 
@@ -547,6 +666,26 @@ namespace EditorView {
     private Document? find_preview () {
       foreach (var document in documents.get_values ()) {
         if (document.is_preview) {
+          return document;
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Finds the open document whose own external-facing identity — a
+     * real file's `pathname`, or a synthetic one's plain name, e.g.
+     * "Untitled-1"/"Find Results" — is exactly `title`. The one lookup
+     * behind every path-taking public method here that's also reachable
+     * from Opus.Dev.DevServer (`open`, `is_dirty`, `discard_tab`,
+     * `save_path`): the system-test DSL addresses a tab by the very same
+     * string `open_paths()`/`active_document_path` hand back to it,
+     * synthetic or not — never by this class's own internal `uri` key,
+     * which it has no reason to know about.
+     */
+    private Document? find_by_title (string title) {
+      foreach (var document in documents.get_values ()) {
+        if (document.title == title) {
           return document;
         }
       }
@@ -569,18 +708,42 @@ namespace EditorView {
       }
     }
 
-    private void show_in_editor (string path) {
-      var document = documents[path];
+    private bool is_find_results_tab (string uri) {
+      return uri == FIND_RESULTS_TAB_URI;
+    }
+
+    private void show_in_editor (string uri) {
+      if (is_find_results_tab (uri)) {
+        editor_area_bin.child = find_results.widget;
+        // Reset TextEditor's own buffer/active_document rather than
+        // leaving it showing whatever real file was open before —
+        // otherwise Ctrl+F/search_next() while this tab is active would
+        // silently operate on that hidden buffer instead of doing
+        // nothing, same as finish_close() already resets it once
+        // there's no tab left at all.
+        text_editor.set_text ("", "");
+        text_editor.set_active_document (null);
+        text_editor.set_change_banner_visible (false);
+        return;
+      }
+      editor_area_bin.child = text_editor.widget;
+
+      var document = documents[uri];
+      // document.pathname ?? uri: an Untitled tab has no real path for
+      // GtkSource's own language-guessing to key off of, same as before
+      // this split — falling back to its uri (no extension either way)
+      // rather than ever handing it a raw file:// one for a real file.
+      var display_path = document.pathname ?? uri;
       if (document.readable) {
-        text_editor.set_text (document.content, path);
+        text_editor.set_text (document.content, display_path);
         text_editor.clear_placeholder ();
       } else {
         text_editor.set_placeholder (_("This file can't be displayed."));
       }
       text_editor.set_change_banner_visible (document.is_externally_modified);
 
-      var indent_size = editor_config?.indent_size_for (relative_path (path)) ?? DEFAULT_INDENT_SIZE;
-      var insert_spaces = editor_config?.insert_spaces_for (relative_path (path)) ?? DEFAULT_INSERT_SPACES;
+      var indent_size = editor_config?.indent_size_for (relative_path (display_path)) ?? DEFAULT_INDENT_SIZE;
+      var insert_spaces = editor_config?.insert_spaces_for (relative_path (display_path)) ?? DEFAULT_INSERT_SPACES;
       text_editor.set_indent_size (indent_size);
       text_editor.set_indent_config (indent_size, insert_spaces);
 
@@ -589,12 +752,12 @@ namespace EditorView {
 
     private void promote (Document document) {
       document.is_preview = false;
-      tab_bar.mark_preview (document.path, false);
+      tab_bar.mark_preview (document.uri, false);
     }
 
     /** The tab bar already demoted the tab itself; just keep the model in sync. */
-    private void on_preview_demoted (string path) {
-      var document = documents[path];
+    private void on_preview_demoted (string uri) {
+      var document = documents[uri];
       if (document != null) {
         document.is_preview = false;
       }
@@ -610,51 +773,51 @@ namespace EditorView {
       if (document.is_preview) {
         promote (document);
       }
-      tab_bar.mark_modified (document.path, document.dirty);
+      tab_bar.mark_modified (document.uri, document.dirty);
       notify_active_state ();
     }
 
-    private void on_tab_selected (string path) {
-      activate (path);
+    private void on_tab_selected (string uri) {
+      activate (uri);
     }
 
-    private void on_tab_double_clicked (string path) {
-      var document = documents[path];
+    private void on_tab_double_clicked (string uri) {
+      var document = documents[uri];
       if (document != null && document.is_preview) {
         promote (document);
       }
     }
 
-    private async void close_tab (string path) {
-      var document = documents[path];
+    private async void close_tab (string uri) {
+      var document = documents[uri];
       if (document == null) {
         return;
       }
 
       if (!document.dirty) {
-        finish_close (path);
+        finish_close (uri);
         return;
       }
 
-      var choice = yield tab_bar.confirm_unsaved_close (Path.get_basename (path));
+      var choice = yield tab_bar.confirm_unsaved_close (document.name);
       switch (choice) {
         case DiscardChoice.SAVE:
           // An untitled document has nowhere to plain-save() to —
           // save_as_path() prompts for one and, on success,
-          // re-keys it to the real path it renamed the tab to,
+          // re-keys it to the new uri it renamed the tab to,
           // which is what actually needs closing now, not the
           // old key.
           if (document.is_untitled) {
-            var new_path = yield save_as_path (path);
-            if (new_path != null) {
-              finish_close (new_path);
+            var new_uri = yield save_as_path (uri);
+            if (new_uri != null) {
+              finish_close (new_uri);
             }
           } else if (save_document (document)) {
-            finish_close (path);
+            finish_close (uri);
           }
           break;
         case DiscardChoice.DISCARD:
-          finish_close (path);
+          finish_close (uri);
           break;
         case DiscardChoice.CANCEL:
           break;
@@ -677,32 +840,35 @@ namespace EditorView {
         return true;
       }
 
-      file_watcher.mark_own_write (document.path);
+      file_watcher.mark_own_write (document.pathname);
       try {
         document.save ();
       } catch (Error e) {
-        file_watcher.discard_own_write (document.path); // never wrote, so no event will ever come consume it
-        warning ("failed to save %s: %s", document.path, e.message);
+        file_watcher.discard_own_write (document.pathname); // never wrote, so no event will ever come consume it
+        warning ("failed to save %s: %s", document.pathname, e.message);
         return false;
       }
 
-      tab_bar.mark_modified (document.path, document.dirty);
-      tab_bar.mark_deleted (document.path, document.is_deleted); // save() already reset this to false
-      tab_bar.mark_unsynchronized (document.path, false); // same — save() already reset is_externally_modified too
-      if (document.path == active_path) {
+      tab_bar.mark_modified (document.uri, document.dirty);
+      tab_bar.mark_deleted (document.uri, document.is_deleted); // save() already reset this to false
+      tab_bar.mark_unsynchronized (document.uri, false); // same — save() already reset is_externally_modified too
+      if (document.uri == active_path) {
         text_editor.set_change_banner_visible (false);
       }
       notify_active_state ();
       return true;
     }
 
-    private void finish_close (string path) {
-      file_watcher.stop_watching (path);
-      tab_bar.remove_tab (path);
-      documents.remove (path);
-      tab_closed (path);
+    private void finish_close (string uri) {
+      var document = documents[uri];
+      if (document?.pathname != null) {
+        file_watcher.stop_watching (document.pathname);
+      }
+      tab_bar.remove_tab (uri);
+      documents.remove (uri);
+      tab_closed (uri);
 
-      if (active_path == path) {
+      if (active_path == uri) {
         // Prefer another still-open tab over going empty — the
         // rightmost one, for now.
         var fallback = tab_bar.last_tab_path ();
@@ -710,7 +876,7 @@ namespace EditorView {
           activate (fallback);
         } else {
           active_path = null;
-          text_editor.set_text ("", path);
+          text_editor.set_text ("", "");
           text_editor.set_change_banner_visible (false);
           text_editor.set_active_document (null);
           notify_active_state ();
@@ -722,46 +888,65 @@ namespace EditorView {
       }
     }
 
-    private void close_others (string keep_path) {
-      string[] paths = {};
-      foreach (var path in documents.get_keys ()) {
-        if (path != keep_path) {
-          paths += path;
+    private void close_others (string keep_uri) {
+      string[] uris = {};
+      foreach (var uri in documents.get_keys ()) {
+        if (uri != keep_uri) {
+          uris += uri;
         }
       }
-      close_paths.begin (paths);
+      close_paths.begin (uris);
     }
 
     private void close_all () {
-      string[] paths = {};
-      foreach (var path in documents.get_keys ()) {
-        paths += path;
+      string[] uris = {};
+      foreach (var uri in documents.get_keys ()) {
+        uris += uri;
       }
-      close_paths.begin (paths);
+      close_paths.begin (uris);
     }
 
     /**
-     * Closes each of `paths` in turn — one at a time, not
+     * Closes each of `uris` in turn — one at a time, not
      * concurrently, so an unsaved-changes prompt for one tab never
-     * overlaps another's. `owned`, not borrowed: without it, `paths`
+     * overlaps another's. `owned`, not borrowed: without it, `uris`
      * is only valid for the synchronous part of the call.
      */
-    private async void close_paths (owned string[] paths) {
-      foreach (var path in paths) {
-        yield close_tab (path);
+    private async void close_paths (owned string[] uris) {
+      foreach (var uri in uris) {
+        yield close_tab (uri);
       }
     }
 
-    /** A plain Save on `path` specifically — except for an untitled document, which has nowhere to write to yet and goes through the Save As flow instead. */
-    /** A plain Save on `path` specifically, not necessarily the active tab — except for an untitled document, which has nowhere to write to yet and goes through the Save As flow instead. Public for Opus.Dev.DevServer's own SaveTab, which addresses a tab by path — the UI itself only ever reaches this through save_active()/save_as_active(), always on whichever tab is active. */
+    /**
+     * A plain Save on `path` specifically, not necessarily the active tab
+     * — except for an untitled document, which has nowhere to write to
+     * yet and goes through the Save As flow instead. Public for
+     * Opus.Dev.DevServer's own SaveTab, which addresses a tab the same
+     * way it addresses CloseTab/IsDirty (see find_by_title()) —
+     * the UI itself only ever reaches this through save_active()/
+     * save_as_active(), always on whichever tab is active.
+     */
     public async void save_path (string path) {
-      var document = documents[path];
-      if (document == null) {
+      var document = find_by_title (path);
+      if (document != null) {
+        yield save_uri (document.uri);
+      }
+    }
+
+    /** The actual save-by-identity implementation behind save_path() and save_active() — the public save_path() looks its document up by display name first; save_active() already has a uri (active_path). */
+    private async void save_uri (string uri) {
+      var document = documents[uri];
+      // !is_saveable would otherwise route this into save_as_path() —
+      // a real file-save dialog writing out the Find Results tab's own
+      // always-empty content (its real text lives only in find_results'
+      // own buffer, never in this Document), then renaming the tab away.
+      if (document == null || !document.is_saveable) {
         return;
       }
 
       if (document.is_untitled) {
-        yield save_as_path (path);
+        yield save_as_path (uri);
       } else {
         save_document (document);
       }
@@ -771,18 +956,22 @@ namespace EditorView {
      * Save As: asks TextEditor for a destination via the system's own
      * file chooser (an untitled document defaults to the workspace
      * root), writes the document there, and re-keys both the document
-     * and its tab to the new path. Also promotes a preview tab.
-     * Returns the new path on success, or null if cancelled or the
-     * write itself failed.
+     * and its tab to the new uri. Also promotes a preview tab.
+     * Returns the document's new uri on success, or null if cancelled or
+     * the write itself failed.
      */
-    private async string? save_as_path (string path) {
-      var document = documents[path];
-      if (document == null) {
+    private async string? save_as_path (string uri) {
+      var document = documents[uri];
+      if (document == null || !document.is_saveable) {
         return null;
       }
 
-      var initial_folder = document.is_untitled ? root_path : Path.get_dirname (path);
-      var new_path = yield text_editor.choose_save_as_path (Path.get_basename (path), initial_folder);
+      // Only a real, already-loaded file has a pathname to default
+      // against — an untitled document has nowhere on disk yet, hence
+      // root_path instead.
+      var old_pathname = document.pathname;
+      var initial_folder = document.is_untitled ? root_path : Path.get_dirname (old_pathname);
+      var new_path = yield text_editor.choose_save_as_path (document.name, initial_folder);
       if (new_path == null) {
         return null;
       }
@@ -796,19 +985,22 @@ namespace EditorView {
         return null;
       }
 
-      documents.remove (path);
-      documents[new_path] = document;
-      file_watcher.stop_watching (path);
+      var new_uri = document.uri;
+      documents.remove (uri);
+      documents[new_uri] = document;
+      if (old_pathname != null) {
+        file_watcher.stop_watching (old_pathname);
+      }
       file_watcher.start_watching (new_path);
-      bool was_active = active_path == path;
+      bool was_active = active_path == uri;
       if (was_active) {
-        active_path = new_path;
+        active_path = new_uri;
       }
 
-      tab_bar.rename_tab (path, new_path, Path.get_basename (new_path), folder_name_of (new_path));
-      tab_bar.mark_modified (new_path, false);
-      tab_bar.mark_deleted (new_path, false);
-      tab_bar.mark_unsynchronized (new_path, false); // save_as() already reset is_externally_modified too
+      tab_bar.rename_tab (uri, new_uri, document.name, folder_name_of (new_path), document.title);
+      tab_bar.mark_modified (new_uri, false);
+      tab_bar.mark_deleted (new_uri, false);
+      tab_bar.mark_unsynchronized (new_uri, false); // save_as() already reset is_externally_modified too
       if (was_active) {
         text_editor.set_change_banner_visible (false);
       }
@@ -816,7 +1008,7 @@ namespace EditorView {
         promote (document);
       }
       notify_active_state ();
-      return new_path;
+      return new_uri;
     }
 
     /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */

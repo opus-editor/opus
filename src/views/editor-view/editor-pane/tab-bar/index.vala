@@ -119,14 +119,15 @@ namespace EditorView.EditorPane_ {
       fade_end.visible = adjustment.get_value () < adjustment.get_upper () - adjustment.get_page_size () - 0.5;
     }
 
-    public void add_tab (string path, string file_name, string folder_name, bool preview) {
+    /** `tooltip_path` is the tab's own clean, user-facing name — a real file's real path, or a synthetic tab's plain display name — never `path` itself, which is just this tab's own internal identity key and, for a synthetic tab, not something to ever show the user. */
+    public void add_tab (string path, string file_name, string folder_name, bool preview, string tooltip_path) {
       var pill = new TabBarPill ();
       pill.set_label (file_name, folder_name);
       pill.set_preview (preview);
+      pill.tooltip_path = tooltip_path;
       // A plain Gtk.Widget property — no need for a TabBarPill method of
-      // its own just to proxy it; the pill only ever knows file_name/
-      // folder_name, not the full path this lives on.
-      pill.widget.tooltip_text = display_path (path);
+      // its own just to proxy it.
+      pill.widget.tooltip_text = display_path (tooltip_path);
       pill.selected.connect (() => tab_selected (path));
       pill.double_clicked.connect (() => tab_double_clicked (path));
       pill.close_requested.connect (() => tab_close_requested (path));
@@ -252,8 +253,8 @@ namespace EditorView.EditorPane_ {
 
       pill.set_deleted (deleted);
       pill.widget.tooltip_text = deleted
-        ? _("%s · Deleted").printf (display_path (path))
-        : display_path (path);
+        ? _("%s · Deleted").printf (display_path (pill.tooltip_path))
+        : display_path (pill.tooltip_path);
     }
 
     /** The file behind `path` changed on disk while unresolved — stays true whether or not the "File Has Changed on Disk" banner itself is currently showing. */
@@ -265,12 +266,12 @@ namespace EditorView.EditorPane_ {
 
       pill.set_unsynchronized (unsynchronized);
       pill.widget.tooltip_text = unsynchronized
-        ? _("%s · Unsynchronized").printf (display_path (path))
-        : display_path (path);
+        ? _("%s · Unsynchronized").printf (display_path (pill.tooltip_path))
+        : display_path (pill.tooltip_path);
     }
 
-    /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. */
-    public void rename_tab (string old_path, string new_path, string file_name, string folder_name) {
+    /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. `tooltip_path` — see add_tab()'s own doc comment. */
+    public void rename_tab (string old_path, string new_path, string file_name, string folder_name, string tooltip_path) {
       var pill = pills[old_path];
       if (pill == null) {
         return;
@@ -279,7 +280,8 @@ namespace EditorView.EditorPane_ {
       pills.remove (old_path);
       pills[new_path] = pill;
       pill.set_label (file_name, folder_name);
-      pill.widget.tooltip_text = display_path (new_path);
+      pill.tooltip_path = tooltip_path;
+      pill.widget.tooltip_text = display_path (tooltip_path);
 
       if (preview_path == old_path) {
         preview_path = new_path;

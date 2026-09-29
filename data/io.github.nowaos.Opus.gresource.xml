@@ -6,12 +6,16 @@
     <file compressed="true">editor-view/editor-pane/tab-bar/_pill.ui</file>
     <file compressed="true">editor-view/editor-pane/tab-bar/index.ui</file>
     <file compressed="true">editor-view/editor-pane/text-editor/index.ui</file>
+    <file compressed="true">editor-view/editor-pane/find-results/index.ui</file>
     <file compressed="true">editor-view/find-bar/index.ui</file>
+    <file compressed="true">editor-view/find-in-files-bar/index.ui</file>
     <file compressed="true">components/search-input.ui</file>
     <file compressed="true">main/main-window/index.ui</file>
+    <file compressed="true">styles/common.css</file>
     <file compressed="true">styles/context-menu.css</file>
     <file compressed="true">styles/explorer-pane.css</file>
     <file compressed="true">styles/find-bar.css</file>
+    <file compressed="true">styles/find-results.css</file>
     <file compressed="true">styles/main-window.css</file>
     <file compressed="true">styles/tab-bar.css</file>
     <file compressed="true">styles/text-editor.css</file>
@@ -395,5 +399,9 @@
     <file alias="scalable/actions/replace-all-symbolic.svg" compressed="true">icons/scalable/actions/replace-all-symbolic.svg</file>
     <file alias="scalable/actions/chevron-up-symbolic.svg" compressed="true">icons/scalable/actions/chevron-up-symbolic.svg</file>
     <file alias="scalable/actions/arrow-down-symbolic.svg" compressed="true">icons/scalable/actions/arrow-down-symbolic.svg</file>
+    <file alias="scalable/actions/gitignore-symbolic.svg" compressed="true">icons/scalable/actions/gitignore-symbolic.svg</file>
+    <file alias="scalable/actions/more-symbolic.svg" compressed="true">icons/scalable/actions/more-symbolic.svg</file>
+    <file alias="scalable/actions/search-symbolic.svg" compressed="true">icons/scalable/actions/search-symbolic.svg</file>
+    <file alias="scalable/actions/segment-symbolic.svg" compressed="true">icons/scalable/actions/segment-symbolic.svg</file>
   </gresource>
 </gresources>

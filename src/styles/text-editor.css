@@ -25,8 +25,18 @@ textview > border:drop(active) {
 
 /* GtkTextView's own native selection paint, off — TextEditorCursors' own
  * selection_tag paints every cursor's selection instead (primary
- * included), so all of them stay pixel-identical. */
-textview > text > selection {
+ * included), so all of them stay pixel-identical. Scoped to
+ * .opus-editor-font (TextEditorSourceView's own marker class, added
+ * alongside this same install_css() call) specifically, not a bare
+ * `textview`: this stylesheet is installed display-wide
+ * (GlobalCss.install_from_resource), so an unscoped selector here would
+ * also blank out native selection on any *other* GtkTextView/
+ * GtkSource.View in the app that has no such hand-painted compensation
+ * of its own — e.g. EditorView.EditorPane_.FindResults' own read-only
+ * results view, found live: selecting text there worked (confirmed via
+ * GtkTextBuffer's own has-selection going true) but rendered invisibly,
+ * this same rule silently applying app-wide is why. */
+textview.opus-editor-font > text > selection {
   background-color: transparent;
   color: transparent;
 }

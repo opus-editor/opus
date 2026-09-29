@@ -61,6 +61,31 @@ public class SearchInput : Gtk.Widget {
   }
 
   /**
+   * Delegates Tab/Shift+Tab focus movement to the real inner text too —
+   * same reason EditorSearchEntry (and GtkEntry/GtkSearchEntry
+   * themselves, checked their real source) override `focus` alongside
+   * `grab_focus`, never just one: left at the default (`gtk_widget_real_
+   * focus`), a container whose `grab_focus()` is overridden to redirect
+   * elsewhere gets a hidden side effect on Shift+Tab specifically —
+   * checked gtkwidget.c's own real `gtk_widget_real_focus`: with focus
+   * already on a descendant (`entry`) and nothing before it to move
+   * into on a backward move, that default falls back to calling
+   * `grab_focus()` on *this* widget as its last resort, which our own
+   * override happily satisfies by re-focusing `entry` (already
+   * focused, so nothing visibly changes) and reports the move as
+   * handled — the real bug this fixes: Shift+Tab out of `entry` looked
+   * like it did nothing at all instead of moving to whatever's before
+   * this widget in its own parent (e.g. FindBar's own whole_word_button).
+   * child_focus() on `entry` itself sidesteps that: with focus already
+   * on `entry`, GtkText's own real `focus` vfunc correctly reports
+   * "nothing further to move to in here" (FALSE) either direction,
+   * letting the search continue outward to our actual sibling instead.
+   */
+  public override bool focus (Gtk.DirectionType direction) {
+    return entry.child_focus (direction);
+  }
+
+  /**
    * Shows "`position` of `count`" right-aligned inside the entry, or
    * nothing at all once `count` is 0 — matching GNOME Text Editor's
    * own real search entry (editor-search-entry.c:

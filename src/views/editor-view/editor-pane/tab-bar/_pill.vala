@@ -38,6 +38,9 @@ namespace EditorView.EditorPane_ {
     public bool is_deleted { get; private set; default = false; }
     public bool is_unsynchronized { get; private set; default = false; }
 
+    /** This tab's own clean, user-facing name (a real file's real path, or a synthetic tab's plain display name) — TabBar's tooltip source, remembered here so mark_deleted()/mark_unsynchronized() can recompute it later without needing it passed in again. Plain get/set: unlike file_name/folder_name/is_deleted/etc., storing this has no rendering side effect of its own for set_label()-style wrapping to trigger. */
+    public string tooltip_path { get; set; default = ""; }
+
     public TabBarPill () {
       var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/_pill.ui");
       box = (Gtk.Box) builder.get_object ("pill");

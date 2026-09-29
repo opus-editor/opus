@@ -7,6 +7,15 @@ opus_model_sources = files(
   'models/edit-history-entry.vala',
   'models/file-node.vala',
   'models/file-tree.vala',
+  'models/find-in-files-query.vala',
+  'models/find-in-files-match.vala',
+  'models/find-in-files-block.vala',
+  'models/find-in-files-file-result.vala',
+  'models/find-in-files-result.vala',
+  'models/find-in-files-search.vala',
+  'models/find-in-files-replace.vala',
+  'models/find-in-files-replace-result.vala',
+  'models/find-in-files-scope.vala',
   'models/icon-theme.vala',
   'models/indent-guides.vala',
   'models/logger.vala',
@@ -48,6 +57,8 @@ opus_gtk_view_sources = files(
   'views/editor-view/editor-pane/tab-bar/_pill.vala',
   'views/editor-view/editor-pane/tab-bar/index.vala',
   'views/editor-view/editor-pane/_file-watcher.vala',
+  'views/editor-view/editor-pane/find-results/_language-highlighter.vala',
+  'views/editor-view/editor-pane/find-results/index.vala',
   'views/editor-view/editor-pane/index.vala',
   'views/editor-view/explorer-pane/_tree-row.vala',
   'views/editor-view/explorer-pane/_tree.vala',
@@ -56,6 +67,7 @@ opus_gtk_view_sources = files(
   'views/editor-view/explorer-pane/_drag-drop.vala',
   'views/editor-view/explorer-pane/index.vala',
   'views/editor-view/find-bar/index.vala',
+  'views/editor-view/find-in-files-bar/index.vala',
 )
 
 # No opus_controller_sources here — the whole point of this tree: every

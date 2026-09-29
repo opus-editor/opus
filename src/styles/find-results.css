@@ -1,0 +1,7 @@
+/* header row is a bare Gtk.Box around header_label with no padding of
+ * its own — same breathing room as results_view's own top/bottom/
+ * left/right margin (find-results/index.vala), so the label doesn't
+ * sit flush against the tab's own edges. */
+.find-results-header {
+  padding: 8px 12px;
+}

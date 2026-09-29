@@ -124,6 +124,14 @@ namespace EditorView {
       // search_grid's (2, 0) cell is left empty there specifically for
       // this attach() to fill.
       search_input = new SearchInput ();
+      // Column 2's own width otherwise only comes from replace_entry's
+      // hexpand (its own `hexpand: true;` in the .blp) — Replace mode
+      // pulls the whole shared column out to the clamp's maximum-size,
+      // but Find mode alone had nothing in that column asking for the
+      // extra space, so it stayed at search_input's own natural width
+      // instead. Setting it here too is what makes Find mode reach the
+      // same width as Replace mode.
+      search_input.hexpand = true;
       search_grid.attach (search_input, 2, 0, 1, 1);
 
       search_bar.connect_entry (search_input.entry);

@@ -1,7 +1,7 @@
 /**
  * The application's main window — composition root for the whole app: owns
- * EditorView.EditorPane (always) and EditorView.FindBar (always) directly,
- * and EditorView.ExplorerPane once a folder is linked. Absorbs the real
+ * EditorView.EditorPane (always) and EditorView.FindBar/EditorView.FindInFilesBar
+ * (always) directly, and EditorView.ExplorerPane once a folder is linked. Absorbs the real
  * MainController (the ExplorerPane<->EditorPane glue) and SearchController
  * (the FindBar<->EditorPane glue) entirely, plus all the ad hoc wiring that
  * used to sit in main.vala's own build_session() — there's no Session
@@ -24,7 +24,11 @@ public class MainWindow : Object {
   private GLib.Settings settings;
 
   private EditorView.FindBar find_bar;
+  private EditorView.FindInFilesBar find_in_files_bar;
   private EditorView.ExplorerPane? explorer_pane = null;
+
+  /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
+  private IGlobalPanel? active_bottom_panel = null;
 
   /** The window's own EditorPane, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPane's own public `text_editor`. */
   public EditorView.EditorPane editor_pane { get; private set; }
@@ -121,7 +125,6 @@ public class MainWindow : Object {
     editor_pane.tab_closed.connect (on_settings_tab_closed);
 
     find_bar = new EditorView.FindBar ();
-    search_bar_bin.child = find_bar.widget;
     register_global_panel (find_bar);
     find_bar.search_changed.connect (on_search_changed);
     find_bar.search_options_changed.connect (on_search_options_changed);
@@ -132,6 +135,26 @@ public class MainWindow : Object {
     find_bar.replace_all_requested.connect (on_replace_all_requested);
     find_bar.closed.connect (on_search_bar_closed);
     editor_pane.search_position_changed.connect (on_search_position_changed);
+
+    find_in_files_bar = new EditorView.FindInFilesBar ();
+    register_global_panel (find_in_files_bar);
+    find_in_files_bar.closed.connect (on_find_in_files_bar_closed);
+    find_in_files_bar.search_next_requested.connect (on_find_in_files_search_requested);
+    find_in_files_bar.add_folder_requested.connect (() => on_add_folder_requested.begin ());
+
+    // search_bar_bin is a single-child slot (Adw.ToolbarView's own
+    // [bottom] bar) — find_bar/find_in_files_bar take turns occupying
+    // it, reparented in by set_active_bottom_panel() rather than both
+    // sitting permanently mounted side by side: each is a real
+    // Gtk.SearchBar with its own internal collapse/reveal revealer (see
+    // FindBar's own doc comment), and two of those animating at once in
+    // a shared Gtk.Box would show both partially expanded mid-switch —
+    // reparenting keeps only the active one in the tree at all, so only
+    // its own reveal animation ever plays. find_bar starts mounted here
+    // (matching this window's own previous single-bar behavior); it's
+    // collapsed by default, so nothing shows until show_find()/
+    // show_replace() actually opens it.
+    search_bar_bin.child = find_bar.widget;
 
     // Restores whatever size the last window that closed was left at
     // (window-width/window-height default to the same 900x600 this
@@ -296,21 +319,22 @@ public class MainWindow : Object {
    * change (the font CSS is display-wide, see TextEditor's own
    * font_css()), not just whichever tab happens to be active.
    */
-  private void on_settings_tab_opened (string path) {
-    if (path != UserSettings.path (Environment.get_user_config_dir ()) || settings_monitor != null) {
+  private void on_settings_tab_opened (string uri) {
+    var settings_path = UserSettings.path (Environment.get_user_config_dir ());
+    if (uri != Document.uri_for_path (settings_path) || settings_monitor != null) {
       return;
     }
 
     try {
-      settings_monitor = File.new_for_path (path).monitor_file (FileMonitorFlags.NONE, null);
+      settings_monitor = File.new_for_path (settings_path).monitor_file (FileMonitorFlags.NONE, null);
       settings_monitor.changed.connect (() => editor_pane.text_editor.reload_font_settings ());
     } catch (Error e) {
       Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
     }
   }
 
-  private void on_settings_tab_closed (string path) {
-    if (path != UserSettings.path (Environment.get_user_config_dir ()) || settings_monitor == null) {
+  private void on_settings_tab_closed (string uri) {
+    if (uri != Document.uri_for_path (UserSettings.path (Environment.get_user_config_dir ())) || settings_monitor == null) {
       return;
     }
     settings_monitor.cancel ();
@@ -386,11 +410,95 @@ public class MainWindow : Object {
     bool has_selection_in_focus = editor_pane.has_focus;
     string selected = has_selection_in_focus ? editor_pane.primary_selection_text : "";
 
+    set_active_bottom_panel (find_bar);
     find_bar.show_find ();
 
     if (selected != "") {
       find_bar.set_find_text (selected);
     }
+  }
+
+  /**
+   * Ctrl+Shift+F — mutually exclusive with Ctrl+F/Ctrl+H, see
+   * set_active_bottom_panel(). Restores the search behind the "Find
+   * Results" tab if that's the active tab right now (as if reopening
+   * the bar to redo/tweak it), or starts blank otherwise — see
+   * EditorPane.current_find_in_files_query's own doc comment for why
+   * that's exactly the condition it already encodes.
+   */
+  private void open_find_in_files () {
+    set_active_bottom_panel (find_in_files_bar);
+    find_in_files_bar.show_find ();
+    find_in_files_bar.set_query (editor_pane.current_find_in_files_query);
+  }
+
+  /** Enter in FindInFilesBar's own entry, or its Search button — searches the whole linked workspace folder and opens/refreshes the "Find Results" tab. Fire-and-forget: EditorPane.search_in_files() itself guards against a second search superseding a still-running one. */
+  private void on_find_in_files_search_requested () {
+    var query = new FindInFilesQuery () {
+      text = find_in_files_bar.search_text,
+      regex_enabled = find_in_files_bar.regex_enabled,
+      case_sensitive_enabled = find_in_files_bar.case_sensitive_enabled,
+      whole_word_enabled = find_in_files_bar.whole_word_enabled,
+      gitignore_enabled = find_in_files_bar.gitignore_enabled,
+      where_text = find_in_files_bar.where_text,
+    };
+    editor_pane.search_in_files.begin (query);
+    // Unlike plain Find (FindBar stays open to step through live
+    // matches), Find in Files has nothing left for the bar itself to do
+    // once a search is launched — the Find Results tab is where the
+    // action moves to next.
+    find_in_files_bar.close ();
+  }
+
+  /**
+   * "Add Folder…" — FindInFilesBar itself has no root_path to validate
+   * against (only EditorPane does), so this is where the real folder
+   * chooser and the "must be inside the linked folder" check both live.
+   * All-or-nothing across a multi-selection: the very first folder that
+   * isn't inside root_path aborts the whole thing with one error and
+   * appends nothing at all, rather than adding the folders picked
+   * before it and silently dropping the rest.
+   */
+  private async void on_add_folder_requested () {
+    ListModel? folders;
+    try {
+      var dialog = new Gtk.FileDialog ();
+      folders = yield dialog.select_multiple_folders (window, null);
+    } catch (Error e) {
+      return; // cancelled, or the portal itself failed — nothing to do either way
+    }
+    if (folders == null) {
+      return;
+    }
+    // The folder dialog is async and Ctrl+F/Escape/etc. can swap
+    // search_bar_bin's own single slot to a different IGlobalPanel while
+    // it was still open (set_active_bottom_panel() unparents
+    // find_in_files_bar entirely in that case) — nothing left to append
+    // into, or to sensibly show an error for, once that's happened.
+    if (!find_in_files_bar.is_open) {
+      return;
+    }
+
+    var root_path = editor_pane.linked_folder_path;
+    var prefix = root_path + "/";
+    string[] patterns = {};
+    for (uint i = 0; i < folders.get_n_items (); i++) {
+      var path = ((File) folders.get_item (i)).get_path ();
+      // !has_prefix (prefix) alone already rejects path == root_path too
+      // — a string can never have a strictly longer string as its own
+      // prefix — so this is really one check, not two: "must be
+      // strictly inside root_path," which is exactly what rules out the
+      // otherwise-meaningless pattern "//" a bare root_path would give.
+      if (path == null || !path.has_prefix (prefix)) {
+        show_error (_("Every folder has to be inside the project folder."));
+        return;
+      }
+      // "/<relative path>/" — anchored to the root, directory-only —
+      // see FindInFilesScope's own doc comment for why both matter here.
+      patterns += "/" + path.substring (prefix.length) + "/";
+    }
+
+    find_in_files_bar.append_where_patterns (patterns);
   }
 
   /** "Replace" — replaces only the current match, then advances to the next one. A no-op if there's no current match right now. */
@@ -442,10 +550,16 @@ public class MainWindow : Object {
    * (see on_has_open_tabs_changed()) — nothing to focus then.
    */
   private void on_search_bar_closed () {
+    clear_active_bottom_panel (find_bar);
     editor_pane.select_last_match ();
     if (editor_pane.active_document_path != null) {
       editor_pane.grab_focus ();
     }
+  }
+
+  /** find_in_files_bar's own closed — see on_search_bar_closed()'s doc comment for why active_bottom_panel needs clearing here too. */
+  private void on_find_in_files_bar_closed () {
+    clear_active_bottom_panel (find_in_files_bar);
   }
 
   /**
@@ -483,6 +597,38 @@ public class MainWindow : Object {
     global_panels.add (panel);
   }
 
+  /**
+   * Makes `panel` the one occupying search_bar_bin's single slot —
+   * Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive. Reparents
+   * `panel.widget` into the bin (unmounting whichever one was there
+   * before, if any) rather than leaving both permanently mounted side
+   * by side: each panel is a real Gtk.SearchBar with its own internal
+   * reveal/collapse revealer (see FindBar's own doc comment), and two
+   * of those animating at once in a shared container showed both
+   * partially expanded mid-switch instead of one clean transition.
+   * close() still runs on the old one first, for its side effects
+   * (clearing its entry, emitting closed) — its own collapse animation
+   * just never gets to play since unparenting cuts it short right
+   * after, which is what "closing and opening at the same time" comes
+   * down to here: the caller's own show_find()/show_replace() on
+   * `panel` right after this runs without waiting on the old one.
+   */
+  private void set_active_bottom_panel (IGlobalPanel panel) {
+    if (active_bottom_panel == panel) {
+      return;
+    }
+    active_bottom_panel?.close ();
+    search_bar_bin.child = panel.widget;
+    active_bottom_panel = panel;
+  }
+
+  /** Clears active_bottom_panel once `panel` closes on its own (Escape, its own close button, or nothing left to search) — a no-op if `panel` wasn't the active one, e.g. set_active_bottom_panel() already closed it to switch to the other. */
+  private void clear_active_bottom_panel (IGlobalPanel panel) {
+    if (active_bottom_panel == panel) {
+      active_bottom_panel = null;
+    }
+  }
+
   /** Shows the sidebar if it's currently collapsed/hidden behind the toggle button — "Reveal in Sidebar" needs it actually visible, not just linked, same as clicking sidebar_toggle_button by hand would. A no-op with no folder linked at all: nothing to reveal. */
   private void reveal_sidebar () {
     if (has_linked_folder) {
@@ -502,6 +648,7 @@ public class MainWindow : Object {
   private void install_css () {
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/main-window.css");
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
+    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/common.css");
   }
 
   /**
@@ -641,17 +788,26 @@ public class MainWindow : Object {
         editor_pane.text_editor.reset_zoom ();
         return true;
       case Gdk.Key.f:
-        // Gated here, not inside open_find(): no open tab means nothing
-        // to search, so there's nothing to show for it either — same
-        // guard on_has_open_tabs_changed() itself uses to close the bar
-        // once the last one closes.
-        if (has_open_tabs) {
+        if (shift) {
+          // Gated the same reasoning as plain Ctrl+F below: no folder
+          // linked means nothing to search — root_path would otherwise
+          // silently default to the process's own cwd instead of
+          // something the user actually chose.
+          if (has_linked_folder) {
+            open_find_in_files ();
+          }
+        } else if (has_open_tabs) {
+          // Gated here, not inside open_find(): no open tab means
+          // nothing to search, so there's nothing to show for it either
+          // — same guard on_has_open_tabs_changed() itself uses to
+          // close the bar once the last one closes.
           open_find ();
         }
         return true;
       case Gdk.Key.h:
-        // Same reasoning as Ctrl+F above, just into Replace mode.
+        // Same reasoning as plain Ctrl+F above, just into Replace mode.
         if (has_open_tabs) {
+          set_active_bottom_panel (find_bar);
           find_bar.show_replace ();
         }
         return true;

@@ -31,14 +31,14 @@ Gtk.SearchBar search_bar {
   child: Adw.Clamp {
     maximum-size: 640;
 
-    // A Gtk.Grid, not two independent rows of boxes — the replace row's
-    // own entry/buttons need to line up under the find row's search
-    // entry/Previous-Next group, the same reason GNOME Text Editor's own
-    // real search bar uses GtkGrid for this (editor-search-bar.ui).
-    // other_buttons + the divider only exist on row 0 (column 0/1) and
-    // are simply absent from row 1 — Grid still reserves their column
-    // widths, which is what keeps column 2 (the entries) aligned between
-    // both rows without needing an invisible placeholder in row 1.
+    // A Gtk.Grid, not two independent rows of boxes — the Where row's
+    // own entry needs to line up under the Find row's search entry, the
+    // same reason GNOME Text Editor's own real search bar uses GtkGrid
+    // for this (editor-search-bar.ui). other_buttons + the divider only
+    // exist on row 0 (column 0/1) and are simply absent from row 1 —
+    // Grid still reserves their column widths, which is what keeps
+    // column 2 (the entries) aligned between both rows without needing
+    // an invisible placeholder in row 1.
     child: Gtk.Grid search_grid {
       row-spacing: 6;
       column-spacing: 6;
@@ -103,56 +103,61 @@ Gtk.SearchBar search_bar {
       // goes" split EditorView.TextEditor already uses for its own EditorView.TextEditorSourceView
       // (built in code, dropped into scrolled_window via set_child()).
 
-      Gtk.Box {
-        homogeneous: true;
-        spacing: 3;
+      // A single Search action, not FindBar's own Previous/Next pair —
+      // Find in Files has no single live match to step through, it (re)runs
+      // the whole cross-file search. Lone widget in the cell, same
+      // halign: start reasoning as more_button below, hugging
+      // search_input's own right edge instead of stretching or drifting
+      // to the far right.
+      Gtk.Button search_button {
+        styles ["flat"]
+        icon-name: "search-symbolic";
+        tooltip-text: _("Search");
+        focus-on-click: false;
+        halign: start;
 
         layout {
           column: 3;
           row: 0;
         }
+      }
 
-        // chevron-up-symbolic.svg/arrow-down-symbolic.svg are
-        // arrow_forward_ios rotated by hand in Inkscape (±90°) — not
-        // chevron-down-symbolic.svg (expand_more), which stays reserved
-        // for the file-tree's own expand/collapse indicator elsewhere in
-        // the project; kept as separate files so rotating one never
-        // risks the other's orientation.
-        Gtk.Button move_previous_button {
-          styles ["flat"]
-          icon-name: "chevron-up-symbolic";
-          tooltip-text: _("Previous Match");
-          focus-on-click: false;
-        }
+      // Row 1 — the search scope (which folder/glob to search within),
+      // always visible. gitignore_button/where_divider/where_entry/
+      // more_button sit in columns 0/1/2/3, same as other_buttons/the
+      // row 0 divider/search_input/search_button above them, so this
+      // row's own entry lines up under the Find row's search entry —
+      // see the Grid's own doc comment above for why that needs a Grid
+      // at all.
+      Gtk.ToggleButton gitignore_button {
+        styles ["flat"]
+        icon-name: "gitignore-symbolic";
+        tooltip-text: _("Use gitignore");
+        focus-on-click: false;
+        active: true;
+        // A lone widget in its own Grid cell defaults to halign: fill —
+        // other_buttons above doesn't need this itself since a Gtk.Box
+        // only ever paints its own children at their natural size
+        // regardless of how much cell width it's allocated, but a
+        // single button here has nothing else to hide that stretch.
+        // end, not start: column 0 is only ever this wide because of
+        // other_buttons' own 3 buttons in row 0, so hugging the start
+        // edge would leave a gap before where_divider instead of
+        // sitting flush against it.
+        halign: end;
 
-        Gtk.Button move_next_button {
-          styles ["flat"]
-          icon-name: "arrow-down-symbolic";
-          tooltip-text: _("Next Match");
-          focus-on-click: false;
+        layout {
+          column: 0;
+          row: 1;
         }
       }
 
-      // Row 1 — Replace mode only. Hidden by default; EditorView.FindBar's own
-      // show_replace()/show_find() flip `visible` on this row's widgets
-      // together. Same column as search_entry/the Previous-Next group
-      // above, so switching modes doesn't shift anything horizontally.
-      // Column 0 has nothing of its own in this row (no Preserve Case
-      // toggle) — Grid still reserves that column's width from row 0's
-      // own other_buttons, so replace_divider/replace_entry below stay
-      // aligned under search_entry regardless.
-
-      // Same class/sizing as row 0's own divider above — kept as a
-      // second, separate Separator (Grid needs one placed widget per
-      // cell) rather than trying to span one across both rows: row 0's
-      // divider sits between other_buttons and search_entry, this one
-      // plays the same role for replace_entry.
-      Gtk.Separator replace_divider {
+      // Same class/sizing as row 0's own divider above.
+      Gtk.Separator where_divider {
         orientation: vertical;
         styles ["content-divider"]
         valign: center;
         height-request: 18;
-        visible: false;
 
         layout {
           column: 1;
@@ -160,10 +165,25 @@ Gtk.SearchBar search_bar {
         }
       }
 
-      Gtk.Entry replace_entry {
+      // hexpand here (not on gitignore_button/where_divider) is what
+      // actually reaches the clamp's maximum-size (same reasoning as
+      // search_input's own hexpand, see FindBar's own doc comment on
+      // that), but only within column 2's own share of the grid, so it
+      // lines up flush with the Find row's own entry above it instead of
+      // also running under its own toggle-button column.
+      // Same idiom as .gitignore itself (checked git-scm.com/docs/
+      // gitignore) rather than a syntax of our own: leading "/" anchors
+      // to the search root, "!" negates, "**" for any depth — a
+      // developer already knows this from every .gitignore they've
+      // ever written, and it's the same mental model "Use gitignore"
+      // (gitignore_button) already applies for real via git itself.
+      // Not wired to the actual search yet — chrome for now, same
+      // "not implemented yet" state replace_button's own real Replace
+      // dialog started in before it was wired up.
+      Gtk.Entry where_entry {
         hexpand: true;
-        visible: false;
-        placeholder-text: _("Replace");
+        placeholder-text: _("Where - /src, !/build, *.js...");
+        tooltip-text: _("Comma-separated patterns, same syntax as .gitignore.");
 
         layout {
           column: 2;
@@ -171,35 +191,23 @@ Gtk.SearchBar search_bar {
         }
       }
 
-      Gtk.Box replace_actions {
-        homogeneous: true;
-        spacing: 3;
-        visible: false;
+      // Lone widget in column 3, same story as gitignore_button in
+      // column 0 above but mirrored: halign: start (not the fill
+      // default) hugs where_entry's own right edge instead of stretching
+      // across all of column 3's width (as wide as search_button's own
+      // column above it) or drifting to its far right edge. Same icon
+      // as always (more-symbolic) — only its own meaning/tooltip changed,
+      // see MainWindow's own on_add_folder_requested() for what it does.
+      Gtk.Button add_folder_button {
+        styles ["flat"]
+        icon-name: "more-symbolic";
+        tooltip-text: _("Add Folder…");
+        focus-on-click: false;
+        halign: start;
 
         layout {
           column: 3;
           row: 1;
-        }
-
-        // Material Symbols has no dedicated "replace"/"replace all"
-        // icons. replace-symbolic/replace-all-symbolic (data/icons/) are
-        // reply/reply_all (a single vs. a doubled curved arrow — the
-        // same real pairing Gmail etc. use for Reply/Reply All) rotated
-        // 180° by hand in Inkscape, baked into the SVG's own path data —
-        // same idea as GNOME Text Editor's own edit-find-replace-
-        // symbolic, minus needing a matching icon under that exact name.
-        Gtk.Button replace_button {
-          styles ["flat"]
-          icon-name: "replace-symbolic";
-          tooltip-text: _("Replace");
-          focus-on-click: false;
-        }
-
-        Gtk.Button replace_all_button {
-          styles ["flat"]
-          icon-name: "replace-all-symbolic";
-          tooltip-text: _("Replace All");
-          focus-on-click: false;
         }
       }
     };

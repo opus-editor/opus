@@ -16,6 +16,9 @@ public interface IGlobalPanel : Object {
   /** Whether this panel is currently shown. */
   public abstract bool is_open { get; }
 
+  /** The panel's own real widget — MainWindow's own set_active_bottom_panel() reparents this into whichever single-child slot a panel occupies, so only the active one is ever mounted at a time. */
+  public abstract Gtk.Widget widget { get; }
+
   /** Closes it — same effect as whatever its own dedicated close button/gesture already does. */
   public abstract void close ();
 }

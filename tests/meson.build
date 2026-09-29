@@ -40,6 +40,27 @@ file_tree_test = executable(
 )
 test('file-tree', file_tree_test)
 
+find_in_files_search_test = executable(
+  'find-in-files-search-test',
+  ['models/find-in-files-search-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('find-in-files-search', find_in_files_search_test)
+
+find_in_files_replace_test = executable(
+  'find-in-files-replace-test',
+  ['models/find-in-files-replace-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('find-in-files-replace', find_in_files_replace_test)
+
+find_in_files_scope_test = executable(
+  'find-in-files-scope-test',
+  ['models/find-in-files-scope-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('find-in-files-scope', find_in_files_scope_test)
+
 cursor_collection_test = executable(
   'cursor-collection-test',
   ['models/cursor-collection-test.vala', opus_model_sources],

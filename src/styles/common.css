@@ -1,0 +1,64 @@
+/* Adwaita ships no general-purpose "sm" size class for buttons/entries
+ * (checked its own stylesheet, ~/Downloads/libadwaita: .compact/.small
+ * exist, but scoped to ViewSwitcherBar and tabbutton's own indicator
+ * label specifically) — same explicit-override approach tab-bar.css's
+ * own .tab-close-button already uses. Default entry padding is 0 9px at
+ * min-height 34px, default button 5px 10px at min-height 32px with a
+ * 9px border-radius (_entries.scss/_buttons.scss) — cut down to a
+ * smaller, secondary-chrome size; border-radius follows the height back
+ * down too (same ~0.28 ratio as the default 9px/32px), not just left at
+ * its default 9px, which reads as too round once the box itself is this
+ * much shorter.
+ *
+ * Loaded once, app-wide, from MainWindow's own install_css() — not
+ * scoped to whichever view first happens to use it (find-results.css's
+ * own instance is created lazily, only after a first Find in Files
+ * search) — so it's available to every domain from app start, the same
+ * "shared across domains" reasoning views/components/ already applies
+ * to widget classes (src/views/CLAUDE.md). */
+.compact-control {
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* .linked normally squares off its own children's touching inner
+ * corners (checked libadwaita's real _linked.scss: `.linked > button
+ * :not(:first-child) { border-top-left-radius: 0; ... }` etc., at
+ * GTK_STYLE_PROVIDER_PRIORITY_THEME). GTK's cascade resolves a whole
+ * higher-priority tier before ever falling through to a lower one, so
+ * .compact-control's own border-radius above — installed at
+ * PRIORITY_APPLICATION (GlobalCss.install_from_resource) — wins outright
+ * on every corner regardless of selector specificity, silently
+ * un-squaring the touching corners and detaching a linked pair's join
+ * (confirmed live: this is exactly what broke Find Results' own
+ * [entry|toggle] group). Reproducing the same first-child/last-child
+ * split ourselves, at our own tier, is what actually fixes it — the
+ * theme's own rule can't apply underneath once we've touched the
+ * property at all. */
+.linked:not(.vertical) > .compact-control:dir(ltr):not(:first-child),
+.linked:not(.vertical) > .compact-control:dir(rtl):not(:last-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.linked:not(.vertical) > .compact-control:dir(ltr):not(:last-child),
+.linked:not(.vertical) > .compact-control:dir(rtl):not(:first-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* A checked GtkToggleButton's own resting fill is visibly darker than a
+ * plain button/entry's (30% vs 10% currentColor mix — confirmed in the
+ * real installed stylesheet, gresource-extracted from libadwaita-1.so's
+ * own /org/gnome/Adwaita/styles/base.css: bare `button:checked {
+ * background-color: color-mix(in srgb, currentColor 30%, transparent);
+ * }`). context_lines_toggle starts checked by default (context lines
+ * shown), right next to context_lines_entry's own 10% fill in the same
+ * linked group — that jump is what actually read as a hard seam where
+ * they meet, not the border-radius. Normalized back to the same 10% so
+ * the pair reads as one continuous control at rest; :hover/:active
+ * still darken normally, only the resting :checked fill is touched. */
+.linked > .compact-control:checked {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+}

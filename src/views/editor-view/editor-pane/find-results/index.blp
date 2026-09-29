@@ -1,0 +1,80 @@
+using Gtk 4.0;
+
+// Same "template = chrome, .vala = ViewModel" split as TextEditor's own
+// index.blp — results_view isn't declared here, it's a plain GtkSource.View
+// built in code and dropped into scrolled_window via set_child().
+Gtk.Box root {
+  orientation: vertical;
+
+  Gtk.Box header {
+    styles ["find-results-header"]
+    orientation: horizontal;
+    spacing: 6;
+
+    Gtk.Label header_label {
+      halign: start;
+      wrap: true;
+      hexpand: true;
+    }
+
+    // Opens an Adw.AlertDialog (built in code — see on_replace_button_
+    // clicked()), same centered-modal pattern as every other dialog in
+    // this app (TabBar/ExplorerPane's own confirm_* dialogs, MainWindow's
+    // show_error()), not a Gtk.Popover bubble anchored to the button.
+    // The actual cross-file replace itself isn't wired yet (see
+    // FindResults' own doc comment), only the dialog and its entry.
+    // compact-control (styles/common.css) is a shared, app-wide utility
+    // class, not specific to this view — see its own doc comment. Not
+    // "flat" — that class is what removes a button's own background
+    // until hover (checked libadwaita's own _buttons.scss), fine for the
+    // icon-only toolbar buttons elsewhere in this app but not for a
+    // labeled action button meant to read as clickable at rest.
+    Gtk.Button replace_button {
+      styles ["compact-control"]
+      label: _("Replace");
+      focus-on-click: false;
+    }
+
+    // The context-lines control — a single Gtk.Entry (not a
+    // Gtk.SpinButton: no up/down steppers in the requested layout) plus
+    // a toggle that shows/hides context without losing the typed
+    // number, same split VS Code's own Search Editor uses
+    // (contextLinesInput + showContextToggle, checked in
+    // searchWidget.ts) — unchecking doesn't clear the entry, it just
+    // searches with 0 context until re-checked.
+    Gtk.Box context_lines_group {
+      styles ["linked"]
+
+      Gtk.Entry context_lines_entry {
+        styles ["compact-control"]
+        input-purpose: number;
+        width-chars: 2;
+        max-width-chars: 3;
+        text: "1";
+        tooltip-text: _("Context Lines");
+      }
+
+      // Not "flat" either — paired with context_lines_entry's own
+      // normal (non-flat) background in the same linked group, a flat
+      // toggle here would look visually detached from it rather than
+      // reading as one joined pill.
+      Gtk.ToggleButton context_lines_toggle {
+        styles ["compact-control"]
+        icon-name: "segment-symbolic";
+        tooltip-text: _("Show Context Lines");
+        active: true;
+        focus-on-click: false;
+      }
+    }
+  }
+
+  Gtk.Separator {
+    styles ["content-divider"]
+  }
+
+  Gtk.ScrolledWindow scrolled_window {
+    vexpand: true;
+    hscrollbar-policy: automatic;
+    vscrollbar-policy: automatic;
+  }
+}
