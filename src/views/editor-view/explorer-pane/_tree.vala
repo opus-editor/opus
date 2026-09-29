@@ -462,7 +462,10 @@ namespace EditorView {
     // expandable purely from create_func returning non-null here.
     private static ListModel? on_create_model_raw (void* item, void* user_data) {
       var node = (FileNode) item;
-      if (!node.is_directory) {
+      // A New Folder placeholder is already is_directory before the user
+      // has actually named/created it — loading children for it would try
+      // to read a real directory at path "" (see known-issues.md).
+      if (!node.is_directory || node.is_editing_name) {
         return null;
       }
 
