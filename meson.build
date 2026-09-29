@@ -17,6 +17,10 @@ sourceview_dep = dependency('gtksourceview-5')
 # src/models/icon-theme.vala) — the one place in this app that reads
 # structured data it doesn't own the schema of.
 json_glib_dep = dependency('json-glib-1.0')
+# The plugin engine (src/lib/plugins/) — see src/plugins/CLAUDE.md for why
+# libpeas over a hand-rolled registry or a VS-Code-style extension host
+# (GIT_STATUS_PLUGIN_PLAN.md's own Recommendation section).
+peas_dep = dependency('libpeas-2')
 
 gnome = import('gnome')
 i18n = import('i18n')
@@ -43,11 +47,6 @@ add_project_arguments(
 
 subdir('data')
 subdir('src')
-# Self-contained plugin package, not yet wired into opus_sources — see its
-# own meson.build for why. Built/tested independently of subdir('tests')
-# below, same as this whole directory will eventually be a separate
-# loadable unit.
-subdir('src/plugins/git-status')
 subdir('po')
 subdir('tests')
 

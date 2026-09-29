@@ -19,6 +19,9 @@ public class FileNode : Object {
   /** This node is on the tree's own internal Cut clipboard, awaiting a Paste — shown dimmed until then. */
   public bool is_cut { get; set; default = false; }
 
+  /** This node's live decoration (a plugin's own tone + tooltip — git status, a future linter badge, …), or null with nothing to show. For a directory, the aggregate of every descendant anywhere in the repo, not just loaded ones — see FileDecoration.Registry, which is what actually stamps this. */
+  public FileDecoration.State? decoration { get; set; default = null; }
+
   public FileNode (string path, string name, bool is_directory) {
     this.path = path;
     this.name = name;

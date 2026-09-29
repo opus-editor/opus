@@ -155,6 +155,31 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/git-status/staged-then-deleted-file-reports-none", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var path = Path.build_filename (root_path, "a.txt");
+            FileUtils.set_contents (path, "hello");
+            run_git (root_path, { "add", "a.txt" });
+            FileUtils.remove (path);
+
+            var status = GitStatus.run (root_path);
+
+            // Real porcelain line here is "AD a.txt" — staged as added,
+            // then deleted from the worktree before ever being committed.
+            // The file is gone; classify() must not let the "A" column
+            // win over that.
+            assert (status != null);
+            assert (status.status_for (path) == GitFileStatus.NONE);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/git-status/renamed-file-attributes-status-to-the-new-path", () => {
         string root_path = "";
         try {

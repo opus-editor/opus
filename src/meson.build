@@ -5,6 +5,10 @@ opus_model_sources = files(
   'models/editor-config.vala',
   'models/edit-history.vala',
   'models/edit-history-entry.vala',
+  'models/file-decoration/tone.vala',
+  'models/file-decoration/state.vala',
+  'models/file-decoration/registry.vala',
+  'models/file-decoration/i-provider.vala',
   'models/file-node.vala',
   'models/file-tree.vala',
   'models/find-in-files-query.vala',
@@ -16,6 +20,7 @@ opus_model_sources = files(
   'models/find-in-files-replace.vala',
   'models/find-in-files-replace-result.vala',
   'models/find-in-files-scope.vala',
+  'models/i-workspace-extension.vala',
   'models/icon-theme.vala',
   'models/indent-guides.vala',
   'models/logger.vala',
@@ -25,7 +30,13 @@ opus_model_sources = files(
   'models/text-edit.vala',
   'models/user-settings.vala',
   'models/workspace.vala',
+  'models/workspace-context.vala',
 )
+
+# After opus_model_sources (git-status-provider-test, inside it, links
+# against that) but before opus_sources needs opus_plugin_sources below —
+# meson shares variable scope across subdir()s in call order.
+subdir('plugins')
 
 # Generic, app-domain-independent infrastructure — the "lib/" half of the
 # Rails-style app/ vs lib/ split (see src/lib/CLAUDE.md): may need
@@ -37,6 +48,8 @@ opus_lib_sources = files(
   'lib/global-css.vala',
   'lib/dev-server/_i-dev-server.vala',
   'lib/dev-server/index.vala',
+  'lib/plugins/engine.vala',
+  'lib/plugins/workspace-extensions.vala',
 )
 
 opus_gtk_view_sources = files(
@@ -79,16 +92,23 @@ opus_gtk_view_sources = files(
 opus_sources = files(
   'main.vala',
   'App.vala',
-) + opus_model_sources + opus_lib_sources + opus_gtk_view_sources
+) + opus_model_sources + opus_lib_sources + opus_gtk_view_sources + opus_plugin_sources
 
 # Captured (not just called for its side effect) so tests/meson.build can
 # point SystemTestSession at the real built binary via full_path() — meson
 # shares variable scope across subdir()s in call order, same as
 # opus_model_sources already being used from tests/meson.build below.
+#
+# export_dynamic: true so libpeas's embedded-plugin C loader
+# (g_module_open (NULL) against the running executable, then
+# g_module_symbol) can actually resolve an embedded plugin's own
+# Embedded= entry point — see GIT_STATUS_PLUGIN_PLAN.md's own
+# "libpeas 2 is the native answer" section.
 opus_exe = executable(
   'opus',
   opus_sources,
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep, peas_dep],
+  export_dynamic: true,
   install: true,
 )

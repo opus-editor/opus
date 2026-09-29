@@ -12,12 +12,14 @@ private class DirectoryWatch : Object {
 
 namespace EditorView {
   /**
-   * Live-tracks external changes (another app creating/deleting/renaming
-   * something) for whichever directories are actually expanded — split out
-   * of the real FileTreeController, which mixed this into the same class as
-   * CRUD/clipboard/context-menu handling. Only ever reports that a
-   * directory's own children changed; ExplorerPane owns the FileTree model
-   * needed to actually rescan it and refresh the row.
+   * Live-tracks external changes (another app creating/deleting/renaming/
+   * rewriting something) for whichever directories are actually expanded —
+   * split out of the real FileTreeController, which mixed this into the
+   * same class as CRUD/clipboard/context-menu handling. Reports either that
+   * a directory's own children changed (directory_changed — ExplorerPane
+   * owns the FileTree model needed to actually rescan it and refresh the
+   * row) or that a file's own contents were rewritten in place
+   * (content_changed — nothing to rescan, but plugins like git-status care).
    */
   public class ExplorerPaneDirWatcher : Object {
     // Long enough to absorb someone rapidly toggling a row open/closed
@@ -36,8 +38,11 @@ namespace EditorView {
     // rather than through this debounce path.
     private HashTable<string, DirectoryWatch> watches = new HashTable<string, DirectoryWatch> (str_hash, str_equal);
 
-    /** `path`'s own children changed on disk in a way that affects what its row should show — the caller is expected to rescan and call ExplorerPaneTree.refresh_children(). Not fired for a plain CHANGED (a file's contents being written), which never affects a directory's children list. */
+    /** `path`'s own children changed on disk in a way that affects what its row should show — the caller is expected to rescan and call ExplorerPaneTree.refresh_children(). */
     public signal void directory_changed (string path);
+
+    /** A file's own contents changed within a watched (expanded) directory — e.g. saved outside Opus, or a build tool rewriting it in place — without affecting `path`'s own children list (that's directory_changed's job). Exists for ExplorerPaneGitStatusWatcher-shaped consumers (currently the git-status plugin's own Provider, via WorkspaceContext): this is the single most common trigger for a stale decoration (a tracked file edited and saved without staging). */
+    public signal void content_changed (string path);
 
     public ExplorerPaneDirWatcher (ExplorerPaneTree tree, string root_path) {
       this.tree = tree;
@@ -97,7 +102,7 @@ namespace EditorView {
     private void start_watching (string path, DirectoryWatch watch) {
       try {
         watch.monitor = File.new_for_path (path).monitor_directory (FileMonitorFlags.WATCH_MOVES, null);
-        watch.monitor.changed.connect ((file, other_file, event_type) => on_directory_event (path, event_type));
+        watch.monitor.changed.connect ((file, other_file, event_type) => on_directory_event (path, file, event_type));
       } catch (Error e) {
         warning ("failed to watch %s: %s", path, e.message);
       }
@@ -111,7 +116,8 @@ namespace EditorView {
       watch.monitor = null;
     }
 
-    private void on_directory_event (string path, FileMonitorEvent event_type) {
+    /** `path` is the watched *directory* — right for directory_changed's own contract ("path's own children changed"). CHANGED is different: it's always about one specific *file* inside `path`, so content_changed reports `file`'s own path, not the directory's. */
+    private void on_directory_event (string path, File file, FileMonitorEvent event_type) {
       switch (event_type) {
         case FileMonitorEvent.CREATED:
         case FileMonitorEvent.DELETED:
@@ -119,6 +125,9 @@ namespace EditorView {
         case FileMonitorEvent.MOVED_IN:
         case FileMonitorEvent.MOVED_OUT:
           directory_changed (path);
+          break;
+        case FileMonitorEvent.CHANGED:
+          content_changed (file.get_path ());
           break;
         default:
           break;

@@ -1,0 +1,9 @@
+[Plugin]
+Module=git-status
+Name=Git Status
+Description=Colors explorer rows by their git working-tree status
+Embedded=opus_git_status_register_types
+Builtin=true
+Hidden=true
+Version=0.1.0
+Copyright=Opus contributors

@@ -19,6 +19,7 @@ namespace EditorView {
     private Gtk.Image icon;
     private Gtk.Label label;
     private Gtk.Text edit_entry;
+    private Gtk.Widget decoration_dot;
     private IconTheme icon_theme;
 
     /** Whether the current bind()'s edit has already fired edit_committed/edit_cancelled — a focus-leave following either must not re-fire it. */
@@ -47,6 +48,7 @@ namespace EditorView {
       icon = (Gtk.Image) builder.get_object ("icon");
       label = (Gtk.Label) builder.get_object ("label");
       edit_entry = (Gtk.Text) builder.get_object ("edit_entry");
+      decoration_dot = (Gtk.Widget) builder.get_object ("decoration_dot");
 
       // Connected once here, not per bind(): edit_entry is the same
       // recycled widget instance across every bind()/unbind() this row
@@ -69,6 +71,8 @@ namespace EditorView {
       bound_row = list_row;
       bound_node = node;
       resolved = false;
+
+      update_decoration (node.decoration);
 
       // Dims the whole row while this node sits on the tree's internal
       // Cut clipboard, awaiting a Paste — same idea as a dimmed row in
@@ -120,6 +124,41 @@ namespace EditorView {
       expander.list_row = null;
       bound_row = null;
       bound_node = null;
+    }
+
+    /** Toggles the dot's visibility and swaps its `tone-<name>` CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
+    private void update_decoration (FileDecoration.State? decoration) {
+      decoration_dot.visible = decoration != null;
+      decoration_dot.remove_css_class ("tone-accent");
+      decoration_dot.remove_css_class ("tone-success");
+      decoration_dot.remove_css_class ("tone-warning");
+      decoration_dot.remove_css_class ("tone-alert");
+      decoration_dot.remove_css_class ("tone-error");
+      decoration_dot.tooltip_text = decoration?.tooltip ?? "";
+
+      if (decoration == null) {
+        return;
+      }
+
+      switch (decoration.tone) {
+        case FileDecoration.Tone.ACCENT:
+          decoration_dot.add_css_class ("tone-accent");
+          break;
+        case FileDecoration.Tone.SUCCESS:
+          decoration_dot.add_css_class ("tone-success");
+          break;
+        case FileDecoration.Tone.WARNING:
+          decoration_dot.add_css_class ("tone-warning");
+          break;
+        case FileDecoration.Tone.ALERT:
+          decoration_dot.add_css_class ("tone-alert");
+          break;
+        case FileDecoration.Tone.ERROR:
+          decoration_dot.add_css_class ("tone-error");
+          break;
+        default:
+          break;
+      }
     }
 
     private bool on_edit_key_pressed (uint keyval, uint keycode, Gdk.ModifierType state) {

@@ -61,6 +61,7 @@ src/
   App.vala    the Adw.Application — owns every open MainWindow, settings, DevServer
   models/     see src/models/CLAUDE.md
   lib/        generic infra, independent of Opus's own domain — see src/lib/CLAUDE.md
+  plugins/    libpeas plugins, one directory each — see src/plugins/CLAUDE.md
   styles/     .css loaded by resource — see src/views/CLAUDE.md
   views/      see src/views/CLAUDE.md
 data/         .desktop file, GResource XML, icons
@@ -75,4 +76,8 @@ data/         .desktop file, GResource XML, icons
 - Models never import `Gtk`/`Adw` — only `views/` does (`src/lib/` is
   the exception, generic infra that needs it for its own task — see
   `src/lib/CLAUDE.md`).
+- A plugin (`src/plugins/`) is Model-grade code, discovered/loaded through
+  `src/lib/plugins/`'s libpeas engine — talks to the host only through
+  `WorkspaceContext` and its own extension-point interface(s) in
+  `src/models/`, never by importing a View. See `src/plugins/CLAUDE.md`.
 - Read the directory-local `CLAUDE.md` before touching a layer.

@@ -25,6 +25,7 @@ namespace EditorView {
     private ExplorerPaneInlineEdit inline_edit;
     private ExplorerPaneDirWatcher dir_watcher;
     private ExplorerPaneDragDrop drag_drop;
+    private FileDecoration.Registry decorations;
 
     // The tree's own internal Cut/Copy clipboard — never the system
     // clipboard (copy_to_clipboard()/Copy Path are the only things that
@@ -47,8 +48,9 @@ namespace EditorView {
     /** `old_path` moved to `new_path` on disk — a Rename, or a Cut+Paste (menu or drag) actually moving something rather than copying it. */
     public signal void file_moved (string old_path, string new_path);
 
-    public ExplorerPane (string root_path) throws Error {
+    public ExplorerPane (string root_path, WorkspaceContext context, FileDecoration.Registry decorations) throws Error {
       this.root_path = root_path;
+      this.decorations = decorations;
       model = new FileTree (root_path);
 
       var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/explorer-pane/index.ui");
@@ -78,7 +80,14 @@ namespace EditorView {
       inline_edit.rename_entry_requested.connect (on_rename_entry_requested);
 
       dir_watcher.directory_changed.connect (on_directory_changed);
+      // Both re-broadcast to context (for plugins, e.g. git-status's own
+      // Provider) — content_changed has no other consumer inside this
+      // class, directory_changed already does (on_directory_changed above).
+      dir_watcher.directory_changed.connect ((path) => context.directory_changed (path));
+      dir_watcher.content_changed.connect ((path) => context.file_content_changed (path));
       drag_drop.moved_via_drag.connect ((source_path, target_path) => do_paste (source_path, true, target_path));
+
+      decorations.changed.connect (on_decorations_changed);
     }
 
     /** "Reveal in Sidebar" from a tab's context menu. */
@@ -91,18 +100,60 @@ namespace EditorView {
       return tree.get_optimal_width ();
     }
 
-    /** Cancels every pending debounce timer and active filesystem watch — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). */
+    /** Cancels every pending debounce timer and active filesystem watch, and disconnects from `decorations` (owned by MainWindow, outlives this pane) — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). Without this, the closure this pane never held a matching disconnect for would keep it (and its whole FileTree) alive for as long as `decorations` itself is, and could still call tree.rebind() on a pane the rest of the app has already discarded. */
     public void close () {
       dir_watcher.close ();
+      decorations.changed.disconnect (on_decorations_changed);
     }
 
-    /** Answers ExplorerPaneTree.children_load_requested() synchronously — the one place FileTree's own lazy, one-level-at-a-time scanning actually gets triggered. A no-op if `node` was already scanned (FileTree.ensure_children_loaded() checks that itself). */
+    /**
+     * Answers ExplorerPaneTree.children_load_requested() synchronously —
+     * the one place FileTree's own lazy, one-level-at-a-time scanning
+     * actually gets triggered. A no-op if `node` was already scanned
+     * (FileTree.ensure_children_loaded() checks that itself).
+     *
+     * Also stamps each newly materialized child's own decoration from the
+     * current snapshot — this fires strictly before any of those
+     * children's rows ever bind (children_load_requested() runs
+     * synchronously inside on_create_model_raw(), before it builds that
+     * row's own ListStore), so the very first bind() any of them gets
+     * already shows the right decoration, with no rebind() round-trip
+     * needed.
+     */
     private void on_children_load_requested (FileNode node) {
       try {
         model.ensure_children_loaded (node);
       } catch (Error e) {
         show_error (_("Couldn’t read “%s”: %s").printf (node.name, e.message));
+        return;
       }
+
+      for (uint i = 0; i < node.children.length; i++) {
+        var child = node.children[i];
+        child.decoration = decorations.decoration_for (child.path, child.is_directory);
+      }
+    }
+
+    /** A plugin's own decorations changed somewhere — re-stamps every already-materialized node from the fresh registry snapshot, pushing only the ones that actually changed into their own row (ExplorerPaneTree.rebind() is a no-op for anything not currently expanded/visible). */
+    private void on_decorations_changed () {
+      model.each_loaded_node ((node) => {
+        var new_decoration = decorations.decoration_for (node.path, node.is_directory);
+        if (decoration_equal (node.decoration, new_decoration)) {
+          return;
+        }
+        node.decoration = new_decoration;
+        tree.rebind (node);
+      });
+    }
+
+    private static bool decoration_equal (FileDecoration.State? a, FileDecoration.State? b) {
+      if (a == b) {
+        return true; // same reference, or both null
+      }
+      if (a == null || b == null) {
+        return false;
+      }
+      return a.tone == b.tone && a.tooltip == b.tooltip;
     }
 
     /**

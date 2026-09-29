@@ -25,6 +25,18 @@ public class MainWindow : Object {
   private EditorView.FindInFilesBar find_in_files_bar;
   private EditorView.ExplorerPane? explorer_pane = null;
 
+  // The plugin-decoration plumbing for whichever folder is currently
+  // linked — owned here, not by ExplorerPane, since it must outlive a
+  // single linked folder the day a second consumer (e.g. tab tinting)
+  // wants it too; ExplorerPane itself is torn down and rebuilt on every
+  // link_folder()/unlink_folder() (see GIT_STATUS_PLUGIN_PLAN.md's own
+  // "Host wiring" section for the full reasoning). All three recreated
+  // together in link_folder(), all three torn down together in
+  // teardown_workspace_extensions().
+  private WorkspaceContext? workspace_context = null;
+  private FileDecoration.Registry? decorations = null;
+  private Opus.Plugins.WorkspaceExtensions? decoration_providers = null;
+
   /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
   private IGlobalPanel? active_bottom_panel = null;
 
@@ -187,6 +199,7 @@ public class MainWindow : Object {
       if (explorer_pane != null) {
         explorer_pane.close ();
       }
+      teardown_workspace_extensions ();
       editor_pane.close ();
       settings_monitor?.cancel ();
       closed ();
@@ -273,8 +286,32 @@ public class MainWindow : Object {
    * leaves this window exactly as it was.
    */
   public void link_folder (string path) throws Error {
-    var new_explorer_pane = new EditorView.ExplorerPane (path);
+    // Built into locals first, not the real fields — ExplorerPane's own
+    // constructor is what can actually throw (an unreadable path), and
+    // this class's own doc comment above promises a failure here leaves
+    // the window exactly as it was. Nothing below this point touches the
+    // old workspace_context/decorations/decoration_providers/
+    // explorer_pane until the new ExplorerPane has already been built
+    // successfully.
+    var new_workspace_context = new WorkspaceContext (path);
+    var new_decorations = new FileDecoration.Registry (path);
+    var new_decoration_providers = new Opus.Plugins.WorkspaceExtensions (typeof (FileDecoration.IProvider), new_workspace_context);
+    new_decoration_providers.added.connect ((e) => new_decorations.add_provider ((FileDecoration.IProvider) e));
+    new_decoration_providers.removed.connect ((e) => new_decorations.remove_provider ((FileDecoration.IProvider) e));
+
+    EditorView.ExplorerPane new_explorer_pane;
+    try {
+      new_explorer_pane = new EditorView.ExplorerPane (path, new_workspace_context, new_decorations);
+    } catch (Error e) {
+      new_decoration_providers.close ();
+      throw e;
+    }
     wire_explorer_pane (new_explorer_pane);
+
+    teardown_workspace_extensions ();
+    workspace_context = new_workspace_context;
+    decorations = new_decorations;
+    decoration_providers = new_decoration_providers;
 
     if (explorer_pane != null) {
       explorer_pane.close ();
@@ -296,11 +333,22 @@ public class MainWindow : Object {
 
     explorer_pane.close ();
     explorer_pane = null;
+    teardown_workspace_extensions ();
     sidebar_bin.child = null;
     has_linked_folder = false;
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     update_folder_dependent_ui ();
+  }
+
+  /** Deactivates and drops every plugin extension for whichever folder was linked, if any — a no-op with none (a plain "no folder yet" window). Called before constructing a fresh trio in link_folder() too, not just on unlink/close, so a folder-switch never leaves the previous one's plugins running alongside the new one's. */
+  private void teardown_workspace_extensions () {
+    if (decoration_providers != null) {
+      decoration_providers.close ();
+    }
+    decoration_providers = null;
+    decorations = null;
+    workspace_context = null;
   }
 
   /** Opens `path` as a permanent tab right at startup (`opus <file>`) — failures are reported through this same window's own show_error() rather than left for main.vala to handle, since main.vala no longer holds a reference to anything that could report one itself. */

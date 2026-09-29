@@ -16,6 +16,8 @@
  * included like any other entry, except `.git` — never useful to browse or
  * edit, so it's excluded outright rather than just hidden.
  */
+public delegate void FileNodeVisitor (FileNode node);
+
 public class FileTree : Object {
   private const string ENTRY_ATTRIBUTES = FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE;
   private const string EXCLUDED_ENTRY = ".git";
@@ -37,6 +39,21 @@ public class FileTree : Object {
   /** Finds the node at `path` within this tree, or null if there isn't one. */
   public FileNode? find (string path) {
     return find_in (root, path);
+  }
+
+  /** Visits every FileNode currently materialized in memory — root, plus any directory's children once scanned (FileNode.children_loaded), recursively. Skips an unscanned directory's own not-yet-known children: nothing to visit there yet, and nothing needs it either — a directory materialized later gets its own decoration stamped fresh at that point instead (see ExplorerPane.on_children_load_requested()). */
+  public void each_loaded_node (FileNodeVisitor visit) {
+    each_loaded_node_in (root, visit);
+  }
+
+  private static void each_loaded_node_in (FileNode node, FileNodeVisitor visit) {
+    visit (node);
+    if (!node.children_loaded) {
+      return;
+    }
+    for (uint i = 0; i < node.children.length; i++) {
+      each_loaded_node_in (node.children[i], visit);
+    }
   }
 
   private static FileNode? find_in (FileNode node, string path) {

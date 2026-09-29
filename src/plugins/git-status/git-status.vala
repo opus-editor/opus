@@ -36,6 +36,11 @@ public class GitStatus : Object {
     return file_status_label[path];
   }
 
+  /** Every path this snapshot has an opinion about — every one of these has a non-NONE status_for() (a NONE entry is never inserted, see parse()). Provider.current_decorations() walks this to build its own full-set answer. */
+  public List<unowned string> paths () {
+    return file_status.get_keys ();
+  }
+
   /**
    * Synchronous core — mirrors FindInFilesSearch.git_tracked_files()'s own
    * subprocess idiom exactly (SubprocessLauncher + spawnv +
@@ -146,6 +151,16 @@ public class GitStatus : Object {
       label = _("Conflicted");
       return GitFileStatus.CONFLICT;
     }
+    // Checked before the untracked/added-only rules below: an "AD" entry
+    // (staged as added, then deleted from the worktree before commit) is
+    // still nothing to attach a live decoration to — the file is gone —
+    // regardless of what its X column says. Confirmed live: `git init &&
+    // echo hi > f.txt && git add f.txt && rm f.txt && git status
+    // --porcelain --untracked-files=all` prints exactly "AD f.txt".
+    if (x == 'D' || y == 'D') {
+      label = "";
+      return GitFileStatus.NONE;
+    }
     if (x == '?' || y == '?') {
       label = _("Untracked");
       return GitFileStatus.NEW;
@@ -153,10 +168,6 @@ public class GitStatus : Object {
     if (x == 'A') {
       label = _("Added");
       return GitFileStatus.NEW;
-    }
-    if (x == 'D' || y == 'D') {
-      label = "";
-      return GitFileStatus.NONE;
     }
     if (x == 'R') {
       label = _("Renamed");

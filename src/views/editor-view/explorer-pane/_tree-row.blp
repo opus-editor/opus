@@ -29,6 +29,18 @@ Gtk.Box row {
         visible: false;
         opacity: 0.75;
       }
+
+      // A plugin's own decoration (git status, a future linter badge, …)
+      // — see ExplorerPaneTreeRow.update_decoration(). label's own
+      // hexpand: true already consumes the row's remaining width up to
+      // here, so this small fixed-size sibling lands pinned to the
+      // row's true right edge with no further layout needed.
+      Gtk.Box decoration_dot {
+        valign: center;
+        visible: false;
+
+        styles ["decoration-dot"]
+      }
     };
   }
 }

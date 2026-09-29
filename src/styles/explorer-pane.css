@@ -80,3 +80,45 @@ listview.data-table row:selected:not(:focus) {
 .file-tree-root-label {
   font-weight: bold;
 }
+/* A plugin's own decoration (git status, a future linter badge, …) — a
+ * small filled circle, right-aligned on the row. Colors start from
+ * libadwaita's own named "platform colors" (same family as
+ * --accent-color), not hardcoded RGB, so the base hue still tracks
+ * light/dark and the user's own accent choice; --error-color/
+ * --success-color/--warning-color are the saturated, icon/dot-appropriate
+ * variant, distinct from e.g. --warning-bg-color's pill/banner-background
+ * one .reveal-flash above uses. Each is then mixed 50% with transparent
+ * (color-mix(), already used by .drag-hover above and confirmed to nest
+ * cleanly — unlike light-dark(), see docs/decisions.md) — tried mixing
+ * with black first, which read badly in light mode (turned muddy rather
+ * than just duller); halving alpha instead lets the row's own background
+ * show through, so the dot stays a toned-down version of the same hue in
+ * both themes rather than sliding toward black regardless of theme.
+ * .tone-alert has no libadwaita platform color to reach for at all (none
+ * of them is orange), so it's derived by mixing --warning-color and
+ * --error-color first, then that same transparent-mix toning applied on
+ * top, nested.
+ * margin-right, not margin-inline-end: GTK4's CSS box model is
+ * physical-only, no logical margin properties (confirmed live — "No
+ * property named margin-inline-end"). */
+.decoration-dot {
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 6px;
+  margin-right: 4px;
+}
+.decoration-dot.tone-accent {
+  background-color: color-mix(in srgb, var(--accent-color) 50%, transparent);
+}
+.decoration-dot.tone-success {
+  background-color: color-mix(in srgb, var(--success-color) 50%, transparent);
+}
+.decoration-dot.tone-warning {
+  background-color: color-mix(in srgb, var(--warning-color) 50%, transparent);
+}
+.decoration-dot.tone-alert {
+  background-color: color-mix(in srgb, color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%) 50%, transparent);
+}
+.decoration-dot.tone-error {
+  background-color: color-mix(in srgb, var(--error-color) 50%, transparent);
+}

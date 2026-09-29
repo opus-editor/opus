@@ -15,6 +15,7 @@
 public class App : Adw.Application {
   private GLib.Settings settings;
   private GenericArray<MainWindow> windows = new GenericArray<MainWindow> ();
+  private Opus.Plugins.Engine plugins_engine;
 
   #if DEBUG
   // See src/lib/CLAUDE.md's own note on why Opus.Dev.DevServer lives
@@ -59,6 +60,11 @@ public class App : Adw.Application {
    */
   public override void startup () {
     base.startup ();
+
+    // Before any window (and therefore any MainWindow-owned
+    // Opus.Plugins.WorkspaceExtensions) can be built — every built-in
+    // plugin is discovered/loaded exactly once, process-wide.
+    plugins_engine = new Opus.Plugins.Engine ();
 
     // One-way (settings -> style manager): the reverse never happens
     // through this app, since nothing here ever sets color_scheme

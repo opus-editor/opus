@@ -404,4 +404,7 @@
     <file alias="scalable/actions/search-symbolic.svg" compressed="true">icons/scalable/actions/search-symbolic.svg</file>
     <file alias="scalable/actions/content-lines-symbolic.svg" compressed="true">icons/scalable/actions/content-lines-symbolic.svg</file>
   </gresource>
+  <gresource prefix="/io/github/nowaos/Opus/plugins">
+    <file alias="git-status/git-status.plugin">plugins/git-status/git-status.plugin</file>
+  </gresource>
 </gresources>
