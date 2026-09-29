@@ -43,6 +43,11 @@ add_project_arguments(
 
 subdir('data')
 subdir('src')
+# Self-contained plugin package, not yet wired into opus_sources — see its
+# own meson.build for why. Built/tested independently of subdir('tests')
+# below, same as this whole directory will eventually be a separate
+# loadable unit.
+subdir('src/plugins/git-status')
 subdir('po')
 subdir('tests')
 
