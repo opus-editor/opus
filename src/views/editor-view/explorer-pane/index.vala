@@ -220,8 +220,7 @@ namespace EditorView {
       tree.refresh_children (parent.path, parent.children);
       inline_edit.on_children_refreshed (parent.path);
       // refresh_children() just replaced `node` with `renamed` in the
-      // tree's own model — same selection-invalidating effect as
-      // ExplorerPaneInlineEdit.cancel_rename()'s own rebind(), see
+      // tree's own model, invalidating the selection — see
       // ExplorerPaneTree.focus_path()'s own comment for why this matters.
       tree.focus_path (renamed.path);
       file_moved (path, renamed.path);

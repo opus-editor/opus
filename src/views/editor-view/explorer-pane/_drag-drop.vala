@@ -9,7 +9,10 @@ namespace EditorView {
    * out): FileDrag.make_source() resolves the dragged row on drag-start;
    * the Gtk.DropTarget highlights the hovered folder, auto-expands it after
    * a delay, and emits moved_via_drag on drop for ExplorerPane to turn into
-   * an actual move.
+   * an actual move. Hovering a *file* instead redirects to its own parent
+   * folder — highlighted and dropped onto the same way — since a file has
+   * nowhere of its own to receive a drop; see drag_target_node()'s own
+   * doc comment.
    */
   public class ExplorerPaneDragDrop : Object {
     // Long enough that just passing over a folder while aiming for one of
@@ -50,18 +53,20 @@ namespace EditorView {
     }
 
     /**
-     * Highlights the folder row directly under the pointer and starts (or
-     * restarts, on moving to a different row) the auto-expand timer for it.
-     * Only a directory — or the tree's own background, meaning the
-     * workspace root — is a valid drop target; hovering a file row shows
-     * the "no drop" cursor and never highlights, since dropping there would
-     * just be rejected by on_drag_drop() below.
+     * Highlights whatever row represents the actual drop target (see
+     * drag_target_widget()'s own doc comment) and starts (or restarts, on
+     * moving to a different row) the auto-expand timer for it. Every hover
+     * is now a valid drop target — a directory, a file (redirects to its
+     * own parent), or the tree's own background (the workspace root) — so
+     * this always allows MOVE, unlike a plain Gtk.DropTarget's own default
+     * of rejecting whatever its snapshot function doesn't explicitly opt
+     * into.
      */
     private Gdk.DragAction on_drag_motion (double x, double y) {
       var widget = tree.row_widget_at (x, y);
       var node = tree.node_at (x, y);
 
-      var target_widget = (node != null && node.is_directory) ? tree.native_row_widget (widget) : null;
+      var target_widget = drag_target_widget (widget, node);
       if (target_widget != drag_hover_widget) {
         tree.set_drag_hover (drag_hover_widget, false);
         drag_hover_widget = target_widget;
@@ -69,10 +74,36 @@ namespace EditorView {
       }
       reset_hover_expand_timer (tree.row_at (x, y), node);
 
-      if (widget == null) {
-        return Gdk.DragAction.MOVE; // background — drop lands in the workspace root
+      return Gdk.DragAction.MOVE;
+    }
+
+    /**
+     * The row to highlight for whatever's currently under the pointer —
+     * `node`'s own row for a directory (already the widget the pointer hit
+     * directly, `widget_at_pointer`, no separate lookup needed), its
+     * *parent's* row for a file (a file has nowhere of its own to receive
+     * a drop — see drag_target_path()), or nothing whenever there's no
+     * row to point at (`node == null`, the tree's own background, meaning
+     * the workspace root, which isn't a row itself). A file's own parent
+     * is always already realized as a real row: the file being visible at
+     * all already means that parent is expanded.
+     */
+    private Gtk.Widget? drag_target_widget (Gtk.Widget? widget_at_pointer, FileNode? node) {
+      if (node == null) {
+        return null;
       }
-      return node != null && node.is_directory ? Gdk.DragAction.MOVE : 0;
+      if (node.is_directory) {
+        return tree.native_row_widget (widget_at_pointer);
+      }
+      return tree.native_row_widget (tree.row_widget_for_path (Path.get_dirname (node.path)));
+    }
+
+    /** The directory a drop under `node` actually lands in: `node` itself if it's already a directory, its own parent if it's a file, or the workspace root over the tree's empty background (`node == null`). */
+    private string drag_target_path (FileNode? node) {
+      if (node == null) {
+        return tree.root_node.path;
+      }
+      return node.is_directory ? node.path : Path.get_dirname (node.path);
     }
 
     private void on_drag_leave () {
@@ -114,20 +145,21 @@ namespace EditorView {
       }
 
       var target = tree.node_at (x, y);
-      if (target != null && !target.is_directory) {
-        return false;
-      }
 
-      // Dropped a folder directly onto itself — almost always the user
+      // A folder dropped directly onto itself — almost always the user
       // starting a drag, changing their mind, and letting go right back
-      // where they picked it up, not a real move attempt.
-      if (target != null && target.path == payload.path) {
+      // where they picked it up, not a real move attempt. Only meaningful
+      // for a directory target: a file "dropped onto itself" already
+      // resolves to its own parent below, caught by the next check instead.
+      if (target != null && target.is_directory && target.path == payload.path) {
         return true;
       }
 
-      var target_path = target == null ? tree.root_node.path : target.path;
+      var target_path = drag_target_path (target);
 
-      // Dropped back into the folder it's already in — also a no-op.
+      // Dropped back into the folder it's already in — also a no-op
+      // (covers a file dropped onto itself, or onto a sibling file, too,
+      // once resolved to that shared parent above).
       if (Path.get_dirname (payload.path) == target_path) {
         return true;
       }

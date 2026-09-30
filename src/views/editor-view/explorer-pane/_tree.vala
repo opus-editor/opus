@@ -36,6 +36,11 @@ namespace EditorView {
     // own comment for why this exists at all.
     private bool navigated_by_keyboard = false;
 
+    // True for the whole span of a refresh_children() call — see its own
+    // doc comment for why on_selection_changed() needs to tell that apart
+    // from a real click/keyboard move too.
+    private bool syncing_children = false;
+
     // "Symbols" hardcoded for now — a future "pick a different icon
     // theme" feature would swap this constructor call (or make it
     // settable), not anything downstream: every row already resolves its
@@ -266,13 +271,15 @@ namespace EditorView {
 
     /**
      * select_path() plus real keyboard focus (see reveal_path()'s own
-     * comment on why those two aren't the same thing) — needed after
-     * rebind()'s own remove+insert dance (rename entering/leaving edit
-     * mode, in either direction) invalidates Gtk.SingleSelection's own
-     * `selected` the same way any other structural change would, which
-     * otherwise silently starves the key_nav_controller above: with
-     * nothing selected *and* focused, F2/Delete's own selected_node()
-     * finds nothing to act on the next time either is pressed.
+     * comment on why those two aren't the same thing) — needed once a
+     * rename leaves edit mode, in either direction: a committed one has
+     * refresh_children() replace the node (invalidating
+     * Gtk.SingleSelection's own `selected` the way any structural change
+     * does), and a cancelled one hides the focused entry, dropping real
+     * focus off the row. Either way the key_nav_controller above would
+     * otherwise be silently starved: with nothing selected *and* focused,
+     * F2/Delete's own selected_node() finds nothing to act on the next
+     * time either is pressed.
      */
     public void focus_path (string path) {
       uint position;
@@ -325,7 +332,7 @@ namespace EditorView {
      * to focus yet), while this same call succeeds once run from here.
      */
     private void flash_path (string path) {
-      var widget = find_realized_row_widget (list_view, path);
+      var widget = find_realized_row_widget (list_view, (row) => row.bound_node.path == path);
       var row_widget = widget == null ? null : native_row_widget (widget);
       if (row_widget == null) {
         return;
@@ -344,15 +351,17 @@ namespace EditorView {
       });
     }
 
-    /** Finds `path`'s currently-realized row widget, if any — list virtualization means most paths don't have one at all. */
-    private static Gtk.Widget? find_realized_row_widget (Gtk.Widget root, string path) {
+    private delegate bool BoundRowPredicate (ExplorerPaneTreeRow row);
+
+    /** Finds the currently-realized, bound row widget `matches` accepts, if any — list virtualization means most nodes don't have one at all. */
+    private static Gtk.Widget? find_realized_row_widget (Gtk.Widget root, BoundRowPredicate matches) {
       var row = root.get_data<ExplorerPaneTreeRow?> ("row");
-      if (row != null && row.bound_node != null && row.bound_node.path == path) {
+      if (row != null && row.bound_node != null && matches (row)) {
         return root;
       }
 
       for (var child = root.get_first_child (); child != null; child = child.get_next_sibling ()) {
-        var found = find_realized_row_widget (child, path);
+        var found = find_realized_row_widget (child, matches);
         if (found != null) {
           return found;
         }
@@ -476,9 +485,9 @@ namespace EditorView {
       return store;
     }
 
-    /** A single click (or the first click of a double-click) changed the selected row. Arrow-key navigation lands here too but should only move the highlight, not also toggle a directory or open a preview. */
+    /** A single click (or the first click of a double-click) changed the selected row. Arrow-key navigation lands here too but should only move the highlight, not also toggle a directory or open a preview — and a refresh_children() call reshuffling the selected row's own position shouldn't land here at all, see its own doc comment. */
     private void on_selection_changed (uint position, uint n_items) {
-      if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+      if (selection.selected == Gtk.INVALID_LIST_POSITION || syncing_children) {
         return;
       }
 
@@ -572,6 +581,11 @@ namespace EditorView {
         widget = widget.get_parent ();
       }
       return null;
+    }
+
+    /** Same shape as row_widget_at() (the raw bound widget, not yet native_row_widget()'s own wrapper), but by path instead of pointer position — ExplorerPaneDragDrop's own way to highlight a file's parent folder while it isn't the row directly under the pointer. Needs the row already visible (its own parent already expanded); doesn't expand anything to find it the way find_position() does, so most paths simply have none right now (list virtualization). */
+    public Gtk.Widget? row_widget_for_path (string path) {
+      return find_realized_row_widget (list_view, (row) => row.bound_node.path == path);
     }
 
     /**
@@ -669,14 +683,27 @@ namespace EditorView {
       return stores_by_path[path];
     }
 
-    /** Forces whatever row is currently showing `node` to re-bind — a plain remove+reinsert is how a GListModel is told "re-bind whatever's showing for this item" (used for a Rename's own pre-fill, and for the Cut clipboard's dim toggling). */
+    /**
+     * Re-runs bind() on whatever row widget is currently showing `node`
+     * — its decoration, Cut dimming, or is_editing_name changed underneath
+     * it. A node with no realized row needs nothing: its next bind() reads
+     * the fresh state anyway.
+     *
+     * Deliberately not a remove+reinsert on the parent store, the usual
+     * GListModel idiom for "re-bind this item": Gtk.TreeListModel answers
+     * any removal by tearing down that item's whole subtree — expanded
+     * state included — and builds a fresh, collapsed one for the
+     * reinserted item, so rebinding an expanded directory that way
+     * collapsed it. Bit hard once the git-status plugin's decoration for
+     * a folder changed right after a file was dropped into it.
+     */
     public void rebind (FileNode node) {
-      var store = stores_by_path[Path.get_dirname (node.path)];
-      uint position = 0;
-      if (store != null && store.find (node, out position)) {
-        store.remove (position);
-        store.insert (position, node);
+      var widget = find_realized_row_widget (list_view, (row) => row.bound_node == node);
+      if (widget == null) {
+        return;
       }
+      var row = widget.get_data<ExplorerPaneTreeRow> ("row");
+      row.bind (row.bound_row, node);
     }
 
     /**
@@ -686,12 +713,23 @@ namespace EditorView {
      * than clearing and rebuilding it outright: a plain remove_all() tears
      * down every row in this directory in one shot, collapsing any
      * expanded subfolder among *unrelated* siblings.
+     *
+     * Wrapped in syncing_children so on_selection_changed() can tell this
+     * apart from a real click/keyboard move: removing/inserting items
+     * here — even ones that leave the actually-selected node untouched —
+     * makes Gtk.SingleSelection re-fire selection_changed for whatever sits
+     * at the selected position regardless, and without this guard that
+     * handler would read it as the user just clicking that row.
      */
     public void refresh_children (string parent_path, GenericArray<FileNode> children) {
       var store = stores_by_path[parent_path];
-      if (store != null) {
-        sync_store (store, children);
+      if (store == null) {
+        return;
       }
+
+      syncing_children = true;
+      sync_store (store, children);
+      syncing_children = false;
     }
 
     /**
