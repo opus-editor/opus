@@ -21,6 +21,14 @@
  */
 namespace EditorView.EditorPane_ {
   public class FindResults : Object {
+    // render()'s own "  N: " line-number prefix pads every number in a
+    // file's own listing to at least this many digits (right-aligned),
+    // widening per file if its own largest line number needs more —
+    // keeps every ":" in that file's block lined up instead of drifting
+    // with each digit a line number gains, without doing it globally
+    // across unrelated files that have no reason to share a column.
+    private const int MIN_LINE_NUMBER_WIDTH = 3;
+
     private Gtk.Box root;
     private Gtk.Label header_label;
     private Gtk.ToggleButton replace_button;
@@ -425,7 +433,7 @@ namespace EditorView.EditorPane_ {
       // rather than a hardcoded gray, so it reads correctly in both
       // light and dark without its own light/dark branch.
       var line_number_color = code_editor.widget.get_color ();
-      line_number_color.alpha = dark ? 0.75f : 0.55f;
+      line_number_color.alpha = dark ? 0.5f : 0.35f;
       line_number_tag.foreground_rgba = line_number_color;
 
       // Same technique CodeEditorSearch's own apply_theme_colors() uses
@@ -518,12 +526,19 @@ namespace EditorView.EditorPane_ {
         text.append (":\n");
         offset += 2;
 
+        int max_line_number = 0;
+        foreach (var each_block in file.blocks) {
+          max_line_number = int.max (max_line_number, each_block.start_line + each_block.lines.length - 1);
+        }
+        int line_number_width = int.max (MIN_LINE_NUMBER_WIDTH, max_line_number.to_string ().length);
+
         for (uint block_index = 0; block_index < file.blocks.length; block_index++) {
           var block = file.blocks[block_index];
           var line_start_offsets = new int[block.lines.length];
           for (int i = 0; i < block.lines.length; i++) {
             var line_number = block.start_line + i;
-            var prefix = "  %d: ".printf (line_number);
+            var digits = line_number.to_string ();
+            var prefix = "  %s%s: ".printf (string.nfill (line_number_width - digits.length, ' '), digits);
             int prefix_start = offset;
             text.append (prefix);
             offset += prefix.char_count ();
