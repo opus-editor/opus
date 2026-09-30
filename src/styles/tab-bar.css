@@ -76,29 +76,31 @@
 }
 
 /* A plugin's own decoration (git status, a future linter badge, …) —
- * tints the tab's own label text, same tone vocabulary as
- * ExplorerPaneTreeRow's own dot (src/styles/explorer-pane.css), but
- * mixed against `currentColor` instead of `transparent`: the dot sits on
- * a flat row background, so blending toward transparent reads as "a
- * softer version of that background". Text has no such single backdrop
- * to blend into — `currentColor` resolves to whatever this label's own
- * text color already is (light/dark theme, active/inactive state, all
- * already resolved by inheritance before this rule runs), so the tint
- * reads as "this tone, but still clearly this app's own text color" in
- * both themes, rather than one flat literal that only happens to work
- * against one of them. */
+ * tints the tab's own label text, same git-status color source as
+ * ExplorerPaneTreeRow's own dot (common.css's shared pure-hue
+ * --git-*-color tokens), but mixed against `currentColor` instead of
+ * `transparent`: the dot sits on a flat row background, so blending
+ * toward transparent reads as "a softer version of that background".
+ * Text has no such single backdrop to blend into — `currentColor`
+ * resolves to whatever this label's own text color already is
+ * (light/dark theme, active/inactive state, all already resolved by
+ * inheritance before this rule runs), so the tint reads as "this tone,
+ * but still clearly this app's own text color" in both themes, rather
+ * than one flat literal that only happens to work against one of them.
+ * tone-accent has no git-status meaning (see explorer-pane.css's own
+ * comment), so it stays its own literal mix. */
 .tab-pill label.tone-accent {
   color: color-mix(in srgb, var(--accent-color) 75%, currentColor);
 }
-.tab-pill label.tone-success {
-  color: color-mix(in srgb, var(--success-color) 75%, currentColor);
+.tab-pill label.git-added {
+  color: color-mix(in srgb, var(--git-added-color) 75%, currentColor);
 }
-.tab-pill label.tone-warning {
-  color: color-mix(in srgb, var(--warning-color) 75%, currentColor);
+.tab-pill label.git-modified {
+  color: color-mix(in srgb, var(--git-modified-color) 75%, currentColor);
 }
-.tab-pill label.tone-alert {
-  color: color-mix(in srgb, color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%) 75%, currentColor);
+.tab-pill label.git-conflict {
+  color: color-mix(in srgb, var(--git-conflict-color) 75%, currentColor);
 }
-.tab-pill label.tone-error {
-  color: color-mix(in srgb, var(--error-color) 75%, currentColor);
+.tab-pill label.git-removed {
+  color: color-mix(in srgb, var(--git-removed-color) 75%, currentColor);
 }

@@ -9,4 +9,5 @@
 [CCode (cname = "opus_git_status_register_types")]
 public void opus_git_status_register_types (Peas.ObjectModule module) {
   module.register_extension_type (typeof (FileDecoration.IProvider), typeof (Opus.Plugins.GitStatus.Provider));
+  module.register_extension_type (typeof (GitDiff.IBaseProvider), typeof (Opus.Plugins.GitStatus.DiffBaseProvider));
 }

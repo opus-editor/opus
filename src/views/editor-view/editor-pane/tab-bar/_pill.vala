@@ -102,13 +102,13 @@ namespace EditorView.EditorPane_ {
       refresh_label ();
     }
 
-    /** A plugin's own decoration for this tab's file (git status, a future linter badge, …), or null with nothing to show — tints the label text itself, not appended text like is_modified/is_deleted above. Same `tone-<name>` CSS vocabulary and toggle-by-switch technique as ExplorerPaneTreeRow.update_decoration(). */
+    /** A plugin's own decoration for this tab's file (git status, a future linter badge, …), or null with nothing to show — tints the label text itself, not appended text like is_modified/is_deleted above. Same shared `git-*` CSS vocabulary and toggle-by-switch technique as ExplorerPaneTreeRow.update_decoration(). */
     public void set_decoration (FileDecoration.State? decoration) {
       title_label.remove_css_class ("tone-accent");
-      title_label.remove_css_class ("tone-success");
-      title_label.remove_css_class ("tone-warning");
-      title_label.remove_css_class ("tone-alert");
-      title_label.remove_css_class ("tone-error");
+      title_label.remove_css_class ("git-added");
+      title_label.remove_css_class ("git-modified");
+      title_label.remove_css_class ("git-conflict");
+      title_label.remove_css_class ("git-removed");
 
       if (decoration == null) {
         return;
@@ -119,16 +119,16 @@ namespace EditorView.EditorPane_ {
           title_label.add_css_class ("tone-accent");
           break;
         case FileDecoration.Tone.SUCCESS:
-          title_label.add_css_class ("tone-success");
+          title_label.add_css_class ("git-added");
           break;
         case FileDecoration.Tone.WARNING:
-          title_label.add_css_class ("tone-warning");
+          title_label.add_css_class ("git-modified");
           break;
         case FileDecoration.Tone.ALERT:
-          title_label.add_css_class ("tone-alert");
+          title_label.add_css_class ("git-conflict");
           break;
         case FileDecoration.Tone.ERROR:
-          title_label.add_css_class ("tone-error");
+          title_label.add_css_class ("git-removed");
           break;
         default:
           break;

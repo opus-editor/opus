@@ -37,6 +37,14 @@ public class MainWindow : Object {
   private FileDecoration.Registry? decorations = null;
   private Opus.Plugins.WorkspaceExtensions? decoration_providers = null;
 
+  // Same lifecycle as the decoration trio above, for the git-diff gutter's
+  // own extension point — no registry needed here (unlike
+  // FileDecoration.Registry's N-provider aggregation): exactly one plugin
+  // will ever register GitDiff.IBaseProvider, so the last one to register
+  // simply wins.
+  private Opus.Plugins.WorkspaceExtensions? diff_base_providers = null;
+  private GitDiff.IBaseProvider? diff_base_provider = null;
+
   /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
   private IGlobalPanel? active_bottom_panel = null;
 
@@ -299,11 +307,24 @@ public class MainWindow : Object {
     new_decoration_providers.added.connect ((e) => new_decorations.add_provider ((FileDecoration.IProvider) e));
     new_decoration_providers.removed.connect ((e) => new_decorations.remove_provider ((FileDecoration.IProvider) e));
 
+    var new_diff_base_providers = new Opus.Plugins.WorkspaceExtensions (typeof (GitDiff.IBaseProvider), new_workspace_context);
+    new_diff_base_providers.added.connect ((e) => {
+      diff_base_provider = (GitDiff.IBaseProvider) e;
+      editor_pane.set_diff_base_provider (diff_base_provider);
+    });
+    new_diff_base_providers.removed.connect ((e) => {
+      if (diff_base_provider == e) {
+        diff_base_provider = null;
+        editor_pane.set_diff_base_provider (null);
+      }
+    });
+
     EditorView.ExplorerPane new_explorer_pane;
     try {
       new_explorer_pane = new EditorView.ExplorerPane (path, new_workspace_context, new_decorations);
     } catch (Error e) {
       new_decoration_providers.close ();
+      new_diff_base_providers.close ();
       throw e;
     }
     wire_explorer_pane (new_explorer_pane);
@@ -312,6 +333,7 @@ public class MainWindow : Object {
     workspace_context = new_workspace_context;
     decorations = new_decorations;
     decoration_providers = new_decoration_providers;
+    diff_base_providers = new_diff_base_providers;
     editor_pane.set_decorations (new_decorations);
 
     if (explorer_pane != null) {
@@ -349,8 +371,16 @@ public class MainWindow : Object {
     }
     decoration_providers = null;
     decorations = null;
+
+    if (diff_base_providers != null) {
+      diff_base_providers.close ();
+    }
+    diff_base_providers = null;
+    diff_base_provider = null;
+
     workspace_context = null;
     editor_pane.set_decorations (null);
+    editor_pane.set_diff_base_provider (null);
   }
 
   /** Opens `path` as a permanent tab right at startup (`opus <file>`) — failures are reported through this same window's own show_error() rather than left for main.vala to handle, since main.vala no longer holds a reference to anything that could report one itself. */

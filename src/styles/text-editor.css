@@ -40,3 +40,26 @@ textview.opus-editor-font > text > selection {
   background-color: transparent;
   color: transparent;
 }
+
+/* TextEditorChangeGutter's own permanent class (added once, at
+ * construct, same as .decoration-dot/.tab-pill are permanent classes on
+ * their own widgets) — it can't apply a CSS background directly (it
+ * paints via raw Gsk/Gtk.Snapshot calls), so it toggles the git-* class
+ * alongside this one and reads the resolved `color` back via
+ * Gtk.Widget.get_color(). Same flat-surface 50%-transparent recipe as
+ * .decoration-dot's own git-* rules (explorer-pane.css) — a gutter bar
+ * is a flat surface too, same reasoning. No .git-conflict here: a diff
+ * hunk is never "conflicted", only added/changed/removed. The dimmed
+ * (already-staged) state is plain alpha math in
+ * TextEditorChangeGutter's own Vala code instead of a second CSS class
+ * combo — it's the gutter's own per-hunk runtime data, nothing else
+ * needs it. */
+.change-gutter.git-added {
+  color: color-mix(in srgb, var(--git-added-color) 50%, transparent);
+}
+.change-gutter.git-modified {
+  color: color-mix(in srgb, var(--git-modified-color) 50%, transparent);
+}
+.change-gutter.git-removed {
+  color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
+}

@@ -128,3 +128,27 @@
 .outline-input image {
   opacity: 0.85;
 }
+
+/* Shared git-status color vocabulary — pure hue only, no surface's own
+ * mixing formula baked in. Every surface that shows git status (the
+ * explorer dot in explorer-pane.css, the tab label tint in tab-bar.css,
+ * the editor gutter in text-editor.css) applies its OWN color-mix
+ * recipe on top of these same four tokens instead of each hardcoding
+ * --success-color/--warning-color/--error-color directly — a future
+ * theming feature only ever has to touch these four lines to restyle
+ * git status everywhere at once. Kept as tokens, not full `.git-*`
+ * rules, precisely because the mixing formula genuinely differs by
+ * surface (a flat background mixes toward transparent; text mixes
+ * toward currentColor instead) — one shared rule couldn't serve both
+ * without being wrong for one of them.
+ *
+ * --git-conflict-color has no libadwaita platform color to reach for at
+ * all (none of them is orange), so it's derived by mixing
+ * --warning-color and --error-color first (color-mix() confirmed to
+ * nest cleanly — unlike light-dark(), see docs/decisions.md). */
+:root {
+  --git-added-color: var(--success-color);
+  --git-modified-color: var(--warning-color);
+  --git-conflict-color: color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%);
+  --git-removed-color: var(--error-color);
+}

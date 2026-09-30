@@ -126,14 +126,14 @@ namespace EditorView {
       bound_node = null;
     }
 
-    /** Toggles the dot's visibility and swaps its `tone-<name>` CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
+    /** Toggles the dot's visibility and swaps its tone CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). SUCCESS/WARNING/ALERT/ERROR map to the shared `git-*` classes common.css defines once for every git-status surface (also the tab label tint, also the editor gutter) — ACCENT has no git-status meaning, so it keeps its own `tone-accent` class. No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
     private void update_decoration (FileDecoration.State? decoration) {
       decoration_dot.visible = decoration != null;
       decoration_dot.remove_css_class ("tone-accent");
-      decoration_dot.remove_css_class ("tone-success");
-      decoration_dot.remove_css_class ("tone-warning");
-      decoration_dot.remove_css_class ("tone-alert");
-      decoration_dot.remove_css_class ("tone-error");
+      decoration_dot.remove_css_class ("git-added");
+      decoration_dot.remove_css_class ("git-modified");
+      decoration_dot.remove_css_class ("git-conflict");
+      decoration_dot.remove_css_class ("git-removed");
       decoration_dot.tooltip_text = decoration?.tooltip ?? "";
 
       if (decoration == null) {
@@ -145,16 +145,16 @@ namespace EditorView {
           decoration_dot.add_css_class ("tone-accent");
           break;
         case FileDecoration.Tone.SUCCESS:
-          decoration_dot.add_css_class ("tone-success");
+          decoration_dot.add_css_class ("git-added");
           break;
         case FileDecoration.Tone.WARNING:
-          decoration_dot.add_css_class ("tone-warning");
+          decoration_dot.add_css_class ("git-modified");
           break;
         case FileDecoration.Tone.ALERT:
-          decoration_dot.add_css_class ("tone-alert");
+          decoration_dot.add_css_class ("git-conflict");
           break;
         case FileDecoration.Tone.ERROR:
-          decoration_dot.add_css_class ("tone-error");
+          decoration_dot.add_css_class ("git-removed");
           break;
         default:
           break;

@@ -44,6 +44,7 @@ namespace EditorView.EditorPane_ {
     private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
     private TextEditorCursors cursors;
     private TextEditorSearch search;
+    private TextEditorChangeGutter change_gutter;
     private Gtk.CssProvider? font_provider;
 
     public Gtk.Widget widget { get { return root; } }
@@ -102,6 +103,9 @@ namespace EditorView.EditorPane_ {
 
       search = new TextEditorSearch (text_view);
       search.search_position_changed.connect ((position, count) => search_position_changed (position, count));
+
+      change_gutter = new TextEditorChangeGutter ();
+      text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
       var discard_button = (Gtk.Button) builder.get_object ("change_banner_discard_button");
       discard_button.clicked.connect (() => reload_requested ());
@@ -285,6 +289,11 @@ namespace EditorView.EditorPane_ {
 
     public void set_change_banner_visible (bool visible) {
       change_banner_revealer.reveal_child = visible;
+    }
+
+    /** Pass-through to the change-bar gutter renderer, same "prop forwarded to a child" shape as set_active_document(). */
+    public void set_hunks (GitDiff.Hunk[] hunks) {
+      change_gutter.set_hunks (hunks);
     }
 
     /** How many columns one indent level is, for the indent guides — a different need than set_indent_config()'s own Tab/Backspace behavior, so both are set independently. */

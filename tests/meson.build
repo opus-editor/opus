@@ -47,6 +47,27 @@ file_decoration_registry_test = executable(
 )
 test('file-decoration-registry', file_decoration_registry_test)
 
+git_diff_parse_test = executable(
+  'git-diff-parse-test',
+  ['models/git-diff-parse-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('git-diff-parse', git_diff_parse_test)
+
+git_diff_engine_test = executable(
+  'git-diff-engine-test',
+  ['models/git-diff-engine-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('git-diff-engine', git_diff_engine_test)
+
+git_diff_document_tracker_test = executable(
+  'git-diff-document-tracker-test',
+  ['models/git-diff-document-tracker-test.vala', opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('git-diff-document-tracker', git_diff_document_tracker_test)
+
 find_in_files_search_test = executable(
   'find-in-files-search-test',
   ['models/find-in-files-search-test.vala', opus_model_sources],

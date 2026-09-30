@@ -67,6 +67,14 @@ namespace EditorView {
     // ExplorerPane's own ExplorerPane? field on MainWindow already uses.
     private FileDecoration.Registry? decorations = null;
 
+    // Same "owned by MainWindow, handed in via a setter" shape as
+    // `decorations` above, but unlike it, only the active document's
+    // hunks are ever rendered (one shared TextEditorSourceView buffer,
+    // not one per tab) — so `diff_tracker` is a single instance, reset on
+    // every tab switch, not a per-document map.
+    private GitDiff.DocumentTracker diff_tracker = new GitDiff.DocumentTracker ();
+    private GitDiff.IBaseProvider? diff_base_provider = null;
+
     // Find in Files' own synthetic tab — reuses the plain string-keyed
     // documents/tab_bar machinery exactly like new_untitled()'s
     // "Untitled-N" already does, rather than inventing a second tab
@@ -158,6 +166,7 @@ namespace EditorView {
       text_editor.reload_requested.connect (on_reload_requested);
       text_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
       file_watcher.file_changed.connect (on_file_changed);
+      diff_tracker.hunks_changed.connect (() => text_editor.set_hunks (diff_tracker.hunks ()));
     }
 
     /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" calls resolve against the new root. */
@@ -176,6 +185,15 @@ namespace EditorView {
         decorations.changed.connect (refresh_tab_decorations);
       }
       refresh_tab_decorations ();
+    }
+
+    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), or if the plugin providing it goes away. Unlike set_decorations(), only the active tab's hunks need recomputing — there's no per-tab map to refresh. */
+    public void set_diff_base_provider (GitDiff.IBaseProvider? new_provider) {
+      diff_base_provider = new_provider;
+      if (active_path != null) {
+        var document = documents[active_path];
+        diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
+      }
     }
 
     /** Re-stamps every open tab (not just the active one — a background tab whose file changes elsewhere still needs its own tint to update) from the current `decorations` snapshot. */
@@ -783,6 +801,7 @@ namespace EditorView {
         text_editor.set_text ("", "");
         text_editor.set_active_document (null);
         text_editor.set_change_banner_visible (false);
+        diff_tracker.set_document.begin (null, "", null);
         return;
       }
       editor_area_bin.child = text_editor.widget;
@@ -807,6 +826,7 @@ namespace EditorView {
       text_editor.set_indent_config (indent_size, insert_spaces);
 
       text_editor.set_active_document (document);
+      diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
     }
 
     private void promote (Document document) {
@@ -829,6 +849,7 @@ namespace EditorView {
 
       var document = documents[active_path];
       document.content = new_text;
+      diff_tracker.notify_text_changed (new_text);
       if (document.is_preview) {
         promote (document);
       }

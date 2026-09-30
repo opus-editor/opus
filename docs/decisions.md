@@ -136,3 +136,56 @@ caller must react to has to be deferred to a method the caller invokes
 link_folder()` immediately after wiring `added`/`removed` — `activate()`
 still happens in the constructor (nothing depends on a listener for that),
 only the `added()` *announcement* itself was moved out.
+
+## `GenericArray<T>` can't convert back to `T[]` when `T` is a plain Object
+
+`GenericArray<Hunk>`'s own `.data`/`.steal ()` both compile, but the
+generated C mismatches pointer types (`assignment to 'GitDiffHunk **'
+from incompatible pointer type 'void **'`) — `Hunk` isn't a simple/compact
+type, so valac's array-conversion codegen for `GenericArray<T>` doesn't
+produce a correctly-typed cast. Fix: don't route through
+`GenericArray<T>` for a T like this at all — build the result with a
+plain `GLib.List<T>` (`.append()`, iterate, copy into a pre-sized `new
+T[list.length ()]`) or, if the final count is already known, a directly
+pre-sized `T[]` filled by index — both idioms this codebase already uses
+elsewhere (`GitStatus.paths ()`, `CursorCollection`'s own `new
+Cursor[cursors.length]` throughout).
+
+## A `T[]` property can't hold a custom `Object` array either
+
+`public Hunk[] hunks { get { ... } }` on a `GLib.Object`-derived class
+warns `Type 'GitDiff.Hunk[]' can not be used for a GLib.Object property` —
+GObject's property system has no `GParamSpec` for "array of a custom
+Object subtype" (unlike `string[]`, which maps to `G_TYPE_STRV`), and this
+applies even to a property backed by a computed getter body, not just an
+auto-implemented one. Fix: expose it as a plain method instead
+(`public Hunk[] hunks ()`), the same way `GitStatus.paths ()` is a method,
+not a property, for the identical reason.
+
+## A signal connected to a bound method can auto-disconnect out from under you
+
+`provider.bases_changed.connect (on_bases_changed)`, where
+`on_bases_changed` is one of `GitDiff.DocumentTracker`'s own instance
+methods, uses `g_signal_connect_object`-style semantics under the hood
+(same fact `src/views/CLAUDE.md` already documents the other direction:
+"it never keeps that object alive itself") — meaning GObject
+automatically disconnects the connection the moment `DocumentTracker`
+itself is destroyed, with **no notification back** to whatever field is
+still caching that handler id. If a later code path (a destructor, or a
+different lifecycle event) then calls `provider.disconnect
+(cached_handler_id)` using that now-stale id, the process aborts outright
+(`GLib-GObject-FATAL-CRITICAL: ... has no handler with id ...`) —
+confirmed live, reproducibly, while writing `DocumentTracker`'s own
+`git-diff-document-tracker-test.vala`. Two real fixes were needed
+together, not either alone:
+
+1. Never reconnect a signal you're already connected to — re-subscribing
+   to the *same* provider (e.g. from that provider's own emission,
+   asking to "refresh") is pure churn; guard with `if (provider !=
+   current_provider)` before disconnecting/reconnecting at all.
+2. Before any explicit disconnect, check
+   `g_signal_handler_is_connected (instance, handler_id)` first — not in
+   the GLib vapi, so declared as a small `extern` binding
+   (`[CCode (cname = "g_signal_handler_is_connected")]`). This is the
+   actual load-bearing fix: it's the only way to tell whether GObject's
+   own automatic cleanup already beat you to it.

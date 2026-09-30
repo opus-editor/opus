@@ -1,7 +1,7 @@
 # git-status.vala/provider.vala are plain Model-grade code (no Peas) —
 # only plugin.vala touches Peas, so opus_git_status_plugin_sources (used
 # by tests that don't want libpeas linked in) stays split from it.
-opus_git_status_plugin_sources = files('git-status.vala', 'provider.vala')
+opus_git_status_plugin_sources = files('git-status.vala', 'provider.vala', 'diff-base-provider.vala')
 opus_plugin_sources += opus_git_status_plugin_sources + files('plugin.vala')
 
 # git-status.vala alone has no dependency on the shared FileDecoration.*/
@@ -30,3 +30,10 @@ git_status_provider_test = executable(
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('git-status-provider', git_status_provider_test)
+
+diff_base_provider_test = executable(
+  'diff-base-provider-test',
+  ['test/diff-base-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('diff-base-provider', diff_base_provider_test)
