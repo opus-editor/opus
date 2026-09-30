@@ -1,10 +1,26 @@
-/* 22px, matching VS Code's file explorer row height
- * (ExplorerDelegate.ITEM_HEIGHT in its own source). */
+/* 24px — VS Code's own real 22px (ExplorerDelegate.ITEM_HEIGHT) plus
+ * the 2px libadwaita's own `.navigation-sidebar > row` (base.css) put
+ * between rows as a bottom margin, folded into the row's own height
+ * instead now that margin is zeroed out below: adjacent rows still
+ * end up the same 22px+2px apart, but as one continuous block instead
+ * of a gap revealing the sidebar's own background between them.
+ * Horizontal margin/padding zeroed out too: libadwaita's own rule puts
+ * 6px margin + 8px padding on each side (`NATIVE_ROW_HORIZONTAL_MARGIN`,
+ * ExplorerPaneTree's own get_optimal_width(), already accounts for
+ * exactly this 28px), which reads as a "floating pill" row inset from
+ * the sidebar's own edges — VS Code's own explorer rows instead run
+ * edge-to-edge, so a row's background/hover/selection fills the full
+ * sidebar width. No border-radius either, for the same reason: a
+ * rounded corner right up against the sidebar's own flush edge just
+ * looked like a stray notch, not a deliberate shape. */
 listview.data-table row {
   padding-top: 0;
   padding-bottom: 0;
-  min-height: 22px;
-  border-radius: 4px;
+  padding-left: 0;
+  padding-right: 0;
+  margin: 0;
+  min-height: 24px;
+  border-radius: 0;
 }
 /* The transition lives on this separate, briefly-toggled class
  * (see ExplorerPaneTree's own REVEAL_FLASH_TRANSITION_CSS_CLASS comment)

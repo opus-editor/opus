@@ -77,25 +77,31 @@ Adw.ApplicationWindow window {
       enable-show-gesture: false;
       enable-hide-gesture: false;
 
-      sidebar: Gtk.Box {
-        orientation: horizontal;
+      sidebar: Gtk.Overlay {
         styles ["opus-sidebar"]
 
-        Adw.Bin sidebar_bin {
-          hexpand: true;
-        }
+        child: Adw.Bin sidebar_bin {};
 
         // Drag-to-resize handle — split_view itself has no such thing
         // built in (AdwOverlaySplitView only exposes a *fraction* of the
         // total width plus static min/max bounds, no interactive resize;
         // checked its real source, no drag gesture/cursor logic anywhere
-        // in it). Sits right where the sidebar visually ends, so it reads
-        // as the boundary between the two panes even though it's actually
-        // just the sidebar's own trailing child — see
-        // MainWindow.setup_sidebar_resize() for the actual drag logic.
+        // in it). An overlay, not a plain trailing sibling in a Gtk.Box:
+        // a sibling reserves its own width-request off to the side,
+        // which left sidebar_bin's own content — ExplorerPaneTree's
+        // rows included — permanently 4px short of the sidebar's real
+        // right edge. Floating on top instead (halign: end) means
+        // sidebar_bin fills the whole sidebar, and the handle merely
+        // sits over its rightmost 4px — still fully interactive
+        // (can-target defaults to true, unlike TabBar's own inert fade
+        // overlays), so MainWindow.setup_sidebar_resize()'s drag/click
+        // gestures need no change at all.
+        [overlay]
         Gtk.Box sidebar_resize_handle {
           styles ["sidebar-resize-handle"]
           width-request: 4;
+          halign: end;
+          valign: fill;
         }
       };
 

@@ -3,6 +3,13 @@ using Gtk 4.0;
 Gtk.Box row {
   orientation: horizontal;
   spacing: 6;
+  // The native row wrapper's own CSS padding was zeroed out
+  // (explorer-pane.css) so its background/hover/selection runs
+  // edge-to-edge with the sidebar, not inset as a "floating pill" —
+  // this box is what actually needs the breathing room for its own
+  // icon/label content instead.
+  margin-start: 8;
+  margin-end: 8;
 
   Gtk.TreeExpander expander {
     hexpand: true;
