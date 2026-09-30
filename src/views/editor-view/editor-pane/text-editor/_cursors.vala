@@ -26,11 +26,8 @@ namespace EditorView.EditorPane_ {
   public class TextEditorCursors : Object {
     private delegate void CursorCommand ();
 
-    private const string SELECTION_TAG_NAME = "cursor-selection";
-
     private TextEditorSourceView text_view;
     private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
-    private Gtk.TextTag selection_tag;
     private Document? active_document = null;
 
     private int indent_size = 4;
@@ -101,14 +98,10 @@ namespace EditorView.EditorPane_ {
       source_buffer.insert_text.connect_after ((ref pos, new_text, len) => resync_native_cursor_after_native_edit ());
       source_buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
 
-      selection_tag = new Gtk.TextTag (SELECTION_TAG_NAME);
-      selection_tag.background_set = true;
-      source_buffer.tag_table.add (selection_tag);
-
       // GTK's own native selection grays out whenever the window is
       // inactive (state_flags_changed fires on text_view itself; BACKDROP
       // propagates down from the toplevel window) — reproduced here for
-      // our own tag the same way.
+      // our own hand-painted selection the same way.
       text_view.state_flags_changed.connect ((previous_state) => update_selection_background ());
 
       var style_manager = Adw.StyleManager.get_default ();
@@ -848,8 +841,8 @@ namespace EditorView.EditorPane_ {
     /**
      * Own registration, same shape VS Code's registerThemingParticipant
      * gets in viewCursors.ts (checked its source) — this class reacts to
-     * the app's theme for its own tag's colors, no separate "theme"
-     * object reaching in from outside.
+     * the app's theme for the color it hands TextEditorSourceView, no
+     * separate "theme" object reaching in from outside.
      */
     private void apply_theme_colors () {
       focused_selection_background = SystemColor.from_accent ().transparentize (0.35f).to_rgba ();
@@ -867,7 +860,7 @@ namespace EditorView.EditorPane_ {
 
     private void update_selection_background () {
       bool backdrop = (text_view.get_state_flags () & Gtk.StateFlags.BACKDROP) != 0;
-      selection_tag.background_rgba = backdrop ? backdrop_selection_background : focused_selection_background;
+      text_view.set_selection_color (backdrop ? backdrop_selection_background : focused_selection_background);
     }
 
     private void render () {
@@ -886,27 +879,13 @@ namespace EditorView.EditorPane_ {
       source_buffer.select_range (primary_position, primary_anchor);
       setting_cursors_programmatically = false;
 
-      Gtk.TextIter buffer_start;
-      Gtk.TextIter buffer_end;
-      source_buffer.get_start_iter (out buffer_start);
-      source_buffer.get_end_iter (out buffer_end);
-      source_buffer.remove_tag_by_name (SELECTION_TAG_NAME, buffer_start, buffer_end);
-
       var caret_offsets = new int[cursors.length];
       for (int i = 0; i < cursors.length; i++) {
-        var cursor = cursors[i];
-        caret_offsets[i] = cursor.position_offset;
-
-        if (!cursor.is_empty) {
-          Gtk.TextIter selection_start;
-          Gtk.TextIter selection_end;
-          source_buffer.get_iter_at_offset (out selection_start, cursor.selection_start);
-          source_buffer.get_iter_at_offset (out selection_end, cursor.selection_end);
-          source_buffer.apply_tag_by_name (SELECTION_TAG_NAME, selection_start, selection_end);
-        }
+        caret_offsets[i] = cursors[i].position_offset;
       }
 
       text_view.set_carets (caret_offsets);
+      text_view.set_selections (cursors);
       text_view.reset_blink ();
     }
   }

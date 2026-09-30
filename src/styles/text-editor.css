@@ -23,9 +23,10 @@ textview > border:drop(active) {
   box-shadow: none;
 }
 
-/* GtkTextView's own native selection paint, off — TextEditorCursors' own
- * selection_tag paints every cursor's selection instead (primary
- * included), so all of them stay pixel-identical. Scoped to
+/* GtkTextView's own native selection paint, off — TextEditorSourceView's
+ * own hand-painted draw_selections() paints every cursor's selection
+ * instead (primary included), so all of them stay pixel-identical.
+ * Scoped to
  * .opus-editor-font (TextEditorSourceView's own marker class, added
  * alongside this same install_css() call) specifically, not a bare
  * `textview`: this stylesheet is installed display-wide

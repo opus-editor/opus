@@ -70,6 +70,7 @@ opus_gtk_view_sources = files(
   'views/editor-view/editor-pane/text-editor/_cursors.vala',
   'views/editor-view/editor-pane/text-editor/_drag-selection.vala',
   'views/editor-view/editor-pane/text-editor/_search.vala',
+  'views/editor-view/editor-pane/text-editor/_selections.vala',
   'views/editor-view/editor-pane/text-editor/_source-view.vala',
   'views/editor-view/editor-pane/text-editor/index.vala',
   'views/editor-view/editor-pane/tab-bar/_ghost.vala',

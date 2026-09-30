@@ -16,15 +16,19 @@
  * `editorCursor.foreground`) rather than trying to approximate it from
  * two different rendering systems.
  *
- * Every cursor's *selection*, primary included, is painted the same way
- * too: through a plain `Gtk.TextTag` applied by `EditorView.TextEditor.
- * render_cursors()`. The real, native `selection_bound`↔`insert` range
- * still moves normally for the primary cursor (copy/cut/drag/IM and
- * every native selection keybinding all still depend on it) — only its
- * *painting* is suppressed, via a CSS rule on GtkTextView's own
- * `selection` node (see `EditorView.TextEditor.install_css()`), the same kind of
- * paint-only suppression `cursor_visible = false` already does for the
- * caret above.
+ * Every cursor's *selection*, primary included, is hand-painted the same
+ * way as the carets above — see TextEditorSelections' own doc comment
+ * (_selections.vala) for why, and why that's its own class rather than
+ * more private state/methods on this one: it needs nothing from this
+ * class beyond the same plain pixel queries TextEditorCursors/
+ * TextEditorSearch already call on it as a sibling sub-component.
+ *
+ * The real, native `selection_bound`↔`insert` range still moves normally
+ * for the primary cursor (copy/cut/drag/IM and every native selection
+ * keybinding all still depend on it) — only its *painting* is
+ * suppressed, via a CSS rule on GtkTextView's own `selection` node (see
+ * `EditorView.TextEditor.install_css()`), the same kind of paint-only
+ * suppression `cursor_visible = false` already does for the caret above.
  */
 namespace EditorView.EditorPane_ {
   public class TextEditorSourceView : GtkSource.View {
@@ -58,6 +62,7 @@ namespace EditorView.EditorPane_ {
     private uint overscroll_idle_id = 0;
     private int? drop_indicator_offset = null;
     private int indent_size = 4; // matches EditorController.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
+    private TextEditorSelections selections;
 
     /**
      * A caret means "typing lands here" — showing one while this view
@@ -71,6 +76,8 @@ namespace EditorView.EditorPane_ {
      * at all, and the cursor state it computes is correct regardless.
      */
     public TextEditorSourceView () {
+      selections = new TextEditorSelections (this);
+
       notify["has-focus"].connect (() => {
         if (has_focus) {
           reset_blink (); // solid immediately, not mid-blink from whenever focus happened to return
@@ -88,6 +95,16 @@ namespace EditorView.EditorPane_ {
     /** The codepoint offsets to paint a caret at on the next draw — one per cursor, primary included. Call whenever the cursor set changes, then `reset_blink()`. */
     public void set_carets (int[] offsets) {
       caret_offsets = offsets;
+    }
+
+    /** Pass-through to the selections sub-component (_selections.vala) — see its own set_selections(). */
+    public void set_selections (Cursor[] cursors) {
+      selections.set_selections (cursors);
+    }
+
+    /** Pass-through to the selections sub-component (_selections.vala) — see its own set_color(). */
+    public void set_selection_color (Gdk.RGBA color) {
+      selections.set_color (color);
     }
 
     /**
@@ -201,6 +218,7 @@ namespace EditorView.EditorPane_ {
 
       if (layer == Gtk.TextViewLayer.BELOW_TEXT) {
         draw_indent_guides (snapshot);
+        selections.draw (snapshot);
         return;
       }
 
@@ -262,11 +280,7 @@ namespace EditorView.EditorPane_ {
         get_cursor_locations (next, out next_strong, out next_weak);
         width = next_strong.x - strong.x;
       } else {
-        var layout = create_pango_layout (" ");
-        int w;
-        int h;
-        layout.get_pixel_size (out w, out h);
-        width = w;
+        width = measure_space_width ();
       }
 
       var block_rect = Graphene.Rect ();
@@ -285,6 +299,15 @@ namespace EditorView.EditorPane_ {
       snapshot.translate (point);
       snapshot.append_layout (glyph_layout, inverted_glyph_color (caret_color));
       snapshot.restore ();
+    }
+
+    /** A single space's rendered width in this monospace font — every glyph-less fallback (an empty line, end of buffer, overtype's own no-glyph case, TextEditorSelections' own empty-line marker) is sized to this. */
+    public float measure_space_width () {
+      var layout = create_pango_layout (" ");
+      int w;
+      int h;
+      layout.get_pixel_size (out w, out h);
+      return w;
     }
 
     /**
