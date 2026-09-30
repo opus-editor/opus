@@ -73,8 +73,18 @@ listview.data-table row:focus {
  * while the *previous* row was still the one `:selected`, bringing its
  * background back for exactly that window. Scoped to the row's own
  * `:focus` instead, this only hides a selected row's background while
- * *that exact row* isn't the one focused. */
-listview.data-table row:selected:not(:focus) {
+ * *that exact row* isn't the one focused.
+ *
+ * `:not(:hover)` too: this selector's specificity (an id-less
+ * `listview.data-table row:selected:not(:focus)`) already beats
+ * libadwaita's own `row.activatable:hover`/`row.activatable:selected:
+ * hover` (base.css), so without it this rule kept winning even while
+ * actually hovering that row — the previously-focused row simply never
+ * showed a hover background again once focus left it. Excluding
+ * `:hover` here just stops this rule from matching during a real
+ * hover, letting the cascade fall through to libadwaita's own rule
+ * instead of racing it. */
+listview.data-table row:selected:not(:focus):not(:hover) {
   background-color: transparent;
 }
 .file-tree-root-label {
