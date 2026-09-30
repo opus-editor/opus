@@ -29,10 +29,18 @@ blueprint_compiler = find_program('blueprint-compiler')
 
 # Debug-only code (Logger.warn/info/debug calls) compiles out entirely in a
 # release build — like Vite stripping dev-only code from a prod bundle —
-# instead of just being silenced at runtime. See src/models/logger.vala.
+# instead of just being silenced at runtime. See src/lib/logger.vala.
 if get_option('buildtype') == 'debug'
   add_project_arguments('--define=DEBUG', language: 'vala')
 endif
+
+# CrashHandler (src/lib/crash-handler.vala) is Posix.signal()/
+# Posix.system()/etc. — always compiled (main.vala only calls it under
+# its own `#if DEBUG`, the class itself isn't conditional), so this
+# isn't scoped to the debug buildtype above. posix.vapi ships with
+# valac itself, no extra library to actually link (every symbol it
+# declares is already in libc).
+add_project_arguments('--pkg=posix', language: 'vala')
 
 # All C in this project is Vala-generated GObject boilerplate, never hand-written,
 # so these warnings only ever fire on codegen we don't control.

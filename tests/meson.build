@@ -1,118 +1,126 @@
+# Every model test below built against opus_model_sources on its own —
+# but Logger lives in lib/ now (src/lib/CLAUDE.md), and plenty of models
+# (UserSettings, …) call Logger.warn()/info() directly, so it needs to
+# come along too. opus_logger_sources specifically (see its own comment,
+# src/meson.build), not the rest of opus_lib_sources — that needs Gtk,
+# these plain model tests have no reason to link.
+opus_model_test_sources = opus_model_sources + opus_logger_sources
+
 document_test = executable(
   'document-test',
-  ['models/document-test.vala', opus_model_sources],
+  ['models/document-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('document', document_test)
 
 editor_config_test = executable(
   'editor-config-test',
-  ['models/editor-config-test.vala', opus_model_sources],
+  ['models/editor-config-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('editor-config', editor_config_test)
 
 indent_guides_test = executable(
   'indent-guides-test',
-  ['models/indent-guides-test.vala', opus_model_sources],
+  ['models/indent-guides-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('indent-guides', indent_guides_test)
 
 workspace_test = executable(
   'workspace-test',
-  ['models/workspace-test.vala', opus_model_sources],
+  ['models/workspace-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('workspace', workspace_test)
 
 session_test = executable(
   'session-test',
-  ['models/session-test.vala', opus_model_sources],
+  ['models/session-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('session', session_test)
 
 file_tree_test = executable(
   'file-tree-test',
-  ['models/file-tree-test.vala', opus_model_sources],
+  ['models/file-tree-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('file-tree', file_tree_test)
 
 file_decoration_registry_test = executable(
   'file-decoration-registry-test',
-  ['models/file-decoration-registry-test.vala', opus_model_sources],
+  ['models/file-decoration-registry-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('file-decoration-registry', file_decoration_registry_test)
 
 git_diff_parse_test = executable(
   'git-diff-parse-test',
-  ['models/git-diff-parse-test.vala', opus_model_sources],
+  ['models/git-diff-parse-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('git-diff-parse', git_diff_parse_test)
 
 git_diff_engine_test = executable(
   'git-diff-engine-test',
-  ['models/git-diff-engine-test.vala', opus_model_sources],
+  ['models/git-diff-engine-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('git-diff-engine', git_diff_engine_test)
 
 git_diff_document_tracker_test = executable(
   'git-diff-document-tracker-test',
-  ['models/git-diff-document-tracker-test.vala', opus_model_sources],
+  ['models/git-diff-document-tracker-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('git-diff-document-tracker', git_diff_document_tracker_test)
 
 find_in_files_search_test = executable(
   'find-in-files-search-test',
-  ['models/find-in-files-search-test.vala', opus_model_sources],
+  ['models/find-in-files-search-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('find-in-files-search', find_in_files_search_test)
 
 find_in_files_replace_test = executable(
   'find-in-files-replace-test',
-  ['models/find-in-files-replace-test.vala', opus_model_sources],
+  ['models/find-in-files-replace-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('find-in-files-replace', find_in_files_replace_test)
 
 find_in_files_scope_test = executable(
   'find-in-files-scope-test',
-  ['models/find-in-files-scope-test.vala', opus_model_sources],
+  ['models/find-in-files-scope-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('find-in-files-scope', find_in_files_scope_test)
 
 cursor_collection_test = executable(
   'cursor-collection-test',
-  ['models/cursor-collection-test.vala', opus_model_sources],
+  ['models/cursor-collection-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('cursor-collection', cursor_collection_test)
 
 edit_history_test = executable(
   'edit-history-test',
-  ['models/edit-history-test.vala', opus_model_sources],
+  ['models/edit-history-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('edit-history', edit_history_test)
 
 replace_pattern_test = executable(
   'replace-pattern-test',
-  ['models/replace-pattern-test.vala', opus_model_sources],
+  ['models/replace-pattern-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('replace-pattern', replace_pattern_test)
 
 user_settings_test = executable(
   'user-settings-test',
-  ['models/user-settings-test.vala', opus_model_sources],
+  ['models/user-settings-test.vala', opus_model_test_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('user-settings', user_settings_test)
@@ -122,7 +130,7 @@ test('user-settings', user_settings_test)
 # bundle to actually be present to load the bundled Symbols theme from.
 icon_theme_test = executable(
   'icon-theme-test',
-  ['models/icon-theme-test.vala', opus_model_sources],
+  ['models/icon-theme-test.vala', opus_model_test_sources],
   opus_resources,
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )

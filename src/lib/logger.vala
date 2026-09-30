@@ -9,7 +9,8 @@
  * not just silenced at runtime.
  */
 namespace Logger {
-#if DEBUG
+  #if DEBUG
+
   private bool verbose_enabled = false;
 
   public void configure (bool verbose) {
@@ -27,7 +28,9 @@ namespace Logger {
       stderr.printf ("WARN: %s\n", message);
     }
   }
-#else
+
+  #else
+
   public void configure (bool verbose) {
   }
 
@@ -36,5 +39,6 @@ namespace Logger {
 
   public void warn (string message) {
   }
-#endif
+
+  #endif
 }

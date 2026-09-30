@@ -28,7 +28,6 @@ opus_model_sources = files(
   'models/i-workspace-extension.vala',
   'models/icon-theme.vala',
   'models/indent-guides.vala',
-  'models/logger.vala',
   'models/replace-pattern.vala',
   'models/selection-snapshot.vala',
   'models/session.vala',
@@ -38,9 +37,27 @@ opus_model_sources = files(
   'models/workspace-context.vala',
 )
 
-# After opus_model_sources (git-status-provider-test, inside it, links
-# against that) but before opus_sources needs opus_plugin_sources below —
-# meson shares variable scope across subdir()s in call order.
+# Its own variable, not just an entry in opus_lib_sources below: plain
+# model tests (tests/meson.build's own opus_model_test_sources,
+# git-status/meson.build's own provider/diff-base-provider tests) need
+# Logger too — models call Logger.warn()/info() directly (UserSettings,
+# …) — but not the rest of opus_lib_sources, which needs Gtk
+# (GlobalCss, DevServer) those tests have no reason to link. Declared
+# before subdir('plugins') below (git-status/meson.build's own tests
+# reference it) rather than where opus_lib_sources itself is declared
+# further down. Also not referenced by tests/meson.build via its own
+# relative path instead of this shared variable: a file() path written
+# from tests/ up into ../src/lib/ resolves to a valac output path that
+# escapes that test executable's own private build dir — a `files()`
+# reference already resolved from here, src/meson.build's own
+# directory, doesn't have that problem (confirmed directly: every model
+# test built this way until this same fix).
+opus_logger_sources = files('lib/logger.vala')
+
+# After opus_model_sources/opus_logger_sources (git-status-provider-test,
+# inside it, links against both) but before opus_sources needs
+# opus_plugin_sources below — meson shares variable scope across
+# subdir()s in call order.
 subdir('plugins')
 
 # Generic, app-domain-independent infrastructure — the "lib/" half of the
@@ -49,7 +66,8 @@ subdir('plugins')
 # Gtk.CssProvider; DevServer drives a real EditorView.EditorPane), but
 # neither is an Opus-specific view/widget concept the way everything in
 # opus_gtk_view_sources below is.
-opus_lib_sources = files(
+opus_lib_sources = opus_logger_sources + files(
+  'lib/crash-handler.vala',
   'lib/global-css.vala',
   'lib/dev-server/_i-dev-server.vala',
   'lib/dev-server/index.vala',

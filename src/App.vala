@@ -21,7 +21,7 @@ public class App : Adw.Application {
   // See src/lib/CLAUDE.md's own note on why Opus.Dev.DevServer lives
   // outside views/ despite reaching into one — a debug-only D-Bus
   // control surface for the terminal, gated the same way Logger's own
-  // debug-only work is (see models/logger.vala).
+  // debug-only work is (see lib/logger.vala).
   private Opus.Dev.DevServer dev_server;
   #endif
 

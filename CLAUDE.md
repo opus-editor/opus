@@ -28,7 +28,7 @@ One test binary per Model. Views are currently untested — see
 
 ## Logging
 
-- `Logger.warn`/`Logger.info` (`src/models/logger.vala`) print to stderr,
+- `Logger.warn`/`Logger.info` (`src/lib/logger.vala`) print to stderr,
   gated by `-v`/`--verbose` (`just run -v`).
 - Debug builds run them for real; release builds compile the whole
   namespace to no-ops — leave the calls in place after debugging.

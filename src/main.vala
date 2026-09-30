@@ -9,6 +9,13 @@
  * instead of the isolated one just spawned for it.
  */
 int main (string[] args) {
+  #if DEBUG
+  // Before anything else, including App/Adw/Gtk init, so a crash
+  // during startup itself is covered too — see CrashHandler's own doc
+  // comment (src/lib/crash-handler.vala).
+  CrashHandler.install ();
+  #endif
+
   var app_id = Environment.get_variable ("OPUS_APP_ID") ?? "io.github.nowaos.Opus";
 
   return new App (app_id).run (args);
