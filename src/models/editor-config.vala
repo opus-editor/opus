@@ -10,7 +10,7 @@ private class EditorConfigSection : Object {
 
 /**
  * Parses a .editorconfig file and resolves its `indent_size` for a given
- * path — the piece {@link EditorView.TextEditorSourceView}'s future indent
+ * path — the piece {@link CodeEditorSourceView}'s future indent
  * guides need to know how many columns one indent level is.
  *
  * Only ever reads the .editorconfig at the linked workspace folder's own

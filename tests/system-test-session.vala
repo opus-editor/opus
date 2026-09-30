@@ -24,8 +24,8 @@
  * closing both down again) plus one forwarder per DSL method, each
  * delegating to whichever composed module actually implements it
  * (SystemTestTabs/SystemTestEditorText/SystemTestCursors/
- * SystemTestSearch, each in its own file) — the same split TextEditor
- * itself uses for TextEditorCursors/TextEditorSearch, applied here so
+ * SystemTestSearch, each in its own file) — the same split CodeEditor
+ * itself uses for CodeEditorCursors/CodeEditorSearch, applied here so
  * this file doesn't keep growing with every new area of the app a
  * system test needs to drive. Forwarders stay undocumented on purpose:
  * the real doc comment lives on each module's own implementation.

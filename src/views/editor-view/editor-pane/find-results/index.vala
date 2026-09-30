@@ -5,19 +5,19 @@
  * `header_label` above the body, not duplicated as its own opening
  * line. Its own structural styling (filename/line-number-prefix/match)
  * is plain manual Gtk.TextTag application, the same technique
- * text-editor/_search.vala already uses for match highlighting — no
+ * code-editor/_search.vala already uses for match highlighting — no
  * custom GtkSourceView `.lang` grammar file, since one wouldn't add any
  * real capability here (the per-file code coloring below has to be
  * manual tag copying regardless, see FindResultsLanguageHighlighter's
  * own doc comment for why).
  *
- * A brand-new View, not a read-only mode bolted onto the shared
- * TextEditor: EditorPane's TextEditor is one widget reused across every
- * tab with no header slot at all, and this tab needs its own (the
- * results count, the Find/Replace row and its confirmation dialog, and
- * context_lines' controls — see `_language-highlighter.vala`'s own
- * directory for where a further split, `_header.vala`, would live if
- * this grows).
+ * Its own header and Find/Replace row (the results count, the
+ * confirmation dialog, context_lines' controls) around an embedded
+ * read-only CodeEditor — the same component the file editor is, so
+ * multi-cursor selection and copying several result snippets at once
+ * work here exactly as they do there, with the editor font and zoom;
+ * only editing is refused (see CodeEditor.read_only). Line numbers and
+ * indent guides are off: results carry their own "  N: " prefixes.
  */
 namespace EditorView.EditorPane_ {
   public class FindResults : Object {
@@ -31,9 +31,9 @@ namespace EditorView.EditorPane_ {
     private Gtk.Button replace_confirm_button;
     private Gtk.Entry context_lines_entry;
     private Gtk.ToggleButton context_lines_toggle;
-    private Gtk.ScrolledWindow scrolled_window;
-    private GtkSource.View results_view;
-    private GtkSource.Buffer results_buffer { get { return (GtkSource.Buffer) results_view.buffer; } }
+    private CodeEditor code_editor;
+    /** The editor's own buffer — for the tags below and the highlighter only; content goes in through code_editor.set_text(). */
+    private GtkSource.Buffer results_buffer { get { return code_editor.buffer; } }
     private FindResultsLanguageHighlighter language_highlighter;
 
     private Gtk.TextTag filename_tag;
@@ -41,17 +41,17 @@ namespace EditorView.EditorPane_ {
     private Gtk.TextTag match_highlight_tag;
 
     // Recreated on every apply_style_scheme() — the Find/Replace row's own
-    // background has to match results_view's *real* GtkSource.StyleScheme
+    // background has to match the editor's *real* GtkSource.StyleScheme
     // color, only known at runtime (see its own doc comment in
     // find-results.css). Same "uninstall the previous one first" pattern
-    // TextEditor's own font_provider already uses, and for the same
+    // CodeEditor's own font_provider already uses, and for the same
     // reason: a provider only ever adds rules, it never un-sets one from
     // an earlier install on its own.
     private Gtk.CssProvider? replace_row_provider = null;
 
     // Whichever of these two is non-null drives render() — kept around
     // so a theme change alone (no new search) can re-render with fresh
-    // colors, same reasoning as TextEditorSearch's own apply_theme_colors().
+    // colors, same reasoning as CodeEditorSearch's own apply_theme_colors().
     private FindInFilesResult? last_result = null;
     private FindInFilesQuery? last_error_query = null;
     private string? last_error_message = null;
@@ -100,7 +100,6 @@ namespace EditorView.EditorPane_ {
       replace_confirm_button = (Gtk.Button) builder.get_object ("replace_confirm_button");
       context_lines_entry = (Gtk.Entry) builder.get_object ("context_lines_entry");
       context_lines_toggle = (Gtk.ToggleButton) builder.get_object ("context_lines_toggle");
-      scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
 
       replace_button.toggled.connect (on_replace_button_toggled);
       // Mirrors FindBar's own auto-focus-on-reveal (Gtk.SearchBar's real
@@ -128,7 +127,7 @@ namespace EditorView.EditorPane_ {
           return false;
         }
         replace_button.active = false;
-        results_view.grab_focus ();
+        code_editor.grab_focus ();
         return true;
       });
       replace_text.add_controller (replace_text_key_controller);
@@ -147,17 +146,12 @@ namespace EditorView.EditorPane_ {
         }
       });
 
-      results_view = new GtkSource.View () {
-        editable = false,
-        cursor_visible = false,
-        monospace = true,
-        top_margin = 8,
-        bottom_margin = 8,
-        left_margin = 8,
-        right_margin = 8,
-        wrap_mode = Gtk.WrapMode.NONE,
+      code_editor = new CodeEditor () {
+        read_only = true,
+        show_line_numbers = false,
+        show_indent_guides = false,
       };
-      scrolled_window.set_child (results_view);
+      root.append (code_editor.widget);
 
       language_highlighter = new FindResultsLanguageHighlighter (results_buffer);
       install_css ();
@@ -374,7 +368,7 @@ namespace EditorView.EditorPane_ {
       // warns ("GtkText - did not receive a focus-out event") when a
       // focused Gtk.Text is disabled or unmapped without focus leaving it
       // first, same as the Escape handler above already does.
-      results_view.grab_focus ();
+      code_editor.grab_focus ();
       // Clicking Replace All again right now would silently do nothing —
       // result.query's own regex was already matched against and
       // replaced, so it no longer matches what's here (repeating a
@@ -418,9 +412,6 @@ namespace EditorView.EditorPane_ {
     }
 
     private void apply_style_scheme (bool dark) {
-      var scheme_id = dark ? "Adwaita-dark" : "Adwaita";
-      results_buffer.style_scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (scheme_id);
-
       if (replace_row_provider != null) {
         GlobalCss.uninstall (replace_row_provider);
       }
@@ -433,11 +424,11 @@ namespace EditorView.EditorPane_ {
       // Dims toward the pane's own real (theme-resolved) text color,
       // rather than a hardcoded gray, so it reads correctly in both
       // light and dark without its own light/dark branch.
-      var line_number_color = results_view.get_color ();
+      var line_number_color = code_editor.widget.get_color ();
       line_number_color.alpha = dark ? 0.75f : 0.55f;
       line_number_tag.foreground_rgba = line_number_color;
 
-      // Same technique TextEditorSearch's own apply_theme_colors() uses
+      // Same technique CodeEditorSearch's own apply_theme_colors() uses
       // for its match highlight, for visual consistency with in-file Find.
       var match_background = SystemColor.from_accent ().desaturate (dark ? 0.10f : 0.05f).to_rgba ();
       match_background.alpha = 0.30f;
@@ -450,18 +441,22 @@ namespace EditorView.EditorPane_ {
     }
 
     /**
-     * results_view's *real* background, straight off its own
-     * GtkSource.StyleScheme (get_style("text").background) — same
-     * technique TextEditor's own _source-view.vala uses for the same
-     * reason (see its inverted_glyph_color()'s doc comment): a plain CSS
-     * background-color on a GtkSourceView is transparent by design in
-     * Adwaita, so the scheme's own style is the only real source for
-     * this color. Falls back to Adwaita's own plain light/dark window
-     * background only if the scheme has none set — not expected for
-     * Adwaita/Adwaita-dark (both real schemes do), just defensive.
+     * The editor's *real* background, straight off the GtkSource.
+     * StyleScheme CodeEditor applies for `dark` (get_style("text").
+     * background) — same technique its own _source-view.vala uses for
+     * the same reason (see its inverted_glyph_color()'s doc comment): a
+     * plain CSS background-color on a GtkSourceView is transparent by
+     * design in Adwaita, so the scheme's own style is the only real
+     * source for this color. Looked up by the same id CodeEditor uses
+     * rather than read off its buffer, so this doesn't depend on whose
+     * `notify["dark"]` handler ran first. Falls back to Adwaita's own
+     * plain light/dark window background only if the scheme has none
+     * set — not expected for Adwaita/Adwaita-dark (both real schemes
+     * do), just defensive.
      */
     private string replace_row_background (bool dark) {
-      var style = results_buffer.style_scheme?.get_style ("text");
+      var scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (dark ? "Adwaita-dark" : "Adwaita");
+      var style = scheme?.get_style ("text");
       if (style != null && style.background_set) {
         return style.background;
       }
@@ -485,12 +480,12 @@ namespace EditorView.EditorPane_ {
 
       if (last_error_message != null) {
         header_label.label = last_error_query.text;
-        results_buffer.text = last_error_message;
+        code_editor.set_text (last_error_message, "");
         return;
       }
       if (last_result == null) {
         header_label.label = "";
-        results_buffer.text = "";
+        code_editor.set_text ("", "");
         return;
       }
 
@@ -573,7 +568,7 @@ namespace EditorView.EditorPane_ {
         }
       }
 
-      results_buffer.text = text.str;
+      code_editor.set_text (text.str, "");
 
       foreach (var range in structural_ranges) {
         apply_range (range);

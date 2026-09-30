@@ -41,11 +41,11 @@ namespace GlobalCss {
 
   /**
    * Same as install_from_resource(), but for CSS generated at runtime
-   * rather than baked into a resource — TextEditor's own font rules,
+   * rather than baked into a resource — CodeEditor's own font rules,
    * built from the user's settings.json, are the one stylesheet this
    * app doesn't know the contents of at build time. Returns the
    * provider so a caller that re-installs this on every change (that
-   * same TextEditor, on live-reload) can uninstall() the previous one
+   * same CodeEditor, on live-reload) can uninstall() the previous one
    * first — see uninstall()'s own doc comment for why that matters here
    * specifically.
    */

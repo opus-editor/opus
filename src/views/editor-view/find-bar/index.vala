@@ -8,7 +8,7 @@
  * the same way it would for any other panel that implements the same
  * interface (see IGlobalPanel's own doc comment for the reasoning).
  *
- * Deliberately holds no reference to EditorView.TextEditor/EditorView.EditorPane — only
+ * Deliberately holds no reference to CodeEditor/EditorView.EditorPane — only
  * fires signals and exposes plain getters/setters. Whatever actually
  * drives Find/Replace against them (the real SearchController's own
  * job in v1) is a bridge between sibling Views composed from outside
@@ -27,7 +27,7 @@
  * transition, not just closing — see set_find_text()'s own doc comment,
  * which relies on that ordering rather than fighting it.
  *
- * Lives at the window level, not inside EditorView.TextEditor, on purpose: it spans
+ * Lives at the window level, not inside CodeEditor, on purpose: it spans
  * the full window width (below the sidebar too), the same way the header
  * above it does — not squeezed into just the content column the way a
  * per-tab search bar would be.
@@ -90,7 +90,7 @@ namespace EditorView {
      * time this fires, the live search state is already
      * cleared (GtkSearchBar's own real close path always clears the
      * connected entry's text first — checked gtksearchbar.c): whoever
-     * bridges this to EditorView.TextEditor listens for this to hand its last
+     * bridges this to CodeEditor listens for this to hand its last
      * live match off to the real selection before it's gone for good,
      * not to read anything live off this bar itself.
      */
@@ -184,7 +184,7 @@ namespace EditorView {
 
     /**
      * Sets the Find entry's text and selects it all — whoever bridges
-     * this to EditorView.TextEditor's own Ctrl+F "prefill from the current
+     * this to CodeEditor's own Ctrl+F "prefill from the current
      * selection" calls this. Must be called *after* show_find(), not
      * before: Gtk.SearchBar's own real reveal_child_changed_cb (checked
      * gtksearchbar.c) resets its connected entry's text to "" on every

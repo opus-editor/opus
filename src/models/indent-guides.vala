@@ -2,7 +2,7 @@
  * Pure line-indentation analysis over a slice of text: how many vertical
  * guide levels each line shows, and which contiguous block of lines shares
  * the guide level the cursor currently sits at — the two pieces {@link
- * EditorView.TextEditorSourceView} needs to paint VS Code-style indent
+ * CodeEditorSourceView} needs to paint VS Code-style indent
  * guides, ported from its own real implementation
  * (`guidesTextModelPart.ts`/`utils.ts`) with two deliberate simplifications:
  *

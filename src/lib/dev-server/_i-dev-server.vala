@@ -58,7 +58,7 @@ namespace Opus.Dev {
      * Dispatches one keystroke on the active tab exactly as a real one
      * would be reported (same keyval/modifier shape as Gdk, e.g.
      * `Gdk.ModifierType.CONTROL_MASK` for Ctrl) — driving the real
-     * TextEditorCursors dispatch, not a shortcut around it. Returns
+     * CodeEditorCursors dispatch, not a shortcut around it. Returns
      * whether anything claimed the key. The system-test DSL's `type`/
      * `type_cmd` both resolve to this: `type` looks up each
      * character's own keyval and calls this once per character;
@@ -73,7 +73,7 @@ namespace Opus.Dev {
      * Not routed through key_press(): unlike an ordinary keystroke,
      * "select-all" is a GTK keybinding-action signal, reachable
      * (and faithfully exercised) without needing a real GTK event
-     * at all — see EditorView.TextEditor.select_all()'s own doc
+     * at all — see CodeEditor.select_all()'s own doc
      * comment for why.
      */
     public abstract void select_all () throws DBusError, IOError;
@@ -100,5 +100,8 @@ namespace Opus.Dev {
 
     /** The live search's current (position, count) as of the last search_position_changed — the same numbers FindBar's own "N of M" counter would show. Both 0 with no active search/no matches. */
     public abstract void search_get_position (out int position, out int count) throws DBusError, IOError;
+
+    /** Find in Files for `text` across the linked folder, with FindInFilesBar's own toggles all off — opens (or refreshes) the "Find Results" tab, same as its Return key. The search itself is async; the tab appears once it finishes. */
+    public abstract void find_in_files (string text) throws DBusError, IOError;
   }
 }

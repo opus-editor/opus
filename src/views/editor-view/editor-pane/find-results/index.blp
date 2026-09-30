@@ -1,8 +1,8 @@
 using Gtk 4.0;
 
-// Same "template = chrome, .vala = ViewModel" split as TextEditor's own
-// index.blp — results_view isn't declared here, it's a plain GtkSource.View
-// built in code and dropped into scrolled_window via set_child().
+// The header and the Find/Replace row only — the results body is a
+// read-only CodeEditor (views/components/code-editor), built in code and
+// appended to root last.
 Gtk.Box root {
   orientation: vertical;
 
@@ -148,11 +148,5 @@ Gtk.Box root {
 
   Gtk.Separator {
     styles ["content-divider"]
-  }
-
-  Gtk.ScrolledWindow scrolled_window {
-    vexpand: true;
-    hscrollbar-policy: automatic;
-    vscrollbar-policy: automatic;
   }
 }

@@ -82,18 +82,21 @@ opus_gtk_view_sources = files(
   'views/lib/file-drag/index.vala',
   'views/components/context-menu.vala',
   'views/components/search-input.vala',
+  'views/components/code-editor/_change-gutter.vala',
+  'views/components/code-editor/_clipboard.vala',
+  'views/components/code-editor/_cursors.vala',
+  'views/components/code-editor/_drag-selection.vala',
+  'views/components/code-editor/_input.vala',
+  'views/components/code-editor/_search.vala',
+  'views/components/code-editor/_selections.vala',
+  'views/components/code-editor/_source-view.vala',
+  'views/components/code-editor/index.vala',
   'views/main/_i-global-panel.vala',
   'views/main/main-window/index.vala',
-  'views/editor-view/editor-pane/text-editor/_change-gutter.vala',
-  'views/editor-view/editor-pane/text-editor/_cursors.vala',
-  'views/editor-view/editor-pane/text-editor/_drag-selection.vala',
-  'views/editor-view/editor-pane/text-editor/_search.vala',
-  'views/editor-view/editor-pane/text-editor/_selections.vala',
-  'views/editor-view/editor-pane/text-editor/_source-view.vala',
-  'views/editor-view/editor-pane/text-editor/index.vala',
   'views/editor-view/editor-pane/tab-bar/_ghost.vala',
   'views/editor-view/editor-pane/tab-bar/_pill.vala',
   'views/editor-view/editor-pane/tab-bar/index.vala',
+  'views/editor-view/editor-pane/_change-banner.vala',
   'views/editor-view/editor-pane/_file-watcher.vala',
   'views/editor-view/editor-pane/find-results/_language-highlighter.vala',
   'views/editor-view/editor-pane/find-results/index.vala',
@@ -112,7 +115,7 @@ opus_gtk_view_sources = files(
 # real Controller was absorbed into the View that used to be wired to it
 # from outside (EditorController into EditorPane, FileTreeController into
 # ExplorerPane, MainController/SearchController into MainWindow,
-# CursorController into TextEditorCursors).
+# CursorController into CodeEditorCursors).
 
 opus_sources = files(
   'main.vala',

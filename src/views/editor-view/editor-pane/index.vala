@@ -1,16 +1,16 @@
 /**
- * Composes TabBar + TextEditor directly — the SFC-style replacement for
+ * Composes TabBar + CodeEditor directly — the SFC-style replacement for
  * the real EditorController, which used to sit between them as a
  * separate Controller object holding both from outside. No Controller
  * left: this class owns the open Document list itself and wires TabBar's
- * signals straight to TextEditor's methods (and vice versa) in its own
+ * signals straight to CodeEditor's methods (and vice versa) in its own
  * method bodies. TabBar's own "Reveal in Sidebar" is the one signal this
  * re-emits rather than handling itself — its target (ExplorerPane) is a
  * sibling this class has no reference to; MainWindow, which composes both,
  * is what actually wires it through.
  *
  * Assembles its own widget — a vertical Box, TabBar's own widget on top,
- * a divider, TextEditor's own widget below (vexpand) — rather than
+ * a divider, CodeEditor's own widget below (vexpand) — rather than
  * exposing the two separately for MainWindow to place into different
  * regions of its own window template: they were never actually placed
  * in different regions (both already sat in the same vertical Box in
@@ -25,8 +25,8 @@
  * set_active_content, set_active_cursors, get_active_cursors) are ported
  * above with the same plain names the real EditorController used — no
  * "simulate"/"test" framing, they're genuinely what they say. select_all
- * lives directly on TextEditor instead (see its own doc comment), reached
- * through the public `text_editor` property below rather than wrapped in
+ * lives directly on CodeEditor instead (see its own doc comment), reached
+ * through the public `code_editor` property below rather than wrapped in
  * a forwarding method here.
  */
 namespace EditorView {
@@ -46,12 +46,13 @@ namespace EditorView {
     private Adw.Bin container;
     private Gtk.Box content;
     private Adw.StatusPage empty_state;
-    // TextEditor is one shared widget reused across every real file tab
+    // CodeEditor is one shared widget reused across every real file tab
     // — this Bin is what lets the Find Results tab swap in a completely
     // different widget (EditorPane_.FindResults) instead, without
-    // TextEditor itself needing any notion of a "results" mode.
+    // CodeEditor itself needing any notion of a "results" mode.
     private Adw.Bin editor_area_bin;
     private EditorPane_.TabBar tab_bar;
+    private EditorPaneChangeBanner change_banner;
     private EditorPaneFileWatcher file_watcher;
     private string root_path;
     private EditorConfig? editor_config;
@@ -69,7 +70,7 @@ namespace EditorView {
 
     // Same "owned by MainWindow, handed in via a setter" shape as
     // `decorations` above, but unlike it, only the active document's
-    // hunks are ever rendered (one shared TextEditorSourceView buffer,
+    // hunks are ever rendered (one shared CodeEditorSourceView buffer,
     // not one per tab) — so `diff_tracker` is a single instance, reset on
     // every tab switch, not a per-document map.
     private GitDiff.DocumentTracker diff_tracker = new GitDiff.DocumentTracker ();
@@ -96,8 +97,8 @@ namespace EditorView {
 
     public Gtk.Widget widget { get { return container; } }
 
-    /** The real TextEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPane wrapping each one in a forwarding method of its own. */
-    public EditorPane_.TextEditor text_editor { get; private set; }
+    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPane wrapping each one in a forwarding method of its own. */
+    public CodeEditor code_editor { get; private set; }
 
     /** Whether at least one tab is open — `widget` itself already reacts to this (see the constructor); still re-emitted for whoever hosts it to gate its own tab-dependent behavior (MainWindow's own Ctrl+F/Ctrl+H). */
     public signal void has_open_tabs_changed (bool has_tabs);
@@ -111,7 +112,7 @@ namespace EditorView {
     /** A tab for `path` just stopped existing (closed, discarded, or evicted as an old preview) — see tab_opened()'s own doc comment. */
     public signal void tab_closed (string path);
 
-    /** Re-emitted from TextEditor's own search sub-component — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
+    /** Re-emitted from CodeEditor's own search sub-component — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
     public signal void search_position_changed (int position, int count);
 
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
@@ -122,13 +123,15 @@ namespace EditorView {
       editor_config = EditorConfig.load (root_path);
 
       tab_bar = new EditorPane_.TabBar ();
-      text_editor = new EditorPane_.TextEditor ();
+      code_editor = new CodeEditor ();
+      change_banner = new EditorPaneChangeBanner ();
       file_watcher = new EditorPaneFileWatcher ();
 
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       content.append (tab_bar.widget);
       content.append (new Gtk.Separator (Gtk.Orientation.HORIZONTAL) { css_classes = { "content-divider" } });
-      editor_area_bin = new Adw.Bin () { child = text_editor.widget, vexpand = true };
+      content.append (change_banner.widget);
+      editor_area_bin = new Adw.Bin () { child = code_editor.widget, vexpand = true };
       content.append (editor_area_bin);
 
       // Generic on purpose, not "…from the sidebar": a blank/file-only
@@ -147,7 +150,7 @@ namespace EditorView {
         container.child = has_tabs ? (Gtk.Widget) content : (Gtk.Widget) empty_state;
       });
 
-      text_editor.text_changed.connect (on_text_changed);
+      code_editor.text_changed.connect (on_text_changed);
       tab_bar.tab_selected.connect (on_tab_selected);
       tab_bar.tab_double_clicked.connect (on_tab_double_clicked);
       tab_bar.tab_close_requested.connect ((path) => close_tab.begin (path));
@@ -163,10 +166,10 @@ namespace EditorView {
       tab_bar.copy_relative_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (relative_path (documents[uri]?.pathname ?? uri)));
       tab_bar.new_file_requested.connect (new_untitled);
       tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (documents[uri]?.pathname ?? uri));
-      text_editor.reload_requested.connect (on_reload_requested);
-      text_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
+      change_banner.discard_clicked.connect (on_reload_requested);
+      code_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
       file_watcher.file_changed.connect (on_file_changed);
-      diff_tracker.hunks_changed.connect (() => text_editor.set_hunks (diff_tracker.hunks ()));
+      diff_tracker.hunks_changed.connect (() => code_editor.set_hunks (diff_tracker.hunks ()));
     }
 
     /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" calls resolve against the new root. */
@@ -230,7 +233,7 @@ namespace EditorView {
       }
 
       if (as_permanent) {
-        text_editor.grab_focus ();
+        code_editor.grab_focus ();
       }
     }
 
@@ -246,7 +249,7 @@ namespace EditorView {
         has_open_tabs_changed (true);
       }
       activate (document.uri);
-      text_editor.grab_focus ();
+      code_editor.grab_focus ();
     }
 
     /**
@@ -412,7 +415,8 @@ namespace EditorView {
       if (document.is_preview) {
         promote (document);
       }
-      text_editor.set_text (text, document.pathname ?? active_path);
+      code_editor.read_only = false;
+      code_editor.set_text (text, document.pathname ?? active_path);
       tab_bar.mark_modified (document.uri, document.dirty);
       notify_active_state ();
     }
@@ -439,7 +443,7 @@ namespace EditorView {
       }
 
       document.cursors.set_cursors (cursor_set);
-      text_editor.render_cursors (document.cursors.snapshot ());
+      code_editor.render_cursors (document.cursors.snapshot ());
     }
 
     /**
@@ -463,73 +467,73 @@ namespace EditorView {
       }
     }
 
-    /** Applies a Replace/Replace All result, computed by text_editor.compute_replace_current_match()/compute_replace_all(). Not cursor-driven, so it goes through TextEditor's own external-edit path. A no-op with no active tab, or an empty `edits`. */
+    /** Applies a Replace/Replace All result, computed by code_editor.compute_replace_current_match()/compute_replace_all(). Not cursor-driven, so it goes through CodeEditor's own external-edit path. A no-op with no active tab, or an empty `edits`. */
     public void apply_external_edits (TextEdit[] edits) {
       if (active_path == null || edits.length == 0) {
         return;
       }
-      text_editor.apply_external_edits (edits);
+      code_editor.apply_external_edits (edits);
     }
 
-    // The rest of this section is pure forwarding onto text_editor's own
+    // The rest of this section is pure forwarding onto code_editor's own
     // search API — MainWindow (FindBar's owner) talks to EditorPane as
-    // the one facade for "the editor," never reaching into TextEditor
+    // the one facade for "the editor," never reaching into CodeEditor
     // directly, the same reason apply_external_edits() above exists
-    // rather than exposing text_editor itself.
+    // rather than exposing code_editor itself.
 
     /** Whether the editor currently holds keyboard focus — MainWindow's own "was the user actually in the editor when they pressed Ctrl+F" check. */
     public bool has_focus {
-      get { return text_editor.has_focus; }
+      get { return code_editor.has_focus; }
     }
 
     /** The editor's own current primary selection text, "" if empty/collapsed — MainWindow's own Ctrl+F prefill. */
     public string primary_selection_text {
-      owned get { return text_editor.primary_selection_text; }
+      owned get { return code_editor.primary_selection_text; }
     }
 
     public void grab_focus () {
-      text_editor.grab_focus ();
+      code_editor.grab_focus ();
     }
 
     public void set_search_text (string text) {
-      text_editor.set_search_text (text);
+      code_editor.set_search_text (text);
     }
 
     public void set_search_options (bool regex, bool case_sensitive, bool whole_word) {
-      text_editor.set_search_options (regex, case_sensitive, whole_word);
+      code_editor.set_search_options (regex, case_sensitive, whole_word);
     }
 
     public void search_next () {
-      text_editor.search_next ();
+      code_editor.search_next ();
     }
 
     public void search_previous () {
-      text_editor.search_previous ();
+      code_editor.search_previous ();
     }
 
     public TextEdit? compute_replace_current_match (string replacement) {
-      return text_editor.compute_replace_current_match (replacement);
+      return code_editor.compute_replace_current_match (replacement);
     }
 
     public TextEdit[] compute_replace_all (string replacement) {
-      return text_editor.compute_replace_all (replacement);
+      return code_editor.compute_replace_all (replacement);
     }
 
     public void land_after_replace (int replaced_end_offset) {
-      text_editor.land_after_replace (replaced_end_offset);
+      code_editor.land_after_replace (replaced_end_offset);
     }
 
     public void forget_current_match () {
-      text_editor.forget_current_match ();
+      code_editor.forget_current_match ();
     }
 
     public void select_last_match () {
-      text_editor.select_last_match ();
+      code_editor.select_last_match ();
     }
 
-    /** See TextEditorCursors.select_all_occurrences()'s own doc comment. */
+    /** See CodeEditorCursors.select_all_occurrences()'s own doc comment. */
     public void select_all_occurrences () {
-      text_editor.select_all_occurrences ();
+      code_editor.select_all_occurrences ();
     }
 
     /**
@@ -687,7 +691,7 @@ namespace EditorView {
       document.is_externally_modified = true;
       tab_bar.mark_unsynchronized (document.uri, true);
       if (document.uri == active_path) {
-        text_editor.set_change_banner_visible (true);
+        change_banner.set_visible (true);
       }
     }
 
@@ -792,19 +796,23 @@ namespace EditorView {
     private void show_in_editor (string uri) {
       if (is_find_results_tab (uri)) {
         editor_area_bin.child = find_results.widget;
-        // Reset TextEditor's own buffer/active_document rather than
+        // Reset CodeEditor's own buffer/cursor state rather than
         // leaving it showing whatever real file was open before —
         // otherwise Ctrl+F/search_next() while this tab is active would
         // silently operate on that hidden buffer instead of doing
         // nothing, same as finish_close() already resets it once
-        // there's no tab left at all.
-        text_editor.set_text ("", "");
-        text_editor.set_active_document (null);
-        text_editor.set_change_banner_visible (false);
+        // there's no tab left at all. Read-only too: a keystroke that
+        // still reaches the hidden editor (Opus.Dev.DevServer's own
+        // KeyPress) must not turn into a text_changed() that lands in
+        // this tab's own Document.
+        code_editor.read_only = true;
+        code_editor.set_text ("", "");
+        code_editor.unbind ();
+        change_banner.set_visible (false);
         diff_tracker.set_document.begin (null, "", null);
         return;
       }
-      editor_area_bin.child = text_editor.widget;
+      editor_area_bin.child = code_editor.widget;
 
       var document = documents[uri];
       // document.pathname ?? uri: an Untitled tab has no real path for
@@ -812,20 +820,20 @@ namespace EditorView {
       // this split — falling back to its uri (no extension either way)
       // rather than ever handing it a raw file:// one for a real file.
       var display_path = document.pathname ?? uri;
-      if (document.readable) {
-        text_editor.set_text (document.content, display_path);
-        text_editor.clear_placeholder ();
-      } else {
-        text_editor.set_placeholder (_("This file can't be displayed."));
-      }
-      text_editor.set_change_banner_visible (document.is_externally_modified);
+      // An unreadable file shows a placeholder message instead of
+      // content, read-only and with no language (a "" path guesses
+      // none) — without that, the message would still highlight as the
+      // previous file's own language.
+      code_editor.read_only = !document.readable;
+      code_editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
+                            document.readable ? display_path : "");
+      change_banner.set_visible (document.is_externally_modified);
 
       var indent_size = editor_config?.indent_size_for (relative_path (display_path)) ?? DEFAULT_INDENT_SIZE;
       var insert_spaces = editor_config?.insert_spaces_for (relative_path (display_path)) ?? DEFAULT_INSERT_SPACES;
-      text_editor.set_indent_size (indent_size);
-      text_editor.set_indent_config (indent_size, insert_spaces);
+      code_editor.set_indent (indent_size, insert_spaces);
 
-      text_editor.set_active_document (document);
+      code_editor.bind (document.cursors, document.history);
       diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
     }
 
@@ -933,7 +941,7 @@ namespace EditorView {
       tab_bar.mark_deleted (document.uri, document.is_deleted); // save() already reset this to false
       tab_bar.mark_unsynchronized (document.uri, false); // same — save() already reset is_externally_modified too
       if (document.uri == active_path) {
-        text_editor.set_change_banner_visible (false);
+        change_banner.set_visible (false);
       }
       notify_active_state ();
       return true;
@@ -956,9 +964,10 @@ namespace EditorView {
           activate (fallback);
         } else {
           active_path = null;
-          text_editor.set_text ("", "");
-          text_editor.set_change_banner_visible (false);
-          text_editor.set_active_document (null);
+          code_editor.read_only = true;
+          code_editor.set_text ("", "");
+          change_banner.set_visible (false);
+          code_editor.unbind ();
           notify_active_state ();
         }
       }
@@ -1033,7 +1042,7 @@ namespace EditorView {
     }
 
     /**
-     * Save As: asks TextEditor for a destination via the system's own
+     * Save As: asks for a destination via the system's own
      * file chooser (an untitled document defaults to the workspace
      * root), writes the document there, and re-keys both the document
      * and its tab to the new uri. Also promotes a preview tab.
@@ -1051,7 +1060,7 @@ namespace EditorView {
       // root_path instead.
       var old_pathname = document.pathname;
       var initial_folder = document.is_untitled ? root_path : Path.get_dirname (old_pathname);
-      var new_path = yield text_editor.choose_save_as_path (document.name, initial_folder);
+      var new_path = yield choose_save_as_path (document.name, initial_folder);
       if (new_path == null) {
         return null;
       }
@@ -1083,13 +1092,27 @@ namespace EditorView {
       tab_bar.mark_unsynchronized (new_uri, false); // save_as() already reset is_externally_modified too
       stamp_tab_decoration (document);
       if (was_active) {
-        text_editor.set_change_banner_visible (false);
+        change_banner.set_visible (false);
       }
       if (document.is_preview) {
         promote (document);
       }
       notify_active_state ();
       return new_uri;
+    }
+
+    /** Shows the system's own Save-As file chooser, pre-filled with `suggested_name` in `current_folder`. Returns the chosen path, or null if cancelled or the dialog/portal itself failed. */
+    private async string? choose_save_as_path (string suggested_name, string current_folder) {
+      var dialog = new Gtk.FileDialog ();
+      dialog.initial_name = suggested_name;
+      dialog.initial_folder = File.new_for_path (current_folder);
+
+      try {
+        var file = yield dialog.save (container.get_root () as Gtk.Window, null);
+        return file != null ? file.get_path () : null;
+      } catch (Error e) {
+        return null;
+      }
     }
 
     /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */

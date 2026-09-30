@@ -2,7 +2,7 @@
  * Next/Previous Match must wrap around the buffer's own start/end
  * instead of getting stuck reporting "no match" once nothing is left
  * ahead of/behind the current one — a regression test for
- * TextEditorSearch's own constructor explicitly enabling
+ * CodeEditorSearch's own constructor explicitly enabling
  * GtkSourceSearchSettings.wrap_around (its real default is false, not
  * true — confirmed against the real library directly, not assumed).
  * Left at that default, Next Match from the last occurrence (or from

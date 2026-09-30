@@ -3,7 +3,7 @@
  * insert_mode (src/models/session.vala), a session-wide flag that makes
  * typed and pasted text replace what's under the caret instead of
  * pushing it right. Exercises the real key-press pipeline end to end
- * (TextEditorCursors -> CursorCollection.compute_edits/
+ * (CodeEditorCursors -> CursorCollection.compute_edits/
  * compute_distributed_paste_edits -> the real buffer).
  */
 int main (string[] args) {

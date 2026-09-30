@@ -1,0 +1,46 @@
+/* Suppresses libadwaita's own generic drop-target border — the drop
+ * indicator CodeEditorSourceView hand-draws is this editor's real feedback
+ * for a drop target, this outer border would be redundant on top of it. */
+textview:drop(active),
+textview > text:drop(active),
+textview > border:drop(active) {
+  box-shadow: none;
+}
+
+/* GtkTextView's own native selection paint, off — CodeEditorSourceView's
+ * own hand-painted draw_selections() paints every cursor's selection
+ * instead (primary included), so all of them stay pixel-identical.
+ * Scoped to .code-editor (CodeEditorSourceView's own marker class)
+ * specifically, not a bare `textview`: this stylesheet is installed
+ * display-wide (GlobalCss.install_from_resource), so an unscoped
+ * selector would also blank out native selection on any *other*
+ * GtkTextView in the app that has no such hand-painted compensation of
+ * its own — found live, back when Find Results had a bare GtkSource.View
+ * of its own: selecting text there worked but rendered invisibly. */
+textview.code-editor > text > selection {
+  background-color: transparent;
+  color: transparent;
+}
+
+/* CodeEditorChangeGutter's own permanent class (added once, at
+ * construct, same as .decoration-dot/.tab-pill are permanent classes on
+ * their own widgets) — it can't apply a CSS background directly (it
+ * paints via raw Gsk/Gtk.Snapshot calls), so it toggles the git-* class
+ * alongside this one and reads the resolved `color` back via
+ * Gtk.Widget.get_color(). Same flat-surface 50%-transparent recipe as
+ * .decoration-dot's own git-* rules (explorer-pane.css) — a gutter bar
+ * is a flat surface too, same reasoning. No .git-conflict here: a diff
+ * hunk is never "conflicted", only added/changed/removed. The dimmed
+ * (already-staged) state is plain alpha math in
+ * CodeEditorChangeGutter's own Vala code instead of a second CSS class
+ * combo — it's the gutter's own per-hunk runtime data, nothing else
+ * needs it. */
+.change-gutter.git-added {
+  color: color-mix(in srgb, var(--git-added-color) 50%, transparent);
+}
+.change-gutter.git-modified {
+  color: color-mix(in srgb, var(--git-modified-color) 50%, transparent);
+}
+.change-gutter.git-removed {
+  color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
+}

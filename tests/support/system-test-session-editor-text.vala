@@ -1,4 +1,4 @@
-/** Typing/keystroke DSL over the active tab's own buffer — editor_write/type/type_cmd/key_press/select_all, plus reading the buffer back for assertions. Composed into SystemTestSession the same way TextEditorCursors/TextEditorSearch compose into TextEditor. */
+/** Typing/keystroke DSL over the active tab's own buffer — editor_write/type/type_cmd/key_press/select_all, plus reading the buffer back for assertions. Composed into SystemTestSession the same way CodeEditorCursors/CodeEditorSearch compose into CodeEditor. */
 public class SystemTestEditorText : Object {
     private DBusProxy proxy;
 

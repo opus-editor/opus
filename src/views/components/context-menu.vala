@@ -6,7 +6,7 @@ public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
 
 /**
  * A small shared builder for the flat-button right-click menus used by
- * EditorView.FileTree, EditorView.TabBar, and EditorView.TextEditor — a plain
+ * EditorView.FileTree, EditorView.TabBar, and CodeEditor — a plain
  * Gtk.Popover containing a vertical Gtk.Box of flat Gtk.Buttons and
  * Gtk.Separators, not Gtk.PopoverMenu/GLib.Menu+Gio.SimpleAction: nothing
  * else in this codebase uses that pattern, every interactive row/pill
@@ -20,7 +20,7 @@ public delegate void MenuBuilder (Gtk.Popover popover, Gtk.Box box);
  * needed).
  */
 public class ContextMenu : Gtk.Popover {
-  // A menu with only one or two short-word items (EditorView.TextEditor's own)
+  // A menu with only one or two short-word items (CodeEditor's own)
   // shrinks to fit its widest label and reads as oddly narrow; every
   // menu gets this same floor rather than each call site guessing its
   // own.

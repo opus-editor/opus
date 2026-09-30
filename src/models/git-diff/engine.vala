@@ -167,7 +167,7 @@ namespace GitDiff {
       return true;
     }
 
-    /** `LineRange.intersectsOrTouches`'s own check (`a.start <= b.end && b.start <= a.end`, using exclusive ends) — overlap OR direct adjacency, not just overlap. A REMOVED hunk (current_count == 0) has no real span; treated as a single-line point at current_start, same as hunk_covers_line's own REMOVED handling in TextEditorChangeGutter. */
+    /** `LineRange.intersectsOrTouches`'s own check (`a.start <= b.end && b.start <= a.end`, using exclusive ends) — overlap OR direct adjacency, not just overlap. A REMOVED hunk (current_count == 0) has no real span; treated as a single-line point at current_start, same as hunk_covers_line's own REMOVED handling in CodeEditorChangeGutter. */
     private static bool touches_any (Hunk[] hunks, Hunk candidate) {
       var candidate_end = candidate.current_start + int.max (candidate.current_count, 1);
       foreach (var h in hunks) {

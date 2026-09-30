@@ -132,7 +132,7 @@
 /* Shared git-status color vocabulary — pure hue only, no surface's own
  * mixing formula baked in. Every surface that shows git status (the
  * explorer dot in explorer-pane.css, the tab label tint in tab-bar.css,
- * the editor gutter in text-editor.css) applies its OWN color-mix
+ * the editor gutter in code-editor.css) applies its OWN color-mix
  * recipe on top of these same four tokens instead of each hardcoding
  * --success-color/--warning-color/--error-color directly — a future
  * theming feature only ever has to touch these four lines to restyle

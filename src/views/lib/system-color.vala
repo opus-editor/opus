@@ -1,7 +1,7 @@
 /**
  * A small, chainable color builder shared by more than one editor
- * sub-component (TextEditorCursors' own selection color,
- * TextEditorSearch's own match colors) — nothing about it is specific to
+ * sub-component (CodeEditorCursors' own selection color,
+ * CodeEditorSearch's own match colors) — nothing about it is specific to
  * either, so it lives here rather than in one and imported by the other.
  * Needs `Adw` (from_accent()), so views/lib/ — not models/ or a
  * Gdk-only src/lib/ — is where this belongs.
@@ -31,7 +31,7 @@ public class SystemColor : Object {
    * alpha — the same operation as Sass's `desaturate($color, amount *
    * 100%)`. `amount`'s default of 1.0 makes this the exact same full
    * desaturation GTK's own real default theme uses for its backdrop
-   * (window-inactive) selection color; TextEditorSearch's own match
+   * (window-inactive) selection color; CodeEditorSearch's own match
    * highlight instead uses a small `amount` — just enough to keep it
    * visually distinct from the accent-colored selection, without
    * draining the color away entirely.

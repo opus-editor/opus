@@ -7,7 +7,7 @@ namespace GitDiff {
    * current-buffer range to span: current_start is the boundary line
    * where the removed lines used to be. The renderer draws a small
    * triangle notch there instead of a full-height bar (see
-   * TextEditorChangeGutter.draw_removed_marker()).
+   * CodeEditorChangeGutter.draw_removed_marker()).
    */
   public class Hunk : Object {
     public int current_start { get; construct; }

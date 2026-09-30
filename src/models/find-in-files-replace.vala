@@ -9,7 +9,7 @@
  * buffer, not something this needs to touch at all — re-matching fresh
  * sidesteps the byte/char-offset conversion `find-in-files-search.vala`
  * itself has to do, and, unlike GtkSourceSearchContext (see
- * TextEditorSearch's own capture_groups() and its doc comment on why),
+ * CodeEditorSearch's own capture_groups() and its doc comment on why),
  * `MatchInfo` already exposes every capture group directly, so no
  * second re-match is needed to resolve `$1`-style replacement patterns
  * either.

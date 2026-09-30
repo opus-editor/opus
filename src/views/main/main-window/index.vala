@@ -9,7 +9,7 @@
  *
  * Loads the window and its named slots straight from the compiled
  * Blueprint via {@link Gtk.Builder} — the same way {@link
- * EditorView.TextEditor} loads its widget tree, no composite-template
+ * CodeEditor} loads its widget tree, no composite-template
  * subclass needed.
  */
 public class MainWindow : Object {
@@ -48,7 +48,7 @@ public class MainWindow : Object {
   /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
   private IGlobalPanel? active_bottom_panel = null;
 
-  /** The window's own EditorPane, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPane's own public `text_editor`. */
+  /** The window's own EditorPane, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPane's own public `code_editor`. */
   public EditorView.EditorPane editor_pane { get; private set; }
 
   // search_position_changed's own (position, count) doesn't say whether
@@ -260,7 +260,7 @@ public class MainWindow : Object {
     // on_key_pressed above (BUBBLE, and only reacts to a Ctrl
     // combination in the first place): CAPTURE resolves outer-to-
     // inner, ancestor before descendant, so this needs to run before
-    // TextEditorCursors' own plain-Escape handling — otherwise, with a
+    // CodeEditorCursors' own plain-Escape handling — otherwise, with a
     // selection in the editor (Ctrl+F's own "seed from the current
     // selection" leaves exactly that), that would already claim the
     // keystroke to collapse it before this ever got a turn, and an
@@ -405,7 +405,7 @@ public class MainWindow : Object {
   /**
    * Arms a live-reload watch on settings.json for exactly as long as
    * its own tab stays open — every open tab's font re-renders on each
-   * change (the font CSS is display-wide, see TextEditor's own
+   * change (the font CSS is display-wide, see CodeEditor's own
    * font_css()), not just whichever tab happens to be active.
    */
   private void on_settings_tab_opened (string uri) {
@@ -416,7 +416,7 @@ public class MainWindow : Object {
 
     try {
       settings_monitor = File.new_for_path (settings_path).monitor_file (FileMonitorFlags.NONE, null);
-      settings_monitor.changed.connect (() => editor_pane.text_editor.reload_font_settings ());
+      settings_monitor.changed.connect (() => editor_pane.code_editor.reload_font_settings ());
     } catch (Error e) {
       Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
     }
@@ -869,14 +869,14 @@ public class MainWindow : Object {
       case Gdk.Key.plus:
       case Gdk.Key.equal:
       case Gdk.Key.KP_Add:
-        editor_pane.text_editor.zoom_in ();
+        editor_pane.code_editor.zoom_in ();
         return true;
       case Gdk.Key.minus:
       case Gdk.Key.KP_Subtract:
-        editor_pane.text_editor.zoom_out ();
+        editor_pane.code_editor.zoom_out ();
         return true;
       case Gdk.Key.@0:
-        editor_pane.text_editor.reset_zoom ();
+        editor_pane.code_editor.reset_zoom ();
         return true;
       case Gdk.Key.f:
         if (shift) {

@@ -1,4 +1,4 @@
-/** Find/Replace DSL — search_set_text/search_next/search_previous/assert_search_position. Composed into SystemTestSession the same way TextEditorSearch composes into TextEditor: an independent module that only needs the shared D-Bus proxy. */
+/** Find/Replace DSL — search_set_text/search_next/search_previous/assert_search_position. Composed into SystemTestSession the same way CodeEditorSearch composes into CodeEditor: an independent module that only needs the shared D-Bus proxy. */
 public class SystemTestSearch : Object {
     private DBusProxy proxy;
 

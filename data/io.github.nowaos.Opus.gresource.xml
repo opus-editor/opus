@@ -5,7 +5,7 @@
     <file compressed="true">editor-view/explorer-pane/index.ui</file>
     <file compressed="true">editor-view/editor-pane/tab-bar/_pill.ui</file>
     <file compressed="true">editor-view/editor-pane/tab-bar/index.ui</file>
-    <file compressed="true">editor-view/editor-pane/text-editor/index.ui</file>
+    <file compressed="true">editor-view/editor-pane/_change-banner.ui</file>
     <file compressed="true">editor-view/editor-pane/find-results/index.ui</file>
     <file compressed="true">editor-view/find-bar/index.ui</file>
     <file compressed="true">editor-view/find-in-files-bar/index.ui</file>
@@ -13,12 +13,13 @@
     <file compressed="true">main/main-window/index.ui</file>
     <file compressed="true">styles/common.css</file>
     <file compressed="true">styles/context-menu.css</file>
+    <file compressed="true">styles/editor-pane.css</file>
     <file compressed="true">styles/explorer-pane.css</file>
     <file compressed="true">styles/find-bar.css</file>
     <file compressed="true">styles/find-results.css</file>
     <file compressed="true">styles/main-window.css</file>
     <file compressed="true">styles/tab-bar.css</file>
-    <file compressed="true">styles/text-editor.css</file>
+    <file compressed="true">styles/code-editor.css</file>
   </gresource>
   <gresource prefix="/io/github/nowaos/Opus/icons">
     <!-- BEGIN generated icon theme assets (see tools/) -->

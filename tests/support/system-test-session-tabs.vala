@@ -1,4 +1,4 @@
-/** Tab lifecycle DSL — new_file/close_tab/active_tab, composed into SystemTestSession the same way TextEditorCursors/TextEditorSearch compose into TextEditor: an independent module that only needs the shared D-Bus proxy, nothing from its sibling modules. */
+/** Tab lifecycle DSL — new_file/close_tab/active_tab, composed into SystemTestSession the same way CodeEditorCursors/CodeEditorSearch compose into CodeEditor: an independent module that only needs the shared D-Bus proxy, nothing from its sibling modules. */
 public class SystemTestTabs : Object {
     private DBusProxy proxy;
 

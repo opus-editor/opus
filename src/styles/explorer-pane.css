@@ -64,7 +64,7 @@ listview.data-table:drop(active) {
 }
 /* "Reveal in Sidebar" — briefly highlights the revealed row, the same
  * warm/warning color the "File Has Changed on Disk" banner uses (see
- * EditorView.TextEditor's own styles), not a hardcoded yellow, so it
+ * CodeEditor's own styles), not a hardcoded yellow, so it
  * also tracks light/dark. Added then removed shortly after in code,
  * with .reveal-flash-fading's own transition (above) fading it back
  * out instead of snapping off. */

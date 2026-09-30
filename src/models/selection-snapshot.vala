@@ -6,7 +6,7 @@
 * cursor state); "Selection" ties it to Cursor.selection_start/
 * selection_end, the live version of the same range this freezes.
 *
-* First use: TextEditorDragSelection's own start(), captured at drag-start
+* First use: CodeEditorDragSelection's own start(), captured at drag-start
 * so a later drop always sees the text as it was when the drag began, not
 * whatever the buffer happens to hold by then. Also why this
 * is its own GObject type rather than three loose values passed around:

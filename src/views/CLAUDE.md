@@ -22,6 +22,8 @@ views/
   lib/              app-wide supporting code, not a widget itself
     file-drag/
   components/       app-wide reusable Gtk.Widget subclasses
+    code-editor/    a multi-file component gets its own directory, same
+                    index.vala + _sub.vala convention as a view
   main/             window chrome: header, global menu, sidebar toggle
     main-window/
   editor-view/      explorer-pane/ editor-pane/ find-bar/

@@ -19,7 +19,7 @@ namespace Opus.Dev {
    * save_path() itself public — exist only because this needed to reach
    * them from outside, not because the real UI needed them; see EditorPane's
    * own class doc comment). key_press()/select_all() reach one level deeper,
-   * into the real EditorPane.text_editor itself (exposed directly for
+   * into the real EditorPane.code_editor itself (exposed directly for
    * exactly this — see its own doc comment for why there's no forwarding
    * method for either on EditorPane). Nothing here holds business logic of
    * its own, and nothing outside this file/DEBUG-gated call site knows this
@@ -125,11 +125,11 @@ namespace Opus.Dev {
     }
 
     public bool key_press (uint keyval, uint modifiers) throws DBusError, IOError {
-      return current_editor_pane ().text_editor.key_pressed (keyval, modifiers);
+      return current_editor_pane ().code_editor.key_pressed (keyval, modifiers);
     }
 
     public void select_all () throws DBusError, IOError {
-      current_editor_pane ().text_editor.select_all ();
+      current_editor_pane ().code_editor.select_all ();
     }
 
     public string[] list_open_tabs () throws DBusError, IOError {
@@ -164,6 +164,11 @@ namespace Opus.Dev {
       current_editor_pane (); // Throws if no window is open — same guard every other method here gets, even though the actual read is off this class's own fields.
       position = last_search_position;
       count = last_search_count;
+    }
+
+    public void find_in_files (string text) throws DBusError, IOError {
+      var query = new FindInFilesQuery () { text = text };
+      current_editor_pane ().search_in_files.begin (query);
     }
   }
 }

@@ -1,4 +1,4 @@
-/** Cursor/selection DSL — set_cursors/set_selections/assert_cursors. Composed into SystemTestSession the same way TextEditorCursors composes into TextEditor. Takes `editor_text` too (not just the shared proxy): resolving a {line, column} pair against the buffer's current text needs active_text(), already implemented on SystemTestEditorText — reused directly rather than duplicated here. */
+/** Cursor/selection DSL — set_cursors/set_selections/assert_cursors. Composed into SystemTestSession the same way CodeEditorCursors composes into CodeEditor. Takes `editor_text` too (not just the shared proxy): resolving a {line, column} pair against the buffer's current text needs active_text(), already implemented on SystemTestEditorText — reused directly rather than duplicated here. */
 public class SystemTestCursors : Object {
     private DBusProxy proxy;
     private SystemTestEditorText editor_text;

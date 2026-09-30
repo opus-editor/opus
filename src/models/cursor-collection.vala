@@ -57,7 +57,7 @@ public class CursorCollection : Object {
   public int count { get { return (int) cursors.length; } }
   public Cursor primary { get { return cursors[0]; } }
 
-  /** Whether any cursor (not just the primary) currently has a non-empty selection — Cut/Copy/Delete's own "is there anything to act on" check, e.g. for EditorView.TextEditor's context menu. */
+  /** Whether any cursor (not just the primary) currently has a non-empty selection — Cut/Copy/Delete's own "is there anything to act on" check, e.g. for CodeEditor's context menu. */
   public bool has_selection {
     get {
       for (uint i = 0; i < cursors.length; i++) {
@@ -899,7 +899,7 @@ public class CursorCollection : Object {
    * `cursors[i]`) instead of one string shared by every cursor —
    * Paste's own per-cursor distribution, once `texts.length` is
    * confirmed to match the live cursor count by the caller (see
-   * TextEditorCursors's own clipboard handling for when that applies:
+   * CodeEditorCursors's own clipboard handling for when that applies:
    * VS Code's real `PasteOperation._distributePasteToCursors`,
    * `src/vs/editor/common/cursor/cursorTypeEditOperations.ts`, is the
    * verified reference this mirrors). `overtype` applies the same

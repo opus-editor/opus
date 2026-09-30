@@ -1,12 +1,12 @@
 namespace EditorView {
   /**
    * External file-change watching for open tabs — split out of
-   * EditorController's old job the same way TextEditorDragSelection was:
+   * EditorController's old job the same way CodeEditorDragSelection was:
    * this owns the Gio.FileMonitor lifecycle and self-write suppression
    * mechanically, emitting the raw event for EditorPane to interpret.
    * The RENAMED-vs-deleted-vs-modified disambiguation needs a document's
    * own live is_deleted state, which this class has no reference to —
-   * same reason TextEditorDragSelection can't turn a drop into an edit
+   * same reason CodeEditorDragSelection can't turn a drop into an edit
    * itself.
    */
   public class EditorPaneFileWatcher : Object {
