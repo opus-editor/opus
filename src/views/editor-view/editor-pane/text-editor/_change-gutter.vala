@@ -22,8 +22,10 @@ namespace EditorView.EditorPane_ {
     // GutterRenderer's own xpad is symmetric (both sides), so this is
     // just extra width on the renderer's own cell instead: the bar/
     // triangle are still drawn at x=0..BAR_WIDTH, leaving this much
-    // blank space to their right.
-    private const int RIGHT_MARGIN = 12;
+    // blank space to their right. Matches BAR_WIDTH itself rather than
+    // the wider gap first tried — that read as a gap in the gutter, not
+    // breathing room for the bar.
+    private const int RIGHT_MARGIN = 3;
     // Multiplies the already-50%-transparent resolved color (common.css)
     // for a dimmed (already-staged) hunk — not an absolute alpha value.
     private const float DIMMED_ALPHA_FACTOR = 0.5f;
