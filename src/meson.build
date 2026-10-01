@@ -77,6 +77,7 @@ opus_lib_sources = opus_logger_sources + files(
 )
 
 opus_gtk_view_sources = files(
+  'views/lib/dialogs.vala',
   'views/lib/system-color.vala',
   'views/lib/file-drag/_payload.vala',
   'views/lib/file-drag/_candidate.vala',

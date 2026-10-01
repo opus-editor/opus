@@ -13,6 +13,7 @@
     <file compressed="true">main/main-window/index.ui</file>
     <file compressed="true">styles/common.css</file>
     <file compressed="true">styles/context-menu.css</file>
+    <file compressed="true">styles/dialogs.css</file>
     <file compressed="true">styles/editor-pane.css</file>
     <file compressed="true">styles/explorer-pane.css</file>
     <file compressed="true">styles/find-bar.css</file>

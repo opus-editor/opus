@@ -748,6 +748,7 @@ public class MainWindow : Object {
   private void install_css () {
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/main-window.css");
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
+    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/dialogs.css");
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/common.css");
   }
 
@@ -829,9 +830,7 @@ public class MainWindow : Object {
   }
 
   public void show_error (string message) {
-    var dialog = new Adw.AlertDialog (_("Error"), message);
-    dialog.add_response ("ok", _("OK"));
-    dialog.present (window);
+    Dialogs.show_error (window, message);
   }
 
   private bool on_key_pressed (uint keyval, uint keycode, Gdk.ModifierType state) {

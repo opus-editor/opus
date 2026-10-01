@@ -319,30 +319,25 @@ namespace EditorView.EditorPane_ {
     }
 
     /**
-     * The actual Replace All flow — confirms, then runs it. A centered
-     * Adw.AlertDialog, same pattern as every other modal in this app
-     * (TabBar/ExplorerPane's own confirm_* dialogs, MainWindow's
-     * show_error()). Both responses stay neutral (no
-     * Adw.ResponseAppearance.SUGGESTED/DESTRUCTIVE): this overwrites
-     * files on disk, but not in a way meaningfully riskier than Save
-     * itself, so it doesn't need the red "destructive" treatment — and
-     * suggesting one specific response over the other isn't warranted
-     * either. A no-op with nothing currently shown (no result to
-     * replace into).
+     * The actual Replace All flow — confirms, then runs it. Dialogs.confirm(),
+     * not confirm_destructive(): this overwrites files on disk, but not in a
+     * way meaningfully riskier than Save itself, so it doesn't need the red
+     * "destructive" treatment — and suggesting one specific response over the
+     * other isn't warranted either. A no-op with nothing currently shown (no
+     * result to replace into).
      */
     private async void confirm_and_replace_all () {
       if (last_result == null) {
         return;
       }
 
-      var dialog = new Adw.AlertDialog (_("Replace All"), replace_all_body_text (last_result, replace_text.text));
-      dialog.add_response ("cancel", _("Cancel"));
-      dialog.add_response ("replace", _("Replace"));
-      dialog.set_default_response ("replace");
-      dialog.set_close_response ("cancel");
-
-      var response = yield dialog.choose (widget, null);
-      if (response != "replace") {
+      var confirmed = yield Dialogs.confirm (
+        widget,
+        _("Replace All"),
+        replace_all_body_text (last_result, replace_text.text),
+        _("Replace")
+      );
+      if (!confirmed) {
         return;
       }
 
@@ -354,11 +349,8 @@ namespace EditorView.EditorPane_ {
       }
     }
 
-    /** Same shape as MainWindow.show_error()/ExplorerPane's own error dialogs — a plain OK-only Adw.AlertDialog. */
     private void show_replace_error (string message) {
-      var dialog = new Adw.AlertDialog (_("Error"), message);
-      dialog.add_response ("ok", _("OK"));
-      dialog.present (widget);
+      Dialogs.show_error (widget, message);
     }
 
     /**

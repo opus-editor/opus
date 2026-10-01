@@ -1,10 +1,3 @@
-/** What the user chose when asked about a tab with unsaved changes. */
-public enum DiscardChoice {
-  SAVE,
-  DISCARD,
-  CANCEL,
-}
-
 /**
  * Real Gtk-backed facade for the row of open-file tabs above the editor
  * pane: a horizontal, scrollable row of {@link TabBarPill}s, one per open file,
@@ -468,31 +461,7 @@ namespace EditorView.EditorPane_ {
     }
 
     public async DiscardChoice confirm_unsaved_close (string filename) {
-      var dialog = new Adw.AlertDialog (
-        _("Save changes to “%s”?").printf (filename),
-        _("Your changes will be lost if you don't save them.")
-      );
-      dialog.add_response ("cancel", _("Cancel"));
-      dialog.add_response ("discard", _("Don't Save"));
-      dialog.add_response ("save", _("Save"));
-      dialog.set_response_appearance ("discard", Adw.ResponseAppearance.DESTRUCTIVE);
-      dialog.set_response_appearance ("save", Adw.ResponseAppearance.SUGGESTED);
-      dialog.set_default_response ("save");
-      dialog.set_close_response ("cancel");
-      // Adw.AlertDialog stacks its response buttons vertically by
-      // default at medium sizes — side-by-side needs this opted into
-      // explicitly.
-      dialog.prefer_wide_layout = true;
-
-      var response = yield dialog.choose (widget, null);
-      switch (response) {
-        case "save":
-          return DiscardChoice.SAVE;
-        case "discard":
-          return DiscardChoice.DISCARD;
-        default:
-          return DiscardChoice.CANCEL;
-      }
+      return yield Dialogs.confirm_discard (widget, filename);
     }
 
     /** `path`, with the user's home directory collapsed to `~` if it's under there — same shorthand every terminal/file manager already uses, for the tab tooltip. */

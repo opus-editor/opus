@@ -1,0 +1,41 @@
+/* Dialogs' own alert dialogs — tighter padding than AdwAlertDialog's own
+ * .message-area/.response-area defaults (32/9/24px, 24px/12px), which
+ * read as oversized now that content_width lets the dialog grow past
+ * AdwAlertDialog's own 372sp cap. Padding only — border-spacing (the
+ * title/body gap, the button gap) stays whatever the native rule
+ * already sets: GtkBoxLayout adds CSS border-spacing to a Gtk.Box's own
+ * `spacing` property instead of one overriding the other (see
+ * dialogs.vala's own doc comment), so overriding it here on top of
+ * dialogs.vala's spacing-0 Boxes is the one thing that must NOT happen
+ * again. Scoped to .opus-dialog, not a bare .message-area/.response-area
+ * override, so this can't leak into some other widget that happens to
+ * reuse those same class names. */
+.opus-dialog .message-area {
+  padding-top: 24px;
+  /* Paired with .response-area's own padding-top below for a combined
+   * 20px gap above the buttons — bigger than the 8px title/body gap
+   * (message_area's own native border-spacing), so the button row
+   * still reads as a distinct section instead of just another
+   * paragraph. */
+  padding-bottom: 8px;
+}
+
+.opus-dialog .message-area > .heading-bin,
+.opus-dialog .message-area > .body {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* .title-2's own 136% reads as too large next to our .body text. */
+.opus-dialog .message-area > .heading-bin {
+  font-size: 120%;
+}
+
+.opus-dialog .response-area {
+  padding: 16px;
+  padding-top: 12px;
+}
+
+.opus-dialog .response-area > button {
+  padding: 8px 20px;
+}

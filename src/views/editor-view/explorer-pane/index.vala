@@ -247,21 +247,12 @@ namespace EditorView {
 
     /** The system's own confirmation for deleting `filename` while it has unsaved changes open — Cancel, or lose them and delete anyway. */
     public async bool confirm_delete_with_unsaved_changes (string filename) {
-      var dialog = new Adw.AlertDialog (
-        _("You are deleting “%s” with unsaved changes. Do you want to continue?").printf (filename),
-        _("Your changes will be lost if you don't save them.")
+      return yield Dialogs.confirm_destructive (
+        widget,
+        _("You are deleting a file with unsaved changes"),
+        _("Your changes to “%s” will be lost if you don't save them.").printf (filename),
+        _("Move to Trash")
       );
-      dialog.add_response ("cancel", _("Cancel"));
-      dialog.add_response ("delete", _("Move to Trash"));
-      dialog.set_response_appearance ("delete", Adw.ResponseAppearance.DESTRUCTIVE);
-      dialog.set_default_response ("cancel");
-      dialog.set_close_response ("cancel");
-      // See TabBar.confirm_unsaved_close's own comment: Adw.AlertDialog
-      // stacks buttons vertically by default at medium sizes.
-      dialog.prefer_wide_layout = true;
-
-      var response = yield dialog.choose (widget, null);
-      return response == "delete";
     }
 
     private void do_paste (string source_path, bool is_cut, string target_path) {
@@ -435,9 +426,7 @@ namespace EditorView {
     }
 
     public void show_error (string message) {
-      var dialog = new Adw.AlertDialog (_("Error"), message);
-      dialog.add_response ("ok", _("OK"));
-      dialog.present (widget);
+      Dialogs.show_error (widget, message);
     }
   }
 }
