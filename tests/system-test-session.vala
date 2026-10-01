@@ -62,8 +62,19 @@ public class SystemTestSession : Object {
      * this number, so two sessions sharing one would fight over the same
      * port instead of getting their own isolated display.
      */
-    /** `folder_path`, if given, is linked as the workspace root exactly like `opus <folder>` on the real command line — for a scenario that needs a real `.editorconfig` picked up (EditorController.root_path/EditorConfig.load()). Null (the default) launches a blank window, same as every existing test. */
-    public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null) throws Error {
+    /**
+     * `folder_path`, if given, is linked as the workspace root exactly
+     * like `opus <folder>` on the real command line — for a scenario
+     * that needs a real `.editorconfig` picked up
+     * (EditorController.root_path/EditorConfig.load()). Null (the
+     * default) launches a blank window, same as every existing test.
+     *
+     * `settings_json`, if given, is written as this session's own
+     * settings.json before Opus starts — for a scenario that needs a
+     * non-default `editor.*` value (word wrap, say) in effect from the
+     * first paint. Null leaves UserSettings to create its defaults.
+     */
+    public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null, string? settings_json = null) throws Error {
         var broadway_launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         // See the identical spawnv() argv warning/explanation below.
         string[] broadway_argv = { "gtk4-broadwayd", ":%u".printf (broadway_display_num) };
@@ -89,7 +100,9 @@ public class SystemTestSession : Object {
         // isolation reasoning as OPUS_APP_ID just above, so a test
         // opening the primary menu's "Settings" writes into a throwaway
         // directory instead of the developer's real ~/.config/opus.
-        launcher.setenv ("XDG_CONFIG_HOME", Path.build_filename (Environment.get_tmp_dir (), "opus-test-config-%u".printf (broadway_display_num)), true);
+        var config_home = Path.build_filename (Environment.get_tmp_dir (), "opus-test-config-%u".printf (broadway_display_num));
+        launcher.setenv ("XDG_CONFIG_HOME", config_home, true);
+        reset_settings_json (config_home, settings_json);
         // spawnv() takes a `const gchar * const *`; valac always marshals
         // a string[] as a plain, non-const `gchar**` — see the identical
         // warning/explanation at file-tree-controller.vala's own spawnv()
@@ -173,6 +186,27 @@ public class SystemTestSession : Object {
         }
     }
 
+    /**
+     * Leaves `<config dir>/opus/settings.json` holding exactly
+     * `contents`, or absent when that's null — the config dir is keyed
+     * by display number and so shared by every session a test binary
+     * launches in turn, and a previous scenario's file would otherwise
+     * silently carry over into one expecting the defaults. The path is
+     * the same one UserSettings.path() resolves, spelled out here
+     * because this harness links none of the app's own Models (see
+     * this class's doc comment on the dynamic D-Bus proxy for the same
+     * reasoning).
+     */
+    private static void reset_settings_json (string config_home, string? contents) throws Error {
+        var settings_path = Path.build_filename (config_home, "opus", "settings.json");
+        FileUtils.remove (settings_path);
+        if (contents == null) {
+            return;
+        }
+        DirUtils.create_with_parents (Path.get_dirname (settings_path), 0755);
+        FileUtils.set_contents (settings_path, contents);
+    }
+
     private static void wait_for_port (uint16 port) throws Error {
         int64 deadline = get_monotonic_time () + READY_TIMEOUT_USEC;
         Error? last_error = null;
@@ -207,6 +241,7 @@ public class SystemTestSession : Object {
     // --- SystemTestCursors ---
     public void set_cursors (int[,] pairs) throws Error { cursors.set_cursors (pairs); }
     public void set_selections (int[,] triples) throws Error { cursors.set_selections (triples); }
+    public void set_cursor_offsets (int[] anchors, int[] positions) throws Error { cursors.set_cursor_offsets (anchors, positions); }
     public void active_cursors (out int[] anchors, out int[] positions) throws Error { cursors.active_cursors (out anchors, out positions); }
     public void assert_cursors (int[,] expected) throws Error { cursors.assert_cursors (expected); }
 

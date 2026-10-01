@@ -150,6 +150,11 @@ public class CodeEditorInput : Object {
       cursors.move (move_op, shift);
       return true;
     }
+    RowMoveOp row_move_op;
+    if (row_move_op_for_keyval (keyval, out row_move_op)) {
+      cursors.move_by_row (row_move_op, shift);
+      return true;
+    }
 
     // A Tab with a selection somewhere is left to GtkSourceView's own
     // native block-indent (block-indent isn't implemented here).
@@ -184,11 +189,18 @@ public class CodeEditorInput : Object {
     switch (keyval) {
       case Gdk.Key.Left: op = CursorMoveOp.LEFT; return true;
       case Gdk.Key.Right: op = CursorMoveOp.RIGHT; return true;
-      case Gdk.Key.Up: op = CursorMoveOp.UP; return true;
-      case Gdk.Key.Down: op = CursorMoveOp.DOWN; return true;
-      case Gdk.Key.Home: op = CursorMoveOp.HOME; return true;
-      case Gdk.Key.End: op = CursorMoveOp.END; return true;
       default: op = CursorMoveOp.LEFT; return false;
+    }
+  }
+
+  /** The keys whose meaning depends on how the text wraps — claimed here all the same (never left to GtkTextView's own wrap-aware bindings): with `cursor_visible = false` GTK's move_cursor handler scrolls the viewport instead of moving anything, and it only ever moves the one native cursor in any case. */
+  private static bool row_move_op_for_keyval (uint keyval, out RowMoveOp op) {
+    switch (keyval) {
+      case Gdk.Key.Up: op = RowMoveOp.UP; return true;
+      case Gdk.Key.Down: op = RowMoveOp.DOWN; return true;
+      case Gdk.Key.Home: op = RowMoveOp.HOME; return true;
+      case Gdk.Key.End: op = RowMoveOp.END; return true;
+      default: op = RowMoveOp.UP; return false;
     }
   }
 

@@ -71,27 +71,250 @@ private void test_plain_left_on_a_selection_collapses_to_its_start () {
 private void test_home_and_end_move_within_the_current_line () {
     var cc = new CursorCollection ();
     string text = "first line\nsecond line";
+    var rows = new ParagraphRows (text);
 
     cc.move (CursorMoveOp.DOCUMENT_END, false, text);
-    cc.move (CursorMoveOp.HOME, false, text);
+    cc.move_by_row (RowMoveOp.HOME, false, text, rows, 4);
     assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 11); // start of "second line"
 
-    cc.move (CursorMoveOp.END, false, text);
+    cc.move_by_row (RowMoveOp.END, false, text, rows, 4);
     assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, text.char_count ());
 }
 
 private void test_up_down_remembers_the_horizontal_column_across_shorter_lines () {
     var cc = new CursorCollection ();
     string text = "ab\na\nabcd";
+    var rows = new ParagraphRows (text);
 
     cc.move (CursorMoveOp.RIGHT, false, text);
     cc.move (CursorMoveOp.RIGHT, false, text); // column 2, end of "ab"
 
-    cc.move (CursorMoveOp.DOWN, false, text); // "a" is too short — clamps to column 1
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4); // "a" is too short — clamps to column 1
     assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4);
 
-    cc.move (CursorMoveOp.DOWN, false, text); // "abcd" is long enough — back to column 2
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4); // "abcd" is long enough — back to column 2
     assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 7);
+}
+
+/**
+ * Every `width` characters of a paragraph start a new display row — a
+ * stand-in for the View's real word wrap (CodeEditorSourceView's own
+ * IDisplayRows), so row-based movement is testable with no display. A
+ * non-last row's `end` is the position before the next row's first
+ * character, per IDisplayRows' own contract.
+ */
+private class FixedWidthRows : Object, IDisplayRows {
+    private ParagraphRows paragraphs;
+    private int width;
+
+    public FixedWidthRows (string text, int width) {
+        paragraphs = new ParagraphRows (text);
+        this.width = width;
+    }
+
+    public void row_bounds (int offset, out int start, out int end) {
+        int paragraph_start;
+        int paragraph_end;
+        paragraphs.row_bounds (offset, out paragraph_start, out paragraph_end);
+        int row_index = (offset - paragraph_start) / width;
+        bounds_of_row (paragraph_start, paragraph_end, row_index, out start, out end);
+    }
+
+    public bool row_above (int offset, out int start, out int end) {
+        int paragraph_start;
+        int paragraph_end;
+        paragraphs.row_bounds (offset, out paragraph_start, out paragraph_end);
+        int row_index = (offset - paragraph_start) / width;
+        if (row_index > 0) {
+            bounds_of_row (paragraph_start, paragraph_end, row_index - 1, out start, out end);
+            return true;
+        }
+        if (!paragraphs.row_above (offset, out paragraph_start, out paragraph_end)) {
+            start = 0;
+            end = 0;
+            return false;
+        }
+        bounds_of_row (paragraph_start, paragraph_end, row_count (paragraph_start, paragraph_end) - 1, out start, out end);
+        return true;
+    }
+
+    public bool row_below (int offset, out int start, out int end) {
+        int paragraph_start;
+        int paragraph_end;
+        paragraphs.row_bounds (offset, out paragraph_start, out paragraph_end);
+        int row_index = (offset - paragraph_start) / width;
+        if (row_index < row_count (paragraph_start, paragraph_end) - 1) {
+            bounds_of_row (paragraph_start, paragraph_end, row_index + 1, out start, out end);
+            return true;
+        }
+        if (!paragraphs.row_below (offset, out paragraph_start, out paragraph_end)) {
+            start = 0;
+            end = 0;
+            return false;
+        }
+        bounds_of_row (paragraph_start, paragraph_end, 0, out start, out end);
+        return true;
+    }
+
+    private int row_count (int paragraph_start, int paragraph_end) {
+        return int.max (1, (paragraph_end - paragraph_start + width - 1) / width);
+    }
+
+    private void bounds_of_row (int paragraph_start, int paragraph_end, int row_index, out int start, out int end) {
+        start = paragraph_start + row_index * width;
+        bool last_row = row_index == row_count (paragraph_start, paragraph_end) - 1;
+        end = last_row ? paragraph_end : start + width - 1;
+    }
+}
+
+// The user's own repro: three paragraphs, each wrapping into two rows,
+// Down ×5 from right after the first word visits every one of the six
+// rows and ends at the very end of the text — where Opus used to make
+// three paragraph-sized jumps and then stall.
+//
+//   P1 rows [0,9] [10,14]   P2 rows [15,24] [25,29]   P3 rows [30,39] [40,44]
+private void test_down_visits_every_wrapped_row_in_turn () {
+    var cc = new CursorCollection ();
+    string text = "aaaa aaaa aaaa\nbbbb bbbb bbbb\ncccc cccc cccc";
+    var rows = new FixedWidthRows (text, 10);
+    cc.set_cursors ({ new Cursor (4) });
+
+    int[] visited = {};
+    for (int i = 0; i < 5; i++) {
+        cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4);
+        visited += cc.primary.position_offset;
+    }
+
+    assert_cmpint (visited[0], CompareOperator.EQ, 14); // P1's second row — column 4 is its end
+    assert_cmpint (visited[1], CompareOperator.EQ, 19); // P2's first row, column 4 again
+    assert_cmpint (visited[2], CompareOperator.EQ, 29);
+    assert_cmpint (visited[3], CompareOperator.EQ, 34);
+    assert_cmpint (visited[4], CompareOperator.EQ, 44); // the end of the text, after exactly five presses
+}
+
+private void test_up_retraces_the_wrapped_rows_back_to_the_start () {
+    var cc = new CursorCollection ();
+    string text = "aaaa aaaa aaaa\nbbbb bbbb bbbb\ncccc cccc cccc";
+    var rows = new FixedWidthRows (text, 10);
+    cc.set_cursors ({ new Cursor (4) });
+    for (int i = 0; i < 5; i++) {
+        cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4);
+    }
+
+    for (int i = 0; i < 5; i++) {
+        cc.move_by_row (RowMoveOp.UP, false, text, rows, 4);
+    }
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4);
+}
+
+private void test_goal_column_survives_a_shorter_wrapped_row () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij"; // rows [0,3] [4,7] [8,10]
+    var rows = new FixedWidthRows (text, 4);
+    cc.set_cursors ({ new Cursor (7) }); // column 3 of the second row
+
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 10); // the last row has only two columns
+
+    cc.move_by_row (RowMoveOp.UP, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 7); // back at column 3, not 2
+}
+
+private void test_home_forgets_the_goal_column () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij";
+    var rows = new FixedWidthRows (text, 4);
+    cc.set_cursors ({ new Cursor (7) });
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4); // clamped to 10, goal column 3 remembered
+
+    cc.move_by_row (RowMoveOp.HOME, false, text, rows, 4);
+    cc.move_by_row (RowMoveOp.UP, false, text, rows, 4);
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4); // column 0 of the row above — Home reset the goal
+}
+
+private void test_up_on_the_first_row_goes_to_the_buffer_start_and_down_on_the_last_to_its_end () {
+    var cc = new CursorCollection ();
+    string text = "abcdef"; // rows [0,2] [3,6]
+    var rows = new FixedWidthRows (text, 3);
+    cc.set_cursors ({ new Cursor (4) });
+
+    cc.move_by_row (RowMoveOp.UP, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 1);
+    cc.move_by_row (RowMoveOp.UP, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 0);
+
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4); // column 1 again: the goal column survived the edge
+    cc.move_by_row (RowMoveOp.DOWN, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 6);
+}
+
+private void test_down_onto_a_trailing_empty_line () {
+    var cc = new CursorCollection ();
+    string text = "abc\n";
+    cc.set_cursors ({ new Cursor (1) });
+
+    cc.move_by_row (RowMoveOp.DOWN, false, text, new ParagraphRows (text), 4);
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4);
+}
+
+private void test_home_and_end_stay_within_the_wrapped_row () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij"; // rows [0,3] [4,7] [8,10]
+    var rows = new FixedWidthRows (text, 4);
+    cc.set_cursors ({ new Cursor (6) });
+
+    cc.move_by_row (RowMoveOp.HOME, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4); // the row's start, not the paragraph's
+
+    cc.move_by_row (RowMoveOp.END, false, text, rows, 4);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 7); // the row's end, not the paragraph's
+}
+
+private void test_end_on_the_last_row_reaches_the_paragraph_end () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij\nk";
+    var rows = new FixedWidthRows (text, 4);
+    cc.set_cursors ({ new Cursor (9) });
+
+    cc.move_by_row (RowMoveOp.END, false, text, rows, 4);
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 10); // the newline's position
+}
+
+private void test_shift_down_extends_across_wrapped_rows () {
+    var cc = new CursorCollection ();
+    string text = "abcdefghij";
+    var rows = new FixedWidthRows (text, 4);
+    cc.set_cursors ({ new Cursor (2) });
+
+    cc.move_by_row (RowMoveOp.DOWN, true, text, rows, 4);
+
+    assert_cmpint (cc.primary.anchor_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 6);
+}
+
+private void test_vertical_moves_count_a_tab_as_a_full_tab_stop () {
+    var cc = new CursorCollection ();
+    string text = "\tab\n123456789";
+    cc.set_cursors ({ new Cursor (3) }); // after "b": visible column 4 + 2 = 6
+
+    cc.move_by_row (RowMoveOp.DOWN, false, text, new ParagraphRows (text), 4);
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 10); // column 6 of the next line, not character 3
+}
+
+private void test_down_lands_on_the_nearest_column_when_a_tab_straddles_the_goal () {
+    var cc = new CursorCollection ();
+    string text = "abc\n\tx";
+    cc.set_cursors ({ new Cursor (3) }); // visible column 3; the tab below spans columns 0-4
+
+    cc.move_by_row (RowMoveOp.DOWN, false, text, new ParagraphRows (text), 4);
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 5); // after the tab (column 4, one away) rather than before it (column 0, three away)
 }
 
 private void test_word_jump () {
@@ -165,10 +388,23 @@ private void test_add_cursor_below_preserves_the_horizontal_column () {
 
     cc.move (CursorMoveOp.RIGHT, false, text); // column 1 on line 0
 
-    cc.add_cursor_below (text);
+    cc.add_cursor_below (text, 4);
 
     assert_cmpint (cc.count, CompareOperator.EQ, 2);
     assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 5); // column 1 on line 1 ("defg" starts at 4)
+}
+
+// Shift+Alt+Down adds the cursor on the paragraph below even where
+// the View wraps — VS Code's own insertCursorBelow default
+// (`useLogicalLine = true`); add_cursor_below never takes rows at all.
+private void test_add_cursor_below_lands_on_the_next_paragraph_not_a_wrapped_row () {
+    var cc = new CursorCollection ();
+    string text = "aaaa aaaa aaaa\nbbbb bbbb bbbb";
+    cc.set_cursors ({ new Cursor (4) });
+
+    cc.add_cursor_below (text, 4);
+
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 19); // column 4 of "bbbb …", not of a second row of "aaaa …"
 }
 
 private void test_extend_last_added_cursor_grows_it_into_a_selection () {
@@ -715,7 +951,7 @@ private void test_two_cursors_extended_down_then_right_merge_once_they_overlap (
     var bottom = new Cursor (7); // "bb|bb" (line 1, column 2)
     cc.set_cursors ({ top, bottom });
 
-    cc.move (CursorMoveOp.DOWN, true, text);
+    cc.move_by_row (RowMoveOp.DOWN, true, text, new ParagraphRows (text), 4);
 
     // still two cursors: they touch exactly at column 2 of the middle
     // line ("bb]|[bb") but a touch between two non-empty selections
@@ -874,6 +1110,18 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/plain_left_on_a_selection_collapses_to_its_start", test_plain_left_on_a_selection_collapses_to_its_start);
     Test.add_func ("/models/cursor-collection/home_and_end_move_within_the_current_line", test_home_and_end_move_within_the_current_line);
     Test.add_func ("/models/cursor-collection/up_down_remembers_the_horizontal_column_across_shorter_lines", test_up_down_remembers_the_horizontal_column_across_shorter_lines);
+    Test.add_func ("/models/cursor-collection/down_visits_every_wrapped_row_in_turn", test_down_visits_every_wrapped_row_in_turn);
+    Test.add_func ("/models/cursor-collection/up_retraces_the_wrapped_rows_back_to_the_start", test_up_retraces_the_wrapped_rows_back_to_the_start);
+    Test.add_func ("/models/cursor-collection/goal_column_survives_a_shorter_wrapped_row", test_goal_column_survives_a_shorter_wrapped_row);
+    Test.add_func ("/models/cursor-collection/home_forgets_the_goal_column", test_home_forgets_the_goal_column);
+    Test.add_func ("/models/cursor-collection/up_on_the_first_row_goes_to_the_buffer_start_and_down_on_the_last_to_its_end", test_up_on_the_first_row_goes_to_the_buffer_start_and_down_on_the_last_to_its_end);
+    Test.add_func ("/models/cursor-collection/down_onto_a_trailing_empty_line", test_down_onto_a_trailing_empty_line);
+    Test.add_func ("/models/cursor-collection/home_and_end_stay_within_the_wrapped_row", test_home_and_end_stay_within_the_wrapped_row);
+    Test.add_func ("/models/cursor-collection/end_on_the_last_row_reaches_the_paragraph_end", test_end_on_the_last_row_reaches_the_paragraph_end);
+    Test.add_func ("/models/cursor-collection/shift_down_extends_across_wrapped_rows", test_shift_down_extends_across_wrapped_rows);
+    Test.add_func ("/models/cursor-collection/vertical_moves_count_a_tab_as_a_full_tab_stop", test_vertical_moves_count_a_tab_as_a_full_tab_stop);
+    Test.add_func ("/models/cursor-collection/down_lands_on_the_nearest_column_when_a_tab_straddles_the_goal", test_down_lands_on_the_nearest_column_when_a_tab_straddles_the_goal);
+    Test.add_func ("/models/cursor-collection/add_cursor_below_lands_on_the_next_paragraph_not_a_wrapped_row", test_add_cursor_below_lands_on_the_next_paragraph_not_a_wrapped_row);
     Test.add_func ("/models/cursor-collection/word_jump", test_word_jump);
     Test.add_func ("/models/cursor-collection/normalize_merges_touching_collapsed_cursors", test_normalize_merges_touching_collapsed_cursors);
     Test.add_func ("/models/cursor-collection/normalize_merges_overlapping_selections_into_their_union", test_normalize_merges_overlapping_selections_into_their_union);

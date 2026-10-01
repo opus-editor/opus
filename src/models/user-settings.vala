@@ -12,6 +12,8 @@ public class UserSettingsValues : Object {
   /** 1 — GTK's own real "normal": a line-height multiplier of 1 is exactly the font's own single-line metrics, no override applied. */
   public double line_height = 1;
   public double letter_spacing = 0;
+  /** VS Code's own `editor.wordWrap` ('off'/'on' only — see CodeEditor.reload_settings()'s own doc comment for why this app's wrap support is a plain bool, not VS Code's full off/on/wordWrapColumn/bounded enum). */
+  public bool word_wrap = false;
 }
 
 /**
@@ -66,7 +68,8 @@ public class UserSettings : Object {
   "editor.fontWeight": "normal",
   "editor.fontLigatures": false,
   "editor.lineHeight": 1,
-  "editor.letterSpacing": 0
+  "editor.letterSpacing": 0,
+  "editor.wordWrap": false
 }
 """.printf (system_monospace_font_size ());
   }
@@ -144,6 +147,7 @@ public class UserSettings : Object {
     values.font_ligatures = bool_member (root, "editor.fontLigatures") ?? values.font_ligatures;
     values.line_height = double_member (root, "editor.lineHeight") ?? values.line_height;
     values.letter_spacing = double_member (root, "editor.letterSpacing") ?? values.letter_spacing;
+    values.word_wrap = bool_member (root, "editor.wordWrap") ?? values.word_wrap;
     return values;
   }
 

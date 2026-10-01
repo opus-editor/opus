@@ -83,6 +83,7 @@ private void test_load_returns_defaults_for_a_freshly_created_file () {
     assert_false (settings.font_ligatures);
     assert_cmpfloat (settings.line_height, CompareOperator.EQ, 1);
     assert_cmpfloat (settings.letter_spacing, CompareOperator.EQ, 0);
+    assert_false (settings.word_wrap);
 
     remove_temp_config_dir (config_dir);
 }
@@ -95,7 +96,8 @@ private void test_load_reads_custom_editor_values () {
   "editor.fontWeight": "600",
   "editor.fontLigatures": true,
   "editor.lineHeight": 1.5,
-  "editor.letterSpacing": 0.5
+  "editor.letterSpacing": 0.5,
+  "editor.wordWrap": true
 }""");
 
     var settings = UserSettings.load (config_dir);
@@ -106,6 +108,7 @@ private void test_load_reads_custom_editor_values () {
     assert_true (settings.font_ligatures);
     assert_cmpfloat (settings.line_height, CompareOperator.EQ, 1.5);
     assert_cmpfloat (settings.letter_spacing, CompareOperator.EQ, 0.5);
+    assert_true (settings.word_wrap);
 
     remove_temp_config_dir (config_dir);
 }

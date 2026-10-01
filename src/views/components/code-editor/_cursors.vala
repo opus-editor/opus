@@ -120,17 +120,22 @@ public class CodeEditorCursors : Object {
 
   // ---- Navigation and multi-cursor commands — never touch the buffer. ----
 
-  /** Arrow keys, word jumps, Home/End — `extend` is whether the selection grows (Shift) or collapses to the new position. */
+  /** Left/Right, word jumps, document start/end — `extend` is whether the selection grows (Shift) or collapses to the new position. */
   public void move (CursorMoveOp op, bool extend) {
     apply_cursor_command (() => cursors.move (op, extend, get_text ()));
   }
 
+  /** Up/Down/Home/End — by display row: `text_view` is the IDisplayRows, so under word wrap a wrapped line's own rows count, and with it off GTK's display lines are the paragraphs anyway. `indent_size` doubles as the tab width, the same value `set_indent_size()` gives GTK to render a `\t` with. */
+  public void move_by_row (RowMoveOp op, bool extend) {
+    apply_cursor_command (() => cursors.move_by_row (op, extend, get_text (), text_view, indent_size));
+  }
+
   public void add_cursor_above () {
-    apply_cursor_command (() => cursors.add_cursor_above (get_text ()));
+    apply_cursor_command (() => cursors.add_cursor_above (get_text (), indent_size));
   }
 
   public void add_cursor_below () {
-    apply_cursor_command (() => cursors.add_cursor_below (get_text ()));
+    apply_cursor_command (() => cursors.add_cursor_below (get_text (), indent_size));
   }
 
   /** Ctrl+D — see CursorCollection.add_cursor_at_next_match(). */

@@ -416,7 +416,7 @@ public class MainWindow : Object {
 
     try {
       settings_monitor = File.new_for_path (settings_path).monitor_file (FileMonitorFlags.NONE, null);
-      settings_monitor.changed.connect (() => editor_pane.code_editor.reload_font_settings ());
+      settings_monitor.changed.connect (() => editor_pane.code_editor.reload_settings ());
     } catch (Error e) {
       Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
     }

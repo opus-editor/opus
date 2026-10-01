@@ -30,7 +30,7 @@
  * `CodeEditor.install_css()`), the same kind of paint-only
  * suppression `cursor_visible = false` already does for the caret above.
  */
-public class CodeEditorSourceView : GtkSource.View {
+public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   // Matches VS Code's own default (ViewCursors.BLINK_INTERVAL in
   // src/vs/editor/browser/viewParts/viewCursors/viewCursors.ts) — a
   // plain on/off toggle, not the smooth/phase/expand fade styles VS
@@ -288,7 +288,12 @@ public class CodeEditorSourceView : GtkSource.View {
       Gdk.Rectangle next_strong;
       Gdk.Rectangle next_weak;
       get_cursor_locations (next, out next_strong, out next_weak);
-      width = next_strong.x - strong.x;
+      // When `iter` is the last glyph of a wrapped display row, `next`
+      // sits at the start of the row below: its x is the left margin,
+      // and the difference would come out negative — which
+      // graphene_rect_init normalizes into a bar from the margin to
+      // the caret. The glyph's own box is the right width there.
+      width = next_strong.y == strong.y ? next_strong.x - strong.x : glyph_width (iter);
     } else {
       width = measure_space_width ();
     }
@@ -309,6 +314,129 @@ public class CodeEditorSourceView : GtkSource.View {
     snapshot.translate (point);
     snapshot.append_layout (glyph_layout, inverted_glyph_color (caret_color));
     snapshot.restore ();
+  }
+
+  /**
+   * The start of the display row after `on_row`'s, or false when that
+   * row is its paragraph's last. A "display row" is one wrapped line
+   * on screen; with wrap_mode NONE every paragraph is exactly one.
+   * Never crosses into the next paragraph: `forward_display_line()`
+   * itself walks on through the whole buffer, so the paragraph check
+   * is what makes this a per-paragraph row iterator.
+   */
+  public bool next_row_start (Gtk.TextIter on_row, out Gtk.TextIter next) {
+    next = on_row;
+    return forward_display_line (ref next) && next.get_line () == on_row.get_line ();
+  }
+
+  /**
+   * The vertical band [top, bottom) of the display row `on_row` sits
+   * on: contiguous with the neighbouring rows, line-height included.
+   * Not `get_iter_location()`'s rectangle — that's the glyph box, 16px
+   * high inside a 23px row at `editor.lineHeight: 1.5`, so anything
+   * sized from it leaves a gap between consecutive rows. The extra
+   * leading GTK adds for line-height sits half above and half below
+   * each row's glyphs (the same symmetry GtkSourceView's own gutter
+   * assumes in `_gtk_source_gutter_lines_new()`), so a row's band is
+   * its glyph top minus that half, down to the next row's; the
+   * paragraph's own `get_line_yrange()` closes the first and last.
+   */
+  public void row_band (Gtk.TextIter on_row, out int top, out int bottom) {
+    int paragraph_top;
+    int paragraph_height;
+    get_line_yrange (on_row, out paragraph_top, out paragraph_height);
+
+    var paragraph_start = on_row;
+    paragraph_start.set_line_offset (0);
+    int half_leading = glyph_top (paragraph_start) - paragraph_top;
+
+    top = glyph_top (on_row) - half_leading;
+
+    Gtk.TextIter next;
+    bottom = next_row_start (on_row, out next)
+      ? glyph_top (next) - half_leading
+      : paragraph_top + paragraph_height;
+  }
+
+  // ---- IDisplayRows: the View's own display rows, for CursorCollection.move_by_row(). ----
+  //
+  // Offsets only, never a y coordinate: a pixel-y lookup
+  // (get_iter_at_position/get_line_at_y) goes through the btree's
+  // line-height cache, which is only validated for what's on screen —
+  // and the caret can well be off-screen when an arrow key arrives.
+  // forward/backward_display_line work per paragraph on its own
+  // PangoLayout, lazily, so they don't care.
+
+  public void row_bounds (int offset, out int start, out int end) {
+    var row_start = row_start_iter (offset);
+    start = row_start.get_offset ();
+    end = row_end_iter (row_start).get_offset ();
+  }
+
+  public bool row_above (int offset, out int start, out int end) {
+    // From the row's start, not from `offset`: on the buffer's first
+    // paragraph, backward_display_line() doesn't leave the iter alone —
+    // it moves it to that paragraph's own start and reports success —
+    // so from mid-row it would land on the very same row.
+    var it = row_start_iter (offset);
+    if (!backward_display_line (ref it)) {
+      start = 0;
+      end = 0;
+      return false;
+    }
+    row_bounds (it.get_offset (), out start, out end);
+    return true;
+  }
+
+  public bool row_below (int offset, out int start, out int end) {
+    var row_start = row_start_iter (offset);
+    var it = row_start;
+    bool moved = forward_display_line (ref it);
+    // forward_display_line() reports false both when nothing moved and
+    // when it moved onto the end iter — which is a real, empty last
+    // row whenever the text ends in a newline.
+    bool onto_empty_last_row = !moved && it.is_end () && it.starts_line () && !it.equal (row_start);
+    if (!moved && !onto_empty_last_row) {
+      start = 0;
+      end = 0;
+      return false;
+    }
+    row_bounds (it.get_offset (), out start, out end);
+    return true;
+  }
+
+  private Gtk.TextIter row_start_iter (int offset) {
+    Gtk.TextIter it;
+    buffer.get_iter_at_offset (out it, offset);
+    backward_display_line_start (ref it);
+    return it;
+  }
+
+  /** The row's last caret position: before the next row's first character (where GTK's own End lands — see IDisplayRows' doc comment), or the paragraph's end on its last row. */
+  private Gtk.TextIter row_end_iter (Gtk.TextIter row_start) {
+    Gtk.TextIter next;
+    if (next_row_start (row_start, out next)) {
+      next.backward_char ();
+      return next;
+    }
+    var end = row_start;
+    if (!end.ends_line ()) {
+      end.forward_to_line_end ();
+    }
+    return end;
+  }
+
+  private int glyph_top (Gtk.TextIter iter) {
+    Gdk.Rectangle rect;
+    get_iter_location (iter, out rect);
+    return rect.y;
+  }
+
+  /** The glyph box width at `iter`, a space's width for a glyph Pango lays out zero-wide (a trailing space absorbed by a wrap). */
+  private float glyph_width (Gtk.TextIter iter) {
+    Gdk.Rectangle rect;
+    get_iter_location (iter, out rect);
+    return rect.width > 0 ? rect.width : measure_space_width ();
   }
 
   /** A single space's rendered width in this monospace font — every glyph-less fallback (an empty line, end of buffer, overtype's own no-glyph case, CodeEditorSelections' own empty-line marker) is sized to this. */
@@ -461,13 +589,22 @@ public class CodeEditorSourceView : GtkSource.View {
       buffer.get_iter_at_line (out line_start_iter, line);
       Gdk.Rectangle line_rect;
       get_iter_location (line_start_iter, out line_rect);
+      // The first display row's band only, even for a line that wraps
+      // into several: a continuation row starts at the left margin
+      // (there's no wrapping indent yet), so a guide through it would
+      // cut straight through that row's own text — VS Code blocks the
+      // guide on exactly those rows too (IndentGuideRepeatOption.
+      // BlockSubsequent in viewModelLines.ts).
+      int top;
+      int bottom;
+      row_band (line_start_iter, out top, out bottom);
 
       for (int level = 1; level <= level_count; level++) {
         float x = line_rect.x + (level - 1) * indent_size * char_width;
         bool is_active = level == active_level && line >= active_start_line && line <= active_end_line;
 
         var rect = Graphene.Rect ();
-        rect.init (x, line_rect.y, 1, line_rect.height);
+        rect.init (x, top, 1, bottom - top);
         snapshot.append_color (is_active ? active_color : guide_color, rect);
       }
     }

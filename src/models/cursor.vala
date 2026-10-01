@@ -10,10 +10,14 @@ public class Cursor : Object {
   public int position_offset { get; set; }
 
   /**
-   * Fractional, tab-aware column remembered across consecutive Up/Down
-   * presses, so moving through shorter lines and back doesn't lose the
-   * original horizontal position. `-1` means "no memory yet" — the next
-   * vertical move should derive it fresh from the current position.
+   * The goal visible column within the cursor's display row (a `\t`
+   * counting up to the next tab stop), remembered across consecutive
+   * Up/Down presses so moving through shorter rows and back doesn't
+   * lose the original horizontal position — VS Code's own
+   * leftoverVisibleColumns, GTK's virtual_cursor_x in columns rather
+   * than pixels. `-1` means "no memory yet" — the next vertical move
+   * derives it fresh from the current position; every other move,
+   * edit, or click resets it to that.
    */
   public double leftover_column { get; set; default = -1.0; }
 

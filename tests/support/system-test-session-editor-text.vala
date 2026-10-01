@@ -102,6 +102,30 @@ public class SystemTestEditorText : Object {
             keyval = Gdk.Key.Right;
             modifiers = Gdk.ModifierType.SHIFT_MASK;
             break;
+        case "up":
+            keyval = Gdk.Key.Up;
+            modifiers = 0;
+            break;
+        case "down":
+            keyval = Gdk.Key.Down;
+            modifiers = 0;
+            break;
+        case "home":
+            keyval = Gdk.Key.Home;
+            modifiers = 0;
+            break;
+        case "end":
+            keyval = Gdk.Key.End;
+            modifiers = 0;
+            break;
+        case "shift+home":
+            keyval = Gdk.Key.Home;
+            modifiers = Gdk.ModifierType.SHIFT_MASK;
+            break;
+        case "shift+end":
+            keyval = Gdk.Key.End;
+            modifiers = Gdk.ModifierType.SHIFT_MASK;
+            break;
         case "shift+up":
             keyval = Gdk.Key.Up;
             modifiers = Gdk.ModifierType.SHIFT_MASK;

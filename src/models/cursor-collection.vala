@@ -1,15 +1,19 @@
-/** Cursor movement commands that don't themselves change any text. */
+/** Cursor movement commands definable on the text alone — see {@link RowMoveOp} for the ones that depend on how the text is laid out. */
 public enum CursorMoveOp {
   LEFT,
   RIGHT,
-  UP,
-  DOWN,
   WORD_LEFT,
   WORD_RIGHT,
-  HOME,
-  END,
   DOCUMENT_START,
   DOCUMENT_END
+}
+
+/** Cursor movement commands that reason about display rows — which only the View knows under word wrap, so these take an {@link IDisplayRows} (see {@link CursorCollection.move_by_row}). */
+public enum RowMoveOp {
+  UP,
+  DOWN,
+  HOME,
+  END
 }
 
 /** What a single keystroke's edit should do to each cursor's own range. */
@@ -221,7 +225,7 @@ public class CursorCollection : Object {
     set_cursors (result, last_added_cursor);
   }
 
-  /** Arrow keys, word jumps, Home/End, and document-start/end — maps one pure per-cursor move over every cursor independently, then merges any that now collide. `extend` is whether Shift is held (grow the selection) or not (collapse to the new position). */
+  /** Left/Right, word jumps, and document-start/end — maps one pure per-cursor move over every cursor independently, then merges any that now collide. `extend` is whether Shift is held (grow the selection) or not (collapse to the new position). */
   public void move (CursorMoveOp op, bool extend, string text) {
     var chars = to_chars (text);
     var moved = new Cursor[cursors.length];
@@ -231,16 +235,35 @@ public class CursorCollection : Object {
     set_cursors (moved, last_added_cursor);
   }
 
-  public void add_cursor_above (string text) {
-    add_cursor_vertical (text, -1);
-  }
-
-  public void add_cursor_below (string text) {
-    add_cursor_vertical (text, 1);
-  }
-
-  private void add_cursor_vertical (string text, int direction) {
+  /**
+   * Up/Down/Home/End — same per-cursor mapping as {@link move}, but
+   * over the display rows `rows` describes rather than the text's own
+   * paragraphs: with word wrap on those differ, and only the View can
+   * say where a line breaks (see {@link IDisplayRows}). `tab_width` is
+   * what a `\t` counts for in the visible column a vertical move keeps.
+   */
+  public void move_by_row (RowMoveOp op, bool extend, string text, IDisplayRows rows, int tab_width) {
     var chars = to_chars (text);
+    var moved = new Cursor[cursors.length];
+    for (uint i = 0; i < cursors.length; i++) {
+      moved[i] = move_one_by_row (cursors[i], op, extend, chars, rows, tab_width);
+    }
+    set_cursors (moved, last_added_cursor);
+  }
+
+  /** Shift+Alt+Up — see {@link add_cursor_below}. */
+  public void add_cursor_above (string text, int tab_width) {
+    add_cursor_vertical (text, tab_width, -1);
+  }
+
+  /** Shift+Alt+Down: one new cursor per existing one, on the *paragraph* below at the same visible column — not the display row below, even under word wrap, matching VS Code's own insertCursorBelow default (`useLogicalLine = true`, checked contrib/multicursor/browser/multicursor.ts). */
+  public void add_cursor_below (string text, int tab_width) {
+    add_cursor_vertical (text, tab_width, 1);
+  }
+
+  private void add_cursor_vertical (string text, int tab_width, int direction) {
+    var chars = to_chars (text);
+    var rows = new ParagraphRows (text);
     var result = new Cursor[cursors.length * 2];
     Cursor? new_last = null;
 
@@ -248,7 +271,7 @@ public class CursorCollection : Object {
       result[i] = cursors[i];
     }
     for (uint i = 0; i < cursors.length; i++) {
-      var vertical = move_vertical (chars, cursors[i].position_offset, cursors[i].leftover_column, direction);
+      var vertical = move_vertical (chars, cursors[i].position_offset, cursors[i].leftover_column, direction, rows, tab_width);
       var extra = new Cursor (vertical.offset);
       extra.leftover_column = vertical.leftover_column;
       result[cursors.length + i] = extra;
@@ -1138,9 +1161,7 @@ public class CursorCollection : Object {
   }
 
   private static Cursor move_one (Cursor cursor, CursorMoveOp op, bool extend, unichar[] chars) {
-    var result = cursor.clone ();
     int new_position;
-    double new_leftover = -1.0;
 
     switch (op) {
     case CursorMoveOp.LEFT:
@@ -1148,12 +1169,6 @@ public class CursorCollection : Object {
       break;
     case CursorMoveOp.RIGHT:
       new_position = (!extend && !cursor.is_empty) ? cursor.selection_end : int.min (chars.length, cursor.position_offset + 1);
-      break;
-    case CursorMoveOp.HOME:
-      new_position = line_start (chars, cursor.position_offset);
-      break;
-    case CursorMoveOp.END:
-      new_position = line_end (chars, cursor.position_offset);
       break;
     case CursorMoveOp.DOCUMENT_START:
       new_position = 0;
@@ -1167,19 +1182,35 @@ public class CursorCollection : Object {
     case CursorMoveOp.WORD_RIGHT:
       new_position = word_right (chars, cursor.position_offset);
       break;
-    case CursorMoveOp.UP:
-    case CursorMoveOp.DOWN:
-      var vertical = move_vertical (chars, cursor.position_offset, cursor.leftover_column, op == CursorMoveOp.UP ? -1 : 1);
-      new_position = vertical.offset;
-      new_leftover = vertical.leftover_column;
-      break;
     default:
       new_position = cursor.position_offset;
       break;
     }
 
+    return moved_cursor (cursor, new_position, -1.0, extend);
+  }
+
+  private static Cursor move_one_by_row (Cursor cursor, RowMoveOp op, bool extend, unichar[] chars, IDisplayRows rows, int tab_width) {
+    int row_start;
+    int row_end;
+    rows.row_bounds (cursor.position_offset, out row_start, out row_end);
+
+    switch (op) {
+    case RowMoveOp.HOME:
+      return moved_cursor (cursor, row_start, -1.0, extend);
+    case RowMoveOp.END:
+      return moved_cursor (cursor, row_end, -1.0, extend);
+    default:
+      var vertical = move_vertical (chars, cursor.position_offset, cursor.leftover_column, op == RowMoveOp.UP ? -1 : 1, rows, tab_width);
+      return moved_cursor (cursor, vertical.offset, vertical.leftover_column, extend);
+    }
+  }
+
+  /** `cursor` with its caret at `new_position` — and its anchor too unless `extend`. */
+  private static Cursor moved_cursor (Cursor cursor, int new_position, double leftover_column, bool extend) {
+    var result = cursor.clone ();
     result.position_offset = new_position;
-    result.leftover_column = new_leftover;
+    result.leftover_column = leftover_column;
 
     if (!extend) {
       result.anchor_offset = new_position;
@@ -1194,32 +1225,45 @@ public class CursorCollection : Object {
     public double leftover_column;
   }
 
-  private static VerticalMove move_vertical (unichar[] chars, int position, double leftover_column, int direction) {
-    int current_line_start = line_start (chars, position);
-    double column = leftover_column >= 0 ? leftover_column : (position - current_line_start);
+  /**
+   * One row up or down, keeping the visible column — the goal column
+   * remembered in `leftover_column` from an earlier vertical move, or
+   * this position's own if there is none — and landing on the nearest
+   * caret position to it in the target row. No row above the first
+   * goes to the buffer start, none below the last to its end — GTK's
+   * own move_cursor and VS Code's MoveOperations.vertical both do.
+   */
+  private static VerticalMove move_vertical (unichar[] chars, int position, double leftover_column, int direction, IDisplayRows rows, int tab_width) {
+    int row_start;
+    int row_end;
+    rows.row_bounds (position, out row_start, out row_end);
+    double goal = leftover_column >= 0 ? leftover_column : visible_column (chars, row_start, position, tab_width);
 
-    if (direction < 0) {
-      if (current_line_start == 0) {
-        VerticalMove result = { 0, column };
-        return result;
+    int target_start;
+    int target_end;
+    bool found = direction < 0
+      ? rows.row_above (position, out target_start, out target_end)
+      : rows.row_below (position, out target_start, out target_end);
+    if (!found) {
+      VerticalMove edge = { direction < 0 ? 0 : chars.length, goal };
+      return edge;
+    }
+
+    VerticalMove result = { nearest_offset_for_visible_column (chars, target_start, target_end, goal, tab_width), goal };
+    return result;
+  }
+
+  /** The caret position in `[from, to]` whose visible column is closest to `goal`, ties to the earlier one — VS Code's own `CursorColumns.columnFromVisibleColumn`. */
+  private static int nearest_offset_for_visible_column (unichar[] chars, int from, int to, double goal, int tab_width) {
+    int column = 0;
+    for (int i = from; i < to; i++) {
+      int next_column = chars[i] == '\t' ? column - column % tab_width + tab_width : column + 1;
+      if (next_column >= goal) {
+        return next_column - goal < goal - column ? i + 1 : i;
       }
-      int target_line_start = line_start (chars, current_line_start - 1);
-      int target_line_end = line_end (chars, target_line_start);
-      int clamped = int.min ((int) column, target_line_end - target_line_start);
-      VerticalMove result = { target_line_start + clamped, column };
-      return result;
+      column = next_column;
     }
-
-    int current_line_end = line_end (chars, position);
-    if (current_line_end == chars.length) {
-      VerticalMove result = { chars.length, column };
-      return result;
-    }
-    int next_line_start = current_line_end + 1;
-    int next_line_end = line_end (chars, next_line_start);
-    int clamped_down = int.min ((int) column, next_line_end - next_line_start);
-    VerticalMove down_result = { next_line_start + clamped_down, column };
-    return down_result;
+    return to;
   }
 
   private static int line_start (unichar[] chars, int offset) {

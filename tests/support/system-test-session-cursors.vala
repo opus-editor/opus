@@ -37,6 +37,20 @@ public class SystemTestCursors : Object {
         call ("SetActiveCursors", new Variant ("(@ai@ai)", anchors.end (), positions.end ()));
     }
 
+    /** One cursor per `anchors[i]`/`positions[i]` pair, as raw buffer offsets — for a selection that spans lines, which set_selections()'s one-line triples can't express (the same reason assert_cursors() takes raw offsets). */
+    public void set_cursor_offsets (int[] anchors, int[] positions) throws Error {
+        assert_cmpint (anchors.length, CompareOperator.EQ, positions.length);
+
+        var anchor_builder = new VariantBuilder (new VariantType ("ai"));
+        var position_builder = new VariantBuilder (new VariantType ("ai"));
+        for (int i = 0; i < anchors.length; i++) {
+            anchor_builder.add ("i", anchors[i]);
+            position_builder.add ("i", positions[i]);
+        }
+
+        call ("SetActiveCursors", new Variant ("(@ai@ai)", anchor_builder.end (), position_builder.end ()));
+    }
+
     /** The current cursor set as raw buffer offsets — anchors[i]/positions[i] pair up into one cursor each (equal when collapsed). */
     public void active_cursors (out int[] anchors, out int[] positions) throws Error {
         var result = call ("GetActiveCursors");

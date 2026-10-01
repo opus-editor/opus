@@ -10,10 +10,10 @@
  * draws pixel-identical boxes for every line instead of GTK's own
  * per-line background boxes, which leave a hairline gap between
  * consecutive selected lines (each one sized to that line's own font
- * ascent+descent, not the fuller line-box `get_iter_location()`
- * returns — confirmed by hand: the gap persists even with no
- * `line-height` CSS override at all, so it isn't this app's own
- * doing).
+ * ascent+descent, not the contiguous row band
+ * `CodeEditorSourceView.row_band()` derives — confirmed by hand: the
+ * gap persists even with no `line-height` CSS override at all, so it
+ * isn't this app's own doing).
  *
  * Takes `Cursor` (`models/cursor.vala`) directly rather than a
  * View-local offset-pair type: a "selection" isn't its own concept
@@ -97,11 +97,12 @@ public class CodeEditorSelections : Object {
   }
 
   /**
-   * One rect per visible line per selection. A line contributes
+   * One rect per visible display row per selection. A line contributes
    * either:
-   *  - a plain rect from its own segment's start/end pixel position
-   *    (the common case: some or all of the line's real characters
-   *    are selected), or
+   *  - one rect per display row its own segment covers (the common
+   *    case: some or all of the line's real characters are selected —
+   *    see paint_rows() for why that's per row, not one rect from the
+   *    segment's start/end pixel positions), or
    *  - one space-wide marker at the segment's (zero-width) position,
    *    when the line itself contributes no selected characters but
    *    its own trailing newline is still part of the selection — a
@@ -178,27 +179,71 @@ public class CodeEditorSelections : Object {
           segment_end.backward_char ();
         }
 
-        Gdk.Rectangle start_rect;
-        text_view.get_iter_location (segment_start, out start_rect);
-
         if (segment_start.equal (segment_end)) {
           if (!newline_included) {
             continue;
           }
-
-          var marker_rect = Graphene.Rect ();
-          marker_rect.init (start_rect.x, start_rect.y, marker_width, start_rect.height);
-          snapshot.append_color (color, marker_rect);
+          float marker_left = glyph_left (segment_start);
+          paint_row (snapshot, segment_start, marker_left, marker_left + marker_width);
           continue;
         }
 
-        Gdk.Rectangle end_rect;
-        text_view.get_iter_location (segment_end, out end_rect);
-
-        var rect = Graphene.Rect ();
-        rect.init (start_rect.x, start_rect.y, end_rect.x - start_rect.x, start_rect.height);
-        snapshot.append_color (color, rect);
+        paint_rows (snapshot, segment_start, segment_end);
       }
     }
+  }
+
+  /**
+   * One rect per display row of [segment_start, segment_end) — both
+   * on the same line, but under word wrap possibly on different rows
+   * of it, so one rect from their two pixel positions would mix two
+   * rows' coordinate spaces (and come out zero-wide whenever
+   * segment_end is exactly the next row's start). A row the segment
+   * runs off the end of is painted to its last glyph's right edge:
+   * that glyph may be a trailing space Pango lays out zero-wide at
+   * the wrap, or carry the hyphen Pango inserts at a forced mid-word
+   * break, and `x + width` is the row's true visual edge either way.
+   */
+  private void paint_rows (Gtk.Snapshot snapshot, Gtk.TextIter segment_start, Gtk.TextIter segment_end) {
+    var row_start = segment_start;
+    while (true) {
+      Gtk.TextIter next;
+      bool runs_off_row = text_view.next_row_start (row_start, out next) && segment_end.compare (next) >= 0;
+      if (!runs_off_row) {
+        paint_row (snapshot, row_start, glyph_left (row_start), glyph_left (segment_end));
+        return;
+      }
+
+      var last_glyph = next;
+      last_glyph.backward_char ();
+      paint_row (snapshot, row_start, glyph_left (row_start), glyph_right (last_glyph));
+      if (segment_end.equal (next)) {
+        return;
+      }
+      row_start = next;
+    }
+  }
+
+  /** `[left, right)` across the full band of the display row `on_row` sits on. */
+  private void paint_row (Gtk.Snapshot snapshot, Gtk.TextIter on_row, float left, float right) {
+    int top;
+    int bottom;
+    text_view.row_band (on_row, out top, out bottom);
+
+    var rect = Graphene.Rect ();
+    rect.init (left, top, right - left, bottom - top);
+    snapshot.append_color (color, rect);
+  }
+
+  private float glyph_left (Gtk.TextIter iter) {
+    Gdk.Rectangle rect;
+    text_view.get_iter_location (iter, out rect);
+    return rect.x;
+  }
+
+  private float glyph_right (Gtk.TextIter iter) {
+    Gdk.Rectangle rect;
+    text_view.get_iter_location (iter, out rect);
+    return rect.x + rect.width;
   }
 }

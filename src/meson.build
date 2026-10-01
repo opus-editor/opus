@@ -25,6 +25,7 @@ opus_model_sources = files(
   'models/git-diff/i-base-provider.vala',
   'models/git-diff/engine.vala',
   'models/git-diff/document-tracker.vala',
+  'models/i-display-rows.vala',
   'models/i-workspace-extension.vala',
   'models/icon-theme.vala',
   'models/indent-guides.vala',

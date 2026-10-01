@@ -134,7 +134,7 @@ public class CodeEditor : Object {
     text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
     install_css ();
-    reload_font_settings ();
+    reload_settings ();
 
     // GtkSource.Buffer paints with a StyleScheme's own fixed colors
     // instead of following the app's GTK theme, so it stays put through
@@ -161,7 +161,7 @@ public class CodeEditor : Object {
    * plain in-memory value, gone on restart. Static, not per-instance:
    * this app has no per-window zoom concept, one shared level applies
    * everywhere at once — matches the font CSS itself already being
-   * display-wide (see reload_font_settings()), so any one instance
+   * display-wide (see reload_settings()), so any one instance
    * recomputing it after a change is enough to re-render every open
    * window's text.
    */
@@ -173,39 +173,54 @@ public class CodeEditor : Object {
   /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.fontSize is already a plain point size, so a flat step matches it more directly than a percentage would. */
   public void zoom_in () {
     zoom_level += 1;
-    reload_font_settings ();
+    reload_settings ();
   }
 
   /** Ctrl+Minus — see zoom_in()'s own doc comment. */
   public void zoom_out () {
     zoom_level -= 1;
-    reload_font_settings ();
+    reload_settings ();
   }
 
   /** Ctrl+0 — back to settings.json's own editor.fontSize exactly, same as VS Code's real EditorFontZoomReset. */
   public void reset_zoom () {
     zoom_level = 0;
-    reload_font_settings ();
+    reload_settings ();
   }
 
   /**
-   * Reads settings.json's `editor.*` keys and turns them into a real
-   * stylesheet targeting `.code-editor` (text_view's own class, set
-   * above) — run once at construction, again whenever MainWindow's own
-   * settings.json live-reload watch (armed only while that file's tab
-   * is open — see its own on_settings_tab_opened()) detects a change,
-   * and again on every zoom_in()/zoom_out()/reset_zoom(). Uninstalls the
-   * previous provider first — a property the last reload set and this
-   * one omits (e.g. editor.fontFamily going back to null) needs the old
-   * rule gone, not just left uncontested by a new one that doesn't
-   * mention it.
+   * Reads settings.json's `editor.*` keys and applies the ones that
+   * aren't their own dedicated "prop" (indent, hunks, …): turns the font
+   * ones into a real stylesheet targeting `.code-editor` (text_view's
+   * own class, set above), and sets `wrap_mode` directly (not a CSS
+   * concern) from `editor.wordWrap`. Run once at construction, again
+   * whenever MainWindow's own settings.json live-reload watch (armed
+   * only while that file's tab is open — see its own
+   * on_settings_tab_opened()) detects a change, and again on every
+   * zoom_in()/zoom_out()/reset_zoom() (wrap_mode is unaffected by zoom,
+   * re-set anyway since it's the same one `UserSettings.load()` call).
+   * Uninstalls the previous font provider first — a property the last
+   * reload set and this one omits (e.g. editor.fontFamily going back to
+   * null) needs the old rule gone, not just left uncontested by a new
+   * one that doesn't mention it.
+   *
+   * `wrap_mode`, not VS Code's full `wordWrap` enum: GTK's own wrap is
+   * always tied to the real widget width (`Gtk.WrapMode` has no
+   * "wrap at a fixed column" option at all — checked gtkenums.h), so
+   * there's no native equivalent of `wordWrapColumn`/`bounded` to wire
+   * up here; this app's own `editor.wordWrap` is `on`/`off` only.
+   * `Gtk.WrapMode.WORD_CHAR` is the same mapping GNOME Text Editor's own
+   * "Wrap Text" preference uses (checked editor-utils.c's
+   * `_editor_gboolean_to_wrap_mode`): word boundaries first, falling
+   * back to a mid-word break only when a single word can't fit at all.
    */
-  public void reload_font_settings () {
+  public void reload_settings () {
     var settings = UserSettings.load (Environment.get_user_config_dir ());
     if (font_provider != null) {
       GlobalCss.uninstall (font_provider);
     }
     font_provider = GlobalCss.install_from_string (font_css (settings));
+    text_view.wrap_mode = settings.word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
   }
 
   /**

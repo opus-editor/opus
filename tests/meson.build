@@ -20,6 +20,13 @@ editor_config_test = executable(
 )
 test('editor-config', editor_config_test)
 
+display_rows_test = executable(
+  'display-rows-test',
+  ['models/display-rows-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('display-rows', display_rows_test)
+
 indent_guides_test = executable(
   'indent-guides-test',
   ['models/indent-guides-test.vala', opus_model_test_sources],
@@ -456,6 +463,46 @@ find_wrap_test = executable(
 test(
   'find-wrap',
   find_wrap_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+wrapped_movement_test = executable(
+  'wrapped-movement-test',
+  ['system/cursors/wrapped-movement-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'wrapped-movement',
+  wrapped_movement_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    # Without this, GLib.Settings aborts at startup unable to find
+    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # gnome.compile_schemas() (what actually produces gschemas.compiled
+    # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+wrapped_selection_test = executable(
+  'wrapped-selection-test',
+  ['system/cursors/wrapped-selection-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'wrapped-selection',
+  wrapped_selection_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
