@@ -4,7 +4,7 @@ namespace Opus.Dev {
    * because Vala's GDBus codegen treats every public method of a
    * `[DBus (name = ...)]`-annotated *class* as a D-Bus method. DevServer
    * has real public methods that take plain GTK objects
-   * (`EditorView.EditorPane` in add_session()/remove_session(),
+   * (`EditorView.EditorPaneWidget` in add_session()/remove_session(),
    * `DBusConnection` in start()) — none of those are GVariant-marshalable,
    * so annotating DevServer directly fails to compile the moment it has
    * any such method (confirmed directly: a minimal `[DBus]`-annotated
@@ -34,7 +34,7 @@ namespace Opus.Dev {
      * the ready callback instead) — an unconditional, unfixable
      * warning for *any* async D-Bus method, not particular to this
      * one (confirmed directly: a bare synchronous method generates no
-     * such label at all). EditorPane.save_path()'s own synchronous
+     * such label at all). EditorPaneWidget.save_path()'s own synchronous
      * case (an already-named file, the common one) has no yield point
      * in it at all, so it still runs to completion before this returns
      * either way; only the rare untitled-document case (needing a

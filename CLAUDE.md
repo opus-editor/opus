@@ -57,8 +57,9 @@ Logging.
 
 ```
 src/
-  main.vala   entry point: reads argv/GLib.Settings, constructs App
-  App.vala    the Adw.Application — owns every open MainWindow, settings, DevServer
+  main.vala   entry point: constructs App and hands it argv via run()
+  App.vala    the Adw.Application — reads argv (command_line()), owns every
+              open MainWindow, GLib.Settings, DevServer
   models/     see src/models/CLAUDE.md
   lib/        generic infra, independent of Opus's own domain — see src/lib/CLAUDE.md
   plugins/    libpeas plugins, one directory each — see src/plugins/CLAUDE.md
@@ -69,15 +70,5 @@ data/         .desktop file, GResource XML, icons
 
 ## Architecture
 
-- No Controller layer — a View absorbs whatever mediation a Controller
-  used to do from outside it. See `src/views/CLAUDE.md`.
-- A View is a facade: owns real widgets internally, exposes plain
-  methods + signals — never a `Gtk.Widget` subclass passed around.
-- Models never import `Gtk`/`Adw` — only `views/` does (`src/lib/` is
-  the exception, generic infra that needs it for its own task — see
-  `src/lib/CLAUDE.md`).
-- A plugin (`src/plugins/`) is Model-grade code, discovered/loaded through
-  `src/lib/plugins/`'s libpeas engine — talks to the host only through
-  `WorkspaceContext` and its own extension-point interface(s) in
-  `src/models/`, never by importing a View. See `src/plugins/CLAUDE.md`.
-- Read the directory-local `CLAUDE.md` before touching a layer.
+See `docs/ARCHITECTURE.md` for the rules. Read the directory-local
+`CLAUDE.md` before touching a layer.

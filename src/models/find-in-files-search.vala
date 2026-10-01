@@ -30,7 +30,7 @@
  * `tests/models/find-in-files-search-test.vala`). `run_async()` is the
  * one place in this whole feature (and the first in this codebase) a
  * background thread gets spawned, since a big enough tree would
- * otherwise block the UI thread for real — EditorPane.search_in_files()
+ * otherwise block the UI thread for real — EditorPaneWidget.search_in_files()
  * awaits it directly and never touches Gtk/Adw off the main thread
  * itself.
  */
@@ -71,7 +71,7 @@ public class FindInFilesSearch : Object {
     return result;
   }
 
-  /** `path` (absolute) relative to `root_path` — same idiom EditorPane's own relative_path() already uses for "Copy Relative Path". */
+  /** `path` (absolute) relative to `root_path` — same idiom EditorPaneWidget's own relative_path() already uses for "Copy Relative Path". */
   private static string relative_to_root (string root_path, string path) {
     var prefix = root_path + "/";
     return path.has_prefix (prefix) ? path.substring (prefix.length) : path;
@@ -190,7 +190,7 @@ public class FindInFilesSearch : Object {
   /**
    * Runs run() on a background thread, resolving back on the main
    * loop — plain GLib (Thread/Idle), nothing Gtk/Adw involved, safe to
-   * call from a View. EditorPane.search_in_files() is what actually
+   * call from a View. EditorPaneWidget.search_in_files() is what actually
    * awaits this.
    */
   public static async FindInFilesResult run_async (string root_path, FindInFilesQuery query, int context_lines) throws Error {

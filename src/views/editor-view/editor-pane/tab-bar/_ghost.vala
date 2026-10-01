@@ -12,7 +12,7 @@
  * from the dragged pill's label/state at drag start and thrown away on
  * drop; never touches the original pill.
  */
-namespace EditorView.EditorPane_ {
+namespace EditorView.EditorPane {
   public class TabBarGhost : Object {
     private TabBarPill pill;
 

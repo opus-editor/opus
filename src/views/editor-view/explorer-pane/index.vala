@@ -3,7 +3,7 @@ namespace EditorView {
    * The sidebar's file tree, composition root for ExplorerPaneTree/
    * ExplorerPaneInlineEdit/ExplorerPaneDirWatcher/ExplorerPaneDragDrop — absorbs
    * the real FileTreeController entirely (its CRUD-to-Model translation,
-   * context menu, and clipboard), the same way EditorPane absorbed
+   * context menu, and clipboard), the same way EditorPaneWidget absorbed
    * EditorController. Named ExplorerPane rather than FileTree: a bare
    * `new FileTree (root_path)` inside a class also named (even namespaced)
    * FileTree resolves to itself, not the Model — confirmed with a

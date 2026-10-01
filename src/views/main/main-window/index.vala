@@ -1,9 +1,9 @@
 /**
  * The application's main window — composition root for the whole app: owns
- * EditorView.EditorPane (always) and EditorView.FindBar/EditorView.FindInFilesBar
+ * EditorView.EditorPaneWidget (always) and EditorView.FindBar/EditorView.FindInFilesBar
  * (always) directly, and EditorView.ExplorerPane once a folder is linked. Absorbs the real
- * MainController (the ExplorerPane<->EditorPane glue) and SearchController
- * (the FindBar<->EditorPane glue) entirely. What's left for main.vala:
+ * MainController (the ExplorerPane<->EditorPaneWidget glue) and SearchController
+ * (the FindBar<->EditorPaneWidget glue) entirely. What's left for main.vala:
  * reading argv/GLib.Settings/DevServer and constructing one of these per
  * window.
  *
@@ -48,8 +48,8 @@ public class MainWindow : Object {
   /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
   private IGlobalPanel? active_bottom_panel = null;
 
-  /** The window's own EditorPane, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPane's own public `code_editor`. */
-  public EditorView.EditorPane editor_pane { get; private set; }
+  /** The window's own EditorPaneWidget, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPaneWidget's own public `code_editor`. */
+  public EditorView.EditorPaneWidget editor_pane { get; private set; }
 
   // search_position_changed's own (position, count) doesn't say whether
   // count == 0 means "no search text" or "search text with zero
@@ -94,7 +94,7 @@ public class MainWindow : Object {
   // The primary menu's Save/Save as… group — kept live (not rebuilt on
   // each open) via set_active_state(), the same push-on-change pattern
   // EditorView.TabBarPill.set_modified()/mark_preview() already use elsewhere, rather
-  // than querying EditorPane state at popover-open time (which
+  // than querying EditorPaneWidget state at popover-open time (which
   // Gtk.MenuButton has no signal for anyway).
   private Gtk.Widget save_group_separator;
   private Gtk.Widget save_item;
@@ -103,7 +103,7 @@ public class MainWindow : Object {
   private bool active_is_dirty = false;
 
   // Live for exactly as long as settings.json's own tab is open —
-  // armed on EditorPane's tab_opened, disarmed on tab_closed, not tied
+  // armed on EditorPaneWidget's tab_opened, disarmed on tab_closed, not tied
   // to which tab is active: a background tab still open keeps this
   // armed too, matching a real editor's own live-reload scope rather
   // than only-while-focused.
@@ -142,7 +142,7 @@ public class MainWindow : Object {
     find_menu_button = (Gtk.MenuButton) builder.get_object ("find_menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
 
-    editor_pane = new EditorView.EditorPane (root_path);
+    editor_pane = new EditorView.EditorPaneWidget (root_path);
     // Set once — editor_pane.widget's own child already toggles itself
     // between its real content and its own empty state as tabs open/close.
     content_bin.child = editor_pane.widget;
@@ -287,9 +287,9 @@ public class MainWindow : Object {
    * had none yet or is replacing one it already had. The open tab bar/
    * editor stay exactly as they are (switching folders doesn't imply
    * discarding whatever's already open); only what ExplorerPane shows
-   * and what EditorPane resolves relative paths against change.
+   * and what EditorPaneWidget resolves relative paths against change.
    * Constructing the new ExplorerPane happens *before* anything about
-   * the old one (or EditorPane's own root path) is touched, so a
+   * the old one (or EditorPaneWidget's own root path) is touched, so a
    * failure here — the folder itself just became unreadable, say —
    * leaves this window exactly as it was.
    */
@@ -522,7 +522,7 @@ public class MainWindow : Object {
    * set_active_bottom_panel(). Restores the search behind the "Find
    * Results" tab if that's the active tab right now (as if reopening
    * the bar to redo/tweak it), or starts blank otherwise — see
-   * EditorPane.current_find_in_files_query's own doc comment for why
+   * EditorPaneWidget.current_find_in_files_query's own doc comment for why
    * that's exactly the condition it already encodes.
    */
   private void open_find_in_files () {
@@ -531,7 +531,7 @@ public class MainWindow : Object {
     find_in_files_bar.set_query (editor_pane.current_find_in_files_query);
   }
 
-  /** Enter in FindInFilesBar's own entry, or its Search button — searches the whole linked workspace folder and opens/refreshes the "Find Results" tab. Fire-and-forget: EditorPane.search_in_files() itself guards against a second search superseding a still-running one. */
+  /** Enter in FindInFilesBar's own entry, or its Search button — searches the whole linked workspace folder and opens/refreshes the "Find Results" tab. Fire-and-forget: EditorPaneWidget.search_in_files() itself guards against a second search superseding a still-running one. */
   private void on_find_in_files_search_requested () {
     var query = new FindInFilesQuery () {
       text = find_in_files_bar.search_text,
@@ -551,7 +551,7 @@ public class MainWindow : Object {
 
   /**
    * "Add Folder…" — FindInFilesBar itself has no root_path to validate
-   * against (only EditorPane does), so this is where the real folder
+   * against (only EditorPaneWidget does), so this is where the real folder
    * chooser and the "must be inside the linked folder" check both live.
    * All-or-nothing across a multi-selection: the very first folder that
    * isn't inside root_path aborts the whole thing with one error and

@@ -1,4 +1,4 @@
-namespace EditorView.EditorPane_ {
+namespace EditorView.EditorPane {
   /**
    * Paints one file's own real language syntax highlighting onto a
    * range of FindResults' own results buffer — the narrow, engine-

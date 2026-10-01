@@ -19,7 +19,7 @@
  * only editing is refused (see CodeEditor.read_only). Line numbers and
  * indent guides are off: results carry their own "  N: " prefixes.
  */
-namespace EditorView.EditorPane_ {
+namespace EditorView.EditorPane {
   public class FindResults : Object {
     // render()'s own "  N: " line-number prefix pads every number in a
     // file's own listing to at least this many digits (right-aligned),
@@ -80,7 +80,7 @@ namespace EditorView.EditorPane_ {
     /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(), same reason FindResultsLanguageHighlighter.clear() exists: a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
     private GenericArray<Gtk.TextTag> nav_tags = new GenericArray<Gtk.TextTag> ();
 
-    /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). Whoever composes this view (EditorPane) is the one that knows how to actually open/jump. */
+    /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). Whoever composes this view (EditorPaneWidget) is the one that knows how to actually open/jump. */
     public signal void navigate_requested (string path, int line, int column);
 
     // Recreated on every apply_style_scheme() — the Find/Replace row's own
@@ -103,7 +103,7 @@ namespace EditorView.EditorPane_ {
 
     /**
      * Lines of context (above and below a match) the *next* search
-     * should use — read by EditorPane.search_in_files() when it (re)runs.
+     * should use — read by EditorPaneWidget.search_in_files() when it (re)runs.
      * No upper bound: checked VS Code's own real equivalent
      * (search.searchEditor.defaultNumberOfContextLines/contextLinesInput
      * in searchWidget.ts) — neither its settings schema nor its
@@ -117,7 +117,7 @@ namespace EditorView.EditorPane_ {
       get { return context_lines_toggle.active ? int.max (0, int.parse (context_lines_entry.text)) : 0; }
     }
 
-    /** The entry's value or the toggle changed — EditorPane re-runs the last search with the new context_lines. */
+    /** The entry's value or the toggle changed — EditorPaneWidget re-runs the last search with the new context_lines. */
     public signal void context_lines_changed ();
 
     // Non-null exactly while showing a "just ran Replace All" summary
@@ -356,7 +356,7 @@ namespace EditorView.EditorPane_ {
     /**
      * Reconciles `last_result` in place with what FindInFilesReplace.
      * run() actually wrote, then re-renders showing the outcome — no
-     * round-trip through EditorPane needed: everything this touches
+     * round-trip through EditorPaneWidget needed: everything this touches
      * already lives on last_result, and re-running the original search
      * afterward would search for the *old* term, no longer there to find.
      * Each updated file's own blocks are refreshed straight off disk

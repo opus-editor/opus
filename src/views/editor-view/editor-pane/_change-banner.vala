@@ -1,7 +1,7 @@
 namespace EditorView {
   /**
    * The "File Has Changed on Disk" banner shown above the editor while
-   * the active document is unsynchronized with disk — EditorPane's own
+   * the active document is unsynchronized with disk — EditorPaneWidget's own
    * sub-widget, not CodeEditor's: whether a file changed on disk is
    * something only the tab/file bookkeeping here knows about, and a
    * consumer embedding CodeEditor for non-file content (Find Results)

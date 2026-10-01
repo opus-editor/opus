@@ -48,13 +48,17 @@ built entirely in code and have none). Load a template via
 - A view's class name never repeats "View" or its own directory name —
   the path under `views/<domain>/<name>/` already says that.
 - A domain with several sibling views gets a real `namespace` instead:
-  `EditorView.ExplorerPane`/`EditorPane`/`FindBar`.
+  `EditorView.ExplorerPane`/`EditorPaneWidget`/`FindBar`.
 - A sub-widget/sub-component's suffix names its *owning view*: `ExplorerPaneTree`, not the bare `Tree` (collides with the `FileTree` Model).
 - A view nested under another one keeps its own name unchanged (`TabBar`,
-  not `EditorPaneTabBar`) but moves into a namespace named after its
-  owner, suffixed `_`: `EditorView.EditorPane_.TabBar` — avoids a
-  namespace sharing a name with its owner's own class (see
-  `docs/decisions.md`).
+  not `EditorPaneTabBar`) and moves into a namespace named plainly after
+  its owner's directory: `EditorView.EditorPane.TabBar`. That namespace
+  shares a name with its owner's own class by default — only the owner
+  takes a `Widget` suffix, and only once it actually has nested
+  sub-components to collide with: `EditorPaneWidget`, namespace still
+  plain `EditorPane`. Keeps the rename local to whichever class actually
+  collides instead of cascading into siblings the moment a new top-level
+  component is added to a domain.
 - Code outside the namespace always spells it out in full
   (`EditorView.ExplorerPane`) — no `using` to shorten a namespace, ever.
 - `views/lib/`, `views/components/`, and `main/` stay unnamespaced —

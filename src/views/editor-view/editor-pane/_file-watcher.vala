@@ -3,7 +3,7 @@ namespace EditorView {
    * External file-change watching for open tabs — split out of
    * EditorController's old job the same way CodeEditorDragSelection was:
    * this owns the Gio.FileMonitor lifecycle and self-write suppression
-   * mechanically, emitting the raw event for EditorPane to interpret.
+   * mechanically, emitting the raw event for EditorPaneWidget to interpret.
    * The RENAMED-vs-deleted-vs-modified disambiguation needs a document's
    * own live is_deleted state, which this class has no reference to —
    * same reason CodeEditorDragSelection can't turn a drop into an edit
@@ -12,7 +12,7 @@ namespace EditorView {
   public class EditorPaneFileWatcher : Object {
     private HashTable<string, FileMonitor> watches = new HashTable<string, FileMonitor> (str_hash, str_equal);
 
-    // Set right before EditorPane's own save()/save_as() writes to a path,
+    // Set right before EditorPaneWidget's own save()/save_as() writes to a path,
     // consumed by the very next file-monitor event for it — a self-save
     // produces a real filesystem event indistinguishable at the GIO level
     // from an external change (FileUtils.set_contents fires exactly one
@@ -20,7 +20,7 @@ namespace EditorView {
     // two apart.
     private HashTable<string, bool> own_writes = new HashTable<string, bool> (str_hash, str_equal);
 
-    /** `path` changed on disk in some way EditorPane didn't itself just write — see mark_own_write(). */
+    /** `path` changed on disk in some way EditorPaneWidget didn't itself just write — see mark_own_write(). */
     public signal void file_changed (string path, FileMonitorEvent event_type, string? other_file_path);
 
     /** Watches `path` itself (not its containing directory) for it being deleted, moved away, or changed outside Opus. Untitled documents never call this — there's nothing on disk yet to watch. */

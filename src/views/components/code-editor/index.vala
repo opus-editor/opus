@@ -10,7 +10,7 @@
 * real ViewCursors/ViewCursor split).
 *
 * Knows nothing about files, tabs, or disk: the "File Has Changed on
-* Disk" banner and the Save As dialog belong to EditorPane, which is what
+* Disk" banner and the Save As dialog belong to EditorPaneWidget, which is what
 * lets this same component also show Find Results. What it can't work
 * out on its own comes in as "props": which cursor set/undo stack to
 * work on, indent settings, git hunks — see bind()/set_indent()/
@@ -301,7 +301,7 @@ public class CodeEditor : Object {
     return input.key_pressed (keyval, (Gdk.ModifierType) modifier_state);
   }
 
-  /** The cursor set and undo stack this editor works on from now on — EditorPane hands over each tab's own pair (Document.cursors/history) on a tab switch; a consumer with nothing per-tab to keep (Find Results) never calls this and stays on the pair the constructor made. */
+  /** The cursor set and undo stack this editor works on from now on — EditorPaneWidget hands over each tab's own pair (Document.cursors/history) on a tab switch; a consumer with nothing per-tab to keep (Find Results) never calls this and stays on the pair the constructor made. */
   public void bind (CursorCollection cursor_collection, EditHistory history) {
     cursors.bind (cursor_collection, history);
   }
@@ -311,13 +311,13 @@ public class CodeEditor : Object {
     cursors.unbind ();
   }
 
-  /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. Resolved by EditorPane from the linked folder's .editorconfig, per file. */
+  /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. Resolved by EditorPaneWidget from the linked folder's .editorconfig, per file. */
   public void set_indent (int size, bool insert_spaces) {
     text_view.set_indent_size (size);
     cursors.set_indent_config (size, insert_spaces);
   }
 
-  /** Renders `cursor_set` onto the real buffer's own selection/carets — pass-through to the cursors sub-component. EditorPane's own SetActiveCursors (Opus.Dev.DevServer) mutates a document's own CursorCollection directly, then calls this to make it visible. */
+  /** Renders `cursor_set` onto the real buffer's own selection/carets — pass-through to the cursors sub-component. EditorPaneWidget's own SetActiveCursors (Opus.Dev.DevServer) mutates a document's own CursorCollection directly, then calls this to make it visible. */
   public void render_cursors (Cursor[] cursor_set) {
     cursors.render_cursors (cursor_set);
   }
@@ -335,7 +335,7 @@ public class CodeEditor : Object {
   /**
    * Scrolls `offset` into view (centered, only if not already visible),
    * without moving any cursor itself — pairs with render_cursors() when a
-   * consumer (EditorPane's own open_at()) needs the *target* of a
+   * consumer (EditorPaneWidget's own open_at()) needs the *target* of a
    * jump-to-another-file visible, not just marked.
    *
    * Deferred to the default idle priority, not called synchronously:

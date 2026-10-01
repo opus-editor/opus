@@ -88,7 +88,7 @@ public class CodeEditorCursors : Object {
     source_buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
   }
 
-  /** Swaps in the cursor set and undo stack this editor works on — EditorPane calls this per tab switch with the Document's own pair, so each tab keeps its cursors and history across switches. Renders `cursors` right away. Cancels any still-pending reveal_cursors(): a tab switched away from before its idle fired must never scroll the *new* buffer to the *old* cursor. */
+  /** Swaps in the cursor set and undo stack this editor works on — EditorPaneWidget calls this per tab switch with the Document's own pair, so each tab keeps its cursors and history across switches. Renders `cursors` right away. Cancels any still-pending reveal_cursors(): a tab switched away from before its idle fired must never scroll the *new* buffer to the *old* cursor. */
   public void bind (CursorCollection cursors, EditHistory history) {
     cancel_pending_reveal ();
     this.cursors = cursors;
@@ -96,7 +96,7 @@ public class CodeEditorCursors : Object {
     render ();
   }
 
-  /** Back to a fresh, throwaway pair — what a consumer with no per-tab state to preserve (Find Results) stays on for good, and what EditorPane binds while no document is showing. */
+  /** Back to a fresh, throwaway pair — what a consumer with no per-tab state to preserve (Find Results) stays on for good, and what EditorPaneWidget binds while no document is showing. */
   public void unbind () {
     bind (new CursorCollection (), new EditHistory ());
   }
@@ -571,7 +571,7 @@ public class CodeEditorCursors : Object {
     render_cursors (cursors.snapshot ());
   }
 
-  /** Paints `cursor_set` as the carets/selections shown, and mirrors its primary onto the real insert/selection_bound marks (so copy/IM keep working — scrolling to keep it visible is reveal_cursors()'s own, separate job, deliberately not done here, see that method's own doc comment) — public because EditorPane's own SetActiveCursors (Opus.Dev.DevServer) mutates the bound CursorCollection directly and then calls this to make it visible. */
+  /** Paints `cursor_set` as the carets/selections shown, and mirrors its primary onto the real insert/selection_bound marks (so copy/IM keep working — scrolling to keep it visible is reveal_cursors()'s own, separate job, deliberately not done here, see that method's own doc comment) — public because EditorPaneWidget's own SetActiveCursors (Opus.Dev.DevServer) mutates the bound CursorCollection directly and then calls this to make it visible. */
   public void render_cursors (Cursor[] cursor_set) {
     assert (cursor_set.length > 0);
 

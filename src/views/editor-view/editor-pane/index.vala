@@ -30,7 +30,7 @@
  * a forwarding method here.
  */
 namespace EditorView {
-  public class EditorPane : Object {
+  public class EditorPaneWidget : Object {
     // No `.editorconfig`, or none of its sections match a given file —
     // VS Code's own default `tabSize`, and a reasonable one on its own.
     private const int DEFAULT_INDENT_SIZE = 4;
@@ -48,10 +48,10 @@ namespace EditorView {
     private Adw.StatusPage empty_state;
     // CodeEditor is one shared widget reused across every real file tab
     // — this Bin is what lets the Find Results tab swap in a completely
-    // different widget (EditorPane_.FindResults) instead, without
+    // different widget (EditorPane.FindResults) instead, without
     // CodeEditor itself needing any notion of a "results" mode.
     private Adw.Bin editor_area_bin;
-    private EditorPane_.TabBar tab_bar;
+    private EditorPane.TabBar tab_bar;
     private EditorPaneChangeBanner change_banner;
     private EditorPaneFileWatcher file_watcher;
     private string root_path;
@@ -85,7 +85,7 @@ namespace EditorView {
     // yet to read its own context_lines off) — every search after that
     // reads the live value straight from FindResults' own control.
     private const int DEFAULT_FIND_IN_FILES_CONTEXT_LINES = 1;
-    private EditorPane_.FindResults? find_results = null;
+    private EditorPane.FindResults? find_results = null;
     // The most recently run Find in Files query — re-issued as-is when
     // FindResults' own context_lines_changed fires, so adjusting that
     // control re-searches without the user retyping anything.
@@ -97,7 +97,7 @@ namespace EditorView {
 
     public Gtk.Widget widget { get { return container; } }
 
-    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPane wrapping each one in a forwarding method of its own. */
+    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPaneWidget wrapping each one in a forwarding method of its own. */
     public CodeEditor code_editor { get; private set; }
 
     /** Whether at least one tab is open — `widget` itself already reacts to this (see the constructor); still re-emitted for whoever hosts it to gate its own tab-dependent behavior (MainWindow's own Ctrl+F/Ctrl+H). */
@@ -118,11 +118,11 @@ namespace EditorView {
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
     public signal void reveal_in_sidebar_requested (string path);
 
-    public EditorPane (string root_path) {
+    public EditorPaneWidget (string root_path) {
       this.root_path = root_path;
       editor_config = EditorConfig.load (root_path);
 
-      tab_bar = new EditorPane_.TabBar ();
+      tab_bar = new EditorPane.TabBar ();
       code_editor = new CodeEditor ();
       change_banner = new EditorPaneChangeBanner ();
       file_watcher = new EditorPaneFileWatcher ();
@@ -348,7 +348,7 @@ namespace EditorView {
       }
 
       if (find_results == null) {
-        find_results = new EditorPane_.FindResults ();
+        find_results = new EditorPane.FindResults ();
         // Re-issues last_find_in_files_query as-is — adjusting context
         // lines re-searches without the user retyping anything. Replace
         // All has no equivalent hookup here: FindResults reconciles its
@@ -538,7 +538,7 @@ namespace EditorView {
     }
 
     // The rest of this section is pure forwarding onto code_editor's own
-    // search API — MainWindow (FindBar's owner) talks to EditorPane as
+    // search API — MainWindow (FindBar's owner) talks to EditorPaneWidget as
     // the one facade for "the editor," never reaching into CodeEditor
     // directly, the same reason apply_external_edits() above exists
     // rather than exposing code_editor itself.

@@ -4,7 +4,7 @@
  * shares: Gtk.SearchBar/GtkSearchBar native behavior, why focus is
  * grabbed explicitly in show_find(), why set_find_text() must be
  * called after it). Find-only — Replace lives in the Find Results tab's
- * own header instead (EditorView.EditorPane_.FindResults' own
+ * own header instead (EditorView.EditorPane.FindResults' own
  * replace_button), not here; Where is still always shown alongside
  * Find, matching VS Code's own real Find in Files panel. Wired into
  * MainWindow's own Ctrl+Shift+F; the doc comments below still describe
@@ -134,7 +134,7 @@ namespace EditorView {
 
     /**
      * Fills every field/toggle from `query` — MainWindow's own Ctrl+Shift+F
-     * calls this with EditorPane.current_find_in_files_query, which is
+     * calls this with EditorPaneWidget.current_find_in_files_query, which is
      * only non-null while the "Find Results" tab it produced is the
      * active one, so this only ever restores a search the user could
      * plausibly want to redo, never a stale one from some other tab.

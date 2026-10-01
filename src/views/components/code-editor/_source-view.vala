@@ -74,7 +74,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   private uint blink_timeout_id = 0;
   private uint overscroll_idle_id = 0;
   private int? drop_indicator_offset = null;
-  private int indent_size = 4; // matches EditorPane.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
+  private int indent_size = 4; // matches EditorPaneWidget.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
   private CodeEditorSelections selections;
 
   /** Whether draw_indent_guides() runs at all — off for content whose leading whitespace isn't indentation (Find Results' own "  N: " line prefixes). */

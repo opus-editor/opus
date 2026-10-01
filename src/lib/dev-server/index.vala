@@ -14,14 +14,14 @@ namespace Opus.Dev {
    * `<app's own object path>/Dev`.
    *
    * Deliberately thin: every method here just calls straight through to an
-   * EditorView.EditorPane's own already-public methods (a couple of which —
+   * EditorView.EditorPaneWidget's own already-public methods (a couple of which —
    * open_paths(), active_content, set_active_content(), and making
    * save_path() itself public — exist only because this needed to reach
-   * them from outside, not because the real UI needed them; see EditorPane's
+   * them from outside, not because the real UI needed them; see EditorPaneWidget's
    * own class doc comment). key_press()/select_all() reach one level deeper,
-   * into the real EditorPane.code_editor itself (exposed directly for
+   * into the real EditorPaneWidget.code_editor itself (exposed directly for
    * exactly this — see its own doc comment for why there's no forwarding
-   * method for either on EditorPane). Nothing here holds business logic of
+   * method for either on EditorPaneWidget). Nothing here holds business logic of
    * its own, and nothing outside this file/DEBUG-gated call site knows this
    * class exists — deleting it wouldn't change anything else in the app.
    *
@@ -32,28 +32,28 @@ namespace Opus.Dev {
    * objects, without those leaking into the D-Bus surface.
    */
   public class DevServer : Object, IDevServer {
-    // One entry per open window's own EditorView.EditorPane — main.vala
+    // One entry per open window's own EditorView.EditorPaneWidget — main.vala
     // adds/removes as windows open/close (see build_session()'s own
     // #if DEBUG block). Every method here operates on whichever one
     // was added *last*: good enough for a one-window dev loop, which
     // is the only scenario this was actually built for — resolving
     // "which window" properly would need a whole addressing scheme
     // for a case that doesn't come up in practice.
-    private GenericArray<EditorView.EditorPane> editor_panes = new GenericArray<EditorView.EditorPane> ();
+    private GenericArray<EditorView.EditorPaneWidget> editor_panes = new GenericArray<EditorView.EditorPaneWidget> ();
     private uint registration_id = 0;
 
     // search_position_changed is an event, not a queryable property —
     // search_get_position() (the only reader) needs the *last* reported
     // (position, count) to still be around after the signal itself has
-    // already fired and returned. Lives here, not on EditorPane: this
+    // already fired and returned. Lives here, not on EditorPaneWidget: this
     // bookkeeping exists purely so a system test (with no real FindBar
     // to read a counter label off of) can ask "what did it last say",
-    // same reasoning as every other field on this class — EditorPane
+    // same reasoning as every other field on this class — EditorPaneWidget
     // itself has no use for its own past search results.
     private int last_search_position = 0;
     private int last_search_count = 0;
 
-    public void add_session (EditorView.EditorPane editor_pane) {
+    public void add_session (EditorView.EditorPaneWidget editor_pane) {
       editor_panes.add (editor_pane);
       editor_pane.search_position_changed.connect ((position, count) => {
         last_search_position = position;
@@ -61,7 +61,7 @@ namespace Opus.Dev {
       });
     }
 
-    public void remove_session (EditorView.EditorPane editor_pane) {
+    public void remove_session (EditorView.EditorPaneWidget editor_pane) {
       uint index;
       if (editor_panes.find (editor_pane, out index)) {
         editor_panes.remove_index (index);
@@ -81,7 +81,7 @@ namespace Opus.Dev {
       }
     }
 
-    private EditorView.EditorPane current_editor_pane () throws DBusError {
+    private EditorView.EditorPaneWidget current_editor_pane () throws DBusError {
       if (editor_panes.length == 0) {
         throw new DBusError.FAILED ("No Opus window is open");
       }

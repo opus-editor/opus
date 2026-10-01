@@ -64,7 +64,7 @@ subdir('plugins')
 # Generic, app-domain-independent infrastructure — the "lib/" half of the
 # Rails-style app/ vs lib/ split (see src/lib/CLAUDE.md): may need
 # Gtk/Adw when the task itself does (GlobalCss loads a real
-# Gtk.CssProvider; DevServer drives a real EditorView.EditorPane), but
+# Gtk.CssProvider; DevServer drives a real EditorView.EditorPaneWidget), but
 # neither is an Opus-specific view/widget concept the way everything in
 # opus_gtk_view_sources below is.
 opus_lib_sources = opus_logger_sources + files(
@@ -115,7 +115,7 @@ opus_gtk_view_sources = files(
 
 # No opus_controller_sources here — the whole point of this tree: every
 # real Controller was absorbed into the View that used to be wired to it
-# from outside (EditorController into EditorPane, FileTreeController into
+# from outside (EditorController into EditorPaneWidget, FileTreeController into
 # ExplorerPane, MainController/SearchController into MainWindow,
 # CursorController into CodeEditorCursors).
 

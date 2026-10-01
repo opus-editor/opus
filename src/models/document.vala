@@ -78,7 +78,7 @@ public class Document : Object {
     history = new EditHistory ();
   }
 
-  /** `"file://" + path` — the one place this prefix is built; EditorPane reuses it at its own boundary instead of re-deriving it. */
+  /** `"file://" + path` — the one place this prefix is built; EditorPaneWidget reuses it at its own boundary instead of re-deriving it. */
   public static string uri_for_path (string path) {
     return "file://" + path;
   }

@@ -8,7 +8,7 @@
  * the same way it would for any other panel that implements the same
  * interface (see IGlobalPanel's own doc comment for the reasoning).
  *
- * Deliberately holds no reference to CodeEditor/EditorView.EditorPane — only
+ * Deliberately holds no reference to CodeEditor/EditorView.EditorPaneWidget — only
  * fires signals and exposes plain getters/setters. Whatever actually
  * drives Find/Replace against them (the real SearchController's own
  * job in v1) is a bridge between sibling Views composed from outside

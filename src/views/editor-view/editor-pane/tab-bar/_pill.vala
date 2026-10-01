@@ -6,7 +6,7 @@
  * signals; this widget knows nothing about `EditorView.TabBar` — that class
  * translates its signals into its own, keyed by path.
  */
-namespace EditorView.EditorPane_ {
+namespace EditorView.EditorPane {
   public class TabBarPill : Object {
     private Gtk.Box box;
     private Gtk.Label title_label;

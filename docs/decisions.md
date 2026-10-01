@@ -10,7 +10,7 @@ guarantees a clean disconnect once the connected object dies — nothing
 dangles. It does **not** keep that object alive itself. Anything with its
 own signal handlers still needs an explicit owner for as long as it
 should react to events (`App.windows` for every open `MainWindow`,
-`EditorPane` holding `TabBar`/`CodeEditor`, and so on down the tree) —
+`EditorPaneWidget` holding `TabBar`/`CodeEditor`, and so on down the tree) —
 without one, it's collected the moment nothing else references it, even
 while its own signal connections are still "live."
 

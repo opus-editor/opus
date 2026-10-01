@@ -3,7 +3,7 @@
  * pane: a horizontal, scrollable row of {@link TabBarPill}s, one per open file,
  * keyed by path.
  */
-namespace EditorView.EditorPane_ {
+namespace EditorView.EditorPane {
   public class TabBar : Object {
     // Pixels scrolled per wheel notch (a discrete GtkEventControllerScroll
     // delta is usually ±1; trackpads report fractional deltas, scaling
