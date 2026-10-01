@@ -402,6 +402,16 @@ public class MainWindow : Object {
     }
   }
 
+  /** Alt+W — flips editor.wordWrap in settings.json and re-applies it right away, same as editing the file by hand and the live-reload watch picking it up (see on_settings_tab_opened()'s own doc comment), just without needing that tab open at all. */
+  private void toggle_word_wrap () {
+    try {
+      UserSettings.toggle_word_wrap (Environment.get_user_config_dir ());
+      editor_pane.code_editor.reload_settings ();
+    } catch (Error e) {
+      show_error (_("Couldn’t update settings: %s").printf (e.message));
+    }
+  }
+
   /**
    * Arms a live-reload watch on settings.json for exactly as long as
    * its own tab stays open — every open tab's font re-renders on each
@@ -825,6 +835,14 @@ public class MainWindow : Object {
   }
 
   private bool on_key_pressed (uint keyval, uint keycode, Gdk.ModifierType state) {
+    // Alt+W, not folded into the Ctrl switch below: it's its own
+    // modifier entirely, not another Ctrl combination.
+    if ((state & Gdk.ModifierType.ALT_MASK) != 0 && (state & Gdk.ModifierType.CONTROL_MASK) == 0
+        && Gdk.keyval_to_lower (keyval) == Gdk.Key.w) {
+      toggle_word_wrap ();
+      return true;
+    }
+
     if ((state & Gdk.ModifierType.CONTROL_MASK) == 0) {
       return false;
     }

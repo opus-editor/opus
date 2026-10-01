@@ -139,6 +139,60 @@ private void test_load_falls_back_per_key_when_a_value_has_the_wrong_type () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_toggle_word_wrap_defaults_to_off_when_the_key_is_absent () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{
+  "editor.fontSize": 16
+}""");
+
+    try {
+        bool new_value = UserSettings.toggle_word_wrap (config_dir);
+        assert_true (new_value);
+    } catch (Error e) {
+        error ("failed to exercise toggle_word_wrap: %s", e.message);
+    }
+    assert_true (UserSettings.load (config_dir).word_wrap);
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_toggle_word_wrap_flips_an_existing_value () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{
+  "editor.wordWrap": true
+}""");
+
+    try {
+        bool new_value = UserSettings.toggle_word_wrap (config_dir);
+        assert_false (new_value);
+    } catch (Error e) {
+        error ("failed to exercise toggle_word_wrap: %s", e.message);
+    }
+    assert_false (UserSettings.load (config_dir).word_wrap);
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_toggle_word_wrap_preserves_every_other_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{
+  "editor.fontFamily": "Fira Code",
+  "editor.fontSize": 16
+}""");
+
+    try {
+        UserSettings.toggle_word_wrap (config_dir);
+    } catch (Error e) {
+        error ("failed to exercise toggle_word_wrap: %s", e.message);
+    }
+    var settings = UserSettings.load (config_dir);
+
+    assert_true (settings.font_family == "Fira Code");
+    assert_cmpint (settings.font_size, CompareOperator.EQ, 16);
+
+    remove_temp_config_dir (config_dir);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/user-settings/path_is_settings_json_under_an_opus_subdirectory", test_path_is_settings_json_under_an_opus_subdirectory);
@@ -148,5 +202,8 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/load_reads_custom_editor_values", test_load_reads_custom_editor_values);
     Test.add_func ("/models/user-settings/load_falls_back_to_defaults_on_invalid_json", test_load_falls_back_to_defaults_on_invalid_json);
     Test.add_func ("/models/user-settings/load_falls_back_per_key_when_a_value_has_the_wrong_type", test_load_falls_back_per_key_when_a_value_has_the_wrong_type);
+    Test.add_func ("/models/user-settings/toggle_word_wrap_defaults_to_off_when_the_key_is_absent", test_toggle_word_wrap_defaults_to_off_when_the_key_is_absent);
+    Test.add_func ("/models/user-settings/toggle_word_wrap_flips_an_existing_value", test_toggle_word_wrap_flips_an_existing_value);
+    Test.add_func ("/models/user-settings/toggle_word_wrap_preserves_every_other_key", test_toggle_word_wrap_preserves_every_other_key);
     return Test.run ();
 }

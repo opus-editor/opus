@@ -102,6 +102,58 @@ public class UserSettings : Object {
   }
 
   /**
+   * Flips `editor.wordWrap` in settings.json and returns the new value —
+   * MainWindow's own Alt+W. Reads the real object, flips just this one
+   * member, writes it back — see read_object()/write_object() for why
+   * a future toggle/set on some other key would do the same two calls
+   * rather than its own copy of this parsing/serializing dance.
+   */
+  public static bool toggle_word_wrap (string config_dir) throws Error {
+    var root = read_object (config_dir);
+
+    bool current_value = bool_member (root, "editor.wordWrap") ?? false;
+    bool new_value = !current_value;
+    root.set_boolean_member ("editor.wordWrap", new_value);
+
+    write_object (config_dir, root);
+    return new_value;
+  }
+
+  /**
+   * settings.json's current content as a raw JSON object — the shared
+   * starting point for anything that needs to change one key without
+   * disturbing the rest (today just toggle_word_wrap()). Same tolerant
+   * handling as load() for a missing/invalid file: an empty object
+   * rather than refusing to read at all.
+   */
+  private static Json.Object read_object (string config_dir) throws Error {
+    var settings_path = ensure_exists (config_dir);
+
+    string contents = "";
+    try {
+      FileUtils.get_contents (settings_path, out contents);
+    } catch (Error e) {
+      Logger.warn ("couldn't read settings.json: %s".printf (e.message));
+    }
+
+    try {
+      var parser = new Json.Parser ();
+      parser.load_from_data (contents);
+      return parser.get_root ()?.get_object () ?? new Json.Object ();
+    } catch (Error e) {
+      Logger.warn ("settings.json isn't valid JSON, starting fresh: %s".printf (e.message));
+      return new Json.Object ();
+    }
+  }
+
+  /** Writes `root` back to settings.json, pretty-printed — read_object()'s own write-back counterpart. */
+  private static void write_object (string config_dir, Json.Object root) throws Error {
+    var node = new Json.Node (Json.NodeType.OBJECT);
+    node.set_object (root);
+    FileUtils.set_contents (path (config_dir), Json.to_string (node, true) + "\n");
+  }
+
+  /**
    * Reads settings.json (creating it with defaults first if missing)
    * and parses its `editor.*` keys — a missing key, or the whole file
    * being unreadable or not valid JSON, each just fall back to
