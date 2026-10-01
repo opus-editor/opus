@@ -61,6 +61,9 @@ public class CodeEditorCursors : Object {
   // it, so a space typed right after one is always a "first" space.
   private bool previous_typed_was_space = false;
 
+  /** reveal_cursors()'s deferred follow-up pass, already queued and not yet run — see that method's own doc comment. 0 means none pending. */
+  private uint pending_reveal_id = 0;
+
   /** The buffer's full content just changed via apply_edits() — bubbles up through CodeEditor so whoever owns the document can mark it dirty. */
   public signal void text_changed (string new_text);
 
@@ -85,8 +88,9 @@ public class CodeEditorCursors : Object {
     source_buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
   }
 
-  /** Swaps in the cursor set and undo stack this editor works on — EditorPane calls this per tab switch with the Document's own pair, so each tab keeps its cursors and history across switches. Renders `cursors` right away. */
+  /** Swaps in the cursor set and undo stack this editor works on — EditorPane calls this per tab switch with the Document's own pair, so each tab keeps its cursors and history across switches. Renders `cursors` right away. Cancels any still-pending reveal_cursors(): a tab switched away from before its idle fired must never scroll the *new* buffer to the *old* cursor. */
   public void bind (CursorCollection cursors, EditHistory history) {
+    cancel_pending_reveal ();
     this.cursors = cursors;
     this.history = history;
     render ();
@@ -107,9 +111,17 @@ public class CodeEditorCursors : Object {
    * editor gets its content too.
    */
   public void load_text (string text) {
+    cancel_pending_reveal ();
     updating_programmatically = true;
     text_view.buffer.text = text;
     updating_programmatically = false;
+  }
+
+  private void cancel_pending_reveal () {
+    if (pending_reveal_id != 0) {
+      Source.remove (pending_reveal_id);
+      pending_reveal_id = 0;
+    }
   }
 
   /** Columns per indent level, and whether Tab inserts that many spaces instead of a literal tab character — a "prop" this component can't derive on its own (comes from the linked folder's .editorconfig, out of scope here). */
@@ -331,6 +343,7 @@ public class CodeEditorCursors : Object {
     command ();
     history.close_current_entry ();
     render ();
+    reveal_cursors ();
   }
 
   private void apply_edit (EditIntent intent, string typed_text, EditKind kind) {
@@ -371,6 +384,7 @@ public class CodeEditorCursors : Object {
     reposition ();
     history.push (edits, before_cursors, cursors.snapshot (), kind);
     render ();
+    reveal_cursors ();
   }
 
   /** Pops one entry and replays it — its own path, not execute_edit()'s: nothing new gets pushed, and the entry's own recorded cursors are restored rather than recomputed. Same read-only refusal, and for the same reason: a refused replay must not pop. */
@@ -403,6 +417,7 @@ public class CodeEditorCursors : Object {
     cursors.set_cursors (cloned);
 
     render ();
+    reveal_cursors ();
   }
 
   /**
@@ -556,7 +571,7 @@ public class CodeEditorCursors : Object {
     render_cursors (cursors.snapshot ());
   }
 
-  /** Paints `cursor_set` as the carets/selections shown, and mirrors its primary onto the real insert/selection_bound marks (so copy/IM/scroll-to-cursor keep working) — public because EditorPane's own SetActiveCursors (Opus.Dev.DevServer) mutates the bound CursorCollection directly and then calls this to make it visible. */
+  /** Paints `cursor_set` as the carets/selections shown, and mirrors its primary onto the real insert/selection_bound marks (so copy/IM keep working — scrolling to keep it visible is reveal_cursors()'s own, separate job, deliberately not done here, see that method's own doc comment) — public because EditorPane's own SetActiveCursors (Opus.Dev.DevServer) mutates the bound CursorCollection directly and then calls this to make it visible. */
   public void render_cursors (Cursor[] cursor_set) {
     assert (cursor_set.length > 0);
 
@@ -577,5 +592,82 @@ public class CodeEditorCursors : Object {
     text_view.set_carets (caret_offsets);
     text_view.set_selections (cursor_set);
     text_view.reset_blink ();
+  }
+
+  /**
+   * Scrolls the viewport to keep the current cursor set visible — called
+   * after every command that moves the cursor or edits the buffer
+   * (apply_cursor_command()/execute_edit()/apply_history_step()), the
+   * exact three sites VS Code's own `_executeEdit`/`_runCursorMove`
+   * reveal from (cursor.ts/coreCommands.ts). Never from render() itself:
+   * that's also reached by bind() (a tab switch, which deliberately does
+   * not reveal — restoring per-tab scroll position is a separate,
+   * unrelated improvement, not in scope here) and by
+   * resync_from_native() (a native GTK action — double-click, Ctrl+A,
+   * drag-select — already scrolled for itself before this would run; see
+   * CodeEditorSourceView's own doc comment for exactly which bindings
+   * that covers).
+   *
+   * Synchronous, right here in the command, not deferred to an idle —
+   * the same place GTK's own native handlers call scroll_mark_onscreen().
+   * GDK dispatches queued input events *inside* the frame clock's own
+   * paint dispatch (gdk_frame_clock_paint_idle(): FLUSH_EVENTS →
+   * LAYOUT → PAINT in one go, checked in gdkframeclockidle.c/
+   * gdksurface.c), so an idle queued from a key handler — at any
+   * priority — runs only after that frame has painted, while
+   * GtkTextView paints the edit itself in that same frame (it flushes
+   * its own validation synchronously from size_allocate()/draw_text()):
+   * the edit shows unscrolled, the scroll lands a frame later, and
+   * Enter at the bottom edge visibly jumps twice. A synchronous reveal
+   * is exact for every one-row edit or move — see reveal_settled()'s
+   * own doc comment for why, and for what the deferred follow-up below
+   * is for: a far target (a long paste, an undo across screens) can
+   * only be revealed exactly once GTK's incremental validation has
+   * measured the rows in between, which it does at a priority above
+   * the default idle's, so one coalesced default-idle pass runs the
+   * same settle again then — a no-op in the common case, the
+   * correction in the rare one.
+   */
+  private void reveal_cursors () {
+    reveal_cursor_extremes ();
+
+    if (pending_reveal_id != 0) {
+      return;
+    }
+    pending_reveal_id = Idle.add (() => {
+      pending_reveal_id = 0;
+      reveal_cursor_extremes ();
+      return Source.REMOVE;
+    });
+  }
+
+  /**
+   * One cursor reveals its own position. Several reveal from the
+   * topmost to the bottommost caret — ported from VS Code's own choice
+   * (`cursor.ts`'s `getViewPositions`, `viewLines.ts`'s own "reveal
+   * every cursor" path) — simplified to the two extremes rather than a
+   * true multi-rectangle reveal: revealing each extreme in turn already
+   * does the one thing that actually needs it (`add_cursor_above`/
+   * `add_cursor_below` adding a cursor right at the viewport's edge)
+   * without a second geometry pass to decide whether the full span
+   * still fits.
+   */
+  private void reveal_cursor_extremes () {
+    var cursor_set = cursors.snapshot ();
+    int min_offset = cursor_set[0].position_offset;
+    int max_offset = cursor_set[0].position_offset;
+    foreach (var cursor in cursor_set) {
+      min_offset = int.min (min_offset, cursor.position_offset);
+      max_offset = int.max (max_offset, cursor.position_offset);
+    }
+
+    Gtk.TextIter max_iter;
+    source_buffer.get_iter_at_offset (out max_iter, max_offset);
+    if (min_offset != max_offset) {
+      Gtk.TextIter min_iter;
+      source_buffer.get_iter_at_offset (out min_iter, min_offset);
+      text_view.reveal_settled (min_iter, RevealMode.SIMPLE);
+    }
+    text_view.reveal_settled (max_iter, RevealMode.SIMPLE);
   }
 }

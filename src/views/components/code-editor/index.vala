@@ -41,6 +41,9 @@ public class CodeEditor : Object {
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
 
+  /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
+  private uint pending_reveal_id = 0;
+
   public Gtk.Widget widget { get { return scrolled_window; } }
 
   /** The real buffer, for a consumer's own tags/highlighting and for reads — never for writing content: only set_text() carries the guard that keeps a load from being recorded as an edit (see CodeEditorCursors.load_text()). */
@@ -103,6 +106,9 @@ public class CodeEditor : Object {
   /** Re-emitted from the search sub-component — see FindBar's own "N of M" counter, wired to this wherever both are composed (see CodeEditorSearch's own doc comment). */
   public signal void search_position_changed (int position, int count);
 
+  /** Re-emitted from the input sub-component — a Ctrl+click or a plain double-click released on the line it was pressed on, on any view (see CodeEditorInput's own on_pressed() comment). This component knows nothing about what that should *do*; that's entirely up to whoever's listening (Find Results' own filename/line hyperlinks). */
+  public signal void link_click (int offset);
+
   public CodeEditor () {
     text_view = new CodeEditorSourceView () {
       monospace = true,
@@ -126,6 +132,7 @@ public class CodeEditor : Object {
     cursors.text_changed.connect ((text) => text_changed (text));
     clipboard = new CodeEditorClipboard (text_view, cursors);
     input = new CodeEditorInput (text_view, cursors, clipboard);
+    input.link_click.connect ((offset) => link_click (offset));
 
     search = new CodeEditorSearch (text_view);
     search.search_position_changed.connect ((position, count) => search_position_changed (position, count));
@@ -263,6 +270,10 @@ public class CodeEditor : Object {
    * content_type either, checked gtksourcelanguage-manager.c).
    */
   public void set_text (string text, string path) {
+    if (pending_reveal_id != 0) {
+      Source.remove (pending_reveal_id);
+      pending_reveal_id = 0;
+    }
     source_buffer.language = path == "" ? null : GtkSource.LanguageManager.get_default ().guess_language (path, null);
     cursors.load_text (text);
   }
@@ -319,6 +330,48 @@ public class CodeEditor : Object {
   /** Moves keyboard focus into the text view — used when opening a tab is meant to start editing right away, not just show it. */
   public void grab_focus () {
     text_view.grab_focus ();
+  }
+
+  /**
+   * Scrolls `offset` into view (centered, only if not already visible),
+   * without moving any cursor itself — pairs with render_cursors() when a
+   * consumer (EditorPane's own open_at()) needs the *target* of a
+   * jump-to-another-file visible, not just marked.
+   *
+   * Deferred to the default idle priority, not called synchronously:
+   * showing Find Results' own target tab re-parents this component's
+   * `scrolled_window` out of wherever it was (`gtk_widget_unparent`
+   * resets the widget's own size to 0×0), and the new parent only
+   * allocates it a real size during the frame's own layout phase
+   * (`Gdk.PRIORITY_REDRAW`) — a reveal computed before that would read
+   * against a zero-height view and silently do nothing. The default
+   * idle priority runs after both that layout pass and GTK's own
+   * incremental line-height validation (which keeps re-running at a
+   * slightly higher priority until the whole buffer is valid), so by the
+   * time this actually calls reveal_iter(), a far target's position is
+   * exact — not just "whatever's known so far". `CodeEditorCursors.
+   * reveal_cursors()`'s own doc comment covers the sibling, much
+   * tighter-tolerance case (an edit/move on an already-visible,
+   * already-allocated view), which is why that one runs one priority
+   * earlier instead.
+   *
+   * `reveal_iter()`, not `Gtk.TextView.scroll_to_iter()`/
+   * `scroll_to_mark()`: see that method's own doc comment
+   * (CodeEditorSourceView) for the three concrete bugs those caused here
+   * (a visible glide, a spurious horizontal scroll, and this exact
+   * re-parent race landing on an unvalidated zero-height view).
+   */
+  public void reveal_offset (int offset) {
+    if (pending_reveal_id != 0) {
+      Source.remove (pending_reveal_id);
+    }
+    pending_reveal_id = Idle.add (() => {
+      pending_reveal_id = 0;
+      Gtk.TextIter iter;
+      source_buffer.get_iter_at_offset (out iter, offset);
+      text_view.reveal_settled (iter, RevealMode.CENTER_IF_OUTSIDE);
+      return Source.REMOVE;
+    });
   }
 
   /** Applies a Replace/Replace All result — not produced by any live cursor, so it goes through the cursors sub-component's own external-edit path rather than a cursor command. */

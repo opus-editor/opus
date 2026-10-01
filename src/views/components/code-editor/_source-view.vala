@@ -7,14 +7,20 @@
  * `CodeEditor` sets `cursor_visible = false` on this view, which
  * suppresses only the native caret's *painting* — the real `insert`/
  * `selection_bound` marks it wraps still move normally, so IM
- * composition, bracket-matching, accessibility, and scroll-to-cursor all
- * keep working unaffected. Every caret users actually see, including the
- * primary one, is painted here through the same code path, with the
- * same color and the same blink timer, so they're guaranteed identical —
- * matching VS Code's own default multi-cursor appearance (`editorMultiCursor.
- * primary.foreground`/`.secondary.foreground` both default to the same
- * `editorCursor.foreground`) rather than trying to approximate it from
- * two different rendering systems.
+ * composition, bracket-matching and accessibility all keep working
+ * unaffected. Scroll-to-cursor does *not*: that one lives in GTK's own
+ * native keybinding handlers (gtk_text_view_move_cursor() and friends,
+ * each ending in scroll_mark_onscreen()), which CodeEditorInput's own
+ * CAPTURE-phase key controller stops from ever running for a claimed
+ * key — see reveal_iter()'s own doc comment for the replacement.
+ *
+ * Every caret users actually see, including the primary one, is painted
+ * here through the same code path, with the same color and the same
+ * blink timer, so they're guaranteed identical — matching VS Code's own
+ * default multi-cursor appearance (`editorMultiCursor.primary.foreground`/
+ * `.secondary.foreground` both default to the same `editorCursor.
+ * foreground`) rather than trying to approximate it from two different
+ * rendering systems.
  *
  * Every cursor's *selection*, primary included, is hand-painted the same
  * way as the carets above — see CodeEditorSelections' own doc comment
@@ -30,6 +36,14 @@
  * `CodeEditor.install_css()`), the same kind of paint-only
  * suppression `cursor_visible = false` already does for the caret above.
  */
+/** reveal_iter()'s own vertical behavior — mirrors VS Code's VerticalRevealType (viewLines.ts), the parameter over one real `_revealPosition`-equivalent rather than a family of near-duplicate methods. */
+public enum RevealMode {
+  /** Scroll only if the line is above or below the viewport, by the minimum needed, with one extra line of padding below so the last line never sits right under the scrollbar — ordinary typing and cursor movement (CodeEditorCursors.reveal_cursors()). */
+  SIMPLE,
+  /** No-op if the line is already inside the viewport; otherwise center it — a jump to a wholly different position (CodeEditor.reveal_offset(), Find Results). */
+  CENTER_IF_OUTSIDE,
+}
+
 public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   // Matches VS Code's own default (ViewCursors.BLINK_INTERVAL in
   // src/vs/editor/browser/viewParts/viewCursors/viewCursors.ts) — a
@@ -113,6 +127,132 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     Gtk.TextIter iter;
     get_iter_at_location (out iter, buffer_x, buffer_y);
     return iter.get_offset ();
+  }
+
+  // Vertical padding (SIMPLE): one extra row below the target so it
+  // never sits right under the horizontal scrollbar (viewLines.ts:739–743).
+  private const int SIMPLE_BOTTOM_PADDING_ROWS = 1;
+  // How many reveal_iter() passes reveal_settled() allows — see its doc
+  // comment for what a second pass is for.
+  private const int REVEAL_SETTLE_PASSES = 3;
+  // Horizontal padding (both modes): never an alignment, just enough
+  // slack past the edge for the target not to hug it exactly
+  // (viewLines.ts:784–830 — HORIZONTAL_EXTRA_PX / revealHorizontalRightPadding).
+  private const int HORIZONTAL_LEFT_PADDING_PX = 30;
+  private const int HORIZONTAL_RIGHT_PADDING_PX = 15;
+
+  /**
+   * Scrolls `iter` into view instantly — a hand-written replacement for
+   * `Gtk.TextView.scroll_to_iter()`/`scroll_to_mark()`, needed for three
+   * real, verified reasons (not a style preference):
+   *
+   * 1. Both GTK methods go through `gtk_adjustment_animate_to_value()`
+   *    while the view is realized — a visible glide no caller here
+   *    actually wants (confirmed directly: Find Results' own jump used
+   *    to visibly "scroll into place" instead of landing immediately).
+   * 2. Both apply `use_align`'s `xalign`/`yalign` to *both* axes at
+   *    once — passing `xalign = 0` to center vertically also pins the
+   *    horizontal scroll to the clicked column's own left edge whenever
+   *    the buffer's widest line allows it, which is a real, confirmed
+   *    bug (RC1 in the plan this method implements), not a hypothetical
+   *    one. GTK's own pair has no "vertical center, horizontal minimal"
+   *    combination at all.
+   * 3. `scroll_to_iter()`'s own docs warn it "may not have the desired
+   *    effect" before GTK's own idle line-height validation catches up
+   *    — confirmed directly (RC3 in the same plan): called right after
+   *    a re-parent, it silently validated against a zero-height
+   *    allocation and produced no scroll at all. Writing the adjustment
+   *    values directly sidesteps that whole mechanism — the same fix
+   *    GNOME Text Editor's and Builder's own `jump_to_iter()` make for
+   *    the identical reason ("without any of the scrolling animation").
+   *
+   * Horizontal reveal is always minimal (never an alignment) regardless
+   * of `mode` — VS Code treats the two axes independently (viewLines.ts),
+   * and RC1 above is exactly what pairing a vertical alignment with a
+   * horizontal one caused.
+   *
+   * Sound even against a layout GTK hasn't fully validated yet: the
+   * target row's band (row_band()) and `get_visible_rect()`'s own
+   * `y`/`height` are both read from the same underlying line-height sums
+   * at the moment of the call, so the *delta* between them is
+   * self-consistent regardless of how much of the buffer is validated —
+   * only the two rectangles' own relationship matters here, never an
+   * absolute position. Vertically it is the row's full band, not
+   * `get_iter_location()`'s glyph box, so the padding row and the
+   * "already visible" test agree with the painted rows at any
+   * `editor.lineHeight`; under word wrap that band is the caret's own
+   * display row, so a paragraph taller than the viewport reveals the
+   * right row of it.
+   *
+   * Returns whether either adjustment actually moved — what
+   * reveal_settled() loops on.
+   */
+  public bool reveal_iter (Gtk.TextIter iter, RevealMode mode) {
+    Gdk.Rectangle visible_rect;
+    get_visible_rect (out visible_rect);
+    int row_top;
+    int row_bottom;
+    row_band (iter, out row_top, out row_bottom);
+    int row_height = row_bottom - row_top;
+    int visible_bottom = visible_rect.y + visible_rect.height;
+
+    double new_vvalue = vadjustment.value;
+    switch (mode) {
+      case RevealMode.SIMPLE:
+        int bottom_padding = row_height * SIMPLE_BOTTOM_PADDING_ROWS;
+        if (row_top < visible_rect.y) {
+          new_vvalue -= visible_rect.y - row_top;
+        } else if (row_bottom + bottom_padding > visible_bottom) {
+          new_vvalue += row_bottom + bottom_padding - visible_bottom;
+        }
+        break;
+      case RevealMode.CENTER_IF_OUTSIDE:
+        bool already_visible = row_top >= visible_rect.y && row_bottom <= visible_bottom;
+        if (!already_visible) {
+          new_vvalue += (row_top + row_height / 2.0) - (visible_rect.y + visible_rect.height / 2.0);
+        }
+        break;
+    }
+    double vvalue_before = vadjustment.value;
+    vadjustment.value = double.max (vadjustment.lower, double.min (new_vvalue, vadjustment.upper - vadjustment.page_size));
+
+    Gdk.Rectangle iter_rect;
+    get_iter_location (iter, out iter_rect);
+    double new_hvalue = hadjustment.value;
+    if (iter_rect.x < visible_rect.x + HORIZONTAL_LEFT_PADDING_PX) {
+      new_hvalue -= visible_rect.x - iter_rect.x + HORIZONTAL_LEFT_PADDING_PX;
+    } else if (iter_rect.x + iter_rect.width + HORIZONTAL_RIGHT_PADDING_PX > visible_rect.x + visible_rect.width) {
+      new_hvalue += iter_rect.x + iter_rect.width + HORIZONTAL_RIGHT_PADDING_PX - (visible_rect.x + visible_rect.width);
+    }
+    double hvalue_before = hadjustment.value;
+    hadjustment.value = double.max (hadjustment.lower, double.min (new_hvalue, hadjustment.upper - hadjustment.page_size));
+
+    return vadjustment.value != vvalue_before || hadjustment.value != hvalue_before;
+  }
+
+  /**
+   * reveal_iter() until it stops moving the viewport, at most
+   * REVEAL_SETTLE_PASSES times. One pass is exact whenever `iter`'s
+   * row already has its real height — every one-row edit or move, the
+   * common case, where the heights above the caret are untouched by
+   * the edit. A target further down than GTK has validated reports a
+   * `y` that is short by every never-measured row in between; but
+   * writing a scroll value makes GtkTextView validate the rows it just
+   * scrolled onto and refresh the adjustment's `upper`, synchronously
+   * inside the setter (gtk_text_view_value_changed() →
+   * validate_onscreen() + update_adjustments(), checked in
+   * gtktextview.c), so each further pass reads better geometry. Bounded
+   * rather than exact: a far target (a long paste, an undo across many
+   * screens) can need more passes than this, and gets its correction
+   * from the caller's deferred follow-up instead (see
+   * CodeEditorCursors.reveal_cursors()).
+   */
+  public void reveal_settled (Gtk.TextIter iter, RevealMode mode) {
+    for (int pass = 0; pass < REVEAL_SETTLE_PASSES; pass++) {
+      if (!reveal_iter (iter, mode)) {
+        return;
+      }
+    }
   }
 
   /**
@@ -340,6 +480,16 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
    * assumes in `_gtk_source_gutter_lines_new()`), so a row's band is
    * its glyph top minus that half, down to the next row's; the
    * paragraph's own `get_line_yrange()` closes the first and last.
+   *
+   * Except for a paragraph GTK hasn't measured yet: `get_line_yrange()`
+   * reports height 0 for a line with no layout data — every line
+   * Enter has just created, until the frame's validation — while its
+   * glyph box (from the paragraph's own PangoLayout, computed on
+   * demand) is already real. The last row's bottom then comes from
+   * that box plus the same leading, which is what lets a reveal of
+   * the brand-new line scroll synchronously, in the same frame as the
+   * edit, instead of seeing a zero-height row and leaving the whole
+   * scroll to a later pass (a visible second jump — found live).
    */
   public void row_band (Gtk.TextIter on_row, out int top, out int bottom) {
     int paragraph_top;
@@ -353,9 +503,13 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     top = glyph_top (on_row) - half_leading;
 
     Gtk.TextIter next;
-    bottom = next_row_start (on_row, out next)
-      ? glyph_top (next) - half_leading
-      : paragraph_top + paragraph_height;
+    if (next_row_start (on_row, out next)) {
+      bottom = glyph_top (next) - half_leading;
+    } else if (paragraph_height > 0) {
+      bottom = paragraph_top + paragraph_height;
+    } else {
+      bottom = glyph_bottom (on_row) + half_leading;
+    }
   }
 
   // ---- IDisplayRows: the View's own display rows, for CursorCollection.move_by_row(). ----
@@ -430,6 +584,12 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     Gdk.Rectangle rect;
     get_iter_location (iter, out rect);
     return rect.y;
+  }
+
+  private int glyph_bottom (Gtk.TextIter iter) {
+    Gdk.Rectangle rect;
+    get_iter_location (iter, out rect);
+    return rect.y + rect.height;
   }
 
   /** The glyph box width at `iter`, a space's width for a glyph Pango lays out zero-wide (a trailing space absorbed by a wrap). */
@@ -640,4 +800,5 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     var accent = Adw.StyleManager.get_default ().get_accent_color_rgba ();
     snapshot.append_color (accent ?? get_color (), rect);
   }
+
 }

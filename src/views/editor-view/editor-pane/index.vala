@@ -237,6 +237,67 @@ namespace EditorView {
       }
     }
 
+    /**
+     * Find Results' own Ctrl+click-to-navigate — opens `path` as a preview
+     * tab (same weight as a single click in the explorer) and, if `line`
+     * is not -1 (the skipped-mtime list's own "just open it" case — see
+     * FindResults.NavTarget's own doc comment), places a collapsed cursor
+     * at that (1-based line, 0-based column) and scrolls it into view.
+     * Swallows a failed open the same way open_from_explorer() (MainWindow)
+     * does — nothing else here is in a position to surface the error.
+     */
+    public void open_at (string path, int line, int column) {
+      try {
+        open (path, false);
+      } catch (Error e) {
+        warning ("failed to open %s: %s", path, e.message);
+        return;
+      }
+
+      // open()'s own grab_focus() only runs for as_permanent — a preview
+      // open here (already-open tabs included) would otherwise sometimes
+      // leave focus behind in Find Results' own code_editor instead of
+      // following the jump.
+      code_editor.grab_focus ();
+
+      if (line < 0 || active_path == null) {
+        return;
+      }
+
+      // An unreadable document (not valid UTF-8 — see Document.readable)
+      // shows a placeholder, not the file: nothing in it corresponds to
+      // the result's line, so only the open is worth doing.
+      var document = documents[active_path];
+      if (!document.readable) {
+        return;
+      }
+
+      int target_offset = char_offset_of_line_column (document.content, line, column);
+      document.cursors.set_cursors ({ new Cursor (target_offset) });
+      code_editor.render_cursors (document.cursors.snapshot ());
+      code_editor.reveal_offset (target_offset);
+    }
+
+    /**
+     * `line` is 1-based, `column` a 0-based char offset into that line —
+     * same convention FindInFilesMatch's own fields use, so its data
+     * plugs straight in with no translation at the call site. Both are
+     * clamped to the content as it is *now*: a result can be older than
+     * the buffer (the file edited since the search, or its tab already
+     * open and dirty), and a line past the end or a column past the
+     * line must land at the nearest real position, never spill into the
+     * next line or past the buffer.
+     */
+    private int char_offset_of_line_column (string content, int line, int column) {
+      var lines = content.split ("\n");
+      int line_index = (line - 1).clamp (0, lines.length - 1);
+      int offset = 0;
+      for (int i = 0; i < line_index; i++) {
+        offset += lines[i].char_count () + 1;
+      }
+      return offset + column.clamp (0, lines[line_index].char_count ());
+    }
+
     /** Opens a brand-new, not-yet-saved-anywhere tab named "Untitled-N" — a permanent tab, focused immediately. Saving it goes through the Save As flow regardless of "Save" or "Save as…", since there's nowhere on disk yet for a plain Save to write to. */
     public void new_untitled () {
       untitled_counter++;
@@ -296,6 +357,7 @@ namespace EditorView {
         // search afterward would search for the *old* term, no longer
         // there to find.
         find_results.context_lines_changed.connect (() => search_in_files.begin (last_find_in_files_query));
+        find_results.navigate_requested.connect ((path, line, column) => open_at (path, line, column));
       }
       if (error != null) {
         find_results.show_error (query, error.message);

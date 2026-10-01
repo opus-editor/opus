@@ -48,6 +48,41 @@ namespace EditorView.EditorPane_ {
     private Gtk.TextTag line_number_tag;
     private Gtk.TextTag match_highlight_tag;
 
+    /** One real Gtk.TextTag per clickable span (a filename header, a result line, a skipped-mtime path) — carries no styling of its own, just a NavTarget via set_data(), so a click/hover only has to ask "what tag is at this offset" instead of keeping a side index in sync with render(). */
+    private class NavTarget : Object {
+      public string path;
+      // -1 means "just open the file, don't move the caret" — the
+      // skipped-mtime list's own last-known position isn't trustworthy
+      // (that's exactly why it was skipped).
+      public int line;
+      // Used as-is for a filename header (jumps to the first occurrence,
+      // nothing under the click itself maps to a file position) or a
+      // skipped-mtime path (ignored — line is already -1). A result
+      // line instead derives its real column from *where inside the
+      // span* the click landed (see on_link_click()) — this field is 0
+      // and unused for those, since the span's code text is a verbatim
+      // copy of the file's own line, so offset-into-code already *is*
+      // the column, exactly like VS Code's own Search Editor (clicking
+      // a result line lands the caret under the actual character
+      // clicked, not just at the match's start).
+      public int column;
+      public bool column_from_click;
+      // A result line's span is the *whole* line — the "  N: " prefix,
+      // the code, and the newline — so clicking the number, or the empty
+      // area right of a short line, still navigates (VS Code's own
+      // Search Editor treats the prefix as a "convenience location" for
+      // column 0 the same way). These two say where the code sits inside
+      // that span: `code_start` chars in, `code_length` chars long.
+      public int code_start;
+      public int code_length;
+    }
+
+    /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(), same reason FindResultsLanguageHighlighter.clear() exists: a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
+    private GenericArray<Gtk.TextTag> nav_tags = new GenericArray<Gtk.TextTag> ();
+
+    /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). Whoever composes this view (EditorPane) is the one that knows how to actually open/jump. */
+    public signal void navigate_requested (string path, int line, int column);
+
     // Recreated on every apply_style_scheme() — the Find/Replace row's own
     // background has to match the editor's *real* GtkSource.StyleScheme
     // color, only known at runtime (see its own doc comment in
@@ -170,6 +205,8 @@ namespace EditorView.EditorPane_ {
       results_buffer.tag_table.add (filename_tag);
       results_buffer.tag_table.add (line_number_tag);
       results_buffer.tag_table.add (match_highlight_tag);
+
+      code_editor.link_click.connect (on_link_click);
 
       var style_manager = Adw.StyleManager.get_default ();
       style_manager.notify["dark"].connect (() => apply_style_scheme (style_manager.dark));
@@ -485,6 +522,10 @@ namespace EditorView.EditorPane_ {
 
     private void render () {
       language_highlighter.clear ();
+      foreach (var tag in nav_tags) {
+        results_buffer.tag_table.remove (tag);
+      }
+      nav_tags = new GenericArray<Gtk.TextTag> ();
 
       if (last_error_message != null) {
         header_label.label = last_error_query.text;
@@ -503,11 +544,12 @@ namespace EditorView.EditorPane_ {
       var text = new StringBuilder ();
       var structural_ranges = new GenericArray<TagRange> ();
       var match_ranges = new GenericArray<TagRange> ();
+      var nav_ranges = new GenericArray<TagRange> ();
       var pending_highlights = new GenericArray<PendingHighlight> ();
       int offset = 0;
 
       if (replace_summary_skipped_paths != null) {
-        offset = append_replace_summary (text, structural_ranges, offset, replace_summary_skipped_paths);
+        offset = append_replace_summary (text, structural_ranges, nav_ranges, offset, replace_summary_skipped_paths);
       }
 
       foreach (var file in result.files) {
@@ -525,6 +567,9 @@ namespace EditorView.EditorPane_ {
         structural_ranges.add (new TagRange () { start = filename_start, end = offset, tag = filename_tag });
         text.append (":\n");
         offset += 2;
+        // The whole header line, ":" and newline included — a click past
+        // the path's end still means this file.
+        nav_ranges.add (new TagRange () { start = filename_start, end = offset, tag = make_nav_tag (file.path, first_match_line (file), first_match_column (file)) });
 
         int max_line_number = 0;
         foreach (var each_block in file.blocks) {
@@ -546,9 +591,13 @@ namespace EditorView.EditorPane_ {
 
             line_start_offsets[i] = offset;
             text.append (block.lines[i]);
-            offset += block.lines[i].char_count ();
+            int code_length = block.lines[i].char_count ();
+            offset += code_length;
             text.append ("\n");
             offset += 1;
+            // Prefix, code and newline — see NavTarget.code_start.
+            var nav_tag = make_nav_tag (file.path, line_number, 0, true, prefix.char_count (), code_length);
+            nav_ranges.add (new TagRange () { start = prefix_start, end = offset, tag = nav_tag });
           }
 
           var highlight_request = new PendingHighlight ();
@@ -594,6 +643,9 @@ namespace EditorView.EditorPane_ {
       foreach (var range in match_ranges) {
         apply_range (range);
       }
+      foreach (var range in nav_ranges) {
+        apply_range (range);
+      }
 
       // Wins any background-color collision against a per-file language
       // tag — this is about matches, not per-file language, so it stays
@@ -608,7 +660,7 @@ namespace EditorView.EditorPane_ {
      * "in, mutate, return the new cursor" shape every other section of
      * render() already threads offset through.
      */
-    private int append_replace_summary (StringBuilder text, GenericArray<TagRange> structural_ranges, int offset, GenericArray<string> skipped_paths) {
+    private int append_replace_summary (StringBuilder text, GenericArray<TagRange> structural_ranges, GenericArray<TagRange> nav_ranges, int offset, GenericArray<string> skipped_paths) {
       string intro = skipped_paths.length == 0
         ? _("All files were updated.")
         : _("Some files were modified after the search and were left untouched:");
@@ -625,9 +677,15 @@ namespace EditorView.EditorPane_ {
       }
 
       foreach (var path in skipped_paths) {
-        var line = "  - %s\n".printf (path);
-        text.append (line);
-        offset += line.char_count ();
+        int line_start = offset;
+        text.append ("  - ");
+        text.append (path);
+        text.append ("\n");
+        offset += 4 + path.char_count () + 1;
+        // -1: its own last-known match position isn't trustworthy — that's
+        // exactly why this file was skipped (see NavTarget's own doc
+        // comment). The whole line, same as a result line.
+        nav_ranges.add (new TagRange () { start = line_start, end = offset, tag = make_nav_tag (path, -1, 0) });
       }
       text.append ("\n");
       offset += 1;
@@ -659,5 +717,88 @@ namespace EditorView.EditorPane_ {
       results_buffer.get_iter_at_offset (out end_iter, range.end);
       results_buffer.apply_tag (range.tag, start_iter, end_iter);
     }
+
+    /** A fresh, unstyled tag carrying `target` — tracked in nav_tags so the next render() can drop it again (see that field's own doc comment). */
+    private Gtk.TextTag make_nav_tag (string path, int line, int column, bool column_from_click = false, int code_start = 0, int code_length = 0) {
+      var tag = new Gtk.TextTag (null);
+      tag.set_data<NavTarget> ("opus-nav-target", new NavTarget () {
+        path = path, line = line, column = column, column_from_click = column_from_click,
+        code_start = code_start, code_length = code_length,
+      });
+      results_buffer.tag_table.add (tag);
+      nav_tags.add (tag);
+      return tag;
+    }
+
+    /** -1 if `file` somehow has no match at all — render() always builds a block around at least one, but nothing stops a future caller from handing over an empty one. */
+    private int first_match_line (FindInFilesFileResult file) {
+      foreach (var block in file.blocks) {
+        if (block.matches.length > 0) {
+          return block.matches[0].line_number;
+        }
+      }
+      return -1;
+    }
+
+    private int first_match_column (FindInFilesFileResult file) {
+      foreach (var block in file.blocks) {
+        if (block.matches.length > 0) {
+          return block.matches[0].start_column;
+        }
+      }
+      return 0;
+    }
+
+    /** The nav tag covering `offset`, if any — CodeEditor's own link_click hands back a raw offset with no opinion on what's there; this is where that gets resolved. The first nav tag found is the only one: render() lays spans out as whole lines that never overlap, so no offset ever carries two. */
+    private Gtk.TextTag? nav_tag_at (int offset) {
+      if (offset < 0) {
+        return null;
+      }
+      Gtk.TextIter iter;
+      results_buffer.get_iter_at_offset (out iter, offset);
+      foreach (var tag in iter.get_tags ()) {
+        if (tag.get_data<NavTarget?> ("opus-nav-target") != null) {
+          return tag;
+        }
+      }
+      return null;
+    }
+
+    /** `tag`'s own extent around `offset` — found via its toggle points, not guessed, so it's exact even with adjacent same-length spans. */
+    private void tag_span (Gtk.TextTag tag, int offset, out int span_start, out int span_end) {
+      Gtk.TextIter start;
+      Gtk.TextIter end;
+      results_buffer.get_iter_at_offset (out start, offset);
+      results_buffer.get_iter_at_offset (out end, offset);
+      if (!start.starts_tag (tag)) {
+        start.backward_to_tag_toggle (tag);
+      }
+      if (!end.ends_tag (tag)) {
+        end.forward_to_tag_toggle (tag);
+      }
+      span_start = start.get_offset ();
+      span_end = end.get_offset ();
+    }
+
+    private void on_link_click (int offset) {
+      var tag = nav_tag_at (offset);
+      if (tag == null) {
+        return;
+      }
+      var target = tag.get_data<NavTarget?> ("opus-nav-target");
+
+      int column = target.column;
+      if (target.column_from_click) {
+        int span_start;
+        int span_end;
+        tag_span (tag, offset, out span_start, out span_end);
+        // Anywhere on the prefix is column 0; anywhere past the code's
+        // end (the newline, or empty space after a short line) is its
+        // end — see NavTarget.code_start.
+        column = (offset - span_start - target.code_start).clamp (0, target.code_length);
+      }
+      navigate_requested (target.path, target.line, column);
+    }
+
   }
 }

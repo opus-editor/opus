@@ -37,6 +37,15 @@ public class CodeEditorInput : Object {
   private double drag_press_x = 0;
   private double drag_press_y = 0;
 
+  /** A Ctrl+click, or a plain double-click, landed at this offset — nothing here knows what (if anything) is clickable there; a consumer (Find Results' own filename/line hyperlinks) decides that from the buffer's own tags. Emitted on *release*, see on_pressed(). */
+  public signal void link_click (int offset);
+
+  // The press that may become a link_click once released on the same
+  // line — its offset and the line that offset sits on; -1 means no
+  // such press is in flight. See on_pressed()'s own comment.
+  private int pending_link_offset = -1;
+  private int pending_link_line = -1;
+
   public CodeEditorInput (CodeEditorSourceView text_view, CodeEditorCursors cursors, CodeEditorClipboard clipboard) {
     this.text_view = text_view;
     this.cursors = cursors;
@@ -227,6 +236,27 @@ public class CodeEditorInput : Object {
       return; // no other button is claimed
     }
 
+    // Observational only, never claimed — same shape as VS Code's own
+    // ClickLinkGesture (checked clickLinkGesture.ts: plain onMouseDown/
+    // onMouseUp subscriptions, no preventDefault/stopPropagation
+    // anywhere, and the gesture *executes on mouse-up*, only if the
+    // line under the pointer then is the one pressed on). A Ctrl+click
+    // or a double-click *might* mean "follow whatever's here", but this
+    // view has no opinion on that — it's purely up to whoever's
+    // listening (Find Results' own hyperlinks); every native behavior a
+    // click already had (caret placement, double-click-selects-word)
+    // keeps happening exactly as before, completely unaffected by
+    // whether anyone's listening at all. Recorded here, emitted from
+    // on_released(): a listener that swaps this view out of its parent
+    // while the button is still down would otherwise tear down the
+    // gesture mid-sequence. A Ctrl+double-click counts once — its first
+    // press already qualified, so the second (n_press == 2) doesn't.
+    bool ctrl = (state & Gdk.ModifierType.CONTROL_MASK) != 0;
+    if (!alt && !shift && ((n_press == 1 && ctrl) || (n_press == 2 && !ctrl))) {
+      pending_link_offset = text_view.offset_at (x, y);
+      pending_link_line = line_of (pending_link_offset);
+    }
+
     if (n_press <= 3 && alt) {
       click_gesture.set_state (Gtk.EventSequenceState.CLAIMED);
       dragging = n_press == 1;
@@ -252,6 +282,26 @@ public class CodeEditorInput : Object {
       source_buffer.get_iter_at_offset (out iter, text_view.offset_at (x, y));
       source_buffer.place_cursor (iter);
     }
+
+    if (pending_link_offset < 0) {
+      return;
+    }
+    int pressed_offset = pending_link_offset;
+    bool same_line = line_of (text_view.offset_at (x, y)) == pending_link_line;
+    pending_link_offset = -1;
+    pending_link_line = -1;
+    if (same_line) {
+      // The pressed offset, not the released one: that's the character
+      // the user aimed at, and a few pixels of travel before releasing
+      // shouldn't change which column a result line opens at.
+      link_click (pressed_offset);
+    }
+  }
+
+  private int line_of (int offset) {
+    Gtk.TextIter iter;
+    source_buffer.get_iter_at_offset (out iter, offset);
+    return iter.get_line ();
   }
 
   private void on_update (Gtk.GestureClick click_gesture, Gdk.EventSequence? sequence) {
@@ -264,6 +314,8 @@ public class CodeEditorInput : Object {
     if (possible_selection_drag) {
       if (Gtk.drag_check_threshold (text_view, (int) drag_press_x, (int) drag_press_y, (int) x, (int) y)) {
         possible_selection_drag = false;
+        pending_link_offset = -1; // a press that became a drag-to-move is no click
+        pending_link_line = -1;
         drag_selection.start (click_gesture.get_current_event ());
       }
       return;
