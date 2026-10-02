@@ -2,7 +2,7 @@
 Name=Opus
 Comment=A lightweight source code editor
 Exec=opus %f
-Icon=accessories-text-editor
+Icon=io.github.nowaos.Opus
 Terminal=false
 Type=Application
 Categories=Development;TextEditor;

@@ -57,6 +57,16 @@ install_data(
   install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
 )
 
+# The app icon the launcher and the shell show — looked up by app id in
+# the hicolor theme, so the file name is the app id (the desktop file's
+# own Icon= line). The icons under icons/scalable/actions and
+# icons/symbols are a different thing: resources compiled into the
+# binary above, never installed.
+install_data(
+  'icons/hicolor/scalable/apps/io.github.nowaos.Opus.svg',
+  install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
+)
+
 # Compiles every *.gschema.xml in this directory into
 # meson.current_build_dir()/gschemas.compiled — `build_by_default: true`
 # means a plain `ninja` already produces it, no `ninja install` needed, so

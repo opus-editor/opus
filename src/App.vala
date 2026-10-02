@@ -61,6 +61,12 @@ public class App : Adw.Application {
   public override void startup () {
     base.startup ();
 
+    // The shell on Wayland finds the app icon through the app id's own
+    // .desktop file by itself; under X11/XWayland a window carries its
+    // icon explicitly, and this is the one place to name it for every
+    // window at once.
+    Gtk.Window.set_default_icon_name (application_id);
+
     // Before any window (and therefore any MainWindow-owned
     // Opus.Plugins.WorkspaceExtensions) can be built — every built-in
     // plugin is discovered/loaded exactly once, process-wide.

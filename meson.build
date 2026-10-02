@@ -63,4 +63,11 @@ subdir('tests')
 # prefix's cache won't otherwise pick up a newly-installed schema on its
 # own. Irrelevant to `just run`'s own uninstalled dev loop (see the
 # GSETTINGS_SCHEMA_DIR env var in the justfile for that case).
-gnome.post_install(glib_compile_schemas: true)
+gnome.post_install(
+  glib_compile_schemas: true,
+  # Same idea for the hicolor icon cache and the desktop database: the
+  # newly-installed app icon and .desktop file aren't seen by the shell
+  # until each is refreshed.
+  gtk_update_icon_cache: true,
+  update_desktop_database: true,
+)
