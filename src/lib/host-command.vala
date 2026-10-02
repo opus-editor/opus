@@ -1,12 +1,15 @@
 /**
- * Runs a command where the user's own tools live. Natively that is
- * just the process's PATH; inside a Flatpak sandbox the host's `git`
- * (or anything else) isn't visible at all, so the command is routed
- * through `flatpak-spawn --host` — the Flatpak portal runs it outside
- * the sandbox and pipes stdin/stdout/stderr back, which needs
+ * Runs a command with the user's own tools. A program on this
+ * process's PATH is used as is. Inside a Flatpak sandbox the host's
+ * `git` (or anything else) isn't visible at all, so a program missing
+ * from the sandbox is routed through `flatpak-spawn --host` — the
+ * Flatpak portal runs it outside the sandbox and pipes
+ * stdin/stdout/stderr back, which needs
  * `--talk-name=org.freedesktop.Flatpak` in the manifest. The same
  * choice VSCodium, Zed and Kate make on Flathub, instead of bundling a
- * second git.
+ * second git. "Local first" rather than "sandbox means host": a
+ * flatpak-builder build sandbox has `/.flatpak-info` and the Sdk's own
+ * git, but no portal — that is where the test suite runs in CI.
  *
  * Only the argv changes; every caller still owns its own
  * SubprocessLauncher, flags and output handling. Paths cross the
@@ -19,11 +22,13 @@ public class HostCommand : Object {
   // documented way for an app to learn it is running inside one.
   private const string FLATPAK_INFO_PATH = "/.flatpak-info";
 
-  private static HashTable<string, bool>? program_cache = null;
+  private enum Where { NOWHERE, LOCAL, HOST }
 
-  /** `command` as a launcher should spawn it: untouched natively, prefixed with `flatpak-spawn --host` inside a sandbox. */
+  private static HashTable<string, Where>? program_cache = null;
+
+  /** `command` as a launcher should spawn it: untouched when `command[0]` is on this process's PATH, prefixed with `flatpak-spawn --host` when only the host has it. */
   public static string[] argv (string[] command) {
-    if (!in_sandbox ()) {
+    if (command.length == 0 || where_is (command[0]) != Where.HOST) {
       return command;
     }
     string[] result = { "flatpak-spawn", "--host" };
@@ -34,15 +39,17 @@ public class HostCommand : Object {
   }
 
   /**
-   * Whether `name` is on the PATH the commands above actually run with
-   * — Environment.find_program_in_path() would answer for the
-   * sandbox's own PATH. Answered once per program per process: the
-   * sandboxed check is a portal round-trip, and callers ask on every
-   * git call.
+   * Whether `name` can be run at all — here, or on the host through the
+   * portal. Answered once per program per process: the portal check is
+   * a round-trip, and callers ask on every git call.
    */
   public static bool has_program (string name) {
+    return where_is (name) != Where.NOWHERE;
+  }
+
+  private static Where where_is (string name) {
     if (program_cache == null) {
-      program_cache = new HashTable<string, bool> (str_hash, str_equal);
+      program_cache = new HashTable<string, Where> (str_hash, str_equal);
     }
     if (!program_cache.contains (name)) {
       program_cache[name] = look_up_program (name);
@@ -51,22 +58,32 @@ public class HostCommand : Object {
   }
 
   /**
-   * A directory for files a host command must be able to read — the
-   * host's own tmp dir natively; inside a sandbox the user's cache dir
-   * (`~/.var/app/<id>/cache`), which the host sees at the same path,
-   * unlike the sandbox's private `/tmp`.
+   * A directory for files `program` must be able to read: the plain
+   * tmp dir when it runs here; when it runs on the host through the
+   * portal, the user's cache dir (`~/.var/app/<id>/cache`), which the
+   * host sees at the same path, unlike the sandbox's private `/tmp`.
+   * Created if missing — the sandbox only guarantees it once the app
+   * has run from its own installation.
    */
-  public static string shared_tmp_dir () {
-    return in_sandbox () ? Environment.get_user_cache_dir () : Environment.get_tmp_dir ();
+  public static string shared_tmp_dir (string program) {
+    if (where_is (program) != Where.HOST) {
+      return Environment.get_tmp_dir ();
+    }
+    var dir = Environment.get_user_cache_dir ();
+    DirUtils.create_with_parents (dir, 0700);
+    return dir;
   }
 
   public static bool in_sandbox () {
     return FileUtils.test (FLATPAK_INFO_PATH, FileTest.EXISTS);
   }
 
-  private static bool look_up_program (string name) {
+  private static Where look_up_program (string name) {
+    if (Environment.find_program_in_path (name) != null) {
+      return Where.LOCAL;
+    }
     if (!in_sandbox ()) {
-      return Environment.find_program_in_path (name) != null;
+      return Where.NOWHERE;
     }
     // `command -v` through the host's own shell is the portable
     // "is this on PATH" — exit 0 if found, which flatpak-spawn passes
@@ -78,9 +95,9 @@ public class HostCommand : Object {
         "flatpak-spawn", "--host", "sh", "-c", "command -v -- \"$1\"", "sh", name
       );
       process.wait ();
-      return process.get_successful ();
+      return process.get_successful () ? Where.HOST : Where.NOWHERE;
     } catch (Error e) {
-      return false;
+      return Where.NOWHERE;
     }
   }
 }

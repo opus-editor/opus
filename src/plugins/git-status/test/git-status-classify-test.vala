@@ -38,8 +38,9 @@ private void run_git (string root_path, string[] args) throws Error {
 }
 
 /** A fresh repo with committer identity set. */
+/** `-b main`: the conflict fixture below checks `main` back out by name — never the machine's own `init.defaultBranch` (unset on CI, `master` by git's default). */
 private void init_repo (string root_path) throws Error {
-    run_git (root_path, { "init", "-q" });
+    run_git (root_path, { "init", "-q", "-b", "main" });
     run_git (root_path, { "config", "user.email", "test@opus.dev" });
     run_git (root_path, { "config", "user.name", "Opus Test" });
 }
