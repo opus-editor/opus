@@ -11,25 +11,18 @@ namespace Opus.FuzzyFinder {
    * out of both memory and every later search. Symlinks are skipped
    * (no cycle-following — the same v1 rule FindInFilesSearch keeps).
    */
-  public class DirectoryWalker : Object {
+  public class DirectoryWalker : Object, IPathSource {
     public string[] excluded_names { get; set; }
     public uint batch_size { get; set; default = 256; }
 
     private string root_path;
     private bool started = false;
 
-    /** The next `batch_size` paths found, root-relative. Emitted on the main loop, in walk order. */
-    public signal void batch (string[] relative_paths);
-
-    /** The walk ended — every path was reported, or `cancelled` cut it short. Emitted on the main loop, exactly once per start(). */
-    public signal void finished (bool cancelled);
-
     public DirectoryWalker (string root_path) {
       this.root_path = root_path;
       excluded_names = { ".git" };
     }
 
-    /** Spawns the walking thread. A second call is ignored — construct another walker for another walk. */
     public void start (Cancellable cancellable) {
       if (started) {
         return;

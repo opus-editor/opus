@@ -118,6 +118,13 @@ git_diff_document_tracker_test = executable(
 )
 test('git-diff-document-tracker', git_diff_document_tracker_test)
 
+git_file_list_test = executable(
+  'git-file-list-test',
+  ['models/git-file-list-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('git-file-list', git_file_list_test)
+
 find_in_files_search_test = executable(
   'find-in-files-search-test',
   ['models/find-in-files-search-test.vala', opus_model_test_sources],

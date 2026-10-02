@@ -6,15 +6,18 @@ namespace CommandBar {
    * other file ranked by Opus.FuzzyFinder — the same split VS Code's
    * own Go to File makes (COMMAND_BAR_FILE_SEARCH_PERFORMANCE.md).
    *
-   * The file list is its own walk, not FileTree's: that tree is
-   * one-level-lazy on purpose, search needs every path. Every opening
-   * starts a fresh walk in the background while the previous list keeps
-   * answering; on the first opening there is no previous list, so the
-   * one being filled answers instead, growing as batches land. Between
-   * walks, a directory the explorer already watches gets its own
-   * immediate children refreshed from `WorkspaceContext.directory_changed`
-   * — free, since those watches exist anyway; directories it doesn't
-   * watch stay as fresh as the last walk.
+   * The file list is its own listing, not FileTree's: that tree is
+   * one-level-lazy on purpose, search needs every path. At a repository
+   * root the listing is GitFileList's — gitignored files never enter the
+   * index at all; anywhere else (or should git itself fail) it is a
+   * plain DirectoryWalker over everything. Every opening starts a fresh
+   * listing in the background while the previous list keeps answering;
+   * on the first opening there is no previous list, so the one being
+   * filled answers instead, growing as batches land. Between listings,
+   * a directory the explorer already watches gets its own immediate
+   * children refreshed from `WorkspaceContext.directory_changed` — free,
+   * since those watches exist anyway; directories it doesn't watch stay
+   * as fresh as the last listing.
    */
   public class FileProvider : Object, IWorkspaceExtension, IProvider {
     private const uint MAX_RESULTS = 512;
@@ -36,8 +39,8 @@ namespace CommandBar {
     private RecentFiles recent;
     private Opus.FuzzyFinder.Index? current = null;
     private Opus.FuzzyFinder.Index? staging = null;
-    private Opus.FuzzyFinder.DirectoryWalker? walker = null;
-    private Cancellable? walk_cancellable = null;
+    private Opus.FuzzyFinder.IPathSource? source = null;
+    private Cancellable? source_cancellable = null;
 
     private Picker? picker = null;
     private Cancellable? picker_cancellable = null;
@@ -54,7 +57,7 @@ namespace CommandBar {
 
     public void deactivate () {
       context.directory_changed.disconnect (on_directory_changed);
-      walk_cancellable?.cancel ();
+      source_cancellable?.cancel ();
       detach_picker ();
     }
 
@@ -70,15 +73,30 @@ namespace CommandBar {
     }
 
     private void refresh () {
-      if (walker != null) {
-        return; // the walk already under way will hand over when it finishes
+      if (source != null) {
+        return; // the listing already under way will hand over when it finishes
       }
+      source_cancellable = new Cancellable ();
+      if (GitFileList.is_repository_root (context.root_path)) {
+        var list = new GitFileList (context.root_path);
+        list.failed.connect (on_git_failed);
+        start_source (list);
+      } else {
+        start_source (new Opus.FuzzyFinder.DirectoryWalker (context.root_path));
+      }
+    }
+
+    private void start_source (Opus.FuzzyFinder.IPathSource source) {
+      this.source = source;
       staging = new Opus.FuzzyFinder.Index ();
-      walk_cancellable = new Cancellable ();
-      walker = new Opus.FuzzyFinder.DirectoryWalker (context.root_path);
-      walker.batch.connect (on_batch);
-      walker.finished.connect (on_walk_finished);
-      walker.start (walk_cancellable);
+      source.batch.connect (on_batch);
+      source.finished.connect (on_source_finished);
+      source.start (source_cancellable);
+    }
+
+    /** Git itself couldn't answer (missing from PATH, a broken repository) — the plain walk is the same list, just unfiltered. */
+    private void on_git_failed () {
+      start_source (new Opus.FuzzyFinder.DirectoryWalker (context.root_path));
     }
 
     private void on_batch (string[] relative_paths) {
@@ -91,9 +109,9 @@ namespace CommandBar {
       }
     }
 
-    private void on_walk_finished (bool cancelled) {
-      walker = null;
-      walk_cancellable = null;
+    private void on_source_finished (bool cancelled) {
+      source = null;
+      source_cancellable = null;
       if (cancelled) {
         staging = null;
         return;
@@ -132,7 +150,7 @@ namespace CommandBar {
       if (picker == null || picker.is_closed || picker_cancellable.is_cancelled ()) {
         return;
       }
-      picker.busy = walker != null;
+      picker.busy = source != null;
 
       var filter = picker.filter;
       if (filter == "") {
@@ -270,10 +288,18 @@ namespace CommandBar {
       picker_cancellable = null;
     }
 
-    /** One level only: the explorer reports the directory whose own listing changed, and a subdirectory created with contents gets picked up by the next opening's walk. */
+    /**
+     * One level only: the explorer reports the directory whose own
+     * listing changed, and a subdirectory created with contents gets
+     * picked up by the next opening's listing. Reads the disk as is, so
+     * a gitignored file created in a watched directory shows up here
+     * until that next listing replaces the whole list — a few hundred
+     * milliseconds after the next Ctrl+P, not worth a `git check-ignore`
+     * round-trip per explorer event.
+     */
     private void on_directory_changed (string directory_path) {
       if (current == null) {
-        return; // no finished list to patch — the walk in progress reads the disk as it is now
+        return; // no finished list to patch — the listing in progress reads the disk as it is now
       }
       var relative = relative_to_root (directory_path);
       var directory = relative == directory_path || relative == "" ? "" : relative + "/";

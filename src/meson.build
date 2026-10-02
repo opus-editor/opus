@@ -30,6 +30,7 @@ opus_model_sources = files(
   'models/find-in-files-replace.vala',
   'models/find-in-files-replace-result.vala',
   'models/find-in-files-scope.vala',
+  'models/git-file-list.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
   'models/git-diff/i-base-provider.vala',
@@ -75,6 +76,7 @@ opus_fuzzy_finder_sources = files(
   'lib/fuzzy-finder/match.vala',
   'lib/fuzzy-finder/scorer.vala',
   'lib/fuzzy-finder/index.vala',
+  'lib/fuzzy-finder/i-path-source.vala',
   'lib/fuzzy-finder/directory-walker.vala',
 )
 
