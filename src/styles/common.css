@@ -1,3 +1,12 @@
+/* Adwaita's own default control radius (a plain Gtk.Entry/Gtk.Button,
+ * _entries.scss/_buttons.scss) — it ships no custom property for this
+ * itself, just the literal 9px repeated across its own selectors, so
+ * this is ours: one place to change it, instead of each call site
+ * hardcoding the number again. */
+:root {
+  --control-radius: 9px;
+}
+
 /* Adwaita ships no general-purpose "sm" size class for buttons/entries
  * (checked its own stylesheet, ~/Downloads/libadwaita: .compact/.small
  * exist, but scoped to ViewSwitcherBar and tabbutton's own indicator

@@ -4,7 +4,7 @@
 .command-bar-entry {
   min-height: 30px;
   padding: 0 10px;
-  border-radius: 6px;
+  border-radius: var(--control-radius);
 }
 
 .command-bar-entry:focus-within {
@@ -20,6 +20,7 @@
 
 popover.command-bar-results > contents {
   padding: 0;
+  border-radius: var(--control-radius);
 }
 
 .command-bar-list {

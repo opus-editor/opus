@@ -62,6 +62,9 @@ public class CommandBarPopover : Object, IGlobalPanel {
     list_view = (Gtk.ListView) builder.get_object ("list_view");
 
     results_popover.set_parent (entry_box);
+    // GTK's own default gap above the results is 4px — add 4 more for
+    // 8px total.
+    results_popover.set_offset (0, 4);
 
     selection = new Gtk.SingleSelection (store) {
       autoselect = false,
