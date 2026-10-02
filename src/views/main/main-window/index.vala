@@ -82,6 +82,10 @@ public class MainWindow : Object {
   private CommandBarPopover command_bar;
   private CommandBar.RecentFiles? recent_files = null;
   private CommandBar.FileProvider? file_provider = null;
+  // Whatever held keyboard focus right before Ctrl+P — title_stack
+  // switching its page back away from the entry on close otherwise
+  // leaves GTK to pick its own fallback (the view switcher button).
+  private Gtk.Widget? focus_before_command_bar = null;
   private Opus.Plugins.WorkspaceExtensions? command_providers = null;
 
   // The Find menu's own three items — kept live via update_find_menu(),
@@ -522,6 +526,7 @@ public class MainWindow : Object {
       command_router.picker.move_active (1);
       return;
     }
+    focus_before_command_bar = window.get_focus ();
     title_stack.visible_child_name = "command-bar";
     command_router.open ();
     if (!command_router.is_open) {
@@ -556,9 +561,16 @@ public class MainWindow : Object {
     picker.accepted.connect (on_command_bar_item_accepted);
   }
 
+  /** Without this, the view switcher button underneath the entry's own title_stack page picks up focus on its own once that page becomes visible again. Restores focus_before_command_bar (set in open_command_bar()) rather than always the editor — Ctrl+P isn't only ever pressed from there. */
   private void on_command_bar_closed () {
     command_bar.close ();
     title_stack.visible_child_name = "switcher";
+    if (focus_before_command_bar != null && focus_before_command_bar.get_mapped ()) {
+      focus_before_command_bar.grab_focus ();
+    } else if (editor_pane.active_document_path != null) {
+      editor_pane.grab_focus ();
+    }
+    focus_before_command_bar = null;
   }
 
   /** Only the file provider's items are understood here (`id` is a path); a future `>` provider's own accept behaviour belongs to that provider. */
