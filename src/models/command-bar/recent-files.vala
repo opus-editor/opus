@@ -2,8 +2,7 @@ namespace CommandBar {
   /**
    * The paths opened in this window, most recent first — what the
    * Command Bar shows before anything is typed. In-memory only: it
-   * resets with the app (persisting it is a separate, later concern —
-   * see COMMAND_BAR_IMPLEMENTATION_PLAN.md §8).
+   * resets with the app (persisting it is a separate, later concern).
    */
   public class RecentFiles : Object {
     public const uint MAX = 200;

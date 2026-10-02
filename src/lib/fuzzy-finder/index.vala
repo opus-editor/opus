@@ -5,9 +5,8 @@ namespace Opus.FuzzyFinder {
    * first (character bitset, then ordered subsequence, then the real
    * {@link Scorer}), keeping only the top `max_results`.
    *
-   * No trie or sorted structure on purpose — see
-   * COMMAND_BAR_FILE_SEARCH_PERFORMANCE.md: a casefolded flat array plus
-   * these prefilters is what VS Code and Zed both run per keystroke.
+   * No trie or sorted structure on purpose: a casefolded flat array
+   * plus these prefilters is what VS Code and Zed both run per keystroke.
    * The one memory it keeps is which candidates survived the previous
    * search, so a query that merely grows (`fo` -> `foo`) only re-scores
    * those (nucleo's own "Update" vs "Rescore" distinction).

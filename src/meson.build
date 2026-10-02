@@ -67,8 +67,8 @@ opus_model_sources = files(
 # test built this way until this same fix).
 opus_logger_sources = files('lib/logger.vala')
 
-# The Command Bar's generic fuzzy-finding engine (see src/lib/CLAUDE.md
-# and COMMAND_BAR_IMPLEMENTATION_PLAN.md §2.2): GLib/Gio only — no Gtk,
+# The Command Bar's generic fuzzy-finding engine (see src/lib/CLAUDE.md):
+# GLib/Gio only — no Gtk,
 # no Logger, nothing from models/. Its own variable for the same reason
 # opus_logger_sources is: the Command Bar models reference it, so every
 # model test needs it too, without the Gtk half of opus_lib_sources.

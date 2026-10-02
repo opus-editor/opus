@@ -4,7 +4,7 @@ namespace CommandBar {
    * Before anything is typed, the window's {@link RecentFiles}; once
    * typed, two tiers — recent files whose name matches, then every
    * other file ranked by Opus.FuzzyFinder — the same split VS Code's
-   * own Go to File makes (COMMAND_BAR_FILE_SEARCH_PERFORMANCE.md).
+   * own Go to File makes.
    *
    * The file list is its own listing, not FileTree's: that tree is
    * one-level-lazy on purpose, search needs every path. At a repository
