@@ -1,13 +1,13 @@
 /**
  * One result row in the Command Bar's list: file icon, name with the
- * matched characters emphasized, dim directory, and — on a group's
- * first row — the group caption above. Recycled by the list view's
- * factory, same as ExplorerPaneTreeRow. A click reports its position;
- * the cursor/accept decision is CommandBarPopover's.
+ * matched characters emphasized, dim directory. Group captions are the
+ * list's own section headers (CommandBarPopoverSections), not part of
+ * any row. Recycled by the list view's factory, same as
+ * ExplorerPaneTreeRow. A click reports its position; the cursor/accept
+ * decision is CommandBarPopover's.
  */
 public class CommandBarPopoverRow : Object {
   private Gtk.Box box;
-  private Gtk.Label caption;
   private Gtk.Image icon;
   private Gtk.Label label;
   private Gtk.Label description;
@@ -24,7 +24,6 @@ public class CommandBarPopoverRow : Object {
 
     var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main/command-bar/_row.ui");
     box = (Gtk.Box) builder.get_object ("row");
-    caption = (Gtk.Label) builder.get_object ("caption");
     icon = (Gtk.Image) builder.get_object ("icon");
     label = (Gtk.Label) builder.get_object ("label");
     description = (Gtk.Label) builder.get_object ("description");
@@ -36,9 +35,6 @@ public class CommandBarPopoverRow : Object {
 
   public void bind (CommandBar.Item item, uint position) {
     this.position = position;
-
-    caption.label = item.separator_label ?? "";
-    caption.visible = item.separator_label != null;
 
     if (item.icon_name != null) {
       icon.set_from_resource (icon_theme.icon_path_for_file (item.icon_name));

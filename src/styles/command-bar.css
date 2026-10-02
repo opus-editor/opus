@@ -31,8 +31,15 @@ popover.command-bar-results > contents {
   padding: 3px 10px;
 }
 
+/* A section header is the list's own widget, never part of a row — no
+ * selection/hover highlight of its own. */
+.command-bar-list > header {
+  padding: 0;
+  background: none;
+}
+
 .command-bar-caption {
-  padding: 6px 0 2px;
+  padding: 6px 10px 2px;
   margin-bottom: 2px;
   border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
 }

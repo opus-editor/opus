@@ -22,7 +22,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
   private Gtk.Stack content_stack;
   private Gtk.Label empty_label;
   private Gtk.ListView list_view;
-  private ListStore store = new ListStore (typeof (CommandBar.Item));
+  private CommandBarPopoverSections sections = new CommandBarPopoverSections ();
   private Gtk.SingleSelection selection;
   private IconTheme icon_theme;
 
@@ -66,7 +66,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
     // 8px total.
     results_popover.set_offset (0, 4);
 
-    selection = new Gtk.SingleSelection (store) {
+    selection = new Gtk.SingleSelection (sections) {
       autoselect = false,
       can_unselect = true,
     };
@@ -78,6 +78,11 @@ public class CommandBarPopover : Object, IGlobalPanel {
     factory.bind.connect (on_bind);
     factory.unbind.connect (on_unbind);
     list_view.factory = factory;
+
+    var header_factory = new Gtk.SignalListItemFactory ();
+    header_factory.setup.connect (on_header_setup);
+    header_factory.bind.connect (on_header_bind);
+    list_view.header_factory = header_factory;
 
     entry.changed.connect (() => {
       if (!syncing_text && picker != null) {
@@ -200,11 +205,8 @@ public class CommandBarPopover : Object, IGlobalPanel {
   }
 
   private void on_items_changed () {
-    store.remove_all ();
-    for (uint i = 0; i < picker.items.length; i++) {
-      store.append (picker.items[i]);
-    }
-    if (store.get_n_items () == 0) {
+    sections.replace_all (picker.items);
+    if (sections.get_n_items () == 0) {
       empty_label.label = picker.filter == "" ? _("Type to search files") : _("No matching files");
       content_stack.visible_child_name = "empty";
     } else {
@@ -214,7 +216,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
   }
 
   private void on_active_changed (int index) {
-    if (index < 0 || index >= store.get_n_items ()) {
+    if (index < 0 || index >= sections.get_n_items ()) {
       selection.selected = Gtk.INVALID_LIST_POSITION;
       return;
     }
@@ -249,6 +251,24 @@ public class CommandBarPopover : Object, IGlobalPanel {
   private void on_unbind (Object item) {
     var list_item = (Gtk.ListItem) item;
     list_item.child.get_data<CommandBarPopoverRow> ("row").unbind ();
+  }
+
+  private void on_header_setup (Object item) {
+    var header = (Gtk.ListHeader) item;
+    var caption = new Gtk.Label ("") { xalign = 0 };
+    caption.add_css_class ("caption");
+    caption.add_css_class ("dim-label");
+    caption.add_css_class ("command-bar-caption");
+    header.child = caption;
+  }
+
+  /** The first group's caption is left out: it would sit above the top item, where scroll_to() never reveals it — and the top of the list already says "this is where results start". */
+  private void on_header_bind (Object item) {
+    var header = (Gtk.ListHeader) item;
+    var first = (CommandBar.Item) header.item;
+    var caption = (Gtk.Label) header.child;
+    caption.label = first.separator_label ?? "";
+    caption.visible = header.start > 0;
   }
 
   private void on_row_activated (uint position) {

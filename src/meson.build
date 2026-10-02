@@ -120,6 +120,7 @@ opus_gtk_view_sources = files(
   'views/components/code-editor/index.vala',
   'views/main/_i-global-panel.vala',
   'views/main/main-window/index.vala',
+  'views/main/command-bar/_section-model.vala',
   'views/main/command-bar/_row.vala',
   'views/main/command-bar/index.vala',
   'views/editor-view/editor-pane/tab-bar/_ghost.vala',
