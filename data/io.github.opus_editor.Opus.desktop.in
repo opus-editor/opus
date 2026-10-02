@@ -5,7 +5,7 @@ Exec=opus %f
 Icon=io.github.opus_editor.Opus
 Terminal=false
 Type=Application
-Categories=Development;TextEditor;
+Categories=Development;Utility;TextEditor;
 # %f (a single local path), not %F/%u/%U: main.vala's own argv handling
 # (Workspace.resolve) only ever reads one plain filesystem path, never a
 # URI and never more than one file — matching what's actually supported,

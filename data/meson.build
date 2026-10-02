@@ -46,11 +46,37 @@ opus_resources = gnome.compile_resources(
   dependencies: blueprints,
 )
 
-install_data(
-  'io.github.opus_editor.Opus.desktop.in',
-  rename: app_id + '.desktop',
+# A copy under its installed name, so the `desktop-file` test below
+# validates the real thing (the validator rejects a `.in` extension).
+desktop_file = configure_file(
+  input: 'io.github.opus_editor.Opus.desktop.in',
+  output: app_id + '.desktop',
+  copy: true,
+  install: true,
   install_dir: get_option('datadir') / 'applications',
 )
+
+# AppStream metadata — what GNOME Software (and, later, Flathub) show
+# for the app: name, description, releases. Validated by the
+# `metainfo` test below, so a stale release list or a summary past
+# AppStream's own limits fails `meson test` instead of a store review.
+metainfo_file = 'io.github.opus_editor.Opus.metainfo.xml'
+install_data(
+  metainfo_file,
+  install_dir: get_option('datadir') / 'metainfo',
+)
+
+appstreamcli = find_program('appstreamcli', required: false)
+if appstreamcli.found()
+  test('metainfo', appstreamcli,
+    args: ['validate', '--no-net', '--pedantic', files(metainfo_file)],
+  )
+endif
+
+desktop_file_validate = find_program('desktop-file-validate', required: false)
+if desktop_file_validate.found()
+  test('desktop-file', desktop_file_validate, args: [desktop_file])
+endif
 
 install_data(
   'io.github.opus_editor.Opus.gschema.xml',

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.opus_editor.Opus</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Opus</name>
+  <summary>Lightweight, capable code editor</summary>
+  <description>
+    <p>
+      Opus is a lightweight source code editor for the GNOME desktop,
+      built native with GTK4 and Libadwaita.
+    </p>
+    <ul>
+      <li>Syntax highlighting</li>
+      <li>Multiple cursors</li>
+      <li>.editorconfig support</li>
+      <li>Find and Replace, in the file or across the folder</li>
+      <li>Fuzzy file finder (Ctrl+P)</li>
+      <li>File tree and tabs tinted by git status</li>
+      <li>Git change bars in the gutter</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.opus_editor.Opus.desktop</launchable>
+  <provides>
+    <binary>opus</binary>
+  </provides>
+
+  <developer id="io.github.opus_editor">
+    <name>Opus Editor Team</name>
+  </developer>
+  <url type="homepage">https://github.com/opus-editor/opus</url>
+  <url type="bugtracker">https://github.com/opus-editor/opus/issues</url>
+  <url type="vcs-browser">https://github.com/opus-editor/opus</url>
+
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <releases>
+    <release version="0.1.0" date="2026-10-02">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
