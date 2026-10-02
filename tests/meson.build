@@ -1,183 +1,178 @@
-# Every model test below built against opus_model_sources on its own —
-# but Logger lives in lib/ now (src/lib/CLAUDE.md), and plenty of models
-# (UserSettings, …) call Logger.warn()/info() directly, so it needs to
-# come along too. opus_logger_sources specifically (see its own comment,
-# src/meson.build), not the rest of opus_lib_sources — that needs Gtk,
-# these plain model tests have no reason to link.
-opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources
+# Model tests link opus_model_test_dep — one compiled copy of every
+# Model-grade source, declared in src/meson.build; see its comment.
 
 command_bar_picker_test = executable(
   'command-bar-picker-test',
-  ['models/command-bar-picker-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-picker-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-picker', command_bar_picker_test)
 
 command_bar_registry_test = executable(
   'command-bar-registry-test',
-  ['models/command-bar-registry-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-registry-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-registry', command_bar_registry_test)
 
 command_bar_router_test = executable(
   'command-bar-router-test',
-  ['models/command-bar-router-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-router-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-router', command_bar_router_test)
 
 command_bar_recent_files_test = executable(
   'command-bar-recent-files-test',
-  ['models/command-bar-recent-files-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-recent-files-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-recent-files', command_bar_recent_files_test)
 
 command_bar_file_provider_test = executable(
   'command-bar-file-provider-test',
-  ['models/command-bar-file-provider-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-file-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-file-provider', command_bar_file_provider_test)
 
 command_bar_go_to_line_provider_test = executable(
   'command-bar-go-to-line-provider-test',
-  ['models/command-bar-go-to-line-provider-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/command-bar-go-to-line-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
 
 document_test = executable(
   'document-test',
-  ['models/document-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/document-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('document', document_test)
 
 editor_config_test = executable(
   'editor-config-test',
-  ['models/editor-config-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/editor-config-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('editor-config', editor_config_test)
 
 display_rows_test = executable(
   'display-rows-test',
-  ['models/display-rows-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/display-rows-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('display-rows', display_rows_test)
 
 indent_guides_test = executable(
   'indent-guides-test',
-  ['models/indent-guides-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/indent-guides-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('indent-guides', indent_guides_test)
 
 workspace_test = executable(
   'workspace-test',
-  ['models/workspace-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/workspace-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('workspace', workspace_test)
 
 session_test = executable(
   'session-test',
-  ['models/session-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/session-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('session', session_test)
 
 file_tree_test = executable(
   'file-tree-test',
-  ['models/file-tree-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/file-tree-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('file-tree', file_tree_test)
 
 file_decoration_registry_test = executable(
   'file-decoration-registry-test',
-  ['models/file-decoration-registry-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/file-decoration-registry-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('file-decoration-registry', file_decoration_registry_test)
 
 git_diff_parse_test = executable(
   'git-diff-parse-test',
-  ['models/git-diff-parse-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/git-diff-parse-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-diff-parse', git_diff_parse_test)
 
 git_diff_engine_test = executable(
   'git-diff-engine-test',
-  ['models/git-diff-engine-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/git-diff-engine-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-diff-engine', git_diff_engine_test)
 
 git_diff_document_tracker_test = executable(
   'git-diff-document-tracker-test',
-  ['models/git-diff-document-tracker-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/git-diff-document-tracker-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-diff-document-tracker', git_diff_document_tracker_test)
 
 git_file_list_test = executable(
   'git-file-list-test',
-  ['models/git-file-list-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/git-file-list-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-file-list', git_file_list_test)
 
 find_in_files_search_test = executable(
   'find-in-files-search-test',
-  ['models/find-in-files-search-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/find-in-files-search-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('find-in-files-search', find_in_files_search_test)
 
 find_in_files_replace_test = executable(
   'find-in-files-replace-test',
-  ['models/find-in-files-replace-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/find-in-files-replace-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('find-in-files-replace', find_in_files_replace_test)
 
 find_in_files_scope_test = executable(
   'find-in-files-scope-test',
-  ['models/find-in-files-scope-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/find-in-files-scope-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('find-in-files-scope', find_in_files_scope_test)
 
 cursor_collection_test = executable(
   'cursor-collection-test',
-  ['models/cursor-collection-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/cursor-collection-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('cursor-collection', cursor_collection_test)
 
 edit_history_test = executable(
   'edit-history-test',
-  ['models/edit-history-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/edit-history-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('edit-history', edit_history_test)
 
 replace_pattern_test = executable(
   'replace-pattern-test',
-  ['models/replace-pattern-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/replace-pattern-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('replace-pattern', replace_pattern_test)
 
 user_settings_test = executable(
   'user-settings-test',
-  ['models/user-settings-test.vala', opus_model_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['models/user-settings-test.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('user-settings', user_settings_test)
 
@@ -186,25 +181,37 @@ test('user-settings', user_settings_test)
 # bundle to actually be present to load the bundled Symbols theme from.
 icon_theme_test = executable(
   'icon-theme-test',
-  ['models/icon-theme-test.vala', opus_model_test_sources],
+  ['models/icon-theme-test.vala'],
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  dependencies: [opus_model_test_dep],
 )
 test('icon-theme', icon_theme_test)
 
-opus_system_test_sources = files(
-  'system-test-session.vala',
-  'support/system-test-session-tabs.vala',
-  'support/system-test-session-editor-text.vala',
-  'support/system-test-session-cursors.vala',
-  'support/system-test-session-search.vala',
-  'support/system-test-session-command-bar.vala',
+# The D-Bus driving harness, compiled once for the 20 system tests
+# below — same reasoning as src/meson.build's opus_model_test_lib.
+opus_system_test_deps = [glib_dep, gobject_dep, gio_dep, gtk_dep]
+opus_system_test_lib = static_library(
+  'opus-system-test',
+  files(
+    'system-test-session.vala',
+    'support/system-test-session-tabs.vala',
+    'support/system-test-session-editor-text.vala',
+    'support/system-test-session-cursors.vala',
+    'support/system-test-session-search.vala',
+    'support/system-test-session-command-bar.vala',
+  ),
+  dependencies: opus_system_test_deps,
+)
+opus_system_test_dep = declare_dependency(
+  link_with: opus_system_test_lib,
+  include_directories: include_directories('.'),
+  dependencies: opus_system_test_deps,
 )
 
 smoke_test = executable(
   'smoke-test',
-  ['support/smoke-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['support/smoke-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 # is_parallel: false — each of these spawns real broadwayd/Opus
 # processes; running several at once fought over CPU/process-spawn
@@ -227,8 +234,8 @@ test(
 
 escape_test = executable(
   'escape-test',
-  ['system/cursors/escape-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/escape-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'escape',
@@ -247,8 +254,8 @@ test(
 
 undo_redo_test = executable(
   'undo-redo-test',
-  ['system/editing/undo-redo-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/undo-redo-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'undo-redo',
@@ -267,8 +274,8 @@ test(
 
 cursor_merge_test = executable(
   'cursor-merge-test',
-  ['system/cursors/cursor-merge-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/cursor-merge-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'cursor-merge',
@@ -287,8 +294,8 @@ test(
 
 word_undo_test = executable(
   'word-undo-test',
-  ['system/editing/word-undo-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/word-undo-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'word-undo',
@@ -307,8 +314,8 @@ test(
 
 word_jump_test = executable(
   'word-jump-test',
-  ['system/cursors/word-jump-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/word-jump-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'word-jump',
@@ -327,8 +334,8 @@ test(
 
 select_next_match_test = executable(
   'select-next-match-test',
-  ['system/cursors/select-next-match-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/select-next-match-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'select-next-match',
@@ -347,8 +354,8 @@ test(
 
 select_all_test = executable(
   'select-all-test',
-  ['system/cursors/select-all-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/select-all-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'select-all',
@@ -367,8 +374,8 @@ test(
 
 close_tab_test = executable(
   'close-tab-test',
-  ['system/tabs/close-tab-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/tabs/close-tab-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'close-tab',
@@ -387,8 +394,8 @@ test(
 
 cut_paste_test = executable(
   'cut-paste-test',
-  ['system/editing/cut-paste-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/cut-paste-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'cut-paste',
@@ -407,8 +414,8 @@ test(
 
 add_cursor_vertical_test = executable(
   'add-cursor-vertical-test',
-  ['system/cursors/add-cursor-vertical-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/add-cursor-vertical-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'add-cursor-vertical',
@@ -427,8 +434,8 @@ test(
 
 tab_backspace_test = executable(
   'tab-backspace-test',
-  ['system/editing/tab-backspace-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/tab-backspace-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'tab-backspace',
@@ -447,8 +454,8 @@ test(
 
 enter_indent_test = executable(
   'enter-indent-test',
-  ['system/editing/enter-indent-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/enter-indent-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'enter-indent',
@@ -467,8 +474,8 @@ test(
 
 move_lines_test = executable(
   'move-lines-test',
-  ['system/editing/move-lines-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/move-lines-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'move-lines',
@@ -487,8 +494,8 @@ test(
 
 overtype_test = executable(
   'overtype-test',
-  ['system/editing/overtype-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/editing/overtype-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'overtype',
@@ -507,8 +514,8 @@ test(
 
 find_wrap_test = executable(
   'find-wrap-test',
-  ['system/find/find-wrap-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/find/find-wrap-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'find-wrap',
@@ -527,8 +534,8 @@ test(
 
 find_in_files_tab_test = executable(
   'find-in-files-tab-test',
-  ['system/find/find-in-files-tab-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/find/find-in-files-tab-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'find-in-files-tab',
@@ -543,8 +550,8 @@ test(
 
 wrapped_movement_test = executable(
   'wrapped-movement-test',
-  ['system/cursors/wrapped-movement-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/wrapped-movement-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'wrapped-movement',
@@ -563,8 +570,8 @@ test(
 
 wrapped_selection_test = executable(
   'wrapped-selection-test',
-  ['system/cursors/wrapped-selection-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/cursors/wrapped-selection-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'wrapped-selection',
@@ -614,8 +621,8 @@ test('host-command', host_command_test)
 
 command_bar_open_file_test = executable(
   'command-bar-open-file-test',
-  ['system/command-bar/open-file-test.vala', opus_system_test_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+  ['system/command-bar/open-file-test.vala'],
+  dependencies: [opus_system_test_dep],
 )
 test(
   'command-bar-open-file',

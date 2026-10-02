@@ -87,10 +87,32 @@ opus_fuzzy_finder_sources = files(
   'lib/fuzzy-finder/directory-walker.vala',
 )
 
-# After opus_model_sources/opus_logger_sources (git-status-provider-test,
-# inside it, links against both) but before opus_sources needs
-# opus_plugin_sources below — meson shares variable scope across
-# subdir()s in call order.
+# Every Model-grade source a plain (no Gtk) test binary needs, compiled
+# ONCE into a static library that each test links — not handed to every
+# test executable as sources, which made each of the ~30 of them
+# recompile all ~55 files itself (1937 build steps for a clean build,
+# most of the CI job's time). Logger/HostCommand/fuzzy-finder ride
+# along for the same reason they always did: models call them, and
+# none needs Gtk. Declared here, before subdir('plugins'), because the
+# git-status plugin's own tests link it too.
+opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources
+opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep]
+opus_model_test_lib = static_library(
+  'opus-model-test',
+  opus_model_test_sources,
+  dependencies: opus_model_test_deps,
+)
+opus_model_test_dep = declare_dependency(
+  link_with: opus_model_test_lib,
+  # The library's generated C header lands in this directory's build
+  # dir; link_with alone hands consumers the .vapi but not that include.
+  include_directories: include_directories('.'),
+  dependencies: opus_model_test_deps,
+)
+
+# After opus_model_test_dep (git-status-provider-test, inside it, links
+# it) but before opus_sources needs opus_plugin_sources below — meson
+# shares variable scope across subdir()s in call order.
 subdir('plugins')
 
 # Generic, app-domain-independent infrastructure — the "lib/" half of the

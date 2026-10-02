@@ -24,20 +24,18 @@ test('git-status-classify', git_status_classify_test)
 # provider.vala implements FileDecoration.IProvider/IWorkspaceExtension —
 # needs the shared model contract (opus_model_sources), but not Peas
 # itself (only plugin.vala touches that).
-# opus_logger_sources alongside opus_model_sources (not opus_lib_sources
-# as a whole — that needs Gtk, this test has no reason to link it): same
-# reasoning as tests/meson.build's own opus_model_test_sources, models
-# here call Logger.warn()/info() directly.
+# Links src/meson.build's opus_model_test_dep rather than recompiling
+# every model source here — see its comment.
 git_status_provider_test = executable(
   'git-status-provider-test',
-  ['test/git-status-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources, opus_host_command_sources, opus_fuzzy_finder_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['test/git-status-provider-test.vala', opus_git_status_plugin_sources],
+  dependencies: [opus_model_test_dep],
 )
 test('git-status-provider', git_status_provider_test)
 
 diff_base_provider_test = executable(
   'diff-base-provider-test',
-  ['test/diff-base-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources, opus_host_command_sources, opus_fuzzy_finder_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+  ['test/diff-base-provider-test.vala', opus_git_status_plugin_sources],
+  dependencies: [opus_model_test_dep],
 )
 test('diff-base-provider', diff_base_provider_test)

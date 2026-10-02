@@ -88,8 +88,8 @@ namespace GitDiff {
       return parse_unified_diff (stdout_buf);
     }
 
-    /** internal, not private: lets a test binary feed a fixed unified-diff string directly, with no subprocess/git involvement. */
-    internal static Hunk[] parse_unified_diff (string diff_output) {
+    /** Public, not private: lets a test binary feed a fixed unified-diff string directly, with no subprocess/git involvement (and `internal` wouldn't cross the test library's boundary). */
+    public static Hunk[] parse_unified_diff (string diff_output) {
       // A plain GLib.List, not a fixed-size array built up front: the
       // final hunk count isn't known until every line's been scanned,
       // and a GenericArray<Hunk> here hits a valac codegen mismatch
