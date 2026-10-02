@@ -30,7 +30,7 @@ private FindInFilesQuery plain_query (string text) {
     return query;
 }
 
-/** Runs a real `git` command in `root_path` for a test fixture's own setup — never the thing under test itself (that's FindInFilesSearch's own git_tracked_files()). */
+/** Runs a real `git` command in `root_path` for a test fixture's own setup — never the thing under test itself (that's GitFileList). */
 private void run_git (string root_path, string[] args) throws Error {
     string[] argv = { "git" };
     foreach (var arg in args) {

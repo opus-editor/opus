@@ -43,6 +43,7 @@ public class SystemTestSession : Object {
     private SystemTestEditorText editor_text;
     private SystemTestCursors cursors;
     private SystemTestSearch search;
+    private SystemTestCommandBar command_bar;
 
     /**
      * Launches a headless Broadway display server plus a fresh Opus
@@ -154,6 +155,7 @@ public class SystemTestSession : Object {
         editor_text = new SystemTestEditorText (proxy);
         cursors = new SystemTestCursors (proxy, editor_text);
         search = new SystemTestSearch (proxy);
+        command_bar = new SystemTestCommandBar (proxy);
     }
 
     /**
@@ -256,4 +258,11 @@ public class SystemTestSession : Object {
     public void find_in_files (string text) throws Error { search.find_in_files (text); }
     public void search_position (out int position, out int count) throws Error { search.search_position (out position, out count); }
     public void assert_search_position (int expected_position, int expected_count) throws Error { search.assert_search_position (expected_position, expected_count); }
+
+    // Command Bar — see SystemTestCommandBar.
+    public void open_command_bar () throws Error { command_bar.open (); }
+    public void command_bar_type (string text) throws Error { command_bar.type (text); }
+    public void command_bar_accept () throws Error { command_bar.accept (); }
+    public string[] command_bar_items () throws Error { return command_bar.items (); }
+    public string[] wait_for_command_bar_items () throws Error { return command_bar.wait_for_items (); }
 }

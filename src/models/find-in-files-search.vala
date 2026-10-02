@@ -5,19 +5,13 @@
  * `context_lines` lines before/after, merged with any neighboring
  * match's own window once they touch or overlap).
  *
- * `query.gitignore_enabled` doesn't hand-parse `.gitignore` — it shells
- * out to a real `git ls-files` (see git_tracked_files()'s own doc
- * comment) and walks *that* flat list instead of recursing into every
- * directory itself, so an ignored subtree (a `node_modules/`,
- * `builddir/`, …) is never even listed, let alone read — checked
- * against how VS Code's own real search does this (its ripgrep path
- * hands the exact same job to ripgrep's own native gitignore support;
- * its pure-JS fallback, `IgnoreFile` in ignoreFile.ts, only exists at
- * all because that path also has to run inside a browser tab with no
- * way to spawn `git` — a constraint this native app doesn't have, so
- * there's no reason to hand-roll the same parsing work here).
- * Unavailable (not a git repo, or `git` itself missing) falls back to
- * the plain recursive walk, silently — same as the toggle being off.
+ * `query.gitignore_enabled` doesn't hand-parse `.gitignore` — it takes
+ * GitFileList's flat `git ls-files` listing (see its own doc comment)
+ * and searches *that* instead of recursing into every directory itself,
+ * so an ignored subtree (a `node_modules/`, `builddir/`, …) is never
+ * even listed, let alone read. Unavailable (not a git repo, or `git`
+ * itself missing) falls back to the plain recursive walk, silently —
+ * same as the toggle being off.
  *
  * `query.where_text` is a completely separate, file-level check — see
  * FindInFilesScope's own doc comment for its grammar (deliberately the
@@ -37,8 +31,8 @@
 public class FindInFilesSearch : Object {
   // Same exclusion FileTree already uses — never useful to search, and
   // walking a real repo's own .git/objects would dwarf everything else.
-  // Only matters for the plain recursive walk — git_tracked_files()'s
-  // own flat list never includes .git's own contents in the first place.
+  // Only matters for the plain recursive walk — GitFileList's own flat
+  // list never includes .git's own contents in the first place.
   private const string EXCLUDED_ENTRY = ".git";
   private const string ENTRY_ATTRIBUTES =
     FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK;
@@ -62,9 +56,9 @@ public class FindInFilesSearch : Object {
     // own later safety check.
     result.searched_at = new DateTime.now_local ();
 
-    string[]? tracked_files = query.gitignore_enabled ? git_tracked_files (root_path) : null;
-    if (tracked_files != null) {
-      search_tracked_files (tracked_files, root_path, scope, regex, context_lines, result);
+    string[]? listed_files = query.gitignore_enabled ? GitFileList.list_sync (root_path) : null;
+    if (listed_files != null) {
+      search_listed_files (listed_files, root_path, scope, regex, context_lines, result);
     } else {
       walk_directory (root_path, root_path, scope, regex, context_lines, result);
     }
@@ -78,95 +72,24 @@ public class FindInFilesSearch : Object {
   }
 
   /**
-   * Every path `git -C root_path ls-files --cached --others --exclude-
-   * standard` itself lists — every tracked file, plus every untracked
-   * one that isn't hidden by a `.gitignore`, `.git/info/exclude`, or the
-   * user's own global `core.excludesFile` (`--exclude-standard` covers
-   * all three at once, more than a `.gitignore`-only parser would). A
-   * real git subprocess, not a hand-rolled pattern matcher — see the
-   * class's own doc comment for why. Plain newline-separated output
-   * (git's own default), not `-z`/NUL-separated: Vala has no way to
-   * spell a literal NUL as a string.split() delimiter (a `"\0"` literal
-   * is already an empty C string by the time it gets there — confirmed
-   * live, g_strsplit() itself rejects an empty delimiter outright), and
-   * this codebase already assumes `\n` as the line separator everywhere
-   * else (search_file()'s own contents.split ("\n")) — a path containing
-   * a literal newline is already unsupported by this same assumption
-   * elsewhere, not a new limitation introduced here.
-   *
-   * null whenever this can't answer at all — no `git` on PATH, or
-   * `root_path` isn't inside a git repository (git itself reports that
-   * failure; nothing upstream needs to detect it separately) — the
-   * caller's own fallback (search everything, ignoring nothing) is what
-   * "gitignore_enabled with no real answer available" means.
-   */
-  private static string[]? git_tracked_files (string root_path) {
-    if (Environment.find_program_in_path ("git") == null) {
-      return null;
-    }
-
-    var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] argv = { "git", "-C", root_path, "ls-files", "--cached", "--others", "--exclude-standard" };
-
-    Subprocess process;
-    string? stdout_buf;
-    try {
-      process = launcher.spawnv (argv);
-      process.communicate_utf8 (null, null, out stdout_buf, null);
-    } catch (Error e) {
-      return null;
-    }
-
-    if (!process.get_successful () || stdout_buf == null) {
-      return null; // not inside a git repository, or some other git-level failure
-    }
-
-    var paths = new GenericArray<string> ();
-    foreach (var relative_path in stdout_buf.split ("\n")) {
-      if (relative_path != "") {
-        paths.add (Path.build_filename (root_path, relative_path));
-      }
-    }
-
-    // Same determinism guarantee walk_directory()'s own entry_names.
-    // sort() gives the plain recursive walk.
-    paths.sort (strcmp);
-    var result = new string[paths.length];
-    for (uint i = 0; i < paths.length; i++) {
-      result[i] = paths[i];
-    }
-    return result;
-  }
-
-  /**
    * Same per-file search + MAX_MATCHES bookkeeping walk_directory() does
-   * below, just driven by an already-known flat file list instead of
-   * recursing into every directory itself — see git_tracked_files()'s
-   * own doc comment for why that list already excludes whole ignored
-   * subtrees before this ever runs, rather than reading them and
+   * below, just driven by GitFileList's already-known flat list (root-
+   * relative, symlinks and vanished files already dropped) instead of
+   * recursing into every directory itself — that list excludes whole
+   * ignored subtrees before this ever runs, rather than reading them and
    * filtering the result away afterward.
    */
-  private static void search_tracked_files (string[] paths, string root_path, FindInFilesScope scope, Regex regex, int context_lines, FindInFilesResult result) {
-    foreach (var path in paths) {
+  private static void search_listed_files (string[] relative_paths, string root_path, FindInFilesScope scope, Regex regex, int context_lines, FindInFilesResult result) {
+    foreach (var relative_path in relative_paths) {
       if (result.truncated) {
         return;
       }
 
-      if (!scope.is_path_included (relative_to_root (root_path, path))) {
+      if (!scope.is_path_included (relative_path)) {
         continue;
       }
 
-      FileInfo info;
-      try {
-        info = File.new_for_path (path).query_info (FileAttribute.STANDARD_IS_SYMLINK, FileQueryInfoFlags.NONE);
-      } catch (Error e) {
-        continue; // vanished between git listing it and stat-ing it, or unreadable — skip
-      }
-      if (info.get_is_symlink ()) {
-        continue; // same as walk_directory's own — no cycle-following in v1
-      }
-
-      var file_result = search_file (path, regex, context_lines);
+      var file_result = search_file (Path.build_filename (root_path, relative_path), regex, context_lines);
       if (file_result == null) {
         continue;
       }
@@ -176,7 +99,7 @@ public class FindInFilesSearch : Object {
     }
   }
 
-  /** Adds `file_result` to `result` and applies the MAX_MATCHES cap — shared by walk_directory()'s own per-file case and search_tracked_files()'s, so that threshold check only ever lives in one place. Returns whether the search just got truncated. */
+  /** Adds `file_result` to `result` and applies the MAX_MATCHES cap — shared by walk_directory()'s own per-file case and search_listed_files()'s, so that threshold check only ever lives in one place. Returns whether the search just got truncated. */
   private static bool record_file_result (FindInFilesFileResult file_result, FindInFilesResult result) {
     result.files.add (file_result);
     result.total_match_count += file_result.match_count;

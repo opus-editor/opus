@@ -65,6 +65,26 @@ public class MainWindow : Object {
   private Gtk.ToggleButton sidebar_toggle_button;
   private Gtk.Widget close_folder_item;
 
+  // Ctrl+P. The registry/router/popover live for the window; the file
+  // provider, its recent-files list and the plugin-contributed
+  // providers come and go with the linked folder, same lifecycle as
+  // the decoration trio above (see link_folder()/
+  // teardown_workspace_extensions()).
+  private Gtk.Stack title_stack;
+  private Adw.ViewSwitcher view_switcher;
+  private Adw.Bin command_bar_bin;
+  private CommandBar.Registry command_registry = new CommandBar.Registry ();
+  private CommandBar.Router command_router;
+  private CommandBarPopover command_bar;
+  private CommandBar.RecentFiles? recent_files = null;
+  private CommandBar.FileProvider? file_provider = null;
+  private CommandBar.GoToLineProvider go_to_line_provider;
+  // Whatever held keyboard focus right before Ctrl+P — title_stack
+  // switching its page back away from the entry on close otherwise
+  // leaves GTK to pick its own fallback (the view switcher button).
+  private Gtk.Widget? focus_before_command_bar = null;
+  private Opus.Plugins.WorkspaceExtensions? command_providers = null;
+
   // The Find menu's own three items — kept live via update_find_menu(),
   // same push-on-change pattern as the primary menu's Save/Save as…
   // group (save_item/save_as_item above) rather than rebuilt lazily on
@@ -137,6 +157,9 @@ public class MainWindow : Object {
     menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
     find_menu_button = (Gtk.MenuButton) builder.get_object ("find_menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
+    title_stack = (Gtk.Stack) builder.get_object ("title_stack");
+    view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
+    command_bar_bin = (Adw.Bin) builder.get_object ("command_bar_bin");
 
     editor_pane = new EditorView.EditorPaneWidget (root_path);
     // Set once — editor_pane.widget's own child already toggles itself
@@ -147,6 +170,24 @@ public class MainWindow : Object {
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
     editor_pane.tab_opened.connect (on_settings_tab_opened);
     editor_pane.tab_closed.connect (on_settings_tab_closed);
+    // active_document_path, not the signal's own `path`: that one is the
+    // tab's URI, and only a real on-disk file belongs in recent files.
+    editor_pane.active_state_changed.connect (() => {
+      var path = editor_pane.active_document_path;
+      if (path != null && recent_files != null) {
+        recent_files.push (path);
+      }
+    });
+
+    command_bar = new CommandBarPopover (new IconTheme.symbols ());
+    command_bar_bin.child = command_bar.widget;
+    register_global_panel (command_bar);
+    command_bar.closed.connect (() => command_router.close ());
+    command_router = new CommandBar.Router (command_registry);
+    command_router.opened.connect (on_command_bar_opened);
+    command_router.closed.connect (on_command_bar_closed);
+    go_to_line_provider = new CommandBar.GoToLineProvider (editor_pane.caret_position);
+    command_registry.add (go_to_line_provider);
 
     find_bar = new EditorView.FindBar ();
     register_global_panel (find_bar);
@@ -204,6 +245,7 @@ public class MainWindow : Object {
         explorer_pane.close ();
       }
       teardown_workspace_extensions ();
+      command_bar.destroy ();
       editor_pane.close ();
       settings_monitor?.cancel ();
       closed ();
@@ -332,6 +374,14 @@ public class MainWindow : Object {
     diff_base_providers = new_diff_base_providers;
     editor_pane.set_decorations (new_decorations);
 
+    recent_files = new CommandBar.RecentFiles ();
+    file_provider = new CommandBar.FileProvider (new_workspace_context, recent_files);
+    file_provider.activate ();
+    command_registry.add (file_provider);
+    command_providers = new Opus.Plugins.WorkspaceExtensions (typeof (CommandBar.IProvider), new_workspace_context);
+    command_providers.added.connect ((e) => command_registry.add ((CommandBar.IProvider) e));
+    command_providers.removed.connect ((e) => command_registry.remove ((CommandBar.IProvider) e));
+
     if (explorer_pane != null) {
       explorer_pane.close ();
     }
@@ -362,6 +412,18 @@ public class MainWindow : Object {
 
   /** Deactivates and drops every plugin extension for whichever folder was linked, if any — a no-op with none (a plain "no folder yet" window). Called before constructing a fresh trio in link_folder() too, not just on unlink/close, so a folder-switch never leaves the previous one's plugins running alongside the new one's. */
   private void teardown_workspace_extensions () {
+    command_router.close ();
+    if (command_providers != null) {
+      command_providers.close ();
+    }
+    command_providers = null;
+    if (file_provider != null) {
+      command_registry.remove (file_provider);
+      file_provider.deactivate ();
+    }
+    file_provider = null;
+    recent_files = null;
+
     if (decoration_providers != null) {
       decoration_providers.close ();
     }
@@ -448,7 +510,88 @@ public class MainWindow : Object {
     // click the file they just named.
     pane.file_created.connect ((path) => open_from_explorer (path, true));
     pane.delete_entry_requested.connect ((path) => on_delete_requested.begin (pane, path));
-    pane.file_moved.connect ((old_path, new_path) => editor_pane.file_moved (old_path, new_path));
+    pane.file_moved.connect ((old_path, new_path) => {
+      editor_pane.file_moved (old_path, new_path);
+      if (recent_files != null && recent_files.contains (old_path)) {
+        recent_files.remove (old_path);
+        recent_files.push (new_path);
+      }
+    });
+  }
+
+  /** Ctrl+P — or, while the bar is already open, "next result" (VS Code's own Ctrl+P-again). Public for Opus.Dev.DevServer's own OpenCommandBar, same as the three below. */
+  public void open_command_bar () {
+    if (command_router.is_open) {
+      command_router.picker.move_active (1);
+      return;
+    }
+    focus_before_command_bar = window.get_focus ();
+    title_stack.visible_child_name = "command-bar";
+    command_router.open ();
+    if (!command_router.is_open) {
+      title_stack.visible_child_name = "switcher";
+      return;
+    }
+    command_bar.open ();
+  }
+
+  public void command_bar_set_text (string text) {
+    command_bar.set_text (text);
+  }
+
+  public void command_bar_accept () {
+    command_bar.accept ();
+  }
+
+  public string[] command_bar_item_ids () {
+    string[] ids = {};
+    if (!command_router.is_open) {
+      return ids;
+    }
+    var items = command_router.picker.items;
+    for (uint i = 0; i < items.length; i++) {
+      ids += items[i].id;
+    }
+    return ids;
+  }
+
+  private void on_command_bar_opened (CommandBar.Picker picker) {
+    command_bar.bind (picker);
+    picker.accepted.connect (on_command_bar_item_accepted);
+  }
+
+  /** Without this, the view switcher button underneath the entry's own title_stack page picks up focus on its own once that page becomes visible again. Restores focus_before_command_bar (set in open_command_bar()) rather than always the editor — Ctrl+P isn't only ever pressed from there. */
+  private void on_command_bar_closed () {
+    command_bar.close ();
+    title_stack.visible_child_name = "switcher";
+    if (focus_before_command_bar != null && focus_before_command_bar.get_mapped ()) {
+      focus_before_command_bar.grab_focus ();
+    } else if (editor_pane.active_document_path != null) {
+      editor_pane.code_editor.grab_focus ();
+    }
+    focus_before_command_bar = null;
+  }
+
+  /** Only the built-in providers' items are understood here (a path, a line); a future `>` provider's own accept behaviour belongs to that provider. */
+  private void on_command_bar_item_accepted (CommandBar.Item item) {
+    var provider = command_router.provider;
+    command_router.close ();
+    if (provider == file_provider) {
+      open_from_command_bar (item.id);
+    } else if (provider == go_to_line_provider) {
+      int line, column;
+      CommandBar.GoToLineProvider.decode (item.id, out line, out column);
+      editor_pane.go_to_line (line, column);
+      editor_pane.code_editor.grab_focus ();
+    }
+  }
+
+  private void open_from_command_bar (string path) {
+    try {
+      editor_pane.open (path, true);
+    } catch (Error e) {
+      show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
+    }
   }
 
   private void open_from_explorer (string path, bool open_permanent) {
@@ -476,6 +619,7 @@ public class MainWindow : Object {
 
     pane.delete_entry (path);
     editor_pane.discard_tab (path);
+    recent_files?.remove (path);
   }
 
   /** "Reveal in Sidebar" — a pure View<->View navigation, no Model involved. A no-op with no folder linked (explorer_pane null). */
@@ -755,6 +899,7 @@ public class MainWindow : Object {
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/dialogs.css");
     GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/common.css");
+    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/command-bar.css");
   }
 
   /**
@@ -887,6 +1032,13 @@ public class MainWindow : Object {
         return true;
       case Gdk.Key.comma:
         open_settings ();
+        return true;
+      case Gdk.Key.p:
+        // Same gate as Ctrl+Shift+F: no folder linked means nothing to
+        // search.
+        if (has_linked_folder) {
+          open_command_bar ();
+        }
         return true;
       case Gdk.Key.plus:
       case Gdk.Key.equal:

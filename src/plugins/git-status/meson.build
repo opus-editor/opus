@@ -30,14 +30,14 @@ test('git-status-classify', git_status_classify_test)
 # here call Logger.warn()/info() directly.
 git_status_provider_test = executable(
   'git-status-provider-test',
-  ['test/git-status-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources],
+  ['test/git-status-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources, opus_fuzzy_finder_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('git-status-provider', git_status_provider_test)
 
 diff_base_provider_test = executable(
   'diff-base-provider-test',
-  ['test/diff-base-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources],
+  ['test/diff-base-provider-test.vala', opus_git_status_plugin_sources, opus_model_sources, opus_logger_sources, opus_fuzzy_finder_sources],
   dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
 )
 test('diff-base-provider', diff_base_provider_test)

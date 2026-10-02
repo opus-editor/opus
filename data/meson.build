@@ -20,6 +20,8 @@ blueprints = custom_target('blueprints',
     '../src/views/editor-view/find-in-files-bar/index.blp',
     '../src/views/components/search-input.blp',
     '../src/views/main/main-window/index.blp',
+    '../src/views/main/command-bar/index.blp',
+    '../src/views/main/command-bar/_row.blp',
   ),
   output: '.',
   command: [

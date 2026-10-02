@@ -42,9 +42,8 @@ public class GitStatus : Object {
   }
 
   /**
-   * Synchronous core — mirrors FindInFilesSearch.git_tracked_files()'s own
-   * subprocess idiom exactly (SubprocessLauncher + spawnv +
-   * communicate_utf8, swallowed to a null sentinel on any failure). Unlike
+   * Synchronous core — same subprocess idiom as GitFileList (SubprocessLauncher
+   * + spawnv, swallowed to a null sentinel on any failure). Unlike
    * FindInFilesSearch.run(), this never throws: there's no user-initiated
    * action here to show an error dialog for, only a background watcher
    * that should just quietly have nothing to report — the same contract
@@ -57,8 +56,8 @@ public class GitStatus : Object {
    * `-c core.quotePath=false` stops git from quoting/escaping non-ASCII
    * path bytes in its own porcelain output; a path containing a literal
    * `"` or `\` is still always escaped regardless and this parser doesn't
-   * unescape it — an accepted limitation, same class as
-   * git_tracked_files()'s own newline-separated-paths one.
+   * unescape it — an accepted limitation, same class as GitFileList's
+   * own newline-separated-paths one.
    */
   public static GitStatus? run (string root_path) {
     if (Environment.find_program_in_path ("git") == null) {
@@ -105,8 +104,8 @@ public class GitStatus : Object {
 
   /**
    * Plain newline-separated `git status --porcelain` output, one entry per
-   * line — not `-z`/NUL-separated: same reason git_tracked_files()'s own
-   * doc comment already gives (Vala has no way to spell a literal NUL as a
+   * line — not `-z`/NUL-separated: same reason GitFileList's own doc
+   * comment already gives (Vala has no way to spell a literal NUL as a
    * string.split() delimiter). A rename/copy line reads `XY old -> new`;
    * only the new path is kept (the old one, if it still existed as a
    * separate live path, would show its own NONE — nothing to attach a

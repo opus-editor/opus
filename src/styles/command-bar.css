@@ -1,0 +1,49 @@
+/* The entry stands in the header's title slot: no frame of its own,
+ * just a faint tint while focused so the slot still reads as an input
+ * (see CommandBarPopover). `text` is Gtk.Text's own CSS node. */
+.command-bar-entry {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--control-radius);
+}
+
+.command-bar-entry:focus-within {
+  background-color: alpha(currentColor, 0.08);
+}
+
+.command-bar-entry text {
+  background: none;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+popover.command-bar-results > contents {
+  padding: 0;
+  border-radius: var(--control-radius);
+}
+
+.command-bar-list {
+  background: none;
+}
+
+.command-bar-list > row {
+  padding: 3px 10px;
+}
+
+/* A section header is the list's own widget, never part of a row — no
+ * selection/hover highlight of its own. */
+.command-bar-list > header {
+  padding: 0;
+  background: none;
+}
+
+.command-bar-caption {
+  padding: 6px 10px 2px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.command-bar-empty {
+  padding: 10px 12px;
+}

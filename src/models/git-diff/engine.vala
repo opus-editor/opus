@@ -3,7 +3,7 @@
  * runs (against HEAD, then against the index) plus unified-diff-header
  * parsing, merged into one Hunk[]. Subprocess-based, not a hand-rolled
  * Myers/Histogram implementation — same "trust git as the oracle"
- * philosophy GitStatus/FindInFilesSearch.git_tracked_files() already
+ * philosophy GitStatus/GitFileList already
  * establish, and it gives every hunk git's own real diff heuristics for
  * free.
  */

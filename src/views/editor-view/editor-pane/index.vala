@@ -220,6 +220,16 @@ namespace EditorView {
       document_tab.new_untitled ();
     }
 
+    /** The Command Bar's own `:30` — see TabDocument.go_to_line(). */
+    public void go_to_line (int line, int column) {
+      document_tab.go_to_line (line, column);
+    }
+
+    /** The Command Bar's own `:` hint — see TabDocument.caret_position(). */
+    public bool caret_position (out int line, out int line_count) {
+      return document_tab.caret_position (out line, out line_count);
+    }
+
     /** Find in Files — see TabFindResults.search(). The tab kind itself is created on the first search only. */
     public async void search_in_files (FindInFilesQuery query) {
       if (tab_find_results == null) {

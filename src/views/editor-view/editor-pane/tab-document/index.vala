@@ -162,11 +162,23 @@ namespace EditorView.EditorPane {
       // following the jump.
       code_editor.grab_focus ();
 
+      if (line >= 0) {
+        go_to_line (line, column);
+      }
+    }
+
+    /**
+     * Places a collapsed cursor at (1-based `line`, 0-based `column`) in
+     * the active document and scrolls it into view — the Command Bar's
+     * own `:30`. Both clamped to the content as it is now (see
+     * char_offset_of_line_column). A no-op while no Document tab is
+     * active, or with an unreadable one (not valid UTF-8 — see
+     * Document.readable): that shows a placeholder, not the file, so
+     * nothing in it corresponds to the line.
+     */
+    public void go_to_line (int line, int column) {
       var document = active_document ();
-      // An unreadable document (not valid UTF-8 — see Document.readable)
-      // shows a placeholder, not the file: nothing in it corresponds to
-      // the result's line, so only the open is worth doing.
-      if (line < 0 || document == null || !document.readable) {
+      if (document == null || !document.readable) {
         return;
       }
 
@@ -174,6 +186,31 @@ namespace EditorView.EditorPane {
       document.cursors.set_cursors ({ new Cursor (target_offset) });
       code_editor.render_cursors (document.cursors.snapshot ());
       code_editor.reveal_offset (target_offset);
+    }
+
+    /** The primary cursor's 1-based line and the active document's line count — the Command Bar's own `:` hint. False while no readable Document tab is active. */
+    public bool caret_position (out int line, out int line_count) {
+      line = 0;
+      line_count = 0;
+      var document = active_document ();
+      if (document == null || !document.readable) {
+        return false;
+      }
+
+      int caret = document.content.index_of_nth_char (document.cursors.primary.position_offset);
+      line = 1 + count_newlines (document.content, caret);
+      line_count = 1 + count_newlines (document.content, document.content.length);
+      return true;
+    }
+
+    private static int count_newlines (string text, int end_byte) {
+      int count = 0;
+      for (int i = 0; i < end_byte; i++) {
+        if (text[i] == '\n') {
+          count++;
+        }
+      }
+      return count;
     }
 
     /**

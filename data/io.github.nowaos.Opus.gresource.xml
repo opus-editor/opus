@@ -11,6 +11,8 @@
     <file compressed="true">editor-view/find-in-files-bar/index.ui</file>
     <file compressed="true">components/search-input.ui</file>
     <file compressed="true">main/main-window/index.ui</file>
+    <file compressed="true">main/command-bar/index.ui</file>
+    <file compressed="true">main/command-bar/_row.ui</file>
     <file compressed="true">styles/common.css</file>
     <file compressed="true">styles/context-menu.css</file>
     <file compressed="true">styles/dialogs.css</file>
@@ -21,6 +23,7 @@
     <file compressed="true">styles/main-window.css</file>
     <file compressed="true">styles/tab-bar.css</file>
     <file compressed="true">styles/code-editor.css</file>
+    <file compressed="true">styles/command-bar.css</file>
   </gresource>
   <gresource prefix="/io/github/nowaos/Opus/icons">
     <!-- BEGIN generated icon theme assets (see tools/) -->

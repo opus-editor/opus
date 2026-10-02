@@ -1,0 +1,23 @@
+using Gtk 4.0;
+
+Gtk.Box row {
+  styles ["command-bar-row"]
+  orientation: horizontal;
+  spacing: 8;
+
+  Gtk.Image icon {
+    pixel-size: 16;
+  }
+
+  Gtk.Label label {
+    xalign: 0;
+    ellipsize: end;
+  }
+
+  Gtk.Label description {
+    styles ["dim-label"]
+    xalign: 0;
+    ellipsize: start;
+    hexpand: true;
+  }
+}
