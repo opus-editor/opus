@@ -32,14 +32,15 @@ namespace Opus.Dev {
    * objects, without those leaking into the D-Bus surface.
    */
   public class DevServer : Object, IDevServer {
-    // One entry per open window's own EditorView.EditorPane — main.vala
-    // adds/removes as windows open/close (see build_session()'s own
-    // #if DEBUG block). Every method here operates on whichever one
-    // was added *last*: good enough for a one-window dev loop, which
-    // is the only scenario this was actually built for — resolving
-    // "which window" properly would need a whole addressing scheme
-    // for a case that doesn't come up in practice.
-    private GenericArray<EditorView.EditorPane> editor_panes = new GenericArray<EditorView.EditorPane> ();
+    // One entry per open MainWindow — App adds/removes as windows
+    // open/close (see App.create_window()'s own #if DEBUG block). Every
+    // method here operates on whichever one was added *last*: good
+    // enough for a one-window dev loop, which is the only scenario this
+    // was actually built for — resolving "which window" properly would
+    // need a whole addressing scheme for a case that doesn't come up in
+    // practice. The window, not just its EditorPane: the Command Bar
+    // methods below need the window itself.
+    private GenericArray<MainWindow> windows = new GenericArray<MainWindow> ();
     private uint registration_id = 0;
 
     // search_position_changed is an event, not a queryable property —
@@ -53,18 +54,18 @@ namespace Opus.Dev {
     private int last_search_position = 0;
     private int last_search_count = 0;
 
-    public void add_session (EditorView.EditorPane editor_pane) {
-      editor_panes.add (editor_pane);
-      editor_pane.search_position_changed.connect ((position, count) => {
+    public void add_session (MainWindow window) {
+      windows.add (window);
+      window.editor_pane.search_position_changed.connect ((position, count) => {
         last_search_position = position;
         last_search_count = count;
       });
     }
 
-    public void remove_session (EditorView.EditorPane editor_pane) {
+    public void remove_session (MainWindow window) {
       uint index;
-      if (editor_panes.find (editor_pane, out index)) {
-        editor_panes.remove_index (index);
+      if (windows.find (window, out index)) {
+        windows.remove_index (index);
       }
     }
 
@@ -81,11 +82,15 @@ namespace Opus.Dev {
       }
     }
 
-    private EditorView.EditorPane current_editor_pane () throws DBusError {
-      if (editor_panes.length == 0) {
+    private MainWindow current_window () throws DBusError {
+      if (windows.length == 0) {
         throw new DBusError.FAILED ("No Opus window is open");
       }
-      return editor_panes[editor_panes.length - 1];
+      return windows[windows.length - 1];
+    }
+
+    private EditorView.EditorPane current_editor_pane () throws DBusError {
+      return current_window ().editor_pane;
     }
 
     public void new_file () throws DBusError, IOError {
@@ -169,6 +174,22 @@ namespace Opus.Dev {
     public void find_in_files (string text) throws DBusError, IOError {
       var query = new FindInFilesQuery () { text = text };
       current_editor_pane ().search_in_files.begin (query);
+    }
+
+    public void open_command_bar () throws DBusError, IOError {
+      current_window ().open_command_bar ();
+    }
+
+    public void command_bar_set_text (string text) throws DBusError, IOError {
+      current_window ().command_bar_set_text (text);
+    }
+
+    public void command_bar_accept () throws DBusError, IOError {
+      current_window ().command_bar_accept ();
+    }
+
+    public string[] command_bar_list_items () throws DBusError, IOError {
+      return current_window ().command_bar_item_ids ();
     }
   }
 }

@@ -1,0 +1,77 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Two independent top-level objects, same reason as components/
+// search-input.blp: results_popover is parented onto entry_box in code
+// (Gtk.Popover.set_parent) — a popover isn't a box child, it anchors to
+// one.
+//
+// Same clamp as EditorView.FindBar's own input row (find-bar/index.blp):
+// the entry grows with the header's title area up to that width, no
+// further.
+Adw.Clamp clamp {
+  maximum-size: 480;
+
+  child: Gtk.Box entry_box {
+    styles ["command-bar-entry"]
+    orientation: horizontal;
+    spacing: 6;
+    valign: center;
+
+    Gtk.Image {
+      styles ["dim-label"]
+      icon-name: "edit-find-symbolic";
+    }
+
+    // A bare Gtk.Text, not a Gtk.Entry: the whole point of this slot is
+    // to read as the header's own title area with a caret in it, and
+    // Gtk.Text is the editable with no frame of its own to strip away.
+    // max-width-chars: a Gtk.Text's natural width is otherwise just its
+    // minimum, and the clamp above can only cap what asks to grow —
+    // more than 640px worth, so the clamp is what actually decides.
+    Gtk.Text entry {
+      hexpand: true;
+      max-width-chars: 100;
+    }
+
+    Gtk.Spinner spinner {
+      spinning: true;
+      visible: false;
+    }
+  };
+}
+
+Gtk.Popover results_popover {
+  styles ["command-bar-results"]
+  has-arrow: false;
+  // Not autohide: an autohiding popover takes keyboard focus for
+  // itself, and the entry must keep it — the list is a cursor the entry
+  // drives, never something the user tabs into (see CommandBarPopover).
+  autohide: false;
+  position: bottom;
+
+  child: Gtk.Stack content_stack {
+    Gtk.StackPage {
+      name: "list";
+      child: Gtk.ScrolledWindow scroller {
+        hscrollbar-policy: never;
+        propagate-natural-height: true;
+        max-content-height: 360;
+
+        child: Gtk.ListView list_view {
+          styles ["command-bar-list"]
+          focusable: false;
+          can-focus: false;
+        };
+      };
+    }
+
+    Gtk.StackPage {
+      name: "empty";
+      child: Gtk.Label empty_label {
+        styles ["dim-label", "command-bar-empty"]
+        xalign: 0;
+      };
+    }
+  };
+}

@@ -103,5 +103,17 @@ namespace Opus.Dev {
 
     /** Find in Files for `text` across the linked folder, with FindInFilesBar's own toggles all off — opens (or refreshes) the "Find Results" tab, same as its Return key. The search itself is async; the tab appears once it finishes. */
     public abstract void find_in_files (string text) throws DBusError, IOError;
+
+    /** Ctrl+P — opens the Command Bar over the linked folder (a no-op with none linked, same as the real key). */
+    public abstract void open_command_bar () throws DBusError, IOError;
+
+    /** Replaces the open Command Bar's entry text — the same path a real keystroke takes, through the entry's own `changed`. */
+    public abstract void command_bar_set_text (string text) throws DBusError, IOError;
+
+    /** Return in the Command Bar — accepts the row under the cursor. */
+    public abstract void command_bar_accept () throws DBusError, IOError;
+
+    /** Every row the Command Bar currently shows, top to bottom, as what accepting each would resolve to (a file's path). Empty while it isn't open, or while its file walk hasn't answered yet — poll. */
+    public abstract string[] command_bar_list_items () throws DBusError, IOError;
   }
 }

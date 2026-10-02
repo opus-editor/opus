@@ -10,6 +10,11 @@ public class SystemTestTabs : Object {
         call ("NewFile");
     }
 
+    /** Opens `path` as a permanent tab — the dev server's OpenTab, same as "Open File…" minus the chooser. */
+    public void open_tab (string path) throws Error {
+        call ("OpenTab", new Variant ("(s)", path));
+    }
+
     /** Closes `path`'s tab outright, no unsaved-changes prompt (matching CloseTab's own semantics — see dev-server/index.vala) — fine for a clean, just-created test document. */
     public void close_tab (string path) throws Error {
         call ("CloseTab", new Variant ("(s)", path));

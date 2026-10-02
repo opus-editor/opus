@@ -1,0 +1,36 @@
+using Gtk 4.0;
+
+Gtk.Box row {
+  styles ["command-bar-row"]
+  orientation: vertical;
+
+  // The group caption ("recently opened", "files"), drawn as part of
+  // the group's first row rather than as a row of its own — the cursor
+  // then never has to skip over it (VS Code's own separator-as-row).
+  Gtk.Label caption {
+    styles ["caption", "dim-label", "command-bar-caption"]
+    xalign: 0;
+    visible: false;
+  }
+
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 8;
+
+    Gtk.Image icon {
+      pixel-size: 16;
+    }
+
+    Gtk.Label label {
+      xalign: 0;
+      ellipsize: end;
+    }
+
+    Gtk.Label description {
+      styles ["dim-label"]
+      xalign: 0;
+      ellipsize: start;
+      hexpand: true;
+    }
+  }
+}

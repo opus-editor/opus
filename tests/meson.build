@@ -4,7 +4,42 @@
 # come along too. opus_logger_sources specifically (see its own comment,
 # src/meson.build), not the rest of opus_lib_sources — that needs Gtk,
 # these plain model tests have no reason to link.
-opus_model_test_sources = opus_model_sources + opus_logger_sources
+opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_fuzzy_finder_sources
+
+command_bar_picker_test = executable(
+  'command-bar-picker-test',
+  ['models/command-bar-picker-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-picker', command_bar_picker_test)
+
+command_bar_registry_test = executable(
+  'command-bar-registry-test',
+  ['models/command-bar-registry-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-registry', command_bar_registry_test)
+
+command_bar_router_test = executable(
+  'command-bar-router-test',
+  ['models/command-bar-router-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-router', command_bar_router_test)
+
+command_bar_recent_files_test = executable(
+  'command-bar-recent-files-test',
+  ['models/command-bar-recent-files-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-recent-files', command_bar_recent_files_test)
+
+command_bar_file_provider_test = executable(
+  'command-bar-file-provider-test',
+  ['models/command-bar-file-provider-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-file-provider', command_bar_file_provider_test)
 
 document_test = executable(
   'document-test',
@@ -149,6 +184,7 @@ opus_system_test_sources = files(
   'support/system-test-session-editor-text.vala',
   'support/system-test-session-cursors.vala',
   'support/system-test-session-search.vala',
+  'support/system-test-session-command-bar.vala',
 )
 
 smoke_test = executable(
@@ -509,6 +545,46 @@ test(
     # io.github.nowaos.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+# src/lib/fuzzy-finder/ tests — built against opus_fuzzy_finder_sources
+# alone (no models, no Logger): the engine's whole point is having no
+# dependency on the rest of the app, and these binaries are what prove it.
+fuzzy_finder_scorer_test = executable(
+  'fuzzy-finder-scorer-test',
+  ['lib/fuzzy-finder-scorer-test.vala', opus_fuzzy_finder_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('fuzzy-finder-scorer', fuzzy_finder_scorer_test)
+
+fuzzy_finder_index_test = executable(
+  'fuzzy-finder-index-test',
+  ['lib/fuzzy-finder-index-test.vala', opus_fuzzy_finder_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('fuzzy-finder-index', fuzzy_finder_index_test)
+
+fuzzy_finder_walker_test = executable(
+  'fuzzy-finder-walker-test',
+  ['lib/fuzzy-finder-walker-test.vala', opus_fuzzy_finder_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('fuzzy-finder-walker', fuzzy_finder_walker_test)
+
+command_bar_open_file_test = executable(
+  'command-bar-open-file-test',
+  ['system/command-bar/open-file-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'command-bar-open-file',
+  command_bar_open_file_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
   timeout: 60,

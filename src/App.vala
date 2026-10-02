@@ -173,13 +173,13 @@ public class App : Adw.Application {
     windows.add (window);
 
     #if DEBUG
-    dev_server.add_session (window.editor_pane);
+    dev_server.add_session (window);
     #endif
 
     window.closed.connect (() => {
       windows.remove (window);
       #if DEBUG
-      dev_server.remove_session (window.editor_pane);
+      dev_server.remove_session (window);
       #endif
     });
 

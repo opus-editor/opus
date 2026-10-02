@@ -29,9 +29,35 @@ Adw.ApplicationWindow window {
     Adw.HeaderBar {
       styles ["opus-header"]
 
-      title-widget: Adw.ViewSwitcher {
-        stack: view_stack;
-        policy: wide;
+      // A stack, so Ctrl+P can swap the switcher for the Command Bar's
+      // entry at the exact same spot (see MainWindow.open_command_bar):
+      // the switcher hides, the entry takes its allocation — VS Code's
+      // own Command Center does the same hide/show trick, not a morph.
+      title-widget: Gtk.Stack title_stack {
+        hhomogeneous: true;
+        transition-type: crossfade;
+        transition-duration: 120;
+
+        Gtk.StackPage {
+          name: "switcher";
+          // halign: center — the stack is hhomogeneous, so it reserves
+          // the Command Bar page's own (clamped, hexpand) width for both
+          // pages; without this the switcher fills that whole box
+          // instead of keeping its natural compact size in the middle.
+          child: Adw.ViewSwitcher view_switcher {
+            stack: view_stack;
+            policy: wide;
+            halign: center;
+          };
+        }
+
+        Gtk.StackPage {
+          name: "command-bar";
+          // Filled in code with CommandBarPopover's own entry widget —
+          // see src/views/CLAUDE.md for why a custom type never
+          // appears here by name directly.
+          child: Adw.Bin command_bar_bin {};
+        }
       };
 
       // Only shown once the sidebar has actually collapsed AND a folder

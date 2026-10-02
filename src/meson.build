@@ -1,4 +1,14 @@
 opus_model_sources = files(
+  'models/command-bar/item.vala',
+  'models/command-bar/picker.vala',
+  # Not i-provider.vala/registry.vala: valac writes every target's C files
+  # into one flat directory, where those would collide with
+  # file-decoration/i-provider.vala and file-decoration/registry.vala.
+  'models/command-bar/i-command-bar-provider.vala',
+  'models/command-bar/command-bar-registry.vala',
+  'models/command-bar/router.vala',
+  'models/command-bar/recent-files.vala',
+  'models/command-bar/file-provider.vala',
   'models/cursor.vala',
   'models/cursor-collection.vala',
   'models/document.vala',
@@ -55,6 +65,19 @@ opus_model_sources = files(
 # test built this way until this same fix).
 opus_logger_sources = files('lib/logger.vala')
 
+# The Command Bar's generic fuzzy-finding engine (see src/lib/CLAUDE.md
+# and COMMAND_BAR_IMPLEMENTATION_PLAN.md §2.2): GLib/Gio only — no Gtk,
+# no Logger, nothing from models/. Its own variable for the same reason
+# opus_logger_sources is: the Command Bar models reference it, so every
+# model test needs it too, without the Gtk half of opus_lib_sources.
+opus_fuzzy_finder_sources = files(
+  'lib/fuzzy-finder/query.vala',
+  'lib/fuzzy-finder/match.vala',
+  'lib/fuzzy-finder/scorer.vala',
+  'lib/fuzzy-finder/index.vala',
+  'lib/fuzzy-finder/directory-walker.vala',
+)
+
 # After opus_model_sources/opus_logger_sources (git-status-provider-test,
 # inside it, links against both) but before opus_sources needs
 # opus_plugin_sources below — meson shares variable scope across
@@ -67,7 +90,7 @@ subdir('plugins')
 # Gtk.CssProvider; DevServer drives a real EditorView.EditorPane), but
 # neither is an Opus-specific view/widget concept the way everything in
 # opus_gtk_view_sources below is.
-opus_lib_sources = opus_logger_sources + files(
+opus_lib_sources = opus_logger_sources + opus_fuzzy_finder_sources + files(
   'lib/crash-handler.vala',
   'lib/global-css.vala',
   'lib/dev-server/_i-dev-server.vala',
@@ -95,6 +118,8 @@ opus_gtk_view_sources = files(
   'views/components/code-editor/index.vala',
   'views/main/_i-global-panel.vala',
   'views/main/main-window/index.vala',
+  'views/main/command-bar/_row.vala',
+  'views/main/command-bar/index.vala',
   'views/editor-view/editor-pane/tab-bar/_ghost.vala',
   'views/editor-view/editor-pane/tab-bar/_pill.vala',
   'views/editor-view/editor-pane/tab-bar/index.vala',
