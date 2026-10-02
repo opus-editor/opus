@@ -214,7 +214,12 @@ public class SystemTestSession : Object {
         Error? last_error = null;
         while (get_monotonic_time () < deadline) {
             try {
-                var connection = new SocketClient ().connect_to_host ("127.0.0.1", port);
+                // enable_proxy off: localhost never goes through a proxy,
+                // and GIO's lookup for one (libproxy, on a bare CI runner)
+                // asks the desktop portal, which isn't there — a warning
+                // g_test turns fatal.
+                var client = new SocketClient () { enable_proxy = false };
+                var connection = client.connect_to_host ("127.0.0.1", port);
                 connection.close ();
                 return;
             } catch (Error e) {
