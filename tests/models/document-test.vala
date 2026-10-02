@@ -252,51 +252,6 @@ private void test_move_to_updates_uri_and_pathname_together () {
     }
 }
 
-private void test_internal_tab_is_synthetic_and_not_saveable () {
-    var document = Document.internal_tab ("find-in-files-results", "Find Results");
-
-    assert_cmpstr (document.uri, CompareOperator.EQ, "opus://find-in-files-results");
-    assert_null (document.pathname);
-    assert_true (document.is_internal);
-    assert_false (document.is_saveable);
-    assert_false (document.is_untitled);
-    assert_cmpstr (document.name, CompareOperator.EQ, "Find Results");
-    assert_cmpstr (document.title, CompareOperator.EQ, "Find Results");
-}
-
-private void test_save_is_a_no_op_on_a_non_saveable_document () {
-    var document = Document.internal_tab ("find-in-files-results", "Find Results");
-    document.content = "should never reach disk";
-
-    try {
-        document.save ();
-    } catch (Error e) {
-        error ("save() must not throw on a non-saveable document, got: %s", e.message);
-    }
-
-    assert_null (document.pathname);
-}
-
-private void test_save_as_is_a_no_op_on_a_non_saveable_document () {
-    string path = Path.build_filename (
-        Environment.get_tmp_dir (),
-        "opus-document-test-%u-%u".printf (Random.next_int (), Random.next_int ())
-    );
-
-    var document = Document.internal_tab ("find-in-files-results", "Find Results");
-    document.content = "should never reach disk";
-
-    try {
-        document.save_as (path);
-    } catch (Error e) {
-        error ("save_as() must not throw on a non-saveable document, got: %s", e.message);
-    }
-
-    assert_false (FileUtils.test (path, FileTest.EXISTS));
-    assert_null (document.pathname);
-    assert_cmpstr (document.uri, CompareOperator.EQ, "opus://find-in-files-results");
-}
-
 private void test_title_falls_back_to_the_bare_name_without_a_pathname () {
     var untitled = Document.untitled ("1", "Untitled-1");
     assert_cmpstr (untitled.title, CompareOperator.EQ, "Untitled-1");
@@ -327,9 +282,6 @@ int main (string[] args) {
     Test.add_func ("/models/document/save_as_clears_untitled_and_moves_the_document_to_the_new_path", test_save_as_clears_untitled_and_moves_the_document_to_the_new_path);
     Test.add_func ("/models/document/load_sets_a_file_scheme_uri_and_the_real_pathname", test_load_sets_a_file_scheme_uri_and_the_real_pathname);
     Test.add_func ("/models/document/move_to_updates_uri_and_pathname_together", test_move_to_updates_uri_and_pathname_together);
-    Test.add_func ("/models/document/internal_tab_is_synthetic_and_not_saveable", test_internal_tab_is_synthetic_and_not_saveable);
-    Test.add_func ("/models/document/save_is_a_no_op_on_a_non_saveable_document", test_save_is_a_no_op_on_a_non_saveable_document);
-    Test.add_func ("/models/document/save_as_is_a_no_op_on_a_non_saveable_document", test_save_as_is_a_no_op_on_a_non_saveable_document);
     Test.add_func ("/models/document/title_falls_back_to_the_bare_name_without_a_pathname", test_title_falls_back_to_the_bare_name_without_a_pathname);
     Test.add_func ("/models/document/is_deleted_does_not_affect_dirty_on_its_own", test_is_deleted_does_not_affect_dirty_on_its_own);
     Test.add_func ("/models/document/save_recreates_a_deleted_document_and_clears_the_flag", test_save_recreates_a_deleted_document_and_clears_the_flag);

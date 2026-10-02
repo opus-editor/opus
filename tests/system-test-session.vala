@@ -225,9 +225,12 @@ public class SystemTestSession : Object {
 
     // --- SystemTestTabs ---
     public void new_file () throws Error { tabs.new_file (); }
+    public void open_tab (string path) throws Error { tabs.open_tab (path); }
+    public string[] open_tabs () throws Error { return tabs.open_tabs (); }
     public void close_tab (string path) throws Error { tabs.close_tab (path); }
     public string active_tab () throws Error { return tabs.active_tab (); }
     public void assert_active_tab (string expected) throws Error { tabs.assert_active_tab (expected); }
+    public void wait_for_active_tab (string expected) throws Error { tabs.wait_for_active_tab (expected); }
 
     // --- SystemTestEditorText ---
     public void editor_write (string text) throws Error { editor_text.editor_write (text); }
@@ -250,6 +253,7 @@ public class SystemTestSession : Object {
     public void search_set_options (bool regex, bool case_sensitive, bool whole_word) throws Error { search.search_set_options (regex, case_sensitive, whole_word); }
     public void search_next () throws Error { search.search_next (); }
     public void search_previous () throws Error { search.search_previous (); }
+    public void find_in_files (string text) throws Error { search.find_in_files (text); }
     public void search_position (out int position, out int count) throws Error { search.search_position (out position, out count); }
     public void assert_search_position (int expected_position, int expected_count) throws Error { search.assert_search_position (expected_position, expected_count); }
 }

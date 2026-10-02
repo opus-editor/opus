@@ -41,6 +41,9 @@ namespace EditorView.EditorPane {
     /** This tab's own clean, user-facing name (a real file's real path, or a synthetic tab's plain display name) — TabBar's tooltip source, remembered here so mark_deleted()/mark_unsynchronized() can recompute it later without needing it passed in again. Plain get/set: unlike file_name/folder_name/is_deleted/etc., storing this has no rendering side effect of its own for set_label()-style wrapping to trigger. */
     public string tooltip_path { get; set; default = ""; }
 
+    /** Whether this tab is backed by a real on-disk path right now — a synthetic tab (Untitled-N, Find Results) has nothing for "Copy Path"/"Reveal in Sidebar" to point at, so its context menu leaves them out. Same plain get/set reasoning as tooltip_path. */
+    public bool has_pathname { get; set; default = false; }
+
     public TabBarPill () {
       var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/_pill.ui");
       box = (Gtk.Box) builder.get_object ("pill");

@@ -34,7 +34,7 @@ namespace Opus.Dev {
      * the ready callback instead) — an unconditional, unfixable
      * warning for *any* async D-Bus method, not particular to this
      * one (confirmed directly: a bare synchronous method generates no
-     * such label at all). EditorPaneWidget.save_path()'s own synchronous
+     * such label at all). EditorView.EditorPane.TabDocument.save_path()'s own synchronous
      * case (an already-named file, the common one) has no yield point
      * in it at all, so it still runs to completion before this returns
      * either way; only the rare untitled-document case (needing a

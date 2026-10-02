@@ -112,19 +112,24 @@ namespace EditorView.EditorPane {
       fade_end.visible = adjustment.get_value () < adjustment.get_upper () - adjustment.get_page_size () - 0.5;
     }
 
-    /** `tooltip_path` is the tab's own clean, user-facing name — a real file's real path, or a synthetic tab's plain display name — never `path` itself, which is just this tab's own internal identity key and, for a synthetic tab, not something to ever show the user. */
-    public void add_tab (string path, string file_name, string folder_name, bool preview, string tooltip_path) {
+    /** `tooltip_path` is the tab's own clean, user-facing name — a real file's real path, or a synthetic tab's plain display name — never `path` itself, which is just this tab's own internal identity key and, for a synthetic tab, not something to ever show the user. `has_pathname` — see TabBarPill's own field. */
+    public void add_tab (string path, string file_name, string folder_name, bool preview, string tooltip_path, bool has_pathname) {
       var pill = new TabBarPill ();
       pill.set_label (file_name, folder_name);
       pill.set_preview (preview);
       pill.tooltip_path = tooltip_path;
+      pill.has_pathname = has_pathname;
       // A plain Gtk.Widget property — no need for a TabBarPill method of
       // its own just to proxy it.
       pill.widget.tooltip_text = display_path (tooltip_path);
-      pill.selected.connect (() => tab_selected (path));
-      pill.double_clicked.connect (() => tab_double_clicked (path));
-      pill.close_requested.connect (() => tab_close_requested (path));
-      pill.context_menu_requested.connect ((x, y) => show_context_menu (path, pill, x, y));
+      // Resolved at fire time, not captured here: `path` is only this
+      // tab's key *now* — rename_tab() re-keys the pill (Save As, a
+      // sidebar rename) and a closure over `path` would keep emitting
+      // the original key for the rest of the pill's life.
+      pill.selected.connect (() => with_current_path (pill, (current) => tab_selected (current)));
+      pill.double_clicked.connect (() => with_current_path (pill, (current) => tab_double_clicked (current)));
+      pill.close_requested.connect (() => with_current_path (pill, (current) => tab_close_requested (current)));
+      pill.context_menu_requested.connect ((x, y) => with_current_path (pill, (current) => show_context_menu (current, pill, x, y)));
 
       pills[path] = pill;
       box.append (pill.widget);
@@ -276,8 +281,8 @@ namespace EditorView.EditorPane {
         : display_path (pill.tooltip_path);
     }
 
-    /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. `tooltip_path` — see add_tab()'s own doc comment. */
-    public void rename_tab (string old_path, string new_path, string file_name, string folder_name, string tooltip_path) {
+    /** Re-keys the tab currently shown for `old_path` to `new_path` (e.g. after Save As) and updates its label — the same pill and position, not a new one. `tooltip_path`/`has_pathname` — see add_tab()'s own doc comment. */
+    public void rename_tab (string old_path, string new_path, string file_name, string folder_name, string tooltip_path, bool has_pathname) {
       var pill = pills[old_path];
       if (pill == null) {
         return;
@@ -287,6 +292,7 @@ namespace EditorView.EditorPane {
       pills[new_path] = pill;
       pill.set_label (file_name, folder_name);
       pill.tooltip_path = tooltip_path;
+      pill.has_pathname = has_pathname;
       pill.widget.tooltip_text = display_path (tooltip_path);
 
       if (preview_path == old_path) {
@@ -303,6 +309,8 @@ namespace EditorView.EditorPane {
      * they only ever apply to the active tab regardless of which tab's
      * menu triggered them, so they're global (the primary menu, Ctrl+S/
      * Ctrl+Shift+S) instead of a second, misleadingly tab-scoped copy.
+     * Reveal/Copy Path only exist for a tab with a real on-disk path —
+     * left out entirely for a synthetic one, not pointed at a stand-in.
      *
      * The "Close" accelerator hint is built via `Gtk.accelerator_get_label`,
      * from the exact same keyval/modifier constants MainWindow.
@@ -314,6 +322,9 @@ namespace EditorView.EditorPane {
         box.append (ContextMenu.item (_("Close"), () => tab_close_requested (path), popover, Gtk.accelerator_get_label (Gdk.Key.w, Gdk.ModifierType.CONTROL_MASK)));
         box.append (ContextMenu.item (_("Close Others"), () => close_others_requested (path), popover));
         box.append (ContextMenu.item (_("Close All"), () => close_all_requested (), popover));
+        if (!pill.has_pathname) {
+          return;
+        }
         box.append (ContextMenu.separator ());
         box.append (ContextMenu.item (_("Reveal in Sidebar"), () => reveal_in_sidebar_requested (path), popover));
         box.append (ContextMenu.separator ());
@@ -370,7 +381,7 @@ namespace EditorView.EditorPane {
       });
     }
 
-    /** `pill`'s current path — looked up by identity rather than captured at add_tab() time: rename_tab() never re-points at a tab's new path after a rename, a real pre-existing gap out of scope to fix here, but not one to add a new instance of for a drag specifically. */
+    /** `pill`'s current path — looked up by identity rather than captured at add_tab() time, since rename_tab() re-keys a pill without touching anything that captured its old key. Null only for a pill that's no longer in the row at all. */
     private string? path_of (TabBarPill pill) {
       foreach (var path in pills.get_keys ()) {
         if (pills[path] == pill) {
@@ -378,6 +389,14 @@ namespace EditorView.EditorPane {
         }
       }
       return null;
+    }
+
+    /** Runs `action` with `pill`'s path as it is right now — see path_of(); a pill already removed from the row has nothing to report for. */
+    private void with_current_path (TabBarPill pill, Func<string> action) {
+      var current = path_of (pill);
+      if (current != null) {
+        action (current);
+      }
     }
 
     /**
@@ -458,10 +477,6 @@ namespace EditorView.EditorPane {
       preview_path = null;
       pill.set_preview (false);
       preview_demoted (demoted_path);
-    }
-
-    public async DiscardChoice confirm_unsaved_close (string filename) {
-      return yield Dialogs.confirm_discard (widget, filename);
     }
 
     /** `path`, with the user's home directory collapsed to `~` if it's under there — same shorthand every terminal/file manager already uses, for the tab tooltip. */

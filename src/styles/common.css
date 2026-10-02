@@ -11,7 +11,7 @@
  * much shorter.
  *
  * Loaded once, app-wide, from MainWindow's own install_css() — not
- * scoped to whichever view first happens to use it (find-results.css's
+ * scoped to whichever view first happens to use it (tab-find-results.css's
  * own instance is created lazily, only after a first Find in Files
  * search) — so it's available to every domain from app start, the same
  * "shared across domains" reasoning views/components/ already applies

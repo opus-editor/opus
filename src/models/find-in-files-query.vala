@@ -3,8 +3,8 @@
  * options FindBar's own single-file search already exposes (Regular
  * Expressions/Case Sensitive/Match Whole Word Only). Collapsing these
  * into one object here, rather than four separate parameters, is what
- * keeps FindInFilesSearch.run()/EditorPaneWidget.search_in_files()/
- * EditorView.EditorPane.FindResults.show_results() from each growing a
+ * keeps FindInFilesSearch.run()/
+ * EditorView.EditorPane.TabFindResults.search() from each growing a
  * parallel parameter list — and gives Replace/Where (later parts of
  * this same feature) a natural place to grow into instead of more.
  */

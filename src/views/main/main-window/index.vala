@@ -61,10 +61,6 @@ public class MainWindow : Object {
   /** Every IGlobalPanel registered via register_global_panel() — see its own doc comment, and IGlobalPanel's, for what this drives. */
   private GenericArray<IGlobalPanel> global_panels = new GenericArray<IGlobalPanel> ();
 
-  // Gates Ctrl+F/Ctrl+H — kept in sync by on_has_open_tabs_changed()
-  // rather than queried from editor_pane itself, since this is the one
-  // piece of that state MainWindow's own key handling needs directly.
-  private bool has_open_tabs = false;
   private Gtk.MenuButton menu_button;
   private Gtk.ToggleButton sidebar_toggle_button;
   private Gtk.Widget close_folder_item;
@@ -156,8 +152,8 @@ public class MainWindow : Object {
     register_global_panel (find_bar);
     find_bar.search_changed.connect (on_search_changed);
     find_bar.search_options_changed.connect (on_search_options_changed);
-    find_bar.search_next_requested.connect (() => editor_pane.search_next ());
-    find_bar.search_previous_requested.connect (() => editor_pane.search_previous ());
+    find_bar.search_next_requested.connect (() => editor_pane.search_editor?.search_next ());
+    find_bar.search_previous_requested.connect (() => editor_pane.search_editor?.search_previous ());
     find_bar.select_all_requested.connect (on_select_all_requested);
     find_bar.replace_requested.connect (on_replace_requested);
     find_bar.replace_all_requested.connect (on_replace_all_requested);
@@ -506,8 +502,8 @@ public class MainWindow : Object {
    * show_find(), not before — see its own doc comment.
    */
   private void open_find () {
-    bool has_selection_in_focus = editor_pane.has_focus;
-    string selected = has_selection_in_focus ? editor_pane.primary_selection_text : "";
+    var editor = editor_pane.search_editor;
+    string selected = editor != null && editor.has_focus ? editor.primary_selection_text : "";
 
     set_active_bottom_panel (find_bar);
     find_bar.show_find ();
@@ -531,7 +527,7 @@ public class MainWindow : Object {
     find_in_files_bar.set_query (editor_pane.current_find_in_files_query);
   }
 
-  /** Enter in FindInFilesBar's own entry, or its Search button — searches the whole linked workspace folder and opens/refreshes the "Find Results" tab. Fire-and-forget: EditorPaneWidget.search_in_files() itself guards against a second search superseding a still-running one. */
+  /** Enter in FindInFilesBar's own entry, or its Search button — searches the whole linked workspace folder and opens/refreshes the "Find Results" tab. Fire-and-forget: EditorView.EditorPane.TabFindResults.search() itself guards against a second search superseding a still-running one. */
   private void on_find_in_files_search_requested () {
     var query = new FindInFilesQuery () {
       text = find_in_files_bar.search_text,
@@ -600,35 +596,41 @@ public class MainWindow : Object {
     find_in_files_bar.append_where_patterns (patterns);
   }
 
-  /** "Replace" — replaces only the current match, then advances to the next one. A no-op if there's no current match right now. */
+  /** "Replace" — replaces only the current match, then advances to the next one. A no-op if there's no current match right now (or no tab to search). */
   private void on_replace_requested () {
-    var edit = editor_pane.compute_replace_current_match (find_bar.replace_text);
+    var editor = editor_pane.search_editor;
+    var edit = editor?.compute_replace_current_match (find_bar.replace_text);
     if (edit == null) {
       return;
     }
 
-    editor_pane.apply_external_edits ({ edit });
-    editor_pane.land_after_replace (edit.start_offset + edit.new_text.char_count ());
+    editor.apply_external_edits ({ edit });
+    editor.land_after_replace (edit.start_offset + edit.new_text.char_count ());
   }
 
-  /** "Replace All" — replaces every live match as one undo step; the user's own cursor/selection just shifts to stay at its own logical position. A no-op with no matches. */
+  /** "Replace All" — replaces every live match as one undo step; the user's own cursor/selection just shifts to stay at its own logical position. A no-op with no matches (or no tab to search). */
   private void on_replace_all_requested () {
-    var edits = editor_pane.compute_replace_all (find_bar.replace_text);
+    var editor = editor_pane.search_editor;
+    if (editor == null) {
+      return;
+    }
+
+    var edits = editor.compute_replace_all (find_bar.replace_text);
     if (edits.length == 0) {
       return;
     }
 
-    editor_pane.apply_external_edits (edits);
-    editor_pane.forget_current_match ();
+    editor.apply_external_edits (edits);
+    editor.forget_current_match ();
   }
 
   private void on_search_changed (string text) {
     has_search_text = text != "";
-    editor_pane.set_search_text (text);
+    editor_pane.search_editor?.set_search_text (text);
   }
 
   private void on_search_options_changed () {
-    editor_pane.set_search_options (
+    editor_pane.search_editor?.set_search_options (
       find_bar.regex_enabled, find_bar.case_sensitive_enabled, find_bar.whole_word_enabled
     );
   }
@@ -644,16 +646,18 @@ public class MainWindow : Object {
    * was, typically still the bar's own entry. Grabbing it here too
    * covers that case as well, harmlessly redundant with
    * select_last_match()'s own grab in the case it already handled.
-   * Gated on there still being an active tab: close() is also called
-   * directly when the last open tab closes while the bar is still open
-   * (see on_has_open_tabs_changed()) — nothing to focus then.
+   * search_editor is null once the last open tab closes while the bar is
+   * still open (close() is called directly then, see
+   * on_has_open_tabs_changed()) — nothing to focus in that case.
    */
   private void on_search_bar_closed () {
     clear_active_bottom_panel (find_bar);
-    editor_pane.select_last_match ();
-    if (editor_pane.active_document_path != null) {
-      editor_pane.grab_focus ();
+    var editor = editor_pane.search_editor;
+    if (editor == null) {
+      return;
     }
+    editor.select_last_match ();
+    editor.grab_focus ();
   }
 
   /** find_in_files_bar's own closed — see on_search_bar_closed()'s doc comment for why active_bottom_panel needs clearing here too. */
@@ -675,17 +679,18 @@ public class MainWindow : Object {
    * actually finds something to hand off).
    */
   private void on_select_all_requested () {
-    editor_pane.select_last_match ();
-    editor_pane.select_all_occurrences ();
+    var editor = editor_pane.search_editor;
+    if (editor != null) {
+      editor.select_last_match ();
+      editor.select_all_occurrences ();
+    }
     find_bar.close ();
   }
 
   // editor_pane.widget already swaps its own content for its own empty
-  // state internally — nothing left to do here besides tracking the
-  // flag Ctrl+F/Ctrl+H gate on, and closing the search bar once there's
-  // nothing left for it to search.
+  // state internally — nothing left to do here besides closing the
+  // search bar once there's nothing left for it to search.
   private void on_has_open_tabs_changed (bool has_tabs) {
-    has_open_tabs = has_tabs;
     if (!has_tabs) {
       find_bar.close ();
     }
@@ -886,49 +891,49 @@ public class MainWindow : Object {
       case Gdk.Key.plus:
       case Gdk.Key.equal:
       case Gdk.Key.KP_Add:
-        editor_pane.code_editor.zoom_in ();
+        editor_pane.zoom_in ();
         return true;
       case Gdk.Key.minus:
       case Gdk.Key.KP_Subtract:
-        editor_pane.code_editor.zoom_out ();
+        editor_pane.zoom_out ();
         return true;
       case Gdk.Key.@0:
-        editor_pane.code_editor.reset_zoom ();
+        editor_pane.reset_zoom ();
         return true;
       case Gdk.Key.f:
         if (shift) {
-          // Gated the same reasoning as plain Ctrl+F below: no folder
-          // linked means nothing to search — root_path would otherwise
-          // silently default to the process's own cwd instead of
-          // something the user actually chose.
+          // No folder linked means nothing to search — root_path would
+          // otherwise silently default to the process's own cwd instead
+          // of something the user actually chose.
           if (has_linked_folder) {
             open_find_in_files ();
           }
-        } else if (has_open_tabs) {
-          // Gated here, not inside open_find(): no open tab means
-          // nothing to search, so there's nothing to show for it either
-          // — same guard on_has_open_tabs_changed() itself uses to
-          // close the bar once the last one closes.
+        } else if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH)) {
+          // Gated here, not inside open_find(): a tab FindBar can't act
+          // on (or none at all) means there's nothing to show it for.
           open_find ();
         }
         return true;
       case Gdk.Key.h:
-        // Same reasoning as plain Ctrl+F above, just into Replace mode —
-        // except on the Find Results tab, which has no single-file
-        // buffer for FindBar to act on: opens that tab's own inline
-        // Find/Replace row instead, falling back to the regular FindBar
-        // for every other tab.
-        if (has_open_tabs) {
-          if (editor_pane.is_find_results_active ()) {
-            editor_pane.open_internal_replace ();
-          } else {
-            set_active_bottom_panel (find_bar);
-            find_bar.show_replace ();
-          }
-        }
+        on_replace_shortcut ();
         return true;
       default:
         return false;
+    }
+  }
+
+  /**
+   * Ctrl+H: the tab's own inline replace if it has one, else FindBar's
+   * replace mode for a text tab, else nothing. Only the keybinding routes
+   * through here — the Find menu's own "Replace…" item is FindBar-only
+   * by design (see build_find_menu()).
+   */
+  private void on_replace_shortcut () {
+    if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.INLINE_REPLACE)) {
+      editor_pane.open_replace ();
+    } else if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH)) {
+      set_active_bottom_panel (find_bar);
+      find_bar.show_replace ();
     }
   }
 
@@ -1061,17 +1066,17 @@ public class MainWindow : Object {
   }
 
   /**
-   * Find…/Replace… only make sense against a real, editable text tab —
-   * disabled (not hidden, same sensitive-not-visible split as Save's own
-   * "nothing to save yet") while there's no open tab, or the active one
-   * is Find Results itself, which has no single-file buffer to search.
-   * Find in Files only ever makes sense with something to search across,
-   * so it's hidden entirely without a linked folder, not just disabled.
+   * Find…/Replace… both open FindBar, so both only make sense against a
+   * tab FindBar can act on — disabled (not hidden, same sensitive-not-
+   * visible split as Save's own "nothing to save yet") otherwise, no
+   * open tab included. Find in Files only ever makes sense with
+   * something to search across, so it's hidden entirely without a
+   * linked folder, not just disabled.
    */
   private void update_find_menu () {
-    bool can_find_in_active_tab = has_open_tabs && !editor_pane.is_find_results_active ();
-    find_item.sensitive = can_find_in_active_tab;
-    replace_item.sensitive = can_find_in_active_tab;
+    bool can_search = editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH);
+    find_item.sensitive = can_search;
+    replace_item.sensitive = can_search;
     find_in_files_item.visible = has_linked_folder;
   }
 
@@ -1126,7 +1131,7 @@ public class MainWindow : Object {
     this.active_is_dirty = dirty;
     update_save_group ();
     // Switching tabs (e.g. onto/off of Find Results) changes whether
-    // Find…/Replace… apply, even when has_open_tabs itself doesn't.
+    // Find…/Replace… apply, even when the number of open tabs doesn't.
     update_find_menu ();
   }
 

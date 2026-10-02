@@ -14,16 +14,17 @@ namespace Opus.Dev {
    * `<app's own object path>/Dev`.
    *
    * Deliberately thin: every method here just calls straight through to an
-   * EditorView.EditorPaneWidget's own already-public methods (a couple of which —
-   * open_paths(), active_content, set_active_content(), and making
-   * save_path() itself public — exist only because this needed to reach
-   * them from outside, not because the real UI needed them; see EditorPaneWidget's
-   * own class doc comment). key_press()/select_all() reach one level deeper,
-   * into the real EditorPaneWidget.code_editor itself (exposed directly for
-   * exactly this — see its own doc comment for why there's no forwarding
-   * method for either on EditorPaneWidget). Nothing here holds business logic of
-   * its own, and nothing outside this file/DEBUG-gated call site knows this
-   * class exists — deleting it wouldn't change anything else in the app.
+   * EditorView.EditorPaneWidget's own already-public surface. The Document-
+   * only entry points (active_content, set_active_content(), the cursor
+   * pair, save_path()) exist only because this needed to reach them from
+   * outside, not because the real UI needed them — so they live on
+   * EditorView.EditorPane.TabDocument, reached through the pane's own
+   * public `document_tab` rather than wrapped in one forwarding method
+   * each; key_press()/select_all() and the search_* methods reach the
+   * real CodeEditor the same way (`code_editor`/`search_editor`). Nothing
+   * here holds business logic of its own, and nothing outside this file/
+   * DEBUG-gated call site knows this class exists — deleting it wouldn't
+   * change anything else in the app.
    *
    * Implements IDevServer (see its own doc comment, _i-dev-server.vala,
    * for why that's a separate type) rather than declaring the D-Bus contract
@@ -105,23 +106,23 @@ namespace Opus.Dev {
     }
 
     public void save_tab (string path) throws DBusError, IOError {
-      current_editor_pane ().save_path.begin (path);
+      current_editor_pane ().document_tab.save_path.begin (path);
     }
 
     public void set_active_text (string text) throws DBusError, IOError {
-      current_editor_pane ().set_active_content (text);
+      current_editor_pane ().document_tab.set_active_content (text);
     }
 
     public void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError {
-      current_editor_pane ().set_active_cursors (anchors, positions);
+      current_editor_pane ().document_tab.set_active_cursors (anchors, positions);
     }
 
     public string get_active_text () throws DBusError, IOError {
-      return current_editor_pane ().active_content;
+      return current_editor_pane ().document_tab.active_content;
     }
 
     public void get_active_cursors (out int[] anchors, out int[] positions) throws DBusError, IOError {
-      current_editor_pane ().get_active_cursors (out anchors, out positions);
+      current_editor_pane ().document_tab.get_active_cursors (out anchors, out positions);
     }
 
     public bool key_press (uint keyval, uint modifiers) throws DBusError, IOError {
@@ -144,20 +145,29 @@ namespace Opus.Dev {
       return current_editor_pane ().is_dirty (path);
     }
 
+    /** The active tab's own text search — throws rather than silently doing nothing on a tab that has none (Find Results), so a test driving search there by mistake fails loudly, same as every other method here with no window to act on. */
+    private CodeEditor search_editor () throws DBusError {
+      var editor = current_editor_pane ().search_editor;
+      if (editor == null) {
+        throw new DBusError.FAILED ("The active tab has no text search");
+      }
+      return editor;
+    }
+
     public void search_set_text (string text) throws DBusError, IOError {
-      current_editor_pane ().set_search_text (text);
+      search_editor ().set_search_text (text);
     }
 
     public void search_set_options (bool regex, bool case_sensitive, bool whole_word) throws DBusError, IOError {
-      current_editor_pane ().set_search_options (regex, case_sensitive, whole_word);
+      search_editor ().set_search_options (regex, case_sensitive, whole_word);
     }
 
     public void search_next () throws DBusError, IOError {
-      current_editor_pane ().search_next ();
+      search_editor ().search_next ();
     }
 
     public void search_previous () throws DBusError, IOError {
-      current_editor_pane ().search_previous ();
+      search_editor ().search_previous ();
     }
 
     public void search_get_position (out int position, out int count) throws DBusError, IOError {

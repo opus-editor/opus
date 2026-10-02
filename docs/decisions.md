@@ -86,7 +86,7 @@ logical pair) with no browser-style light/dark color function baked into
 the stylesheet language itself — a color that needs to differ by theme
 either comes from a real libadwaita/GTK named token (`--accent-color` and
 friends, which already do the right thing per theme) or gets picked in
-Vala code off `Adw.StyleManager.get_default ().dark` (`FindResults`'s own
+Vala code off `Adw.StyleManager.get_default ().dark` (`TabFindResults`'s own
 `apply_style_scheme()` is the established pattern for that), never a bare
 CSS function.
 

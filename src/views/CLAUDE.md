@@ -40,8 +40,9 @@ built entirely in code and have none). Load a template via
   leading underscore instead of its own directory: `explorer-pane/
   _tree-row.{vala,blp}`.
 - A sub-component substantial enough for its own template/further
-  sub-parts gets its own nested directory instead: `editor-pane/tab-bar/`
-  — see Naming below for what that does to its namespace.
+  sub-parts gets its own nested directory instead: `editor-pane/tab-bar/`,
+  `editor-pane/tab-document/`, `editor-pane/tab-find-results/` — see
+  Naming below for what that does to its namespace.
 
 ## Naming
 

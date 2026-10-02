@@ -4,9 +4,8 @@
  * preview tab.
  *
  * `uri` is a scheme-prefixed identifier — `file:///abs/path`,
- * `untitled://1`, `opus://find-in-files-results` — unique per open tab
- * and safe to use as a map key regardless of what kind of document this
- * is.
+ * `untitled://1` — unique per open tab and safe to use as a map key
+ * regardless of what kind of document this is.
  * `pathname`, separate from it, is the real OS filesystem path, set only
  * for a `load()`ed document; `name` is its short display name. Neither
  * is ever assigned directly from outside this class — {@link load},
@@ -17,10 +16,8 @@
  * A Document is created through {@link load} (an existing file on disk —
  * also detects files that aren't valid UTF-8 and marks them `readable =
  * false` instead of throwing, shown as a placeholder by the editor and
- * never edited or saved), {@link untitled} (a brand-new tab, `is_untitled =
- * true`, no `pathname` until it's actually saved somewhere), or {@link
- * internal_tab} (a synthetic, permanently unsaveable tab like Find Results —
- * `is_internal = true`, `is_saveable = false`, no `pathname`, ever).
+ * never edited or saved) or {@link untitled} (a brand-new tab, `is_untitled =
+ * true`, no `pathname` until it's actually saved somewhere).
  */
 public class Document : Object {
   public string uri { get; private set; }
@@ -31,8 +28,6 @@ public class Document : Object {
   public bool is_preview { get; set; default = false; }
   public bool readable { get; private set; default = true; }
   public bool is_untitled { get; private set; default = false; }
-  public bool is_saveable { get; private set; default = true; }
-  public bool is_internal { get; private set; default = false; }
 
   /** A clean, user-facing identity string for this document — the real full path for a file, `name` otherwise. Used wherever a value needs to stay unambiguous between two documents that could share the same `name` (Opus.Dev.DevServer's own ListOpenTabs/GetActiveTab, and the tab tooltip); the tab label itself reads `name` directly instead, since a full path is too long for that. */
   public string title {
@@ -41,7 +36,7 @@ public class Document : Object {
 
   /**
    * The file this document was loaded from was deleted (or moved away)
-   * outside Opus, while still open — set by EditorController's own file
+   * outside Opus, while still open — set by the Document tab's own file
    * watcher, and only ever for a tab that was already dirty at that
    * moment (a clean one just closes outright instead — nothing of
    * value to keep showing "deleted"). Doesn't factor into `dirty`
@@ -53,7 +48,7 @@ public class Document : Object {
   /**
    * The file this document was loaded from was changed on disk by
    * something other than Opus itself, while still open — set by
-   * EditorController's own file watcher. Cleared only by {@link reload}
+   * the Document tab's own file watcher. Cleared only by {@link reload}
    * (the user explicitly discarding in-memory content in favor of what's
    * on disk); like `is_deleted`, purely a display/tracking flag that
    * doesn't factor into `dirty` on its own.
@@ -78,7 +73,7 @@ public class Document : Object {
     history = new EditHistory ();
   }
 
-  /** `"file://" + path` — the one place this prefix is built; EditorPaneWidget reuses it at its own boundary instead of re-deriving it. */
+  /** `"file://" + path` — the one place this prefix is built; EditorView.EditorPane.TabDocument reuses it at its own boundary instead of re-deriving it. */
   public static string uri_for_path (string path) {
     return "file://" + path;
   }
@@ -124,32 +119,16 @@ public class Document : Object {
    * A brand-new tab with nothing on disk yet — a synthetic `untitled://`
    * uri stands in for a real one until save_as() gives it one. Starts
    * clean, same as any freshly-loaded file: it only becomes dirty once
-   * actually edited. `uri_path`/`name` are independent, same shape as
-   * {@link internal_tab}: `uri_path` is a stable identity slug (a plain
-   * counter, e.g. "1") that must never move just because the display
-   * text does — "Untitled-N" is exactly the kind of string that gets
-   * reworded/localized later, and the uri can't follow it when it does.
+   * actually edited. `uri_path`/`name` are independent on purpose:
+   * `uri_path` is a stable identity slug (a plain counter, e.g. "1") that
+   * must never move just because the display text does — "Untitled-N" is
+   * exactly the kind of string that gets reworded/localized later, and
+   * the uri can't follow it when it does.
    */
   public static Document untitled (string uri_path, string name) {
     var document = new Document ("untitled://" + uri_path);
     document.name = name;
     document.is_untitled = true;
-    return document;
-  }
-
-  /**
-   * A synthetic, permanently unsaveable tab — e.g. Find Results. Never
-   * has a `pathname`, and `save()`/`save_as()` are no-ops on it.
-   * `uri_path` and `name` are independent on purpose: `uri_path` only
-   * ever has to be a clean, stable uri path (`"opus://" + uri_path`),
-   * never shown to the user; `name` is the actual display name, free to
-   * read however's nicest ("Find Results").
-   */
-  public static Document internal_tab (string uri_path, string name) {
-    var document = new Document ("opus://" + uri_path);
-    document.name = name;
-    document.is_saveable = false;
-    document.is_internal = true;
     return document;
   }
 
@@ -166,9 +145,9 @@ public class Document : Object {
     name = Path.get_basename (new_path);
   }
 
-  /** Only ever valid for a document that already has a real path — an untitled one always goes through save_as() instead (see EditorController). A no-op on a non-saveable document (Find Results), same as an unreadable one. */
+  /** Only ever valid for a document that already has a real path — an untitled one always goes through save_as() instead. A no-op on an unreadable document: there's no real content to write back. */
   public void save () throws Error {
-    if (!readable || !is_saveable) {
+    if (!readable) {
       return;
     }
 
@@ -178,9 +157,9 @@ public class Document : Object {
     is_externally_modified = false;
   }
 
-  /** Writes the current content to `new_path` instead, and this document now tracks that path from here on (a "Save As", or an untitled document's first real save). A no-op on a non-saveable document (Find Results), same as an unreadable one. */
+  /** Writes the current content to `new_path` instead, and this document now tracks that path from here on (a "Save As", or an untitled document's first real save). A no-op on an unreadable document, same as save(). */
   public void save_as (string new_path) throws Error {
-    if (!readable || !is_saveable) {
+    if (!readable) {
       return;
     }
 

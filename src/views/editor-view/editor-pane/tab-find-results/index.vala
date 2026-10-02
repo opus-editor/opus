@@ -8,7 +8,7 @@
  * code-editor/_search.vala already uses for match highlighting — no
  * custom GtkSourceView `.lang` grammar file, since one wouldn't add any
  * real capability here (the per-file code coloring below has to be
- * manual tag copying regardless, see FindResultsLanguageHighlighter's
+ * manual tag copying regardless, see TabFindResultsLanguageHighlighter's
  * own doc comment for why).
  *
  * Its own header and Find/Replace row (the results count, the
@@ -20,7 +20,16 @@
  * indent guides are off: results carry their own "  N: " prefixes.
  */
 namespace EditorView.EditorPane {
-  public class FindResults : Object {
+  public class TabFindResults : Object, ITabKind {
+    // Find in Files' own synthetic tab — one per pane, keyed like any
+    // other tab so the pane's registry/TabBar machinery needs no second
+    // tab concept for it.
+    private const string TAB_URI = "opus://find-in-files-results";
+    // Only the very first search ever run (no control exists yet to read
+    // its own context_lines off) — every search after that reads the
+    // live value straight from this tab's own control.
+    private const int DEFAULT_CONTEXT_LINES = 1;
+
     // render()'s own "  N: " line-number prefix pads every number in a
     // file's own listing to at least this many digits (right-aligned),
     // widening per file if its own largest line number needs more —
@@ -42,7 +51,7 @@ namespace EditorView.EditorPane {
     private CodeEditor code_editor;
     /** The editor's own buffer — for the tags below and the highlighter only; content goes in through code_editor.set_text(). */
     private GtkSource.Buffer results_buffer { get { return code_editor.buffer; } }
-    private FindResultsLanguageHighlighter language_highlighter;
+    private TabFindResultsLanguageHighlighter language_highlighter;
 
     private Gtk.TextTag filename_tag;
     private Gtk.TextTag line_number_tag;
@@ -77,16 +86,16 @@ namespace EditorView.EditorPane {
       public int code_length;
     }
 
-    /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(), same reason FindResultsLanguageHighlighter.clear() exists: a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
+    /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(), same reason TabFindResultsLanguageHighlighter.clear() exists: a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
     private GenericArray<Gtk.TextTag> nav_tags = new GenericArray<Gtk.TextTag> ();
 
-    /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). Whoever composes this view (EditorPaneWidget) is the one that knows how to actually open/jump. */
+    /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). The pane wires this to TabDocument.open_at() — opening/jumping is that kind's job, not this one's. */
     public signal void navigate_requested (string path, int line, int column);
 
     // Recreated on every apply_style_scheme() — the Find/Replace row's own
     // background has to match the editor's *real* GtkSource.StyleScheme
     // color, only known at runtime (see its own doc comment in
-    // find-results.css). Same "uninstall the previous one first" pattern
+    // tab-find-results.css). Same "uninstall the previous one first" pattern
     // CodeEditor's own font_provider already uses, and for the same
     // reason: a provider only ever adds rules, it never un-sets one from
     // an earlier install on its own.
@@ -99,11 +108,32 @@ namespace EditorView.EditorPane {
     private FindInFilesQuery? last_error_query = null;
     private string? last_error_message = null;
 
+    // The most recently run search, re-issued as-is when the context
+    // lines control changes so adjusting it re-searches without the
+    // user retyping anything. Replace All has no equivalent hookup:
+    // apply_replace_outcome() reconciles last_result in place instead —
+    // re-running the original search afterward would search for the
+    // *old* term, no longer there to find.
+    private string? last_root_path = null;
+    private FindInFilesQuery? last_query = null;
+    // Bumped on every new search() call (and once more on close()) so a
+    // search still running when a newer one starts, or the window
+    // closes, never renders its own stale result afterward.
+    private int search_generation = 0;
+    private bool tab_exists = false;
+    private bool is_active = false;
+
     public Gtk.Widget widget { get { return root; } }
+    public TabCapability capabilities { get { return TabCapability.INLINE_REPLACE; } }
+
+    /** The query behind this tab, but only while it's actually the active tab — null otherwise, even if the tab still exists in the background. MainWindow's own Ctrl+Shift+F reads this to decide whether reopening FindInFilesBar should restore the last search or start blank. */
+    public FindInFilesQuery? active_query {
+      get { return is_active ? last_query : null; }
+    }
 
     /**
      * Lines of context (above and below a match) the *next* search
-     * should use — read by EditorPaneWidget.search_in_files() when it (re)runs.
+     * should use — read by search() when it (re)runs.
      * No upper bound: checked VS Code's own real equivalent
      * (search.searchEditor.defaultNumberOfContextLines/contextLinesInput
      * in searchWidget.ts) — neither its settings schema nor its
@@ -113,12 +143,9 @@ namespace EditorView.EditorPane {
      * number, just searches with none" split as VS Code's own
      * showContextToggle.
      */
-    public int context_lines {
+    private int context_lines {
       get { return context_lines_toggle.active ? int.max (0, int.parse (context_lines_entry.text)) : 0; }
     }
-
-    /** The entry's value or the toggle changed — EditorPaneWidget re-runs the last search with the new context_lines. */
-    public signal void context_lines_changed ();
 
     // Non-null exactly while showing a "just ran Replace All" summary
     // instead of a plain search result — the paths FindInFilesReplace.
@@ -131,8 +158,8 @@ namespace EditorView.EditorPane {
     // result goes back to showing.
     private GenericArray<string>? replace_summary_skipped_paths = null;
 
-    public FindResults () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/find-results/index.ui");
+    public TabFindResults () {
+      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-find-results/index.ui");
       root = (Gtk.Box) builder.get_object ("root");
       header_label = (Gtk.Label) builder.get_object ("header_label");
       replace_button = (Gtk.ToggleButton) builder.get_object ("replace_button");
@@ -178,8 +205,8 @@ namespace EditorView.EditorPane {
       // Only on Enter, not on every keystroke like VS Code's own
       // onDidChange — a fresh cross-file disk search per digit typed
       // would be a real, felt cost here (no ripgrep backing this search).
-      context_lines_entry.activate.connect (() => context_lines_changed ());
-      context_lines_toggle.toggled.connect (() => context_lines_changed ());
+      context_lines_entry.activate.connect (rerun_last_search);
+      context_lines_toggle.toggled.connect (rerun_last_search);
       // Same floor as VS Code's own contextLinesInput — a typed "-"
       // resets to "0" immediately rather than letting a negative value
       // sit there until Enter is pressed.
@@ -196,7 +223,7 @@ namespace EditorView.EditorPane {
       };
       root.append (code_editor.widget);
 
-      language_highlighter = new FindResultsLanguageHighlighter (results_buffer);
+      language_highlighter = new TabFindResultsLanguageHighlighter (results_buffer);
       install_css ();
 
       filename_tag = new Gtk.TextTag (null);
@@ -213,7 +240,7 @@ namespace EditorView.EditorPane {
       apply_style_scheme (style_manager.dark);
     }
 
-    public void show_results (FindInFilesResult result) {
+    private void show_results (FindInFilesResult result) {
       last_result = result;
       last_error_query = null;
       last_error_message = null;
@@ -237,7 +264,7 @@ namespace EditorView.EditorPane {
       render ();
     }
 
-    public void show_error (FindInFilesQuery query, string message) {
+    private void show_error (FindInFilesQuery query, string message) {
       last_result = null;
       last_error_query = query;
       last_error_message = message;
@@ -251,13 +278,110 @@ namespace EditorView.EditorPane {
       render ();
     }
 
-    /** Rules themselves live in styles/find-results.css, not here — see GlobalCss.install_from_resource()'s own doc comment for why. */
+    /** Rules themselves live in styles/tab-find-results.css, not here — see GlobalCss.install_from_resource()'s own doc comment for why. */
     private void install_css () {
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/find-results.css");
+      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/tab-find-results.css");
     }
 
-    /** MainWindow's own Ctrl+H, while this tab is the active one — same effect as clicking replace_button itself, including its own no-op guard (see on_replace_button_toggled()) when there's nothing currently shown. */
-    public void open_replace_row () {
+    /**
+     * Find in Files — searches `root_path` for `query.text` and shows
+     * the results here, opening this tab (or re-activating it if already
+     * open). A no-op with an empty query. `search_generation` is bumped
+     * before awaiting the actual search so a second call started before
+     * the first finishes supersedes it outright — whichever finishes
+     * last simply discards its own result instead of clobbering a newer
+     * one.
+     */
+    public async void search (string root_path, FindInFilesQuery query) {
+      if (query.text == "") {
+        return;
+      }
+      last_root_path = root_path;
+      last_query = query;
+      int generation = ++search_generation;
+      int lines = tab_exists ? context_lines : DEFAULT_CONTEXT_LINES;
+
+      FindInFilesResult? result = null;
+      Error? error = null;
+      try {
+        result = yield FindInFilesSearch.run_async (root_path, query, lines);
+      } catch (Error e) {
+        error = e;
+      }
+      if (generation != search_generation) {
+        return;
+      }
+
+      if (error != null) {
+        show_error (query, error.message);
+      } else {
+        show_results (result);
+      }
+      open_or_focus_tab ();
+    }
+
+    private void open_or_focus_tab () {
+      if (!tab_exists) {
+        tab_exists = true;
+        tab_added (TAB_URI, _("Find Results"), "", false, _("Find Results"), false);
+      }
+      activate_requested (TAB_URI);
+    }
+
+    private void rerun_last_search () {
+      if (last_query != null) {
+        search.begin (last_root_path, last_query);
+      }
+    }
+
+    public bool owns (string uri) {
+      return uri == TAB_URI;
+    }
+
+    public bool is_dirty (string uri) {
+      return false;
+    }
+
+    public void show (string uri) {
+      is_active = true;
+    }
+
+    public void hide () {
+      is_active = false;
+    }
+
+    /** Nothing to confirm — the results live only here and are regenerated by the next search. */
+    public async void close_tab (string uri) {
+      if (!tab_exists) {
+        return;
+      }
+      tab_exists = false;
+      is_active = false;
+      tab_removed (TAB_URI);
+    }
+
+    /** Discards any search still in flight — see search()'s own doc comment for what search_generation guards against. */
+    public void close () {
+      search_generation++;
+    }
+
+    // Zoom is one shared level across every CodeEditor (see its own
+    // static zoom_level) — overridden here anyway so this tab *declares*
+    // that Ctrl+Plus means its text, rather than relying on that.
+    public void zoom_in () {
+      code_editor.zoom_in ();
+    }
+
+    public void zoom_out () {
+      code_editor.zoom_out ();
+    }
+
+    public void reset_zoom () {
+      code_editor.reset_zoom ();
+    }
+
+    /** Ctrl+H while this tab is the active one — same effect as clicking replace_button itself, including its own no-op guard (see on_replace_button_toggled()) when there's nothing currently shown. */
+    public void open_replace () {
       replace_button.active = true;
     }
 
@@ -356,7 +480,7 @@ namespace EditorView.EditorPane {
     /**
      * Reconciles `last_result` in place with what FindInFilesReplace.
      * run() actually wrote, then re-renders showing the outcome — no
-     * round-trip through EditorPaneWidget needed: everything this touches
+     * round-trip through the pane needed: everything this touches
      * already lives on last_result, and re-running the original search
      * afterward would search for the *old* term, no longer there to find.
      * Each updated file's own blocks are refreshed straight off disk

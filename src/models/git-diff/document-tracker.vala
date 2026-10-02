@@ -1,5 +1,5 @@
 /**
- * Per-EditorPaneWidget, not per-document: EditorPaneWidget owns exactly one shared
+ * Per-TabDocument, not per-document: EditorView.EditorPane.TabDocument owns exactly one shared
  * GtkSource.Buffer, fully reloaded on every tab switch — only the
  * currently active document's hunks are ever rendered, so there's no
  * per-document cache/map here, just whichever document is "current" now.
@@ -22,7 +22,7 @@ namespace GitDiff {
     // and haven't been rewritten yet (see notify_text_changed's own
     // comment).
     private bool loading = false;
-    // Same idiom as EditorPaneWidget.search_generation: bumped before every
+    // Same idiom as EditorView.EditorPane.TabFindResults.search_generation: bumped before every
     // await, checked after resume, so a slower stale call never
     // overwrites a newer one's result.
     private int generation = 0;

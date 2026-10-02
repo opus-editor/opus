@@ -1,106 +1,73 @@
 /**
- * Composes TabBar + CodeEditor directly — the SFC-style replacement for
- * the real EditorController, which used to sit between them as a
- * separate Controller object holding both from outside. No Controller
- * left: this class owns the open Document list itself and wires TabBar's
- * signals straight to CodeEditor's methods (and vice versa) in its own
- * method bodies. TabBar's own "Reveal in Sidebar" is the one signal this
- * re-emits rather than handling itself — its target (ExplorerPane) is a
- * sibling this class has no reference to; MainWindow, which composes both,
- * is what actually wires it through.
+ * The pane that hosts every open tab: TabBar on top, the active tab's
+ * own widget below. Each *kind* of tab (a Document, Find Results, …) is
+ * its own EditorPane.ITabKind owning every tab of that kind; this class
+ * keeps the registry of which kind owns which uri, turns each kind's
+ * chrome signals into TabBar calls, and routes TabBar's gestures and
+ * MainWindow's shortcuts to whichever kind is active — see ITabKind's
+ * own doc comment. No per-kind business logic lives here.
+ *
+ * TabBar's own "Reveal in Sidebar" is the one signal this re-emits
+ * rather than handling itself — its target (ExplorerPane) is a sibling
+ * this class has no reference to; MainWindow, which composes both, is
+ * what actually wires it through.
  *
  * Assembles its own widget — a vertical Box, TabBar's own widget on top,
- * a divider, CodeEditor's own widget below (vexpand) — rather than
- * exposing the two separately for MainWindow to place into different
+ * a divider, the active tab's own widget below (vexpand) — rather than
+ * exposing the parts separately for MainWindow to place into different
  * regions of its own window template: they were never actually placed
- * in different regions (both already sat in the same vertical Box in
- * MainWindow's own Blueprint), so MainWindow reaching in for each one
+ * in different regions, so MainWindow reaching in for each one
  * independently was only ever indirection, not a real layout need.
- *
- * External file-watching (start_watching/stop_watching's own
- * Gio.FileMonitor lifecycle) is split into its own EditorPaneFileWatcher
- * — see its own doc comment for why.
- *
- * Opus.Dev.DevServer's own methods (open_paths, active_content,
- * set_active_content, set_active_cursors, get_active_cursors) are ported
- * above with the same plain names the real EditorController used — no
- * "simulate"/"test" framing, they're genuinely what they say. select_all
- * lives directly on CodeEditor instead (see its own doc comment), reached
- * through the public `code_editor` property below rather than wrapped in
- * a forwarding method here.
  */
 namespace EditorView {
   public class EditorPaneWidget : Object {
-    // No `.editorconfig`, or none of its sections match a given file —
-    // VS Code's own default `tabSize`, and a reasonable one on its own.
-    private const int DEFAULT_INDENT_SIZE = 4;
-    // Matches current native behavior — Tab only switches to inserting
-    // spaces once a file's own .editorconfig explicitly says so.
-    private const bool DEFAULT_INSERT_SPACES = false;
+    /** One registry entry per open tab — `title` is what this class answers DevServer/Copy Path with, handed over in tab_added so the kind never has to be asked again. */
+    private class OpenTab : Object {
+      public EditorPane.ITabKind kind;
+      public string title;
+
+      public OpenTab (EditorPane.ITabKind kind, string title) {
+        this.kind = kind;
+        this.title = title;
+      }
+    }
 
     // The one widget actually exposed via `widget` below — its own
-    // `.child` toggles between `content` (tab bar + editor) and
+    // `.child` toggles between `content` (tab bar + editor area) and
     // `empty_state`, kept in sync with has_open_tabs_changed right in
     // the constructor, so whoever hosts `widget` never needs to touch
     // it again after placing it once.
     private Adw.Bin container;
     private Gtk.Box content;
     private Adw.StatusPage empty_state;
-    // CodeEditor is one shared widget reused across every real file tab
-    // — this Bin is what lets the Find Results tab swap in a completely
-    // different widget (EditorPane.FindResults) instead, without
-    // CodeEditor itself needing any notion of a "results" mode.
+    // Shows whichever kind's widget owns the active tab.
     private Adw.Bin editor_area_bin;
     private EditorPane.TabBar tab_bar;
-    private EditorPaneChangeBanner change_banner;
-    private EditorPaneFileWatcher file_watcher;
     private string root_path;
-    private EditorConfig? editor_config;
 
-    private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
+    private HashTable<string, OpenTab> tabs = new HashTable<string, OpenTab> (str_hash, str_equal);
     private string? active_path = null;
-    private int untitled_counter = 0;
+    private EditorPane.ITabKind? active_kind = null;
 
-    // Owned by MainWindow (outlives a single linked folder — see
-    // GIT_STATUS_PLUGIN_PLAN.md's own "Host wiring" section), handed here
-    // via set_decorations() so every open tab, not just the active one,
-    // can be tinted — null with no folder linked, same nullable pattern
-    // ExplorerPane's own ExplorerPane? field on MainWindow already uses.
-    private FileDecoration.Registry? decorations = null;
-
-    // Same "owned by MainWindow, handed in via a setter" shape as
-    // `decorations` above, but unlike it, only the active document's
-    // hunks are ever rendered (one shared CodeEditorSourceView buffer,
-    // not one per tab) — so `diff_tracker` is a single instance, reset on
-    // every tab switch, not a per-document map.
-    private GitDiff.DocumentTracker diff_tracker = new GitDiff.DocumentTracker ();
-    private GitDiff.IBaseProvider? diff_base_provider = null;
-
-    // Find in Files' own synthetic tab — reuses the plain string-keyed
-    // documents/tab_bar machinery exactly like new_untitled()'s
-    // "Untitled-N" already does, rather than inventing a second tab
-    // concept. find_results is created lazily (first search only).
-    private const string FIND_RESULTS_TAB_URI = "opus://find-in-files-results";
-    // Only the very first search ever run (find_results doesn't exist
-    // yet to read its own context_lines off) — every search after that
-    // reads the live value straight from FindResults' own control.
-    private const int DEFAULT_FIND_IN_FILES_CONTEXT_LINES = 1;
-    private EditorPane.FindResults? find_results = null;
-    // The most recently run Find in Files query — re-issued as-is when
-    // FindResults' own context_lines_changed fires, so adjusting that
-    // control re-searches without the user retyping anything.
-    private FindInFilesQuery? last_find_in_files_query = null;
-    // Bumped on every new search_in_files() call (and once more on
-    // close()) so a search still running when a newer one starts, or
-    // the window closes, never renders its own stale result afterward.
-    private int search_generation = 0;
+    // Created lazily (first search only) — most windows never run one.
+    private EditorPane.TabFindResults? tab_find_results = null;
 
     public Gtk.Widget widget { get { return container; } }
 
-    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, without EditorPaneWidget wrapping each one in a forwarding method of its own. */
-    public CodeEditor code_editor { get; private set; }
+    /** The Document kind itself — Opus.Dev.DevServer's own way to reach the Document-only entry points it drives (active_content, cursors, save_path) directly, rather than through one forwarding method here per call; see its own doc comment. */
+    public EditorPane.TabDocument document_tab { get; private set; }
 
-    /** Whether at least one tab is open — `widget` itself already reacts to this (see the constructor); still re-emitted for whoever hosts it to gate its own tab-dependent behavior (MainWindow's own Ctrl+F/Ctrl+H). */
+    /** The Document kind's own CodeEditor — Opus.Dev.DevServer's own KeyPress/SelectAll, and MainWindow's way to re-apply settings.json's display-wide font (any one instance recomputing it is enough). */
+    public CodeEditor code_editor {
+      get { return document_tab.code_editor; }
+    }
+
+    /** The editor FindBar acts on — the active tab's own, or null when the active tab has no text search (or there is none). MainWindow and Opus.Dev.DevServer drive CodeEditor's own search API through this directly. */
+    public CodeEditor? search_editor {
+      get { return active_kind?.search_editor; }
+    }
+
+    /** Whether at least one tab is open — `widget` itself already reacts to this (see the constructor); still re-emitted for whoever hosts it to react too (MainWindow closes FindBar once the last tab goes). */
     public signal void has_open_tabs_changed (bool has_tabs);
 
     /** The active tab, or its dirty state, changed — null `path` means no tab is active (`dirty` is meaningless then). */
@@ -112,7 +79,7 @@ namespace EditorView {
     /** A tab for `path` just stopped existing (closed, discarded, or evicted as an old preview) — see tab_opened()'s own doc comment. */
     public signal void tab_closed (string path);
 
-    /** Re-emitted from CodeEditor's own search sub-component — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
+    /** Re-emitted from the active tab's own search — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
     public signal void search_position_changed (int position, int count);
 
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
@@ -120,18 +87,15 @@ namespace EditorView {
 
     public EditorPaneWidget (string root_path) {
       this.root_path = root_path;
-      editor_config = EditorConfig.load (root_path);
 
       tab_bar = new EditorPane.TabBar ();
-      code_editor = new CodeEditor ();
-      change_banner = new EditorPaneChangeBanner ();
-      file_watcher = new EditorPaneFileWatcher ();
+      document_tab = new EditorPane.TabDocument (root_path);
+      wire_kind (document_tab);
 
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       content.append (tab_bar.widget);
       content.append (new Gtk.Separator (Gtk.Orientation.HORIZONTAL) { css_classes = { "content-divider" } });
-      content.append (change_banner.widget);
-      editor_area_bin = new Adw.Bin () { child = code_editor.widget, vexpand = true };
+      editor_area_bin = new Adw.Bin () { child = document_tab.widget, vexpand = true };
       content.append (editor_area_bin);
 
       // Generic on purpose, not "…from the sidebar": a blank/file-only
@@ -150,266 +114,151 @@ namespace EditorView {
         container.child = has_tabs ? (Gtk.Widget) content : (Gtk.Widget) empty_state;
       });
 
-      code_editor.text_changed.connect (on_text_changed);
-      tab_bar.tab_selected.connect (on_tab_selected);
-      tab_bar.tab_double_clicked.connect (on_tab_double_clicked);
-      tab_bar.tab_close_requested.connect ((path) => close_tab.begin (path));
-      tab_bar.preview_demoted.connect (on_preview_demoted);
+      tab_bar.tab_selected.connect (activate);
+      tab_bar.tab_double_clicked.connect ((uri) => kind_of (uri)?.promote (uri));
+      tab_bar.preview_demoted.connect ((uri) => kind_of (uri)?.promote (uri));
+      tab_bar.tab_close_requested.connect ((uri) => close_tabs.begin ({ uri }));
       tab_bar.close_others_requested.connect (close_others);
       tab_bar.close_all_requested.connect (close_all);
-      // Copy Path / Reveal in Sidebar only ever mean something for a
-      // real file — tab_bar's own key is a uri, so each is resolved back
-      // to the document's real pathname (falling back to the uri itself,
-      // which should never actually happen for these two menu items —
-      // TabBar only offers them at all for tabs backed by a real file).
-      tab_bar.copy_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (documents[uri]?.pathname ?? uri));
-      tab_bar.copy_relative_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (relative_path (documents[uri]?.pathname ?? uri)));
+      // TabBar only offers Copy Path / Reveal in Sidebar for a tab with a
+      // real path, whose title *is* that path — so resolving the uri back
+      // to a title is all there is to it.
+      tab_bar.copy_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (title_of (uri)));
+      tab_bar.copy_relative_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (relative_path (title_of (uri))));
       tab_bar.new_file_requested.connect (new_untitled);
-      tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (documents[uri]?.pathname ?? uri));
-      change_banner.discard_clicked.connect (on_reload_requested);
-      code_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
-      file_watcher.file_changed.connect (on_file_changed);
-      diff_tracker.hunks_changed.connect (() => code_editor.set_hunks (diff_tracker.hunks ()));
-    }
-
-    /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" calls resolve against the new root. */
-    public void set_root_path (string root_path) {
-      this.root_path = root_path;
-      editor_config = EditorConfig.load (root_path);
-    }
-
-    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), clearing every open tab's own tint the same way it applied one. */
-    public void set_decorations (FileDecoration.Registry? new_decorations) {
-      if (decorations != null) {
-        decorations.changed.disconnect (refresh_tab_decorations);
-      }
-      decorations = new_decorations;
-      if (decorations != null) {
-        decorations.changed.connect (refresh_tab_decorations);
-      }
-      refresh_tab_decorations ();
-    }
-
-    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), or if the plugin providing it goes away. Unlike set_decorations(), only the active tab's hunks need recomputing — there's no per-tab map to refresh. */
-    public void set_diff_base_provider (GitDiff.IBaseProvider? new_provider) {
-      diff_base_provider = new_provider;
-      if (active_path != null) {
-        var document = documents[active_path];
-        diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
-      }
-    }
-
-    /** Re-stamps every open tab (not just the active one — a background tab whose file changes elsewhere still needs its own tint to update) from the current `decorations` snapshot. */
-    private void refresh_tab_decorations () {
-      foreach (var document in documents.get_values ()) {
-        stamp_tab_decoration (document);
-      }
-    }
-
-    /** A synthetic tab (Untitled-N, Find Results — no real `pathname`) never has anything to decorate. `decorations == null` (no folder linked) explicitly clears rather than skipping, so a tab tinted before "Close Folder" doesn't keep showing a stale tint afterward. */
-    private void stamp_tab_decoration (Document document) {
-      if (document.pathname == null) {
-        return;
-      }
-      tab_bar.mark_decoration (document.uri, decorations == null ? null : decorations.decoration_for (document.pathname, false));
+      tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (title_of (uri)));
     }
 
     /**
-     * Opens `path`, as a preview tab or a permanent one, reusing an
-     * existing tab if already open. A permanent open also moves
-     * keyboard focus into the editor.
+     * Turns `kind`'s chrome signals into TabBar calls plus this class's
+     * own registry bookkeeping — the one place a kind's tabs enter and
+     * leave the pane, so has_open_tabs_changed/tab_opened/tab_closed
+     * fire from here rather than from each kind separately. Adding a
+     * kind is constructing it and calling this.
      */
-    public void open (string path, bool as_permanent) throws Error {
-      var existing = find_by_title (path);
-      if (existing != null) {
-        if (as_permanent) {
-          promote (existing);
-        }
-        activate (existing.uri);
-      } else if (as_permanent) {
-        open_permanent (path);
-      } else {
-        open_preview (path);
-      }
-
-      if (as_permanent) {
-        code_editor.grab_focus ();
-      }
-    }
-
-    /**
-     * Find Results' own Ctrl+click-to-navigate — opens `path` as a preview
-     * tab (same weight as a single click in the explorer) and, if `line`
-     * is not -1 (the skipped-mtime list's own "just open it" case — see
-     * FindResults.NavTarget's own doc comment), places a collapsed cursor
-     * at that (1-based line, 0-based column) and scrolls it into view.
-     * Swallows a failed open the same way open_from_explorer() (MainWindow)
-     * does — nothing else here is in a position to surface the error.
-     */
-    public void open_at (string path, int line, int column) {
-      try {
-        open (path, false);
-      } catch (Error e) {
-        warning ("failed to open %s: %s", path, e.message);
-        return;
-      }
-
-      // open()'s own grab_focus() only runs for as_permanent — a preview
-      // open here (already-open tabs included) would otherwise sometimes
-      // leave focus behind in Find Results' own code_editor instead of
-      // following the jump.
-      code_editor.grab_focus ();
-
-      if (line < 0 || active_path == null) {
-        return;
-      }
-
-      // An unreadable document (not valid UTF-8 — see Document.readable)
-      // shows a placeholder, not the file: nothing in it corresponds to
-      // the result's line, so only the open is worth doing.
-      var document = documents[active_path];
-      if (!document.readable) {
-        return;
-      }
-
-      int target_offset = char_offset_of_line_column (document.content, line, column);
-      document.cursors.set_cursors ({ new Cursor (target_offset) });
-      code_editor.render_cursors (document.cursors.snapshot ());
-      code_editor.reveal_offset (target_offset);
-    }
-
-    /**
-     * `line` is 1-based, `column` a 0-based char offset into that line —
-     * same convention FindInFilesMatch's own fields use, so its data
-     * plugs straight in with no translation at the call site. Both are
-     * clamped to the content as it is *now*: a result can be older than
-     * the buffer (the file edited since the search, or its tab already
-     * open and dirty), and a line past the end or a column past the
-     * line must land at the nearest real position, never spill into the
-     * next line or past the buffer.
-     */
-    private int char_offset_of_line_column (string content, int line, int column) {
-      var lines = content.split ("\n");
-      int line_index = (line - 1).clamp (0, lines.length - 1);
-      int offset = 0;
-      for (int i = 0; i < line_index; i++) {
-        offset += lines[i].char_count () + 1;
-      }
-      return offset + column.clamp (0, lines[line_index].char_count ());
-    }
-
-    /** Opens a brand-new, not-yet-saved-anywhere tab named "Untitled-N" — a permanent tab, focused immediately. Saving it goes through the Save As flow regardless of "Save" or "Save as…", since there's nowhere on disk yet for a plain Save to write to. */
-    public void new_untitled () {
-      untitled_counter++;
-      var name = "Untitled-%d".printf (untitled_counter);
-
-      var document = Document.untitled (untitled_counter.to_string (), name);
-      documents[document.uri] = document;
-      tab_bar.add_tab (document.uri, document.name, "", false, document.title);
-      if (documents.size () == 1) {
-        has_open_tabs_changed (true);
-      }
-      activate (document.uri);
-      code_editor.grab_focus ();
-    }
-
-    /**
-     * Find in Files — searches the whole linked workspace folder for
-     * `query.text` and shows the results in the "Find Results" tab
-     * (opened, or refreshed in place if already open). A no-op with an
-     * empty query. `search_generation` is bumped before awaiting the
-     * actual search so a second call started before the first
-     * finishes supersedes it outright — whichever finishes last simply
-     * discards its own result instead of clobbering a newer one, and
-     * close() bumps it once more so a search still running when the
-     * window closes never touches a torn-down pane either.
-     */
-    public async void search_in_files (FindInFilesQuery query) {
-      if (query.text == "") {
-        return;
-      }
-      last_find_in_files_query = query;
-      int generation = ++search_generation;
-
-      // find_results doesn't exist yet on the very first search ever
-      // run — every search after that reads its own live control instead
-      // of this default.
-      int context_lines = find_results != null ? find_results.context_lines : DEFAULT_FIND_IN_FILES_CONTEXT_LINES;
-
-      FindInFilesResult? result = null;
-      Error? error = null;
-      try {
-        result = yield FindInFilesSearch.run_async (root_path, query, context_lines);
-      } catch (Error e) {
-        error = e;
-      }
-      if (generation != search_generation) {
-        return;
-      }
-
-      if (find_results == null) {
-        find_results = new EditorPane.FindResults ();
-        // Re-issues last_find_in_files_query as-is — adjusting context
-        // lines re-searches without the user retyping anything. Replace
-        // All has no equivalent hookup here: FindResults reconciles its
-        // own last-shown result and re-renders itself once
-        // FindInFilesReplace.run() lands — re-running the original
-        // search afterward would search for the *old* term, no longer
-        // there to find.
-        find_results.context_lines_changed.connect (() => search_in_files.begin (last_find_in_files_query));
-        find_results.navigate_requested.connect ((path, line, column) => open_at (path, line, column));
-      }
-      if (error != null) {
-        find_results.show_error (query, error.message);
-      } else {
-        find_results.show_results (result);
-      }
-      open_or_focus_find_results_tab ();
-    }
-
-    private void open_or_focus_find_results_tab () {
-      if (!documents.contains (FIND_RESULTS_TAB_URI)) {
-        var document = Document.internal_tab ("find-in-files-results", _("Find Results"));
-        documents[FIND_RESULTS_TAB_URI] = document;
-        tab_bar.add_tab (FIND_RESULTS_TAB_URI, document.name, "", false, document.title);
-        tab_opened (FIND_RESULTS_TAB_URI);
-        if (documents.size () == 1) {
+    private void wire_kind (EditorPane.ITabKind kind) {
+      kind.tab_added.connect ((uri, name, folder_name, preview, title, has_pathname) => {
+        tabs[uri] = new OpenTab (kind, title);
+        tab_bar.add_tab (uri, name, folder_name, preview, title, has_pathname);
+        tab_opened (uri);
+        if (tabs.size () == 1) {
           has_open_tabs_changed (true);
         }
-      }
-      activate (FIND_RESULTS_TAB_URI);
+      });
+      kind.tab_removed.connect ((uri) => {
+        tab_bar.remove_tab (uri);
+        tabs.remove (uri);
+        tab_closed (uri);
+        on_tab_gone (uri);
+      });
+      kind.tab_renamed.connect ((old_uri, new_uri, name, folder_name, title, has_pathname) => {
+        tabs.remove (old_uri);
+        tabs[new_uri] = new OpenTab (kind, title);
+        tab_bar.rename_tab (old_uri, new_uri, name, folder_name, title, has_pathname);
+        if (active_path == old_uri) {
+          active_path = new_uri;
+        }
+        notify_active_state ();
+      });
+      kind.tab_marks_changed.connect ((uri, modified, deleted, unsynchronized) => {
+        tab_bar.mark_modified (uri, modified);
+        tab_bar.mark_deleted (uri, deleted);
+        tab_bar.mark_unsynchronized (uri, unsynchronized);
+        if (uri == active_path) {
+          active_state_changed (uri, modified);
+        }
+      });
+      kind.tab_preview_changed.connect ((uri, preview) => tab_bar.mark_preview (uri, preview));
+      kind.tab_decoration_changed.connect ((uri, decoration) => tab_bar.mark_decoration (uri, decoration));
+      kind.activate_requested.connect (activate);
+      kind.search_position_changed.connect ((position, count) => {
+        if (kind == active_kind) {
+          search_position_changed (position, count);
+        }
+      });
     }
 
-    /** Saves the active document, if any and if dirty — see save_uri(). */
+    private EditorPane.ITabKind? kind_of (string uri) {
+      return tabs[uri]?.kind;
+    }
+
+    /** The clean, user-facing name behind `uri`, as its kind registered it. Falls back to `uri` itself, which should never actually happen for a tab that exists. */
+    private string title_of (string uri) {
+      return tabs[uri]?.title ?? uri;
+    }
+
+    /** The registered uri whose title is `title`, or null — Opus.Dev.DevServer addresses a tab by the very same string open_paths()/active_document_path hand back to it, never by a uri it has no reason to know about. */
+    private string? uri_of_title (string title) {
+      foreach (var uri in tabs.get_keys ()) {
+        if (tabs[uri].title == title) {
+          return uri;
+        }
+      }
+      return null;
+    }
+
+    /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path"/.editorconfig lookups resolve against the new root. */
+    public void set_root_path (string root_path) {
+      this.root_path = root_path;
+      document_tab.set_root_path (root_path);
+    }
+
+    public void set_decorations (FileDecoration.Registry? new_decorations) {
+      document_tab.set_decorations (new_decorations);
+    }
+
+    public void set_diff_base_provider (GitDiff.IBaseProvider? new_provider) {
+      document_tab.set_diff_base_provider (new_provider);
+    }
+
+    /** Opens `path` as a Document tab, preview or permanent — see TabDocument.open(). */
+    public void open (string path, bool as_permanent) throws Error {
+      document_tab.open (path, as_permanent);
+    }
+
+    public void new_untitled () {
+      document_tab.new_untitled ();
+    }
+
+    /** Find in Files — see TabFindResults.search(). The tab kind itself is created on the first search only. */
+    public async void search_in_files (FindInFilesQuery query) {
+      if (tab_find_results == null) {
+        tab_find_results = new EditorPane.TabFindResults ();
+        wire_kind (tab_find_results);
+        tab_find_results.navigate_requested.connect ((path, line, column) => document_tab.open_at (path, line, column));
+      }
+      yield tab_find_results.search (root_path, query);
+    }
+
+    /** Saves the active tab, if it's a Document — nothing else has anything to save. */
     public async void save_active () {
-      if (active_path != null) {
-        yield save_uri (active_path);
+      if (active_kind == document_tab) {
+        yield document_tab.save_uri (active_path);
       }
     }
 
-    /** "Save As" on the active document, if any — see save_as_path(). */
+    /** "Save As" on the active tab, if it's a Document — see save_active(). */
     public async void save_as_active () {
-      if (active_path != null) {
-        yield save_as_path (active_path);
+      if (active_kind == document_tab) {
+        yield document_tab.save_as_uri (active_path);
       }
     }
 
     /** Closes the active tab, if any — same unsaved-changes flow as its own close button. */
     public void close_active () {
       if (active_path != null) {
-        close_tab.begin (active_path);
+        active_kind.close_tab.begin (active_path);
       }
     }
 
-    /** Whether `path` is currently open as a tab with unsaved changes. */
+    /** Whether `path` is currently open as a Document tab with unsaved changes. */
     public bool is_dirty (string path) {
-      var document = find_by_title (path);
-      return document != null && document.dirty;
+      return document_tab.is_path_dirty (path);
     }
 
     /** The active tab's own clean, user-facing name — its real path for a file, a plain display name otherwise — or null if none. Opus.Dev.DevServer's own GetActiveTab. */
     public string? active_document_path {
-      owned get { return active_path == null ? null : documents[active_path].title; }
+      owned get { return active_path == null ? null : title_of (active_path); }
     }
 
     /** The currently linked folder — MainWindow's own "Add Folder…" (FindInFilesBar's where_entry) reads this to validate a chosen folder is actually inside it before appending anything. */
@@ -417,607 +266,96 @@ namespace EditorView {
       get { return root_path; }
     }
 
-    /** The query behind the "Find Results" tab, but only while that's actually the active tab — null otherwise, even if a "Find Results" tab still exists somewhere in the background. MainWindow's own Ctrl+Shift+F reads this to decide whether reopening FindInFilesBar should restore the last search or start blank. */
+    /** See TabFindResults.active_query — null unless the Find Results tab is the active one. */
     public FindInFilesQuery? current_find_in_files_query {
-      get { return active_path != null && is_find_results_tab (active_path) ? last_find_in_files_query : null; }
+      get { return tab_find_results?.active_query; }
     }
 
-    /**
-     * MainWindow's own Ctrl+H reads this first to decide whether to open
-     * this tab's own inline Find/Replace row (open_internal_replace())
-     * instead of the regular FindBar (see editor-pane-tab-dispatch.md,
-     * root — this is exactly the kind of per-internal-tab special case
-     * that file's proposed registry would take over once a second
-     * internal tab kind exists; one `if` here isn't worth pulling that
-     * forward yet).
-     */
-    public bool is_find_results_active () {
-      return active_path != null && is_find_results_tab (active_path);
+    /** Whether the active tab can do `capability` — false with no tab open, so MainWindow needs no separate "any tab open" gate for the shortcuts this answers for. */
+    public bool active_tab_supports (EditorPane.TabCapability capability) {
+      return active_kind != null && capability in active_kind.capabilities;
     }
 
-    /** Opens the Find Results tab's own inline Find/Replace row — a no-op if that tab isn't actually open/active, same as every other action method here (save_active(), close_active(), ...) trusting its own guard over the caller's. */
-    public void open_internal_replace () {
-      if (!is_find_results_active () || find_results == null) {
-        return;
-      }
+    /** Ctrl+Plus on the active tab — whatever zooming means for its kind; a no-op with none open. */
+    public void zoom_in () {
+      active_kind?.zoom_in ();
+    }
 
-      find_results.open_replace_row ();
+    /** Ctrl+Minus — see zoom_in(). */
+    public void zoom_out () {
+      active_kind?.zoom_out ();
+    }
+
+    /** Ctrl+0 — see zoom_in(). */
+    public void reset_zoom () {
+      active_kind?.reset_zoom ();
+    }
+
+    /** Opens the active tab's own inline replace row — only meaningful when active_tab_supports(INLINE_REPLACE); a no-op otherwise, same as every other action method here trusting its own guard over the caller's. */
+    public void open_replace () {
+      active_kind?.open_replace ();
     }
 
     /** Every currently open tab's own clean, user-facing name — Opus.Dev.DevServer's own ListOpenTabs, no UI caller today. */
     public string[] open_paths () {
       string[] paths = {};
-      foreach (var document in documents.get_values ()) {
-        paths += document.title;
+      foreach (var tab in tabs.get_values ()) {
+        paths += tab.title;
       }
       return paths;
-    }
-
-    /** The active document's current buffer content, or "" if none — Opus.Dev.DevServer's own GetActiveText, the reverse of set_active_content(). */
-    public string active_content {
-      owned get { return active_path == null ? "" : documents[active_path].content; }
-    }
-
-    /**
-     * Replaces the active document's content wholesale, as if the user
-     * had retyped the whole buffer — Opus.Dev.DevServer's own
-     * SetActiveText, no UI caller today (a person editing for real goes
-     * through on_text_changed() instead). Unlike that path, this also
-     * has to push the new text into the real buffer itself: the UI path
-     * runs the other way around (buffer changes first, content follows),
-     * so nothing else does that half of the job here.
-     */
-    public void set_active_content (string text) {
-      if (active_path == null) {
-        return;
-      }
-
-      var document = documents[active_path];
-      document.content = text;
-      if (document.is_preview) {
-        promote (document);
-      }
-      code_editor.read_only = false;
-      code_editor.set_text (text, document.pathname ?? active_path);
-      tab_bar.mark_modified (document.uri, document.dirty);
-      notify_active_state ();
-    }
-
-    /**
-     * Replaces the active document's cursor set and renders it — Opus.Dev.DevServer's
-     * own SetActiveCursors, still handy for the system-test DSL to seed a
-     * multi-cursor starting state without typing/clicking it into place
-     * first. `anchors[i]`/`positions[i]` pair up into one cursor each; a
-     * collapsed cursor has `anchors[i] == positions[i]`. A no-op if the
-     * two arrays don't have the same length, or if there's no active tab.
-     */
-    public void set_active_cursors (int[] anchors, int[] positions) {
-      if (active_path == null || anchors.length != positions.length) {
-        return;
-      }
-
-      var document = documents[active_path];
-      var cursor_set = new Cursor[anchors.length];
-      for (int i = 0; i < anchors.length; i++) {
-        var cursor = new Cursor (anchors[i]);
-        cursor.position_offset = positions[i];
-        cursor_set[i] = cursor;
-      }
-
-      document.cursors.set_cursors (cursor_set);
-      code_editor.render_cursors (document.cursors.snapshot ());
-    }
-
-    /**
-     * The active document's current cursor set — Opus.Dev.DevServer's own
-     * GetActiveCursors, the reverse of set_active_cursors(). Each `out`
-     * array is empty when there's no active tab.
-     */
-    public void get_active_cursors (out int[] anchors, out int[] positions) {
-      if (active_path == null) {
-        anchors = {};
-        positions = {};
-        return;
-      }
-
-      var cursor_set = documents[active_path].cursors.snapshot ();
-      anchors = new int[cursor_set.length];
-      positions = new int[cursor_set.length];
-      for (int i = 0; i < cursor_set.length; i++) {
-        anchors[i] = cursor_set[i].anchor_offset;
-        positions[i] = cursor_set[i].position_offset;
-      }
-    }
-
-    /** Applies a Replace/Replace All result, computed by code_editor.compute_replace_current_match()/compute_replace_all(). Not cursor-driven, so it goes through CodeEditor's own external-edit path. A no-op with no active tab, or an empty `edits`. */
-    public void apply_external_edits (TextEdit[] edits) {
-      if (active_path == null || edits.length == 0) {
-        return;
-      }
-      code_editor.apply_external_edits (edits);
-    }
-
-    // The rest of this section is pure forwarding onto code_editor's own
-    // search API — MainWindow (FindBar's owner) talks to EditorPaneWidget as
-    // the one facade for "the editor," never reaching into CodeEditor
-    // directly, the same reason apply_external_edits() above exists
-    // rather than exposing code_editor itself.
-
-    /** Whether the editor currently holds keyboard focus — MainWindow's own "was the user actually in the editor when they pressed Ctrl+F" check. */
-    public bool has_focus {
-      get { return code_editor.has_focus; }
-    }
-
-    /** The editor's own current primary selection text, "" if empty/collapsed — MainWindow's own Ctrl+F prefill. */
-    public string primary_selection_text {
-      owned get { return code_editor.primary_selection_text; }
-    }
-
-    public void grab_focus () {
-      code_editor.grab_focus ();
-    }
-
-    public void set_search_text (string text) {
-      code_editor.set_search_text (text);
-    }
-
-    public void set_search_options (bool regex, bool case_sensitive, bool whole_word) {
-      code_editor.set_search_options (regex, case_sensitive, whole_word);
-    }
-
-    public void search_next () {
-      code_editor.search_next ();
-    }
-
-    public void search_previous () {
-      code_editor.search_previous ();
-    }
-
-    public TextEdit? compute_replace_current_match (string replacement) {
-      return code_editor.compute_replace_current_match (replacement);
-    }
-
-    public TextEdit[] compute_replace_all (string replacement) {
-      return code_editor.compute_replace_all (replacement);
-    }
-
-    public void land_after_replace (int replaced_end_offset) {
-      code_editor.land_after_replace (replaced_end_offset);
-    }
-
-    public void forget_current_match () {
-      code_editor.forget_current_match ();
-    }
-
-    public void select_last_match () {
-      code_editor.select_last_match ();
-    }
-
-    /** See CodeEditorCursors.select_all_occurrences()'s own doc comment. */
-    public void select_all_occurrences () {
-      code_editor.select_all_occurrences ();
     }
 
     /**
      * Closes `path`'s tab outright, no unsaved-changes prompt — for when
      * the file itself is already gone (deleted from the sidebar) and
-     * there's nothing left to save it to. No-op if `path` isn't open.
+     * there's nothing left to save it to, and Opus.Dev.DevServer's own
+     * CloseTab. No-op if `path` isn't open.
      */
     public void discard_tab (string path) {
-      var document = find_by_title (path);
-      if (document != null) {
-        finish_close (document.uri);
+      var uri = uri_of_title (path);
+      if (uri != null) {
+        tabs[uri].kind.discard_tab (uri);
       }
     }
 
-    /**
-     * `old_path` moved to `new_path` on disk (a sidebar Rename, or a
-     * Cut+Paste actually moving rather than copying). Only ever matches a
-     * path that was directly opened as its own tab — same structural
-     * guarantee as discard_tab() above, since both arguments are always
-     * real OS paths.
-     */
+    /** `old_path` moved to `new_path` on disk — see TabDocument.file_moved(). */
     public void file_moved (string old_path, string new_path) {
-      var old_uri = Document.uri_for_path (old_path);
-      var document = documents[old_uri];
-      if (document == null) {
-        return;
-      }
-
-      file_watcher.stop_watching (old_path);
-      document.move_to (new_path);
-      var new_uri = document.uri;
-      documents.remove (old_uri);
-      documents[new_uri] = document;
-      file_watcher.start_watching (new_path);
-
-      tab_bar.rename_tab (old_uri, new_uri, document.name, folder_name_of (new_path), document.title);
-      stamp_tab_decoration (document);
-
-      if (active_path == old_uri) {
-        active_path = new_uri;
-      }
-      notify_active_state ();
+      document_tab.file_moved (old_path, new_path);
     }
 
-    /** Cascades to the file-watcher sub-component's own close(). */
+    /** Cascades to each kind's own close(). */
     public void close () {
-      file_watcher.close ();
-      // Discards any Find in Files search still in flight — see
-      // search_in_files()'s own doc comment for what search_generation
-      // guards against.
-      search_generation++;
+      document_tab.close ();
+      tab_find_results?.close ();
     }
 
-    private void open_preview (string path) throws Error {
-      var existing_preview = find_preview ();
-      if (existing_preview != null) {
-        tab_bar.remove_tab (existing_preview.uri);
-        documents.remove (existing_preview.uri);
-        file_watcher.stop_watching (existing_preview.pathname);
-        tab_closed (existing_preview.uri);
-      }
-
-      var document = Document.load (path);
-      document.is_preview = true;
-      documents[document.uri] = document;
-      tab_bar.add_tab (document.uri, document.name, folder_name_of (path), true, document.title);
-      stamp_tab_decoration (document);
-      file_watcher.start_watching (path);
-      tab_opened (document.uri);
-      if (documents.size () == 1) {
-        has_open_tabs_changed (true);
-      }
-      activate (document.uri);
-    }
-
-    private void open_permanent (string path) throws Error {
-      var document = Document.load (path);
-      document.is_preview = false;
-      documents[document.uri] = document;
-      tab_bar.add_tab (document.uri, document.name, folder_name_of (path), false, document.title);
-      stamp_tab_decoration (document);
-      file_watcher.start_watching (path);
-      tab_opened (document.uri);
-      if (documents.size () == 1) {
-        has_open_tabs_changed (true);
-      }
-      activate (document.uri);
-    }
-
-    /**
-     * `path` itself was deleted, or came back, or changed content —
-     * same interpretation the real EditorController's own
-     * on_file_changed() did, just reading the raw event from
-     * file_watcher.file_changed instead of a Gio.FileMonitor directly.
-     * The RENAMED-onto-`path` ambiguity (a plain resave looks
-     * identical at the GIO level to a delete-then-recreate) is
-     * resolved the same way: by whether this document was already
-     * known deleted.
-     */
-    private void on_file_changed (string path, FileMonitorEvent event_type, string? other_file_path) {
-      var document = documents[Document.uri_for_path (path)];
-      if (document == null) {
+    private void activate (string uri) {
+      var kind = kind_of (uri);
+      if (kind == null) {
         return;
       }
-
-      switch (event_type) {
-        case FileMonitorEvent.DELETED:
-        case FileMonitorEvent.MOVED_OUT:
-          mark_file_deleted (document, true);
-          break;
-        case FileMonitorEvent.CREATED:
-          mark_file_deleted (document, false);
-          break;
-        case FileMonitorEvent.RENAMED:
-          if (other_file_path == null || other_file_path != path) {
-            break;
-          }
-          if (document.is_deleted) {
-            mark_file_deleted (document, false);
-          } else {
-            mark_externally_modified (document);
-          }
-          break;
-        case FileMonitorEvent.CHANGED:
-          mark_externally_modified (document);
-          break;
-        default:
-          break;
+      if (active_kind != null && active_kind != kind) {
+        active_kind.hide ();
       }
-    }
-
-    /**
-     * `document`'s content changed on disk. is_externally_modified is a
-     * sticky "unsynchronized" state: once set, `document` stays
-     * unsynchronized through any number of further external changes,
-     * only resolved by an explicit choice (Discard and Reload, or a
-     * Save that overwrites disk with this tab's own content).
-     *
-     * Only on the *first* transition into this state does dirty
-     * actually matter: a clean tab has nothing of its own at stake, so
-     * it's just silently reloaded instead of ever becoming
-     * unsynchronized at all; a dirty one shows the banner (if `document`
-     * is the active tab).
-     */
-    private void mark_externally_modified (Document document) {
-      if (document.is_externally_modified) {
-        return;
-      }
-
-      if (!document.dirty) {
-        reload_document (document);
-        return;
-      }
-
-      document.is_externally_modified = true;
-      tab_bar.mark_unsynchronized (document.uri, true);
-      if (document.uri == active_path) {
-        change_banner.set_visible (true);
-      }
-    }
-
-    /** "Discard Changes and Reload" — always wins over in-memory content, dirty or not; the banner itself is already the user's confirmation. */
-    private void on_reload_requested () {
-      if (active_path == null) {
-        return;
-      }
-
-      var document = documents[active_path];
-      if (document == null) {
-        return;
-      }
-
-      reload_document (document);
-    }
-
-    /** Discards `document`'s in-memory content in favor of what's on disk right now. Only touches the editor buffer itself if it's the active tab; the tab pill's own state updates either way. */
-    private void reload_document (Document document) {
-      try {
-        document.reload ();
-      } catch (Error e) {
-        warning ("failed to reload %s: %s", document.pathname, e.message);
-        return;
-      }
-
-      if (document.uri == active_path) {
-        show_in_editor (document.uri);
-      }
-      tab_bar.mark_modified (document.uri, document.dirty);
-      tab_bar.mark_deleted (document.uri, false);
-      tab_bar.mark_unsynchronized (document.uri, false);
+      active_kind = kind;
+      active_path = uri;
+      tab_bar.set_active (uri);
+      editor_area_bin.child = kind.widget;
+      kind.show (uri);
       notify_active_state ();
     }
 
-    private void mark_file_deleted (Document document, bool deleted) {
-      if (document.is_deleted == deleted) {
-        return;
-      }
-
-      document.is_deleted = deleted;
-      tab_bar.mark_deleted (document.uri, deleted);
-      tab_bar.mark_modified (document.uri, document.dirty);
-      notify_active_state ();
-    }
-
-    /** The tab-bar label's folder suffix: the file's immediate parent directory name, or "" if it has none. */
-    private string folder_name_of (string path) {
-      var folder_name = Path.get_basename (Path.get_dirname (path));
-      return folder_name == "." || folder_name == Path.DIR_SEPARATOR_S ? "" : folder_name;
-    }
-
-    private Document? find_preview () {
-      foreach (var document in documents.get_values ()) {
-        if (document.is_preview) {
-          return document;
-        }
-      }
-      return null;
-    }
-
-    /**
-     * Finds the open document whose own external-facing identity — a
-     * real file's `pathname`, or a synthetic one's plain name, e.g.
-     * "Untitled-1"/"Find Results" — is exactly `title`. The one lookup
-     * behind every path-taking public method here that's also reachable
-     * from Opus.Dev.DevServer (`open`, `is_dirty`, `discard_tab`,
-     * `save_path`): the system-test DSL addresses a tab by the very same
-     * string `open_paths()`/`active_document_path` hand back to it,
-     * synthetic or not — never by this class's own internal `uri` key,
-     * which it has no reason to know about.
-     */
-    private Document? find_by_title (string title) {
-      foreach (var document in documents.get_values ()) {
-        if (document.title == title) {
-          return document;
-        }
-      }
-      return null;
-    }
-
-    private void activate (string path) {
-      active_path = path;
-      tab_bar.set_active (path);
-      show_in_editor (path);
-      notify_active_state ();
-    }
-
-    /** Recomputes and re-emits active_state_changed from the current active_path/documents state — safe to call defensively any time either could have changed, even if it turns out neither did. */
+    /** Recomputes and re-emits active_state_changed from the current active tab — safe to call defensively any time it could have changed, even if it turns out it didn't. */
     private void notify_active_state () {
       if (active_path == null) {
         active_state_changed (null, false);
       } else {
-        active_state_changed (active_path, documents[active_path].dirty);
+        active_state_changed (active_path, active_kind.is_dirty (active_path));
       }
     }
 
-    private bool is_find_results_tab (string uri) {
-      return uri == FIND_RESULTS_TAB_URI;
-    }
-
-    private void show_in_editor (string uri) {
-      if (is_find_results_tab (uri)) {
-        editor_area_bin.child = find_results.widget;
-        // Reset CodeEditor's own buffer/cursor state rather than
-        // leaving it showing whatever real file was open before —
-        // otherwise Ctrl+F/search_next() while this tab is active would
-        // silently operate on that hidden buffer instead of doing
-        // nothing, same as finish_close() already resets it once
-        // there's no tab left at all. Read-only too: a keystroke that
-        // still reaches the hidden editor (Opus.Dev.DevServer's own
-        // KeyPress) must not turn into a text_changed() that lands in
-        // this tab's own Document.
-        code_editor.read_only = true;
-        code_editor.set_text ("", "");
-        code_editor.unbind ();
-        change_banner.set_visible (false);
-        diff_tracker.set_document.begin (null, "", null);
-        return;
-      }
-      editor_area_bin.child = code_editor.widget;
-
-      var document = documents[uri];
-      // document.pathname ?? uri: an Untitled tab has no real path for
-      // GtkSource's own language-guessing to key off of, same as before
-      // this split — falling back to its uri (no extension either way)
-      // rather than ever handing it a raw file:// one for a real file.
-      var display_path = document.pathname ?? uri;
-      // An unreadable file shows a placeholder message instead of
-      // content, read-only and with no language (a "" path guesses
-      // none) — without that, the message would still highlight as the
-      // previous file's own language.
-      code_editor.read_only = !document.readable;
-      code_editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
-                            document.readable ? display_path : "");
-      change_banner.set_visible (document.is_externally_modified);
-
-      var indent_size = editor_config?.indent_size_for (relative_path (display_path)) ?? DEFAULT_INDENT_SIZE;
-      var insert_spaces = editor_config?.insert_spaces_for (relative_path (display_path)) ?? DEFAULT_INSERT_SPACES;
-      code_editor.set_indent (indent_size, insert_spaces);
-
-      code_editor.bind (document.cursors, document.history);
-      diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
-    }
-
-    private void promote (Document document) {
-      document.is_preview = false;
-      tab_bar.mark_preview (document.uri, false);
-    }
-
-    /** The tab bar already demoted the tab itself; just keep the model in sync. */
-    private void on_preview_demoted (string uri) {
-      var document = documents[uri];
-      if (document != null) {
-        document.is_preview = false;
-      }
-    }
-
-    private void on_text_changed (string new_text) {
-      if (active_path == null) {
-        return;
-      }
-
-      var document = documents[active_path];
-      document.content = new_text;
-      diff_tracker.notify_text_changed (new_text);
-      if (document.is_preview) {
-        promote (document);
-      }
-      tab_bar.mark_modified (document.uri, document.dirty);
-      notify_active_state ();
-    }
-
-    private void on_tab_selected (string uri) {
-      activate (uri);
-    }
-
-    private void on_tab_double_clicked (string uri) {
-      var document = documents[uri];
-      if (document != null && document.is_preview) {
-        promote (document);
-      }
-    }
-
-    private async void close_tab (string uri) {
-      var document = documents[uri];
-      if (document == null) {
-        return;
-      }
-
-      if (!document.dirty) {
-        finish_close (uri);
-        return;
-      }
-
-      var choice = yield tab_bar.confirm_unsaved_close (document.name);
-      switch (choice) {
-        case DiscardChoice.SAVE:
-          // An untitled document has nowhere to plain-save() to —
-          // save_as_path() prompts for one and, on success,
-          // re-keys it to the new uri it renamed the tab to,
-          // which is what actually needs closing now, not the
-          // old key.
-          if (document.is_untitled) {
-            var new_uri = yield save_as_path (uri);
-            if (new_uri != null) {
-              finish_close (new_uri);
-            }
-          } else if (save_document (document)) {
-            finish_close (uri);
-          }
-          break;
-        case DiscardChoice.DISCARD:
-          finish_close (uri);
-          break;
-        case DiscardChoice.CANCEL:
-          break;
-      }
-    }
-
-    /**
-     * A clean, synchronized document has nothing to write — but
-     * "clean" alone isn't enough to skip this: a document can be
-     * clean and still unsynchronized at once (e.g. Ctrl+Z undoing
-     * back to a clean state while the "File Has Changed on Disk"
-     * banner is still up). Save is one of the two ways that's meant
-     * to resolve — writing this tab's own content back to disk either
-     * way — so it has to actually run even then. Returns whether the
-     * document is clean afterwards (i.e. the save, if attempted,
-     * succeeded).
-     */
-    private bool save_document (Document? document) {
-      if (document == null || (!document.dirty && !document.is_externally_modified)) {
-        return true;
-      }
-
-      file_watcher.mark_own_write (document.pathname);
-      try {
-        document.save ();
-      } catch (Error e) {
-        file_watcher.discard_own_write (document.pathname); // never wrote, so no event will ever come consume it
-        warning ("failed to save %s: %s", document.pathname, e.message);
-        return false;
-      }
-
-      tab_bar.mark_modified (document.uri, document.dirty);
-      tab_bar.mark_deleted (document.uri, document.is_deleted); // save() already reset this to false
-      tab_bar.mark_unsynchronized (document.uri, false); // same — save() already reset is_externally_modified too
-      if (document.uri == active_path) {
-        change_banner.set_visible (false);
-      }
-      notify_active_state ();
-      return true;
-    }
-
-    private void finish_close (string uri) {
-      var document = documents[uri];
-      if (document?.pathname != null) {
-        file_watcher.stop_watching (document.pathname);
-      }
-      tab_bar.remove_tab (uri);
-      documents.remove (uri);
-      tab_closed (uri);
-
+    /** The shared tail of any tab's removal: falls back to another tab if the active one just went, and announces the last one leaving. */
+    private void on_tab_gone (string uri) {
       if (active_path == uri) {
         // Prefer another still-open tab over going empty — the
         // rightmost one, for now.
@@ -1026,35 +364,33 @@ namespace EditorView {
           activate (fallback);
         } else {
           active_path = null;
-          code_editor.read_only = true;
-          code_editor.set_text ("", "");
-          change_banner.set_visible (false);
-          code_editor.unbind ();
+          active_kind.hide ();
+          active_kind = null;
           notify_active_state ();
         }
       }
 
-      if (documents.size () == 0) {
+      if (tabs.size () == 0) {
         has_open_tabs_changed (false);
       }
     }
 
     private void close_others (string keep_uri) {
       string[] uris = {};
-      foreach (var uri in documents.get_keys ()) {
+      foreach (var uri in tabs.get_keys ()) {
         if (uri != keep_uri) {
           uris += uri;
         }
       }
-      close_paths.begin (uris);
+      close_tabs.begin (uris);
     }
 
     private void close_all () {
       string[] uris = {};
-      foreach (var uri in documents.get_keys ()) {
+      foreach (var uri in tabs.get_keys ()) {
         uris += uri;
       }
-      close_paths.begin (uris);
+      close_tabs.begin (uris);
     }
 
     /**
@@ -1063,117 +399,12 @@ namespace EditorView {
      * overlaps another's. `owned`, not borrowed: without it, `uris`
      * is only valid for the synchronous part of the call.
      */
-    private async void close_paths (owned string[] uris) {
+    private async void close_tabs (owned string[] uris) {
       foreach (var uri in uris) {
-        yield close_tab (uri);
-      }
-    }
-
-    /**
-     * A plain Save on `path` specifically, not necessarily the active tab
-     * — except for an untitled document, which has nowhere to write to
-     * yet and goes through the Save As flow instead. Public for
-     * Opus.Dev.DevServer's own SaveTab, which addresses a tab the same
-     * way it addresses CloseTab/IsDirty (see find_by_title()) —
-     * the UI itself only ever reaches this through save_active()/
-     * save_as_active(), always on whichever tab is active.
-     */
-    public async void save_path (string path) {
-      var document = find_by_title (path);
-      if (document != null) {
-        yield save_uri (document.uri);
-      }
-    }
-
-    /** The actual save-by-identity implementation behind save_path() and save_active() — the public save_path() looks its document up by display name first; save_active() already has a uri (active_path). */
-    private async void save_uri (string uri) {
-      var document = documents[uri];
-      // !is_saveable would otherwise route this into save_as_path() —
-      // a real file-save dialog writing out the Find Results tab's own
-      // always-empty content (its real text lives only in find_results'
-      // own buffer, never in this Document), then renaming the tab away.
-      if (document == null || !document.is_saveable) {
-        return;
-      }
-
-      if (document.is_untitled) {
-        yield save_as_path (uri);
-      } else {
-        save_document (document);
-      }
-    }
-
-    /**
-     * Save As: asks for a destination via the system's own
-     * file chooser (an untitled document defaults to the workspace
-     * root), writes the document there, and re-keys both the document
-     * and its tab to the new uri. Also promotes a preview tab.
-     * Returns the document's new uri on success, or null if cancelled or
-     * the write itself failed.
-     */
-    private async string? save_as_path (string uri) {
-      var document = documents[uri];
-      if (document == null || !document.is_saveable) {
-        return null;
-      }
-
-      // Only a real, already-loaded file has a pathname to default
-      // against — an untitled document has nowhere on disk yet, hence
-      // root_path instead.
-      var old_pathname = document.pathname;
-      var initial_folder = document.is_untitled ? root_path : Path.get_dirname (old_pathname);
-      var new_path = yield choose_save_as_path (document.name, initial_folder);
-      if (new_path == null) {
-        return null;
-      }
-
-      file_watcher.mark_own_write (new_path);
-      try {
-        document.save_as (new_path);
-      } catch (Error e) {
-        file_watcher.discard_own_write (new_path); // never wrote, so no event will ever come consume it
-        warning ("failed to save %s: %s", new_path, e.message);
-        return null;
-      }
-
-      var new_uri = document.uri;
-      documents.remove (uri);
-      documents[new_uri] = document;
-      if (old_pathname != null) {
-        file_watcher.stop_watching (old_pathname);
-      }
-      file_watcher.start_watching (new_path);
-      bool was_active = active_path == uri;
-      if (was_active) {
-        active_path = new_uri;
-      }
-
-      tab_bar.rename_tab (uri, new_uri, document.name, folder_name_of (new_path), document.title);
-      tab_bar.mark_modified (new_uri, false);
-      tab_bar.mark_deleted (new_uri, false);
-      tab_bar.mark_unsynchronized (new_uri, false); // save_as() already reset is_externally_modified too
-      stamp_tab_decoration (document);
-      if (was_active) {
-        change_banner.set_visible (false);
-      }
-      if (document.is_preview) {
-        promote (document);
-      }
-      notify_active_state ();
-      return new_uri;
-    }
-
-    /** Shows the system's own Save-As file chooser, pre-filled with `suggested_name` in `current_folder`. Returns the chosen path, or null if cancelled or the dialog/portal itself failed. */
-    private async string? choose_save_as_path (string suggested_name, string current_folder) {
-      var dialog = new Gtk.FileDialog ();
-      dialog.initial_name = suggested_name;
-      dialog.initial_folder = File.new_for_path (current_folder);
-
-      try {
-        var file = yield dialog.save (container.get_root () as Gtk.Window, null);
-        return file != null ? file.get_path () : null;
-      } catch (Error e) {
-        return null;
+        var kind = kind_of (uri);
+        if (kind != null) {
+          yield kind.close_tab (uri);
+        }
       }
     }
 

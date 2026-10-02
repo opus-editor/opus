@@ -4,7 +4,7 @@
  * FindInFilesResult ran, so what's shown for them can't be trusted to
  * still be accurate — see FindInFilesResult.searched_at's own doc
  * comment) and, for every file it *did* write, exactly where each
- * replacement landed in that file's new content. FindResults uses the
+ * replacement landed in that file's new content. TabFindResults uses the
  * latter to re-highlight the real, just-written text without
  * re-searching for it — see FindInFilesReplace's own doc comment for
  * why that's both correct and cheap to do.

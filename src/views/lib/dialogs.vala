@@ -138,7 +138,7 @@ private class ResponseAreaLayout : Gtk.LayoutManager {
 
 /**
  * Shared builder for the modal dialogs used across TabBar, ExplorerPane,
- * FindResults, and MainWindow — same pattern as ContextMenu: a static
+ * TabFindResults, and MainWindow — same pattern as ContextMenu: a static
  * method per dialog shape, instantiating and discarding a dialog per call
  * rather than each call site hand-rolling its own responses.
  *

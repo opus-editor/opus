@@ -10,6 +10,35 @@ public class SystemTestTabs : Object {
         call ("NewFile");
     }
 
+    /** Opens `path` as a permanent tab — same as "Open File…" or a sidebar double-click. */
+    public void open_tab (string path) throws Error {
+        call ("OpenTab", new Variant ("(s)", path));
+    }
+
+    /** Every open tab's own user-facing name (a real path, or a synthetic tab's display name), in no particular order. */
+    public string[] open_tabs () throws Error {
+        return call ("ListOpenTabs").get_child_value (0).dup_strv ();
+    }
+
+    /**
+     * Waits until `expected` is the active tab, for a change that lands
+     * asynchronously on the Opus side (a Find in Files search runs off
+     * the D-Bus call's own return) — the same poll-with-deadline shape
+     * SystemTestSession's own readiness wait uses. Fails if it never does.
+     */
+    public void wait_for_active_tab (string expected) throws Error {
+        int64 deadline = get_monotonic_time () + WAIT_TIMEOUT_USEC;
+        while (active_tab () != expected) {
+            if (get_monotonic_time () >= deadline) {
+                throw new IOError.TIMED_OUT ("\"%s\" never became the active tab (active: \"%s\")".printf (expected, active_tab ()));
+            }
+            Thread.usleep (WAIT_POLL_INTERVAL_MSEC * 1000);
+        }
+    }
+
+    private const int64 WAIT_TIMEOUT_USEC = 5 * 1000 * 1000;
+    private const uint WAIT_POLL_INTERVAL_MSEC = 50;
+
     /** Closes `path`'s tab outright, no unsaved-changes prompt (matching CloseTab's own semantics — see dev-server/index.vala) — fine for a clean, just-created test document. */
     public void close_tab (string path) throws Error {
         call ("CloseTab", new Variant ("(s)", path));

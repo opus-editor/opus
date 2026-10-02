@@ -1,13 +1,13 @@
 /* header row is a bare Gtk.Box around header_label with no padding of
  * its own — same breathing room as results_view's own top/bottom/
- * left/right margin (find-results/index.vala), so the label doesn't
+ * left/right margin (tab-find-results/index.vala), so the label doesn't
  * sit flush against the tab's own edges. */
 .find-results-header {
   padding: 8px 12px;
 }
 
 /* The Find/Replace row's own background-color is added separately, at
- * runtime (find-results/index.vala's own apply_style_scheme()) — it has
+ * runtime (tab-find-results/index.vala's own apply_style_scheme()) — it has
  * to match results_view's real GtkSource.StyleScheme background exactly
  * (Adwaita/Adwaita-dark aren't plain GTK theme colors), which isn't
  * knowable from a static stylesheet. No border of its own: the point is

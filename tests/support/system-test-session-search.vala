@@ -26,6 +26,11 @@ public class SystemTestSearch : Object {
         call ("SearchPrevious");
     }
 
+    /** Find in Files for `text` across the linked folder — same as Enter in FindInFilesBar's own entry. Returns before the search itself finishes; see SystemTestTabs.wait_for_active_tab(). */
+    public void find_in_files (string text) throws Error {
+        call ("FindInFiles", new Variant ("(s)", text));
+    }
+
     /** The live search's current (position, count), same numbers FindBar's own "N of M" counter would show. */
     public void search_position (out int position, out int count) throws Error {
         var result = call ("SearchGetPosition");

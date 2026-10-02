@@ -5,7 +5,7 @@
  * regex substitution (`GLib.Regex.replace_eval()`, the same "read a
  * fresh string, produce a new one" shape any batch text tool uses),
  * not a replay of `result`'s own stored match offsets: those are
- * char-offset/line-number bookkeeping for rendering FindResults' own
+ * char-offset/line-number bookkeeping for rendering TabFindResults' own
  * buffer, not something this needs to touch at all — re-matching fresh
  * sidesteps the byte/char-offset conversion `find-in-files-search.vala`
  * itself has to do, and, unlike GtkSourceSearchContext (see
@@ -30,7 +30,7 @@
  *   throwing and aborting every file after it in the same run() call —
  *   files already rewritten earlier in the loop stay rewritten, and the
  *   caller still gets a real, complete outcome for all of them.
- * - The caller (FindResults) needs to show the *real*, just-written
+ * - The caller (TabFindResults) needs to show the *real*, just-written
  *   text afterward, not the stale pre-replace preview — and specifically
  *   needs to know exactly where in that new text each replacement
  *   landed, to highlight it. Re-searching for it afterward would be
@@ -123,7 +123,7 @@ public class FindInFilesReplace : Object {
    * line numbers for insertions *after* it in the same file — each
    * insertion is still correctly resolved against the same, single
    * fresh split of the final content, not the pre-replace line numbers
-   * FindInFilesBlock.start_line was computed against; FindResults' own
+   * FindInFilesBlock.start_line was computed against; TabFindResults' own
    * refresh is what has to stay aware of that mismatch, not this method.
    */
   private static GenericArray<FindInFilesMatch> matches_from_byte_ranges (string content, GenericArray<ByteRange> ranges) {

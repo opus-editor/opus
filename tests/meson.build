@@ -475,6 +475,22 @@ test(
   is_parallel: false,
 )
 
+find_in_files_tab_test = executable(
+  'find-in-files-tab-test',
+  ['system/find/find-in-files-tab-test.vala', opus_system_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep],
+)
+test(
+  'find-in-files-tab',
+  find_in_files_tab_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
 wrapped_movement_test = executable(
   'wrapped-movement-test',
   ['system/cursors/wrapped-movement-test.vala', opus_system_test_sources],

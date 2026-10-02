@@ -1,10 +1,10 @@
 namespace EditorView.EditorPane {
   /**
    * Paints one file's own real language syntax highlighting onto a
-   * range of FindResults' own results buffer — the narrow, engine-
+   * range of TabFindResults' own results buffer — the narrow, engine-
    * agnostic seam a future swap to a different highlighting engine
    * (e.g. tree-sitter-highlight) would only need to reimplement, not
-   * ripple through FindResults itself: the public surface below is
+   * ripple through TabFindResults itself: the public surface below is
    * `path` + plain text + an `int[]` of line offsets, nothing from the
    * search Model and no `GtkSource.Language` leaks through.
    *
@@ -31,7 +31,7 @@ namespace EditorView.EditorPane {
    * paint the whole line, gutter prefix included) or scale (breaks
    * monospace alignment).
    */
-  public class FindResultsLanguageHighlighter : Object {
+  public class TabFindResultsLanguageHighlighter : Object {
     private GtkSource.Buffer target;
     // One, reused across every highlight() call — not one per block:
     // building a fresh GtkSource.Buffer (and its own highlight engine)
@@ -41,7 +41,7 @@ namespace EditorView.EditorPane {
     private HashTable<string, Gtk.TextTag> tags_by_style_key = new HashTable<string, Gtk.TextTag> (str_hash, str_equal);
     private GenericArray<Gtk.TextTag> owned_tags = new GenericArray<Gtk.TextTag> ();
 
-    public FindResultsLanguageHighlighter (GtkSource.Buffer target) {
+    public TabFindResultsLanguageHighlighter (GtkSource.Buffer target) {
       this.target = target;
       scratch = new GtkSource.Buffer (null);
       scratch.highlight_syntax = true;

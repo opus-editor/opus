@@ -4,7 +4,7 @@
  * shares: Gtk.SearchBar/GtkSearchBar native behavior, why focus is
  * grabbed explicitly in show_find(), why set_find_text() must be
  * called after it). Find-only — Replace lives in the Find Results tab's
- * own header instead (EditorView.EditorPane.FindResults' own
+ * own header instead (EditorView.EditorPane.TabFindResults' own
  * replace_button), not here; Where is still always shown alongside
  * Find, matching VS Code's own real Find in Files panel. Wired into
  * MainWindow's own Ctrl+Shift+F; the doc comments below still describe
