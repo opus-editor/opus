@@ -29,12 +29,13 @@ public class CommandBarPopover : Object, IGlobalPanel {
   private CommandBar.Picker? picker = null;
   private bool shown = false;
 
-  // Keeps the popover's content exactly as wide as the entry for as
-  // long as the bar is shown — re-checked every frame, since there's
-  // no allocation signal to hook and the entry's width changes with
-  // the window's. Zero while not running.
-  private uint popover_width_tick_id = 0;
-  private int synced_entry_width = -1;
+  // Only set between open() and the first frame entry_box actually gets
+  // allocated: on the very first open since launch, its title-stack page
+  // has never been visible, so it has no width yet to read. Cancelled by
+  // close() if that happens before the frame arrives. Not used again
+  // afterwards — later opens read entry_box's already-known width
+  // synchronously.
+  private uint pending_open_tick_id = 0;
 
   // Set while this class itself writes entry.text (mirroring a picker),
   // so the entry's own `changed` doesn't echo that straight back.
@@ -127,12 +128,40 @@ public class CommandBarPopover : Object, IGlobalPanel {
       return;
     }
     shown = true;
-    results_popover.popup ();
-    synced_entry_width = -1;
-    popover_width_tick_id = entry_box.add_tick_callback (() => {
-      sync_popover_width ();
-      return Source.CONTINUE;
+    int width = entry_visible_width ();
+    if (width > 0) {
+      show_popover (width);
+      return;
+    }
+    // entry_box's title-stack page has never been visible before, so it
+    // hasn't been through a layout pass yet — wait for the one frame
+    // where GTK actually allocates it, then show.
+    pending_open_tick_id = entry_box.add_tick_callback ((widget, frame_clock) => {
+      int w = entry_visible_width ();
+      if (w <= 0) {
+        return Source.CONTINUE;
+      }
+      pending_open_tick_id = 0;
+      show_popover (w);
+      return Source.REMOVE;
     });
+  }
+
+  /** entry_box's own CSS padding (`.command-bar-entry`) is part of its painted box but not of `get_width ()`, which reports the content box only — compute_bounds against itself is what actually matches what's on screen. `get_width ()` itself is only a readiness gate here (0 before entry_box's title-stack page has ever been allocated): compute_bounds alone can report a stale, too-small box during that same unsettled frame. */
+  private int entry_visible_width () {
+    if (entry_box.get_width () <= 0) {
+      return 0;
+    }
+    Graphene.Rect bounds;
+    if (!entry_box.compute_bounds (entry_box, out bounds)) {
+      return 0;
+    }
+    return (int) bounds.get_width ();
+  }
+
+  private void show_popover (int width) {
+    content_stack.width_request = width;
+    results_popover.popup ();
     entry.grab_focus_without_selecting ();
     int prefix_length = picker != null ? picker.prefix.char_count () : 0;
     entry.select_region (prefix_length, -1);
@@ -143,7 +172,10 @@ public class CommandBarPopover : Object, IGlobalPanel {
       return;
     }
     shown = false;
-    stop_syncing_popover_width ();
+    if (pending_open_tick_id != 0) {
+      entry_box.remove_tick_callback (pending_open_tick_id);
+      pending_open_tick_id = 0;
+    }
     results_popover.popdown ();
     unbind ();
     closed ();
@@ -161,25 +193,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
 
   /** Unparents the popover — the one child here GTK won't tear down with the window on its own. Called from MainWindow's destroy handler. */
   public void destroy () {
-    stop_syncing_popover_width ();
     results_popover.unparent ();
-  }
-
-  /** The popover window itself is wider than what it shows (its shadow margins live inside its allocation), so the width that must match the entry is its content's, not the popover's. */
-  private void sync_popover_width () {
-    int width = entry_box.get_width ();
-    if (width <= 0 || width == synced_entry_width) {
-      return;
-    }
-    synced_entry_width = width;
-    content_stack.width_request = width;
-  }
-
-  private void stop_syncing_popover_width () {
-    if (popover_width_tick_id != 0) {
-      entry_box.remove_tick_callback (popover_width_tick_id);
-      popover_width_tick_id = 0;
-    }
   }
 
   private void on_items_changed () {
