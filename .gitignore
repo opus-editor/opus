@@ -14,3 +14,9 @@ sprint/
 *.swp
 *.swo
 .DS_Store
+
+# Flatpak build (just flatpak / just bundle)
+flatpak-build/
+flatpak-repo/
+.flatpak-builder/
+Opus.flatpak

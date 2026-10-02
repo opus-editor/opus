@@ -1,0 +1,54 @@
+{
+  "id": "io.github.opus_editor.Opus",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "50",
+  "sdk": "org.gnome.Sdk",
+  "command": "opus",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri",
+    "--filesystem=host",
+    "--talk-name=org.freedesktop.Flatpak"
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/share/gir-1.0",
+    "/share/vala",
+    "*.la",
+    "*.a"
+  ],
+  "modules": [
+    {
+      "name": "libpeas",
+      "buildsystem": "meson",
+      "config-opts": [
+        "-Dgjs=false",
+        "-Dlua51=false",
+        "-Dpython3=false",
+        "-Dintrospection=true",
+        "-Dvapi=true"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://download.gnome.org/sources/libpeas/2.0/libpeas-2.0.7.tar.xz",
+          "sha256": "1e9a9d69761d2109eff5b7c11d8c96b4867ccfaca2b921eded49401192769ec9"
+        }
+      ]
+    },
+    {
+      "name": "opus",
+      "buildsystem": "meson",
+      "config-opts": ["--buildtype=release"],
+      "sources": [
+        {
+          "type": "dir",
+          "path": ".."
+        }
+      ]
+    }
+  ]
+}

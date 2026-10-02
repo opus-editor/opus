@@ -20,6 +20,19 @@ test: build
 run *ARGS: build
     GSETTINGS_SCHEMA_DIR=builddir/data ./builddir/src/opus {{ARGS}}
 
+# Build the Flatpak from build-aux/'s manifest and install it for the
+# current user, so `flatpak run io.github.opus_editor.Opus` runs this
+# working tree. Needs org.flatpak.Builder from Flathub (itself a
+# Flatpak). --repo keeps a local OSTree repo for `just bundle`.
+flatpak:
+    flatpak run org.flatpak.Builder --user --install --force-clean --ccache \
+      --repo=flatpak-repo flatpak-build build-aux/io.github.opus_editor.Opus.json
+
+# Export the last `just flatpak` build as a single-file bundle — what a
+# release attaches, and what install.sh installs.
+bundle:
+    flatpak build-bundle flatpak-repo Opus.flatpak io.github.opus_editor.Opus
+
 # Remove the build directory.
 clean:
-    rm -rf builddir
+    rm -rf builddir flatpak-build flatpak-repo .flatpak-builder Opus.flatpak
