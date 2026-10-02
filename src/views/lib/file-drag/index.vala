@@ -72,7 +72,7 @@ public class FileDrag : Object {
 
       if (candidate.icon_widget != null) {
         drag.set_hotspot (hot_x, hot_y);
-        ((Gtk.DragIcon) Gtk.DragIcon.get_for_drag (drag)).child = candidate.icon_widget;
+        DragIcons.for_drag (drag).child = candidate.icon_widget;
       } else {
         source.set_icon (new Gtk.WidgetPaintable (candidate.preview_widget), hot_x, hot_y);
       }

@@ -80,7 +80,7 @@ public class CodeEditorDragSelection : Object {
     active_drag = drag;
 
     if (drag != null) {
-      ((Gtk.DragIcon) Gtk.DragIcon.get_for_drag (drag)).child = new Gtk.Label (snapshot.text);
+      DragIcons.for_drag (drag).child = new Gtk.Label (snapshot.text);
     }
   }
 

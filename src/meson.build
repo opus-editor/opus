@@ -110,6 +110,7 @@ opus_lib_sources = opus_logger_sources + opus_host_command_sources + opus_fuzzy_
 
 opus_gtk_view_sources = files(
   'views/lib/dialogs.vala',
+  'views/lib/drag-icons.vala',
   'views/lib/system-color.vala',
   'views/lib/file-drag/_payload.vala',
   'views/lib/file-drag/_candidate.vala',
