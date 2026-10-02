@@ -15,7 +15,29 @@ native with GTK4 and Libadwaita, in Vala.
 - File tree and tabs tinted by git status
 - Git change bars in the gutter
 
+## Install
+
+Opus ships as a Flatpak. With [Flatpak](https://flatpak.org/setup/)
+on your system:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/opus-editor/opus/main/install.sh | sh
+```
+
+It installs for your user only (no `sudo`) and pulls the GNOME runtime
+from Flathub the first time. Run it again to update. To remove:
+
+```shell
+flatpak uninstall --user io.github.opus_editor.Opus
+```
+
+Git features (status tints, change bars, gitignore-aware search) use
+the `git` on your system. Settings live in
+`~/.var/app/io.github.opus_editor.Opus/config/`.
+
 ## Prerequisites
+
+To build from source:
 
 - Vala (`valac`) 0.56+
 - Meson 1.0+ and Ninja
@@ -36,6 +58,13 @@ sudo apt install valac meson ninja-build libgtk-4-dev libadwaita-1-dev \
 ```shell
 just build
 just run [folder]
+```
+
+To build the Flatpak itself (needs `org.flatpak.Builder` from Flathub):
+
+```shell
+just flatpak   # builds and installs it for your user
+just bundle    # exports Opus.flatpak, what a release attaches
 ```
 
 ## Testing
