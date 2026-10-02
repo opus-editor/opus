@@ -43,6 +43,12 @@
       "name": "opus",
       "buildsystem": "meson",
       "config-opts": ["--buildtype=release"],
+      "test-rule": "",
+      "test-commands": [
+        "meson configure /run/build/opus/_flatpak_build --buildtype=debug",
+        "ninja -C /run/build/opus/_flatpak_build",
+        "dbus-run-session -- meson test -C /run/build/opus/_flatpak_build --print-errorlogs"
+      ],
       "sources": [
         {
           "type": "dir",

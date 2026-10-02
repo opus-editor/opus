@@ -1,0 +1,30 @@
+# Runs the test suite on every push and pull request — inside a
+# flatpak-builder build of the manifest, the one environment that has
+# every dependency (libpeas isn't in the GNOME Sdk) and the same
+# toolchain a release is built with. `run-tests` switches on the opus
+# module's own `test-commands` (build-aux/'s manifest), which wrap
+# `meson test` in a session bus for the system tests.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: meson test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: build-aux/io.github.opus_editor.Opus.json
+          run-tests: true
+          build-bundle: false
+          upload-artifact: false
+          cache-key: flatpak-builder-${{ hashFiles('build-aux/*.json') }}
