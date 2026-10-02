@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="io.github.nowaos.Opus" path="/io/github/nowaos/Opus/">
+  <schema id="io.github.opus_editor.Opus" path="/io/github/opus_editor/Opus/">
     <key name="window-width" type="i">
       <default>900</default>
       <summary>Window width</summary>

@@ -61,7 +61,7 @@ namespace EditorView {
     public string where_text { get { return where_entry.text; } }
 
     public FindInFilesBar () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/find-in-files-bar/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/find-in-files-bar/index.ui");
       search_bar = (Gtk.SearchBar) builder.get_object ("search_bar");
       var search_grid = (Gtk.Grid) builder.get_object ("search_grid");
       regex_button = (Gtk.ToggleButton) builder.get_object ("regex_button");
@@ -191,7 +191,7 @@ namespace EditorView {
       // Reuses find-bar.css as-is: its rules target the generic
       // "searchbar"/"entry" CSS nodes, not anything find-bar-specific,
       // so there's nothing for a separate find-in-files-bar.css to add.
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/find-bar.css");
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/find-bar.css");
     }
   }
 }

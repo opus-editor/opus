@@ -45,7 +45,7 @@ namespace EditorView.EditorPane {
     public bool has_pathname { get; set; default = false; }
 
     public TabBarPill () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/_pill.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-bar/_pill.ui");
       box = (Gtk.Box) builder.get_object ("pill");
       title_label = (Gtk.Label) builder.get_object ("title_label");
       close_button = (Gtk.Button) builder.get_object ("close_button");

@@ -27,7 +27,7 @@ public class App : Adw.Application {
 
   public App (string app_id) {
     Object (application_id: app_id, flags: ApplicationFlags.HANDLES_COMMAND_LINE);
-    settings = new GLib.Settings ("io.github.nowaos.Opus");
+    settings = new GLib.Settings ("io.github.opus_editor.Opus");
     #if DEBUG
     dev_server = new Opus.Dev.DevServer ();
     #endif

@@ -18,7 +18,7 @@ namespace Opus.Plugins {
 
     public Engine () {
       peas = Peas.Engine.get_default ();
-      peas.add_search_path ("resource:///io/github/nowaos/Opus/plugins", null);
+      peas.add_search_path ("resource:///io/github/opus_editor/Opus/plugins", null);
       peas.rescan_plugins ();
 
       for (uint i = 0; i < peas.get_n_items (); i++) {

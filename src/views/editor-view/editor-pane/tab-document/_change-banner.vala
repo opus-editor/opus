@@ -16,12 +16,12 @@ namespace EditorView.EditorPane {
     public signal void discard_clicked ();
 
     public TabDocumentChangeBanner () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-document/_change-banner.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-document/_change-banner.ui");
       revealer = (Gtk.Revealer) builder.get_object ("revealer");
       var discard_button = (Gtk.Button) builder.get_object ("discard_button");
       discard_button.clicked.connect (() => discard_clicked ());
 
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/tab-document.css");
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/tab-document.css");
     }
 
     public void set_visible (bool visible) {

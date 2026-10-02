@@ -216,7 +216,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -236,7 +236,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -256,7 +256,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -276,7 +276,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -296,7 +296,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -316,7 +316,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -336,7 +336,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -356,7 +356,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -376,7 +376,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -396,7 +396,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -416,7 +416,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -436,7 +436,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -456,7 +456,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -476,7 +476,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -496,7 +496,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -516,7 +516,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -552,7 +552,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
@@ -572,7 +572,7 @@ test(
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     # Without this, GLib.Settings aborts at startup unable to find
-    # io.github.nowaos.Opus's own schema — see data/meson.build's own
+    # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',

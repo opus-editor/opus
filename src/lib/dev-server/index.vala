@@ -8,7 +8,7 @@ namespace Opus.Dev {
    * started) — never registered, so never reachable, in a release build.
    *
    * Piggybacks on the application's own existing D-Bus connection/bus name
-   * (`io.github.nowaos.Opus`, already owned by Adw.Application/GApplication
+   * (`io.github.opus_editor.Opus`, already owned by Adw.Application/GApplication
    * itself) rather than owning a second name of its own — this interface is
    * exported as one more object alongside GApplication's own, at
    * `<app's own object path>/Dev`.

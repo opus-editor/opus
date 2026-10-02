@@ -147,7 +147,7 @@ public class MainWindow : Object {
   public MainWindow (Gtk.Application app, GLib.Settings settings, string root_path) {
     this.settings = settings;
 
-    var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main/main-window/index.ui");
+    var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/main-window/index.ui");
     window = (Adw.ApplicationWindow) builder.get_object ("window");
     split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
     sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
@@ -895,11 +895,11 @@ public class MainWindow : Object {
   }
 
   private void install_css () {
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/main-window.css");
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/context-menu.css");
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/dialogs.css");
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/common.css");
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/command-bar.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/main-window.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/context-menu.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/dialogs.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/common.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/command-bar.css");
   }
 
   /**

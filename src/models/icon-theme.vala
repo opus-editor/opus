@@ -11,8 +11,8 @@
  * already theme-agnostic.
  */
 public class IconTheme : Object {
-  private const string RESOURCE_PATH = "/io/github/nowaos/Opus/icons/symbols/symbol-icon-theme.json";
-  private const string RESOURCE_PREFIX = "/io/github/nowaos/Opus/icons/symbols/";
+  private const string RESOURCE_PATH = "/io/github/opus_editor/Opus/icons/symbols/symbol-icon-theme.json";
+  private const string RESOURCE_PREFIX = "/io/github/opus_editor/Opus/icons/symbols/";
   private const string ICON_PATH_PREFIX = "./icons/";
 
   private HashTable<string, string> icon_paths = new HashTable<string, string> (str_hash, str_equal);

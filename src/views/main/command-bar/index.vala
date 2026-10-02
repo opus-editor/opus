@@ -51,7 +51,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
   public CommandBarPopover (IconTheme icon_theme) {
     this.icon_theme = icon_theme;
 
-    var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main/command-bar/index.ui");
+    var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/command-bar/index.ui");
     clamp = (Adw.Clamp) builder.get_object ("clamp");
     entry_box = (Gtk.Box) builder.get_object ("entry_box");
     entry = (Gtk.Text) builder.get_object ("entry");

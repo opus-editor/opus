@@ -40,7 +40,7 @@ public class SearchInput : Gtk.Widget {
   public SearchInput () {
     layout_manager = new Gtk.BoxLayout (Gtk.Orientation.HORIZONTAL);
 
-    var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/components/search-input.ui");
+    var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/components/search-input.ui");
     entry = (Gtk.Text) builder.get_object ("entry");
     counter_label = (Gtk.Label) builder.get_object ("counter_label");
     entry.set_parent (this);

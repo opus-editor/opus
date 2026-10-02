@@ -43,11 +43,11 @@ belongs in git history/PR descriptions and rots as the code moves on.
 
 ## Dev D-Bus control surface
 
-Debug builds expose `io.github.nowaos.Opus.Dev` (`src/lib/dev-server/`)
+Debug builds expose `io.github.opus_editor.Opus.Dev` (`src/lib/dev-server/`)
 on the app's own D-Bus connection:
 
 ```shell
-gdbus call --session --dest io.github.nowaos.Opus --object-path /io/github/nowaos/Opus/Dev --method io.github.nowaos.Opus.Dev.OpenTab /path/to/file
+gdbus call --session --dest io.github.opus_editor.Opus --object-path /io/github/opus_editor/Opus/Dev --method io.github.opus_editor.Opus.Dev.OpenTab /path/to/file
 ```
 
 `gdbus introspect` lists every method; same `--define=DEBUG` gate as

@@ -8,7 +8,7 @@ Usage: generate-default-icon-theme.py <path-to-symbols-clone>
 Copies every SVG the theme's own JSON references, copies that JSON
 itself verbatim (src/models/icon-theme.vala parses it at runtime via
 json-glib — nothing here pre-processes its contents), and regenerates
-the matching <gresource> file list in data/io.github.nowaos.Opus.gresource.xml.
+the matching <gresource> file list in data/io.github.opus_editor.Opus.gresource.xml.
 """
 import json
 import os
@@ -52,7 +52,7 @@ print("Copied LICENSE")
 # 4. Splice a generated <gresource> file list into the existing gresource.xml,
 #    inside its "icons" prefix block, between generated-block markers so a
 #    re-run just replaces the previous block instead of duplicating it.
-gresource_path = os.path.join(REPO_ROOT, "data", "io.github.nowaos.Opus.gresource.xml")
+gresource_path = os.path.join(REPO_ROOT, "data", "io.github.opus_editor.Opus.gresource.xml")
 xml_src = open(gresource_path, encoding="utf-8").read()
 
 BEGIN = "    <!-- BEGIN generated icon theme assets (see tools/) -->"
@@ -71,7 +71,7 @@ if BEGIN in xml_src:
     end = xml_src.index(END) + len(END)
     xml_src = xml_src[:start] + block + xml_src[end:]
 else:
-    marker = '  <gresource prefix="/io/github/nowaos/Opus/icons">\n'
+    marker = '  <gresource prefix="/io/github/opus_editor/Opus/icons">\n'
     idx = xml_src.index(marker) + len(marker)
     xml_src = xml_src[:idx] + block + "\n" + xml_src[idx:]
 

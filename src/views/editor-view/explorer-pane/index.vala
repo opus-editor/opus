@@ -53,7 +53,7 @@ namespace EditorView {
       this.decorations = decorations;
       model = new FileTree (root_path);
 
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/explorer-pane/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/explorer-pane/index.ui");
       root_box = (Gtk.Box) builder.get_object ("root_box");
       root_label = (Gtk.Label) builder.get_object ("root_label");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");

@@ -153,7 +153,7 @@ public class CodeEditor : Object {
 
   /** Rules themselves live in styles/code-editor.css, not here — see GlobalCss.install_from_resource()'s own doc comment for why. */
   private void install_css () {
-    GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/code-editor.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/code-editor.css");
   }
 
   private void apply_style_scheme (bool dark) {

@@ -32,7 +32,7 @@ blueprints = custom_target('blueprints',
 
 opus_resources = gnome.compile_resources(
   'opus-resources',
-  'io.github.nowaos.Opus.gresource.xml',
+  'io.github.opus_editor.Opus.gresource.xml',
   # Compiled .ui files land in the build dir; icons/ (a few app-bundled
   # symbolic icons that don't exist in the system icon theme) ships from
   # the source tree directly; ../src/styles holds the plain .css files
@@ -47,13 +47,13 @@ opus_resources = gnome.compile_resources(
 )
 
 install_data(
-  'io.github.nowaos.Opus.desktop.in',
+  'io.github.opus_editor.Opus.desktop.in',
   rename: app_id + '.desktop',
   install_dir: get_option('datadir') / 'applications',
 )
 
 install_data(
-  'io.github.nowaos.Opus.gschema.xml',
+  'io.github.opus_editor.Opus.gschema.xml',
   install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
 )
 
@@ -63,7 +63,7 @@ install_data(
 # icons/symbols are a different thing: resources compiled into the
 # binary above, never installed.
 install_data(
-  'icons/hicolor/scalable/apps/io.github.nowaos.Opus.svg',
+  'icons/hicolor/scalable/apps/io.github.opus_editor.Opus.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
 )
 

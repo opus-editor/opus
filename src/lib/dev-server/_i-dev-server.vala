@@ -15,7 +15,7 @@ namespace Opus.Dev {
    * to exactly these methods — every parameter/return type here is a
    * GVariant-safe primitive on purpose.
    */
-  [DBus (name = "io.github.nowaos.Opus.Dev")]
+  [DBus (name = "io.github.opus_editor.Opus.Dev")]
   public interface IDevServer : Object {
     /** Opens a brand-new "Untitled-N" tab, focused immediately — same as the sidebar's "New File". */
     public abstract void new_file () throws DBusError, IOError;

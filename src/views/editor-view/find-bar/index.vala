@@ -105,7 +105,7 @@ namespace EditorView {
     public string replace_text { get { return replace_entry.text; } }
 
     public FindBar () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/find-bar/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/find-bar/index.ui");
       search_bar = (Gtk.SearchBar) builder.get_object ("search_bar");
       var search_grid = (Gtk.Grid) builder.get_object ("search_grid");
       regex_button = (Gtk.ToggleButton) builder.get_object ("regex_button");
@@ -248,7 +248,7 @@ namespace EditorView {
     }
 
     private void install_css () {
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/find-bar.css");
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/find-bar.css");
     }
   }
 }

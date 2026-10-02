@@ -31,7 +31,7 @@
  * the real doc comment lives on each module's own implementation.
  */
 public class SystemTestSession : Object {
-    private const string INTERFACE_NAME = "io.github.nowaos.Opus.Dev";
+    private const string INTERFACE_NAME = "io.github.opus_editor.Opus.Dev";
     private const int64 READY_TIMEOUT_USEC = 5 * 1000 * 1000;
     private const uint READY_POLL_INTERVAL_MSEC = 50;
 
@@ -90,7 +90,7 @@ public class SystemTestSession : Object {
         // whole session would silently drive any real Opus window the
         // developer happens to already have open instead of the
         // isolated one just spawned for it.
-        var app_id = "io.github.nowaos.Opus.Test%u".printf (broadway_display_num);
+        var app_id = "io.github.opus_editor.Opus.Test%u".printf (broadway_display_num);
 
         var launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         launcher.setenv ("GDK_BACKEND", "broadway", true);

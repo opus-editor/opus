@@ -35,7 +35,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("app.ts");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/files/ts.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/ts.svg");
     });
 
     Test.add_func ("/models/icon-theme/file/exact_name_beats_extension", () => {
@@ -46,7 +46,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("Dockerfile");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/files/dockerfile.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/dockerfile.svg");
     });
 
     Test.add_func ("/models/icon-theme/file/compound_extension_beats_simple_extension", () => {
@@ -54,7 +54,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("app.d.ts");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/files/ts-types.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/ts-types.svg");
     });
 
     Test.add_func ("/models/icon-theme/file/matching_is_case_insensitive", () => {
@@ -62,7 +62,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("APP.TS");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/files/ts.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/ts.svg");
     });
 
     Test.add_func ("/models/icon-theme/file/unknown_name_falls_back_to_default", () => {
@@ -70,7 +70,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("README");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/files/document.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/document.svg");
     });
 
     Test.add_func ("/models/icon-theme/folder/exact_name_match", () => {
@@ -78,7 +78,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_folder ("src");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/folders/folder-src.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/folders/folder-src.svg");
     });
 
     Test.add_func ("/models/icon-theme/folder/unknown_name_falls_back_to_default", () => {
@@ -86,7 +86,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_folder ("some-random-folder");
 
-        assert_cmpstr (path, CompareOperator.EQ, "/io/github/nowaos/Opus/icons/symbols/folders/folder.svg");
+        assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/folders/folder.svg");
     });
 
     Test.add_func ("/models/icon-theme/symbols/bundled_resource_loads", () => {
@@ -98,7 +98,7 @@ int main (string[] args) {
 
         var path = theme.icon_path_for_file ("some-file-with-no-known-extension");
 
-        assert_true (path.has_prefix ("/io/github/nowaos/Opus/icons/symbols/"));
+        assert_true (path.has_prefix ("/io/github/opus_editor/Opus/icons/symbols/"));
     });
 
     return Test.run ();

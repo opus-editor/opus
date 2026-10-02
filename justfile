@@ -16,7 +16,7 @@ test: build
 # GSETTINGS_SCHEMA_DIR points GLib.Settings at the schema data/meson.build
 # already compiles into the build dir (gnome.compile_schemas), so this
 # works without `ninja install` — GLib.Settings would otherwise abort at
-# startup, unable to find io.github.nowaos.Opus's own schema at all.
+# startup, unable to find io.github.opus_editor.Opus's own schema at all.
 run *ARGS: build
     GSETTINGS_SCHEMA_DIR=builddir/data ./builddir/src/opus {{ARGS}}
 

@@ -214,7 +214,7 @@ namespace EditorView {
     // be a descendant selector ("row", no ">") — row isn't a direct child
     // of listview (some internal wrapper sits between them).
     private void install_css () {
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/explorer-pane.css");
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/explorer-pane.css");
     }
 
     public void populate (FileNode root) {

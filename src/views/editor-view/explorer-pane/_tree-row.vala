@@ -42,7 +42,7 @@ namespace EditorView {
     public ExplorerPaneTreeRow (IconTheme icon_theme) {
       this.icon_theme = icon_theme;
 
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/explorer-pane/_tree-row.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/explorer-pane/_tree-row.ui");
       box = (Gtk.Box) builder.get_object ("row");
       expander = (Gtk.TreeExpander) builder.get_object ("expander");
       icon = (Gtk.Image) builder.get_object ("icon");

@@ -22,7 +22,7 @@ public class CommandBarPopoverRow : Object {
   public CommandBarPopoverRow (IconTheme icon_theme) {
     this.icon_theme = icon_theme;
 
-    var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/main/command-bar/_row.ui");
+    var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/command-bar/_row.ui");
     box = (Gtk.Box) builder.get_object ("row");
     icon = (Gtk.Image) builder.get_object ("icon");
     label = (Gtk.Label) builder.get_object ("label");

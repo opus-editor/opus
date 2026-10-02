@@ -49,7 +49,7 @@ namespace EditorView.EditorPane {
     public signal void new_file_requested ();
 
     public TabBar () {
-      var builder = new Gtk.Builder.from_resource ("/io/github/nowaos/Opus/editor-view/editor-pane/tab-bar/index.ui");
+      var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-bar/index.ui");
       overlay = (Gtk.Overlay) builder.get_object ("overlay");
       box = (Gtk.Box) builder.get_object ("box");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
@@ -90,7 +90,7 @@ namespace EditorView.EditorPane {
     }
 
     private void install_css () {
-      GlobalCss.install_from_resource ("/io/github/nowaos/Opus/styles/tab-bar.css");
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/tab-bar.css");
     }
 
     /** Whether `(x, y)` (in `overlay`'s own coordinates) lands outside every pill — walks up from whatever's actually under the point looking for one whose direct parent is `box` (a pill's own root widget); reaching `box` itself first means the background was hit instead. */

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/io/github/nowaos/Opus">
+  <gresource prefix="/io/github/opus_editor/Opus">
     <file compressed="true">editor-view/explorer-pane/_tree-row.ui</file>
     <file compressed="true">editor-view/explorer-pane/index.ui</file>
     <file compressed="true">editor-view/editor-pane/tab-bar/_pill.ui</file>
@@ -25,7 +25,7 @@
     <file compressed="true">styles/code-editor.css</file>
     <file compressed="true">styles/command-bar.css</file>
   </gresource>
-  <gresource prefix="/io/github/nowaos/Opus/icons">
+  <gresource prefix="/io/github/opus_editor/Opus/icons">
     <!-- BEGIN generated icon theme assets (see tools/) -->
     <file alias="symbols/files/angular-component.svg" compressed="true">icons/symbols/files/angular-component.svg</file>
     <file alias="symbols/files/angular-directive.svg" compressed="true">icons/symbols/files/angular-directive.svg</file>
@@ -409,7 +409,7 @@
     <file alias="scalable/actions/search-symbolic.svg" compressed="true">icons/scalable/actions/search-symbolic.svg</file>
     <file alias="scalable/actions/content-lines-symbolic.svg" compressed="true">icons/scalable/actions/content-lines-symbolic.svg</file>
   </gresource>
-  <gresource prefix="/io/github/nowaos/Opus/plugins">
+  <gresource prefix="/io/github/opus_editor/Opus/plugins">
     <file alias="git-status/git-status.plugin">plugins/git-status/git-status.plugin</file>
   </gresource>
 </gresources>
