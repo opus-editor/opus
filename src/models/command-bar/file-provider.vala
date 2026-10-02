@@ -154,9 +154,11 @@ namespace CommandBar {
 
       var filter = picker.filter;
       if (filter == "") {
+        picker.empty_message = _("Type to search files");
         picker.set_items (recent_items ());
         return;
       }
+      picker.empty_message = _("No matching files");
 
       var query = new Opus.FuzzyFinder.Query (filter);
       var items = matching_recent_items (query);

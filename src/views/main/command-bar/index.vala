@@ -108,14 +108,21 @@ public class CommandBarPopover : Object, IGlobalPanel {
     unbind ();
     this.picker = picker;
 
-    syncing_text = true;
-    entry.text = picker.text;
-    syncing_text = false;
+    // Only when it actually differs: a provider switch mid-typing hands
+    // over a picker carrying the very text just typed, and rewriting
+    // Gtk.Text's text — even with the same string — resets the caret to 0.
+    if (entry.text != picker.text) {
+      syncing_text = true;
+      entry.text = picker.text;
+      syncing_text = false;
+      entry.set_position (-1);
+    }
     entry.placeholder_text = picker.placeholder;
 
     picker.items_changed.connect (on_items_changed);
     picker.active_changed.connect (on_active_changed);
     picker.notify["busy"].connect (on_busy_changed);
+    picker.notify["empty-message"].connect (on_empty_message_changed);
     on_items_changed ();
     on_busy_changed ();
   }
@@ -127,6 +134,7 @@ public class CommandBarPopover : Object, IGlobalPanel {
     picker.items_changed.disconnect (on_items_changed);
     picker.active_changed.disconnect (on_active_changed);
     picker.notify["busy"].disconnect (on_busy_changed);
+    picker.notify["empty-message"].disconnect (on_empty_message_changed);
     picker = null;
   }
 
@@ -207,12 +215,16 @@ public class CommandBarPopover : Object, IGlobalPanel {
   private void on_items_changed () {
     sections.replace_all (picker.items);
     if (sections.get_n_items () == 0) {
-      empty_label.label = picker.filter == "" ? _("Type to search files") : _("No matching files");
+      on_empty_message_changed ();
       content_stack.visible_child_name = "empty";
     } else {
       content_stack.visible_child_name = "list";
     }
     on_active_changed (picker.active_index);
+  }
+
+  private void on_empty_message_changed () {
+    empty_label.label = picker.empty_message;
   }
 
   private void on_active_changed (int index) {

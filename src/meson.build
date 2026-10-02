@@ -9,6 +9,7 @@ opus_model_sources = files(
   'models/command-bar/router.vala',
   'models/command-bar/recent-files.vala',
   'models/command-bar/file-provider.vala',
+  'models/command-bar/go-to-line-provider.vala',
   'models/cursor.vala',
   'models/cursor-collection.vala',
   'models/document.vala',

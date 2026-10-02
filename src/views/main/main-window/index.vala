@@ -82,6 +82,7 @@ public class MainWindow : Object {
   private CommandBarPopover command_bar;
   private CommandBar.RecentFiles? recent_files = null;
   private CommandBar.FileProvider? file_provider = null;
+  private CommandBar.GoToLineProvider go_to_line_provider;
   // Whatever held keyboard focus right before Ctrl+P — title_stack
   // switching its page back away from the entry on close otherwise
   // leaves GTK to pick its own fallback (the view switcher button).
@@ -189,6 +190,8 @@ public class MainWindow : Object {
     command_router = new CommandBar.Router (command_registry);
     command_router.opened.connect (on_command_bar_opened);
     command_router.closed.connect (on_command_bar_closed);
+    go_to_line_provider = new CommandBar.GoToLineProvider (editor_pane.caret_position);
+    command_registry.add (go_to_line_provider);
 
     find_bar = new EditorView.FindBar ();
     register_global_panel (find_bar);
@@ -573,17 +576,25 @@ public class MainWindow : Object {
     focus_before_command_bar = null;
   }
 
-  /** Only the file provider's items are understood here (`id` is a path); a future `>` provider's own accept behaviour belongs to that provider. */
+  /** Only the built-in providers' items are understood here (a path, a line); a future `>` provider's own accept behaviour belongs to that provider. */
   private void on_command_bar_item_accepted (CommandBar.Item item) {
-    var is_file = command_router.provider == file_provider;
+    var provider = command_router.provider;
     command_router.close ();
-    if (!is_file) {
-      return;
+    if (provider == file_provider) {
+      open_from_command_bar (item.id);
+    } else if (provider == go_to_line_provider) {
+      int line, column;
+      CommandBar.GoToLineProvider.decode (item.id, out line, out column);
+      editor_pane.go_to_line (line, column);
+      editor_pane.grab_focus ();
     }
+  }
+
+  private void open_from_command_bar (string path) {
     try {
-      editor_pane.open (item.id, true);
+      editor_pane.open (path, true);
     } catch (Error e) {
-      show_error (_("Couldn’t open “%s”: %s").printf (item.id, e.message));
+      show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
     }
   }
 

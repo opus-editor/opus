@@ -41,6 +41,13 @@ command_bar_file_provider_test = executable(
 )
 test('command-bar-file-provider', command_bar_file_provider_test)
 
+command_bar_go_to_line_provider_test = executable(
+  'command-bar-go-to-line-provider-test',
+  ['models/command-bar-go-to-line-provider-test.vala', opus_model_test_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, json_glib_dep],
+)
+test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
+
 document_test = executable(
   'document-test',
   ['models/document-test.vala', opus_model_test_sources],
