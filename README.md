@@ -1,7 +1,19 @@
-# Opus
+<p align="center">
+  <img src="assets/logo.svg" alt="opus-code"/>
+</p>
 
-A lightweight source code editor for the GNOME desktop — file tree, tabs, and
-an editor pane — built native with GTK4 and Libadwaita, in Vala.
+A lightweight, capable source code editor for the GNOME desktop — built
+native with GTK4 and Libadwaita, in Vala.
+
+## Features
+
+- Syntax highlighting
+- Multiple cursors
+- `.editorconfig` support
+- Find and Replace, in the file or across the folder
+- Fuzzy file finder (Ctrl+P)
+- File tree and tabs tinted by git status
+- Git change bars in the gutter
 
 ## Prerequisites
 
