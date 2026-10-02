@@ -66,12 +66,12 @@ namespace GitDiff {
      * failure.
      */
     private static Hunk[] compute_hunks_against (string base_tmp_path, string current_text) {
-      if (Environment.find_program_in_path ("git") == null) {
+      if (!HostCommand.has_program ("git")) {
         return {};
       }
 
       var launcher = new SubprocessLauncher (SubprocessFlags.STDIN_PIPE | SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-      string[] argv = { "git", "diff", "--no-index", "-U0", "--no-color", base_tmp_path, "-" };
+      string[] argv = HostCommand.argv ({ "git", "diff", "--no-index", "-U0", "--no-color", base_tmp_path, "-" });
 
       Subprocess process;
       string? stdout_buf;

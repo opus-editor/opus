@@ -60,15 +60,15 @@ public class GitStatus : Object {
    * own newline-separated-paths one.
    */
   public static GitStatus? run (string root_path) {
-    if (Environment.find_program_in_path ("git") == null) {
+    if (!HostCommand.has_program ("git")) {
       return null;
     }
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] argv = {
+    string[] argv = HostCommand.argv ({
       "git", "-c", "core.quotePath=false", "-C", root_path,
       "status", "--porcelain", "--untracked-files=all",
-    };
+    });
 
     Subprocess process;
     string? stdout_buf;

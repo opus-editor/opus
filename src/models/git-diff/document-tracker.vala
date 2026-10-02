@@ -209,9 +209,9 @@ namespace GitDiff {
     /**
      * Written once per set_document() call, read many times across
      * notify_text_changed()'s debounced recomputes — not per-keystroke.
-     * DirUtils.make_tmp is the only tmp-file idiom this codebase already
-     * has (from its own test fixtures); no production precedent existed
-     * before this feature.
+     * Under HostCommand.shared_tmp_dir(), not the plain tmp dir: these
+     * files are read by `git diff`, which inside a Flatpak runs on the
+     * host and can't see the sandbox's own /tmp.
      */
     private void write_temp_files (Bases? bases) {
       if (bases == null || (bases.head_text == null && bases.index_text == null)) {
@@ -219,7 +219,7 @@ namespace GitDiff {
       }
 
       try {
-        tmp_dir = DirUtils.make_tmp ("opus-diff-base-XXXXXX");
+        tmp_dir = DirUtils.mkdtemp (Path.build_filename (HostCommand.shared_tmp_dir (), "opus-diff-base-XXXXXX"));
         if (bases.head_text != null) {
           head_tmp_path = Path.build_filename (tmp_dir, "head");
           FileUtils.set_contents (head_tmp_path, bases.head_text);

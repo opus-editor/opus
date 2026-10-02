@@ -4,7 +4,7 @@
 # come along too. opus_logger_sources specifically (see its own comment,
 # src/meson.build), not the rest of opus_lib_sources — that needs Gtk,
 # these plain model tests have no reason to link.
-opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_fuzzy_finder_sources
+opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources
 
 command_bar_picker_test = executable(
   'command-bar-picker-test',
@@ -604,6 +604,13 @@ fuzzy_finder_walker_test = executable(
   dependencies: [glib_dep, gobject_dep, gio_dep],
 )
 test('fuzzy-finder-walker', fuzzy_finder_walker_test)
+
+host_command_test = executable(
+  'host-command-test',
+  ['lib/host-command-test.vala', opus_host_command_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep],
+)
+test('host-command', host_command_test)
 
 command_bar_open_file_test = executable(
   'command-bar-open-file-test',

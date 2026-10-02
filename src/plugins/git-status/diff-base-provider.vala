@@ -98,12 +98,12 @@ namespace Opus.Plugins.GitStatus {
      * exit 1 as "found real differences," not a failure.
      */
     private static string? show_sync (string root_path, string revision_spec) {
-      if (Environment.find_program_in_path ("git") == null) {
+      if (!HostCommand.has_program ("git")) {
         return null;
       }
 
       var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-      string[] argv = { "git", "-C", root_path, "show", revision_spec };
+      string[] argv = HostCommand.argv ({ "git", "-C", root_path, "show", revision_spec });
 
       Subprocess process;
       string? stdout_buf;

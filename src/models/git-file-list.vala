@@ -107,15 +107,15 @@ public class GitFileList : Object, Opus.FuzzyFinder.IPathSource {
 
   /** Hands every listed path that is a regular file right now to `on_path`, as git prints them. Returns false when git couldn't answer at all. */
   private static bool read_paths (string root_path, Cancellable? cancellable, PathSink on_path) {
-    if (Environment.find_program_in_path ("git") == null) {
+    if (!HostCommand.has_program ("git")) {
       return false;
     }
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] argv = {
+    string[] argv = HostCommand.argv ({
       "git", "-c", "core.quotePath=false", "-C", root_path,
       "ls-files", "--cached", "--others", "--exclude-standard",
-    };
+    });
 
     Subprocess process;
     try {

@@ -67,6 +67,12 @@ opus_model_sources = files(
 # test built this way until this same fix).
 opus_logger_sources = files('lib/logger.vala')
 
+# Same split, same reason: every git-spawning model (GitFileList,
+# GitDiff.Engine, the git-status plugin) routes its argv through
+# HostCommand, so their tests need it without the Gtk half of
+# opus_lib_sources.
+opus_host_command_sources = files('lib/host-command.vala')
+
 # The Command Bar's generic fuzzy-finding engine (see src/lib/CLAUDE.md):
 # GLib/Gio only — no Gtk,
 # no Logger, nothing from models/. Its own variable for the same reason
@@ -93,7 +99,7 @@ subdir('plugins')
 # Gtk.CssProvider; DevServer drives a real EditorView.EditorPaneWidget), but
 # neither is an Opus-specific view/widget concept the way everything in
 # opus_gtk_view_sources below is.
-opus_lib_sources = opus_logger_sources + opus_fuzzy_finder_sources + files(
+opus_lib_sources = opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources + files(
   'lib/crash-handler.vala',
   'lib/global-css.vala',
   'lib/dev-server/_i-dev-server.vala',
