@@ -19,7 +19,8 @@ public enum GitFileStatus {
   NONE,
   NEW,
   MODIFIED,
-  CONFLICT;
+  CONFLICT,
+  IGNORED;
 }
 
 public class GitStatus : Object {
@@ -53,6 +54,9 @@ public class GitStatus : Object {
    * `--untracked-files=all` lists every untracked file individually rather
    * than collapsing a wholly-untracked directory to one entry — needed so
    * a file deep inside a new, unadded folder still gets its own status.
+   * `--ignored=matching` reports an ignored folder as one entry instead
+   * of listing everything inside it — a `node_modules/` would otherwise
+   * cost thousands of lines per refresh.
    * `-c core.quotePath=false` stops git from quoting/escaping non-ASCII
    * path bytes in its own porcelain output; a path containing a literal
    * `"` or `\` is still always escaped regardless and this parser doesn't
@@ -67,7 +71,7 @@ public class GitStatus : Object {
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
     string[] argv = HostCommand.argv ({
       "git", "-c", "core.quotePath=false", "-C", root_path,
-      "status", "--porcelain", "--untracked-files=all",
+      "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
     });
 
     Subprocess process;
@@ -126,6 +130,11 @@ public class GitStatus : Object {
       var rest = line.substring (3); // "XY " is always exactly 3 characters
       var arrow = rest.index_of (" -> ");
       var relative_path = arrow < 0 ? rest : rest.substring (arrow + 4);
+      // git marks a directory entry (an ignored folder) with a trailing
+      // slash; every lookup here is by the plain path.
+      if (relative_path.has_suffix ("/")) {
+        relative_path = relative_path.substring (0, relative_path.length - 1);
+      }
 
       var absolute_path = Path.build_filename (root_path, relative_path);
       file_status[absolute_path] = status;
@@ -159,6 +168,10 @@ public class GitStatus : Object {
     if (x == 'D' || y == 'D') {
       label = "";
       return GitFileStatus.NONE;
+    }
+    if (x == '!') {
+      label = _("Ignored");
+      return GitFileStatus.IGNORED;
     }
     if (x == '?' || y == '?') {
       label = _("Untracked");

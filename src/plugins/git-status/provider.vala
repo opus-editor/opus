@@ -128,6 +128,9 @@ namespace Opus.Plugins.GitStatus {
       if (status == global::GitFileStatus.CONFLICT) {
         return new FileDecoration.State (FileDecoration.Tone.ALERT, tooltip, _("Contains conflicts"));
       }
+      if (status == global::GitFileStatus.IGNORED) {
+        return new FileDecoration.State (FileDecoration.Tone.MUTED, tooltip, null, false, true);
+      }
       if (status == global::GitFileStatus.NEW) {
         return new FileDecoration.State (FileDecoration.Tone.SUCCESS, tooltip, _("Contains new files"));
       }

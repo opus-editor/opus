@@ -107,6 +107,7 @@ namespace EditorView.EditorPane {
 
     /** A plugin's own decoration for this tab's file (git status, a future linter badge, …), or null with nothing to show — tints the label text itself, not appended text like is_modified/is_deleted above. Same shared `git-*` CSS vocabulary and toggle-by-switch technique as ExplorerPaneTreeRow.update_decoration(). */
     public void set_decoration (FileDecoration.State? decoration) {
+      title_label.remove_css_class ("git-ignored");
       title_label.remove_css_class ("tone-accent");
       title_label.remove_css_class ("git-added");
       title_label.remove_css_class ("git-modified");
@@ -118,6 +119,9 @@ namespace EditorView.EditorPane {
       }
 
       switch (decoration.tone) {
+        case FileDecoration.Tone.MUTED:
+          title_label.add_css_class ("git-ignored");
+          break;
         case FileDecoration.Tone.ACCENT:
           title_label.add_css_class ("tone-accent");
           break;

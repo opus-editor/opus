@@ -138,5 +138,36 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/git-status-provider/an-ignored-folder-is-muted-and-covers-its-contents", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, ".gitignore"), "out/\n");
+            var dir = Path.build_filename (root_path, "out");
+            DirUtils.create (dir, 0755);
+            FileUtils.set_contents (Path.build_filename (dir, "a.o"), "hello");
+
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+
+            assert (wait_for_decorations_changed (provider));
+
+            var state = provider.current_decorations ()[dir];
+            assert (state != null);
+            assert (state.tone == FileDecoration.Tone.MUTED);
+            assert (state.tooltip == "Ignored");
+            assert (!state.propagate);
+            assert (state.covers_descendants);
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     return Test.run ();
 }

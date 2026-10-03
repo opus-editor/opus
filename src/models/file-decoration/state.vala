@@ -20,9 +20,11 @@ namespace FileDecoration {
     public string? bubble_tooltip { get; construct; default = null; }
     /** Whether ancestor folders inherit this tone — VS Code's `propagate`. False for e.g. "open in a tab". */
     public bool propagate { get; construct; default = true; }
+    /** Whether everything beneath this path shows it too, unless it has a decoration of its own — an ignored folder mutes its whole subtree. */
+    public bool covers_descendants { get; construct; default = false; }
 
-    public State (Tone tone, string? tooltip, string? bubble_tooltip = null, bool propagate = true) {
-      Object (tone: tone, tooltip: tooltip, bubble_tooltip: bubble_tooltip, propagate: propagate);
+    public State (Tone tone, string? tooltip, string? bubble_tooltip = null, bool propagate = true, bool covers_descendants = false) {
+      Object (tone: tone, tooltip: tooltip, bubble_tooltip: bubble_tooltip, propagate: propagate, covers_descendants: covers_descendants);
     }
   }
 }

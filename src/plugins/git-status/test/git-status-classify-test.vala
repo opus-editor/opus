@@ -241,5 +241,49 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/git-status/ignored-file-is-ignored", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, ".gitignore"), "secret.txt\n");
+            var path = Path.build_filename (root_path, "secret.txt");
+            FileUtils.set_contents (path, "hello");
+
+            var status = GitStatus.run (root_path);
+
+            assert (status != null);
+            assert (status.status_for (path) == GitFileStatus.IGNORED);
+            assert (status.tooltip_for (path) == "Ignored");
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/git-status/ignored-folder-is-one-entry-not-its-contents", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, ".gitignore"), "out/\n");
+            var dir = Path.build_filename (root_path, "out");
+            DirUtils.create (dir, 0755);
+            var inner_path = Path.build_filename (dir, "a.o");
+            FileUtils.set_contents (inner_path, "hello");
+
+            var status = GitStatus.run (root_path);
+
+            assert (status != null);
+            assert (status.status_for (dir) == GitFileStatus.IGNORED);
+            assert (status.status_for (inner_path) == GitFileStatus.NONE);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     return Test.run ();
 }

@@ -185,5 +185,41 @@ int main (string[] args) {
         assert (resolved.tooltip == "Modified");
     });
 
+    Test.add_func ("/file-decoration-registry/a-covering-decoration-reaches-every-descendant", () => {
+        var registry = new FileDecoration.Registry (ROOT);
+        var provider = new FakeProvider (new WorkspaceContext (ROOT));
+        registry.add_provider (provider);
+
+        var dir = Path.build_filename (ROOT, "out");
+        provider.set_decoration (dir, new FileDecoration.State (FileDecoration.Tone.MUTED, "Ignored", null, false, true));
+
+        assert (registry.decoration_for (Path.build_filename (dir, "nested"), true).tone == FileDecoration.Tone.MUTED);
+        assert (registry.decoration_for (Path.build_filename (dir, "nested", "a.o"), false).tone == FileDecoration.Tone.MUTED);
+    });
+
+    Test.add_func ("/file-decoration-registry/a-descendants-own-decoration-beats-a-covering-ancestor", () => {
+        var registry = new FileDecoration.Registry (ROOT);
+        var provider = new FakeProvider (new WorkspaceContext (ROOT));
+        registry.add_provider (provider);
+
+        var dir = Path.build_filename (ROOT, "out");
+        var path = Path.build_filename (dir, "a.txt");
+        provider.set_decoration (dir, new FileDecoration.State (FileDecoration.Tone.MUTED, "Ignored", null, false, true));
+        provider.set_decoration (path, new FileDecoration.State (FileDecoration.Tone.WARNING, "Modified"));
+
+        assert (registry.decoration_for (path, false).tone == FileDecoration.Tone.WARNING);
+    });
+
+    Test.add_func ("/file-decoration-registry/a-plain-decoration-does-not-reach-descendants", () => {
+        var registry = new FileDecoration.Registry (ROOT);
+        var provider = new FakeProvider (new WorkspaceContext (ROOT));
+        registry.add_provider (provider);
+
+        var dir = Path.build_filename (ROOT, "dir");
+        provider.set_decoration (dir, new FileDecoration.State (FileDecoration.Tone.WARNING, "Modified"));
+
+        assert (registry.decoration_for (Path.build_filename (dir, "a.txt"), false) == null);
+    });
+
     return Test.run ();
 }

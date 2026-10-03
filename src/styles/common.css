@@ -161,3 +161,15 @@
   --git-conflict-color: color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%);
   --git-removed-color: var(--error-color);
 }
+
+/* How far a git-ignored name fades (explorer row, tab label). Tuned by
+ * eye so an explorer name lands at 40% (dark) and 47.5% (light) once
+ * multiplied by the row label's own 0.75 opacity (_tree-row.blp).
+ * Split by the window's own class, not :root: GTK's CSS parser has no
+ * light-dark() (see main-window.css). */
+window.dark {
+  --dim-ignored: 0.533;
+}
+window:not(.dark) {
+  --dim-ignored: 0.633;
+}

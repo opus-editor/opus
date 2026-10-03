@@ -104,3 +104,6 @@
 .tab-pill label.git-removed {
   color: color-mix(in srgb, var(--git-removed-color) 75%, currentColor);
 }
+.tab-pill label.git-ignored {
+  opacity: var(--dim-ignored);
+}

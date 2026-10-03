@@ -41,14 +41,13 @@ namespace FileDecoration {
       recompute ();
     }
 
-    /** Resolved decoration for a row, or null when there's nothing to show. Cheap: one or two HashTable lookups. */
+    /** Resolved decoration for a row, or null when there's nothing to show. Cheap: a few HashTable lookups, at most one per ancestor directory. */
     public State? decoration_for (string path, bool is_directory) {
-      if (!is_directory) {
-        return direct[path];
-      }
+      var resolved = is_directory ? strongest (direct[path], bubbled[path]) : direct[path];
+      return resolved ?? covering_ancestor (path);
+    }
 
-      var own = direct[path];
-      var inherited = bubbled[path];
+    private static State? strongest (State? own, State? inherited) {
       if (own == null) {
         return inherited;
       }
@@ -56,6 +55,22 @@ namespace FileDecoration {
         return own; // direct wins ties
       }
       return inherited;
+    }
+
+    /** The nearest ancestor directory's own covers_descendants decoration, or null. */
+    private State? covering_ancestor (string path) {
+      var dir = Path.get_dirname (path);
+      while (dir.length >= root_path.length && dir.has_prefix (root_path)) {
+        var state = direct[dir];
+        if (state != null && state.covers_descendants) {
+          return state;
+        }
+        if (dir == root_path) {
+          break;
+        }
+        dir = Path.get_dirname (dir);
+      }
+      return null;
     }
 
     private void recompute () {
@@ -92,7 +107,7 @@ namespace FileDecoration {
       }
       if ((int) incoming.tone == (int) existing.tone && incoming.tooltip != null && incoming.tooltip != existing.tooltip) {
         var joined_tooltip = existing.tooltip == null ? incoming.tooltip : "%s • %s".printf (existing.tooltip, incoming.tooltip);
-        table[path] = new State (existing.tone, joined_tooltip, existing.bubble_tooltip, existing.propagate);
+        table[path] = new State (existing.tone, joined_tooltip, existing.bubble_tooltip, existing.propagate, existing.covers_descendants);
       }
     }
 

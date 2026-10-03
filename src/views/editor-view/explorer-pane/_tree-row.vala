@@ -126,9 +126,10 @@ namespace EditorView {
       bound_node = null;
     }
 
-    /** Toggles the dot's visibility and swaps its tone CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). SUCCESS/WARNING/ALERT/ERROR map to the shared `git-*` classes common.css defines once for every git-status surface (also the tab label tint, also the editor gutter) — ACCENT has no git-status meaning, so it keeps its own `tone-accent` class. No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
+    /** Toggles the dot's visibility and swaps its tone CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). SUCCESS/WARNING/ALERT/ERROR map to the shared `git-*` classes common.css defines once for every git-status surface (also the tab label tint, also the editor gutter) — ACCENT has no git-status meaning, so it keeps its own `tone-accent` class. MUTED shows no dot at all: it fades the name instead. No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
     private void update_decoration (FileDecoration.State? decoration) {
-      decoration_dot.visible = decoration != null;
+      decoration_dot.visible = decoration != null && decoration.tone != FileDecoration.Tone.MUTED;
+      label.remove_css_class ("git-ignored");
       decoration_dot.remove_css_class ("tone-accent");
       decoration_dot.remove_css_class ("git-added");
       decoration_dot.remove_css_class ("git-modified");
@@ -141,6 +142,9 @@ namespace EditorView {
       }
 
       switch (decoration.tone) {
+        case FileDecoration.Tone.MUTED:
+          label.add_css_class ("git-ignored");
+          break;
         case FileDecoration.Tone.ACCENT:
           decoration_dot.add_css_class ("tone-accent");
           break;

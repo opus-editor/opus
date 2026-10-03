@@ -141,3 +141,8 @@ listview.data-table row:selected:not(:focus):not(:hover) {
 .decoration-dot.git-removed {
   background-color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
 }
+/* The one decoration with no dot: the name itself fades, the icon
+ * stays as is. */
+listview.data-table label.git-ignored {
+  opacity: var(--dim-ignored);
+}
