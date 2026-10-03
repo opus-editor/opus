@@ -451,6 +451,21 @@ public class MainWindow : Object {
   }
 
   /** The primary menu's own "Settings" — creates settings.json with its defaults on first use, then opens it as a permanent tab, same as any other file. */
+  /** The same Adw.AboutDialog GNOME Text Editor shows (its editor-application-actions.c), minus the credits lists Opus doesn't have yet. The icon name is the real app id, never `application_id`: a system test runs under a throwaway id with no icon of its own. */
+  private void open_about () {
+    var dialog = new Adw.AboutDialog () {
+      application_name = _("Opus"),
+      application_icon = "io.github.opus_editor.Opus",
+      developer_name = _("Opus Editor Team"),
+      version = BuildInfo.VERSION,
+      website = "https://github.com/opus-editor/opus",
+      issue_url = "https://github.com/opus-editor/opus/issues",
+      copyright = "© 2026 Alexandre Magro",
+      license_type = Gtk.License.GPL_3_0,
+    };
+    dialog.present (window);
+  }
+
   private void open_settings () {
     try {
       var path = UserSettings.ensure_exists (Environment.get_user_config_dir ());
@@ -1169,6 +1184,7 @@ public class MainWindow : Object {
 
     box.append (ContextMenu.separator ());
     box.append (ContextMenu.item (_("Settings"), () => open_settings (), popover, Gtk.accelerator_get_label (Gdk.Key.comma, Gdk.ModifierType.CONTROL_MASK)));
+    box.append (ContextMenu.item (_("About Opus"), () => open_about (), popover));
 
     popover.child = box;
     // Not the `popover` property: the vapi types it as Gtk.Popover,

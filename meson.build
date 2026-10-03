@@ -46,6 +46,7 @@ add_project_arguments('--pkg=posix', language: 'vala')
 # so these warnings only ever fire on codegen we don't control.
 add_project_arguments(
   '-DGETTEXT_PACKAGE="@0@"'.format(gettext_package), # required by glib/gi18n-lib.h, which valac emits for any _() call
+  '-DOPUS_VERSION="@0@"'.format(meson.project_version()), # the one source of the version — see src/build-info.vala
   '-Wno-discarded-qualifiers', # glib's g_once_init_enter() macro (used by every Vala-generated get_type()) discards volatile
   '-Wno-unused-variable', # valac always emits a *_properties array, even for classes with zero GObject properties
   '-Wno-unused-but-set-variable', # valac's generated array-length bookkeeping (e.g. string.data, array literals) always assigns a shadow _size_ local, even when unused

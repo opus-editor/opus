@@ -182,6 +182,7 @@ opus_gtk_view_sources = files(
 opus_sources = files(
   'main.vala',
   'App.vala',
+  'build-info.vala',
 ) + opus_model_sources + opus_lib_sources + opus_gtk_view_sources + opus_plugin_sources
 
 # Captured (not just called for its side effect) so tests/meson.build can

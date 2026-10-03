@@ -119,6 +119,13 @@ public class App : Adw.Application {
     string[] remaining = {};
     bool verbose = false;
     foreach (var arg in argv) {
+      if (arg == "--version") {
+        // command_line.print, not stdout: with an Opus already running
+        // this runs in that instance, and the answer belongs on the
+        // terminal that asked.
+        command_line.print ("opus %s\n", BuildInfo.VERSION);
+        return 0;
+      }
       if (arg == "-v" || arg == "--verbose") {
         verbose = true;
       } else {
