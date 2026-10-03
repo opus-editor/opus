@@ -1,6 +1,9 @@
-# Meson build output (out-of-source; generated C sources live here too)
-build/
-builddir/
+# Everything generated: the Meson build (out/native) and the Flatpak
+# build, repo, cache and bundle (out/flatpak)
+out/
+
+# Derived manifest `just ci` writes next to the real one
+build/.ci.json
 
 # Meson subprojects: keep the .wrap files, not the fetched sources
 subprojects/*/
@@ -14,10 +17,3 @@ sprint/
 *.swp
 *.swo
 .DS_Store
-
-# Flatpak build (just flatpak / just bundle)
-flatpak-build/
-flatpak-repo/
-.flatpak-builder/
-Opus.flatpak
-build-aux/.ci.json

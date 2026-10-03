@@ -73,7 +73,7 @@ To build the Flatpak itself (needs `org.flatpak.Builder` from Flathub):
 
 ```shell
 just flatpak   # builds and installs it for your user
-just bundle    # exports Opus.flatpak, what a release attaches
+just bundle    # exports out/flatpak/Opus.flatpak, what a release attaches
 ```
 
 ## Testing

@@ -1,16 +1,16 @@
 # Set up (or reconfigure, if it already exists) the Meson build directory.
 # Needed once, and again after adding/removing a .vala file.
 setup:
-    @[ -d builddir ] && meson setup --reconfigure builddir || meson setup builddir
+    @[ -d out/native ] && meson setup --reconfigure out/native || meson setup out/native
 
-# Build the project, setting up builddir first if it doesn't exist yet.
+# Build the project, setting up out/native first if it doesn't exist yet.
 build:
-    @[ -d builddir ] || meson setup builddir
-    ninja -C builddir
+    @[ -d out/native ] || meson setup out/native
+    ninja -C out/native
 
 # Run the test suite.
 test: build
-    meson test -C builddir
+    meson test -C out/native
 
 # Run the app, optionally against a folder: `just run ~/some/project`.
 # GSETTINGS_SCHEMA_DIR points GLib.Settings at the schema data/meson.build
@@ -18,22 +18,22 @@ test: build
 # works without `ninja install` — GLib.Settings would otherwise abort at
 # startup, unable to find io.github.opus_editor.Opus's own schema at all.
 run *ARGS: build
-    GSETTINGS_SCHEMA_DIR=builddir/data ./builddir/src/opus {{ARGS}}
+    GSETTINGS_SCHEMA_DIR=out/native/data ./out/native/src/opus {{ARGS}}
 
-# Build the Flatpak from build-aux/'s manifest and install it for the
+# Build the Flatpak from build/'s manifest and install it for the
 # current user, so `flatpak run io.github.opus_editor.Opus` runs this
 # working tree. Needs org.flatpak.Builder from Flathub (itself a
 # Flatpak). --repo keeps a local OSTree repo for `just bundle`.
-# Build the Flatpak from build-aux/'s manifest and install it for your user.
+# Build the Flatpak from build/'s manifest and install it for your user.
 flatpak:
     flatpak run org.flatpak.Builder --user --install --force-clean --ccache \
-      --repo=flatpak-repo flatpak-build build-aux/io.github.opus_editor.Opus.json
+      --state-dir=out/flatpak/state --repo=out/flatpak/repo out/flatpak/app build/io.github.opus_editor.Opus.json
 
 # Export the last `just flatpak` build as a single-file bundle — what a
 # release attaches, and what install.sh installs.
-# Export the last `just flatpak` build as Opus.flatpak.
+# Export the last `just flatpak` build as out/flatpak/Opus.flatpak.
 bundle:
-    flatpak build-bundle flatpak-repo Opus.flatpak io.github.opus_editor.Opus
+    flatpak build-bundle out/flatpak/repo out/flatpak/Opus.flatpak io.github.opus_editor.Opus
 
 # The CI — see docs/DEVELOPMENT_WORKFLOW.md. Runs the suite natively,
 # then again inside a flatpak-builder build of the manifest (the Sdk's
@@ -55,13 +55,13 @@ ci:
         | .modules[-1]["run-tests"] = true
         | .modules[-1]["test-rule"] = ""
         | .modules[-1]["test-commands"] = ["dbus-run-session -- meson test -C /run/build/opus/_flatpak_build --print-errorlogs"]' \
-      build-aux/io.github.opus_editor.Opus.json > build-aux/.ci.json
-    trap 'rm -f build-aux/.ci.json' EXIT
+      build/io.github.opus_editor.Opus.json > build/.ci.json
+    trap 'rm -f build/.ci.json' EXIT
     # Without the desktop session's variables, as on a CI runner: with
     # them GIO picks different backends (proxy resolver, …) and hides
     # what a bare machine would hit.
     env -u XDG_CURRENT_DESKTOP -u DESKTOP_SESSION -u GNOME_DESKTOP_SESSION_ID \
-      flatpak run org.flatpak.Builder --force-clean --ccache flatpak-build-ci build-aux/.ci.json
+      flatpak run org.flatpak.Builder --force-clean --ccache --state-dir=out/flatpak/state out/flatpak/app-ci build/.ci.json
     gh signoff
 
 # Cuts version X.Y.Z from main — see docs/DEVELOPMENT_WORKFLOW.md. Bumps
@@ -95,6 +95,6 @@ release version:
     git push -q origin --delete "release/$v"
     echo "v$v tagged — GitHub is building the release: https://github.com/opus-editor/opus/actions"
 
-# Remove the build directory.
+# Remove every generated file.
 clean:
-    rm -rf builddir flatpak-build flatpak-repo .flatpak-builder Opus.flatpak
+    rm -rf out

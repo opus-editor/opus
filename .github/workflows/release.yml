@@ -16,7 +16,7 @@ jobs:
     name: Flatpak bundle
     runs-on: ubuntu-latest
     container:
-      # Same runtime branch as build-aux/'s manifest; bump both together.
+      # Same runtime branch as build/'s manifest; bump both together.
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       options: --privileged
     steps:
@@ -24,11 +24,11 @@ jobs:
 
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          manifest-path: build-aux/io.github.opus_editor.Opus.json
+          manifest-path: build/io.github.opus_editor.Opus.json
           bundle: Opus.flatpak
           # Keyed on the manifest, not the commit: the libpeas module is
           # rebuilt only when the manifest changes, Opus itself always.
-          cache-key: flatpak-builder-${{ hashFiles('build-aux/*.json') }}
+          cache-key: flatpak-builder-${{ hashFiles('build/*.json') }}
           upload-artifact: false
 
       - uses: softprops/action-gh-release@v2

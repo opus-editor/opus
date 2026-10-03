@@ -6,13 +6,13 @@ Native GTK4 + Libadwaita source code editor, written in Vala. See
 ## Building
 
 ```shell
-meson setup builddir
-ninja -C builddir
-./builddir/src/opus
+meson setup out/native
+ninja -C out/native
+./out/native/src/opus
 ```
 
 - Reconfigure after adding/removing a `.vala` file: `meson setup
-  --reconfigure builddir` (Meson doesn't glob sources).
+  --reconfigure out/native` (Meson doesn't glob sources).
 - Or via `justfile`: `just build`, `just test`, `just run [folder]`,
   `just clean`.
 - Toolchain: Vala 0.56, Meson 1.7, GTK4 4.18, Libadwaita 1.7.
@@ -20,7 +20,7 @@ ninja -C builddir
 ## Testing
 
 ```shell
-meson test -C builddir
+meson test -C out/native
 ```
 
 One test binary per Model. Views are currently untested — see
