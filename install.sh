@@ -94,7 +94,15 @@ if ! flatpak info --user "\$app_id" >/dev/null 2>&1; then
   rm -f "\$0"
   exit 1
 fi
-exec flatpak run "\$app_id" "\$@"
+# A flag (--version, -v, a typo) wants its output and exit code on this
+# terminal; anything else opens a window, and the terminal is handed
+# straight back — as \`code\` does.
+for arg in "\$@"; do
+  case "\$arg" in
+  -*) exec flatpak run "\$app_id" "\$@" ;;
+  esac
+done
+nohup flatpak run "\$app_id" "\$@" >/dev/null 2>&1 &
 EOF
 chmod +x "$bin_dir/opus.tmp"
 mv -f "$bin_dir/opus.tmp" "$bin_dir/opus"
