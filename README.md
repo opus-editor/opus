@@ -1,9 +1,15 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="opus-code"/>
+  <img src="assets/logo.svg" alt="logo"/>
 </p>
 
 A lightweight, capable source code editor for the GNOME desktop — built
 native with GTK4 and Libadwaita, in Vala.
+
+## Preview
+
+<p align="center">
+  <img src="assets/preview.png" alt="preview"/>
+</p>
 
 ## Features
 
