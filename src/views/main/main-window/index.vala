@@ -92,6 +92,7 @@ public class MainWindow : Object {
   private Gtk.MenuButton find_menu_button;
   private Gtk.Widget find_item;
   private Gtk.Widget replace_item;
+  private Gtk.Widget find_in_files_separator;
   private Gtk.Widget find_in_files_item;
 
   // The first theme-selector button becomes the group's own leader
@@ -1223,7 +1224,8 @@ public class MainWindow : Object {
     }, popover, Gtk.accelerator_get_label (Gdk.Key.h, Gdk.ModifierType.CONTROL_MASK));
     box.append (replace_item);
 
-    box.append (ContextMenu.separator ());
+    find_in_files_separator = ContextMenu.separator ();
+    box.append (find_in_files_separator);
     find_in_files_item = ContextMenu.item (_("Find in Files"), () => open_find_in_files (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK));
     box.append (find_in_files_item);
 
@@ -1238,13 +1240,14 @@ public class MainWindow : Object {
    * tab FindBar can act on — disabled (not hidden, same sensitive-not-
    * visible split as Save's own "nothing to save yet") otherwise, no
    * open tab included. Find in Files only ever makes sense with
-   * something to search across, so it's hidden entirely without a
-   * linked folder, not just disabled.
+   * something to search across, so its whole group (separator included)
+   * is hidden without a linked folder, not just disabled.
    */
   private void update_find_menu () {
     bool can_search = editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH);
     find_item.sensitive = can_search;
     replace_item.sensitive = can_search;
+    find_in_files_separator.visible = has_linked_folder;
     find_in_files_item.visible = has_linked_folder;
   }
 
