@@ -82,17 +82,17 @@ public class ContextMenu : Gtk.Popover {
     button.add_css_class ("opus-context-menu-item");
 
     var label = new Gtk.Label (label_text) { xalign = 0, hexpand = true };
-    if (accel == null) {
-      button.child = label;
-    } else {
+    // Always a box, even with no accel: newer GTK gives a button whose
+    // direct child is a label the `text-button` class, and its wider
+    // padding would push that item out of line with the others.
+    var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
+    box.append (label);
+    if (accel != null) {
       var accel_label = new Gtk.Label (accel) { xalign = 1 };
       accel_label.add_css_class ("dim-label");
-
-      var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
-      box.append (label);
       box.append (accel_label);
-      button.child = box;
     }
+    button.child = box;
 
     button.clicked.connect (() => {
       popover.popdown ();
