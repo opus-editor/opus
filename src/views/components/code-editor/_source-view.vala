@@ -70,6 +70,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   private const int CHAR_WIDTH_SAMPLE_LENGTH = 256;
 
   private int[] caret_offsets = {};
+  private int bold_line_number = -1;
   private bool blink_visible = true;
   private uint blink_timeout_id = 0;
   private uint overscroll_idle_id = 0;
@@ -111,6 +112,30 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   /** The codepoint offsets to paint a caret at on the next draw — one per cursor, primary included. Call whenever the cursor set changes, then `reset_blink()`. */
   public void set_carets (int[] offsets) {
     caret_offsets = offsets;
+    redraw_line_numbers_if_line_changed ();
+  }
+
+  /**
+   * GtkSourceView's line-number renderer bolds the insert mark's line,
+   * but only redraws on a cursor move while `cursor-visible` or
+   * `highlight-current-line` is on — both are off here (every caret is
+   * hand-drawn), so the bold number would stay behind on plain arrow
+   * navigation. Each renderer is asked directly: a gutter's own
+   * queue_draw() doesn't reach its children.
+   */
+  private void redraw_line_numbers_if_line_changed () {
+    Gtk.TextIter insert;
+    buffer.get_iter_at_mark (out insert, buffer.get_insert ());
+    int line = insert.get_line ();
+    if (line == bold_line_number) {
+      return;
+    }
+    bold_line_number = line;
+
+    var gutter = get_gutter (Gtk.TextWindowType.LEFT);
+    for (var renderer = gutter.get_first_child (); renderer != null; renderer = renderer.get_next_sibling ()) {
+      renderer.queue_draw ();
+    }
   }
 
   /** Pass-through to the selections sub-component (_selections.vala) — see its own set_selections(). */
