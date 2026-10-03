@@ -37,8 +37,30 @@ private const string LONG_WORD =
 
 private const string WRAP_ON = "{ \"editor.wordWrap\": true }";
 
-private SystemTestSession launch (string? settings_json) throws Error {
-    return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 106, null, settings_json);
+private SystemTestSession launch (uint display, string? settings_json) throws Error {
+    return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), display, null, settings_json);
+}
+
+private SystemTestSession? wrapped = null;
+
+/** One Opus for every wrap-on case, launched on first use — same reasoning as wrapped-movement-test's own: the ~1s Broadway takes to allocate the editor is paid once, not per case. Each case opens and closes its own tab. */
+private SystemTestSession wrapped_session () throws Error {
+    if (wrapped == null) {
+        wrapped = launch (106, WRAP_ON);
+    }
+    return wrapped;
+}
+
+/** A fresh tab holding `text` in the shared wrap-on Opus. */
+private SystemTestSession open_wrapped (string text) throws Error {
+    var opus = wrapped_session ();
+    opus.new_file ();
+    opus.editor_write (text);
+    return opus;
+}
+
+private void close_current_tab (SystemTestSession opus) throws Error {
+    opus.close_tab (opus.active_tab ());
 }
 
 /** One frame-clock tick's worth of wall time, so whatever state was seeded last has actually been painted before the assertion that follows. */
@@ -58,9 +80,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/whole_wrapped_line_stays_selected", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (LONG_LINE + "\n\nshort");
+            var opus = open_wrapped (LONG_LINE + "\n\nshort");
 
             opus.select_all ();
             let_a_frame_paint ();
@@ -68,7 +88,7 @@ int main (string[] args) {
             opus.assert_cursors ({ {0, LONG_LINE.length + 7} });
             opus.assert_editor_text (LONG_LINE + "\n\nshort");
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -76,9 +96,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/selection_end_on_every_row_and_wrap_boundary", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (LONG_LINE);
+            var opus = open_wrapped (LONG_LINE);
 
             sweep_selection_end (opus, LONG_LINE.length);
             let_a_frame_paint ();
@@ -87,7 +105,7 @@ int main (string[] args) {
             opus.type ("!");
             opus.assert_editor_text ("!"); // the selection was real: typing replaced it
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -95,9 +113,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/selection_starting_mid_row_through_a_forced_break", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (LONG_WORD + "\n" + LONG_LINE);
+            var opus = open_wrapped (LONG_WORD + "\n" + LONG_LINE);
 
             // From inside the long word's first row, through its forced
             // mid-word breaks and the newline, into the next line's rows.
@@ -108,7 +124,7 @@ int main (string[] args) {
 
             opus.assert_cursors ({ {10, LONG_WORD.length + 1 + 40} });
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -116,9 +132,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/multi_cursor_selections_with_a_selected_empty_line", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (LONG_LINE + "\n\n" + LONG_LINE);
+            var opus = open_wrapped (LONG_LINE + "\n\n" + LONG_LINE);
 
             // Cursor 1: the wrapped first line through its newline and
             // the empty line's own newline (the zero-width marker rows);
@@ -130,7 +144,7 @@ int main (string[] args) {
 
             opus.assert_cursors ({ {0, LONG_LINE.length + 2}, {LONG_LINE.length + 2 + 5, LONG_LINE.length + 2 + 120} });
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -138,7 +152,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/wrap_off_sweep_is_unaffected", () => {
         try {
-            var opus = launch (null); // defaults: editor.wordWrap false
+            var opus = launch (110, null); // defaults: editor.wordWrap false — its own Opus
             opus.new_file ();
             opus.editor_write (LONG_LINE);
 
@@ -155,9 +169,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/overtype_caret_on_every_glyph_of_a_force_wrapped_word", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (LONG_WORD);
+            var opus = open_wrapped (LONG_WORD);
             opus.type_cmd ("insert");
 
             // Every offset, so the caret lands on each row's last glyph
@@ -172,11 +184,14 @@ int main (string[] args) {
             opus.type ("Y");
             opus.assert_editor_text ("Y" + LONG_WORD.substring (1)); // still overtyping, not inserting
 
-            opus.close ();
+            opus.type_cmd ("insert"); // back to insert mode for whoever shares this Opus next
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
     });
 
-    return Test.run ();
+    int status = Test.run ();
+    wrapped?.close ();
+    return status;
 }

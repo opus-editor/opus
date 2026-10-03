@@ -20,8 +20,24 @@ private const string PARAGRAPH =
 
 private const string WRAP_ON = "{ \"editor.wordWrap\": true }";
 
-private SystemTestSession launch (string? settings_json) throws Error {
-    return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 107, null, settings_json);
+private SystemTestSession launch (uint display, string? settings_json) throws Error {
+    return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), display, null, settings_json);
+}
+
+private SystemTestSession? wrapped = null;
+
+/**
+ * One Opus for every wrap-on case, launched on first use. What each
+ * case needs — an editor that has really wrapped — is what
+ * wait_until_wrapped() pays ~1s for per launch (see its doc comment);
+ * once the one CodeEditor widget is allocated, every later tab wraps at
+ * once. Each case still opens its own fresh tab and closes it.
+ */
+private SystemTestSession wrapped_session () throws Error {
+    if (wrapped == null) {
+        wrapped = launch (107, WRAP_ON);
+    }
+    return wrapped;
 }
 
 private int primary_position (SystemTestSession opus) throws Error {
@@ -57,15 +73,25 @@ private void wait_until_wrapped (SystemTestSession opus) throws Error {
     error ("the editor never wrapped PARAGRAPH within 5s");
 }
 
+/** A fresh tab holding `text`, wrapped and ready — the common opening of every wrap-on case. */
+private SystemTestSession open_wrapped (string text) throws Error {
+    var opus = wrapped_session ();
+    opus.new_file ();
+    opus.editor_write (text);
+    wait_until_wrapped (opus);
+    return opus;
+}
+
+private void close_current_tab (SystemTestSession opus) throws Error {
+    opus.close_tab (opus.active_tab ());
+}
+
 int main (string[] args) {
     Test.init (ref args);
 
     Test.add_func ("/system/wrapped_movement/down_from_the_first_row_stays_inside_the_wrapped_paragraph", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (three_paragraphs ());
-            wait_until_wrapped (opus);
+            var opus = open_wrapped (three_paragraphs ());
             opus.set_cursors ({ {0, 4} });
 
             opus.type_cmd ("down");
@@ -74,7 +100,7 @@ int main (string[] args) {
             assert_cmpint (landed, CompareOperator.GT, 4);
             assert_cmpint (landed, CompareOperator.LE, PARAGRAPH.length); // a continuation row of paragraph 1 — not paragraph 2
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -82,10 +108,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/down_visits_more_rows_than_there_are_paragraphs_and_reaches_the_end", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (three_paragraphs ());
-            wait_until_wrapped (opus);
+            var opus = open_wrapped (three_paragraphs ());
             opus.set_cursors ({ {0, 4} });
 
             var distinct = new GenericArray<int> ();
@@ -100,7 +123,7 @@ int main (string[] args) {
             assert_cmpint ((int) distinct.length, CompareOperator.GT, 3); // paragraph-sized jumps would give exactly 3
             assert_cmpint (distinct[distinct.length - 1], CompareOperator.EQ, three_paragraphs ().length);
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -108,10 +131,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/up_from_the_end_retraces_to_the_start", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (three_paragraphs ());
-            wait_until_wrapped (opus);
+            var opus = open_wrapped (three_paragraphs ());
             opus.set_cursors ({ {2, PARAGRAPH.length} });
 
             for (int i = 0; i < 12; i++) {
@@ -120,7 +140,7 @@ int main (string[] args) {
 
             opus.assert_cursors ({ {0, 0} });
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -128,10 +148,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/end_and_home_stop_at_the_rows_own_edges", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (PARAGRAPH);
-            wait_until_wrapped (opus);
+            var opus = open_wrapped (PARAGRAPH);
             opus.set_cursors ({ {0, 0} });
 
             opus.type_cmd ("end");
@@ -147,7 +164,7 @@ int main (string[] args) {
             opus.type_cmd ("end");
             opus.assert_cursors ({ {PARAGRAPH.length, PARAGRAPH.length} }); // on the last row, End is the paragraph end
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -155,10 +172,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/shift_down_extends_onto_the_next_row", () => {
         try {
-            var opus = launch (WRAP_ON);
-            opus.new_file ();
-            opus.editor_write (three_paragraphs ());
-            wait_until_wrapped (opus);
+            var opus = open_wrapped (three_paragraphs ());
             opus.set_cursors ({ {0, 0} });
 
             opus.type_cmd ("shift+down");
@@ -170,7 +184,7 @@ int main (string[] args) {
             assert_cmpint (positions[0], CompareOperator.GT, 0);
             assert_cmpint (positions[0], CompareOperator.LE, PARAGRAPH.length);
 
-            opus.close ();
+            close_current_tab (opus);
         } catch (Error e) {
             error ("unexpected error: %s", e.message);
         }
@@ -178,7 +192,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/with_wrap_off_down_still_moves_by_paragraph", () => {
         try {
-            var opus = launch (null); // defaults: editor.wordWrap false
+            var opus = launch (109, null); // defaults: editor.wordWrap false — its own Opus, nothing to wait for
             opus.new_file ();
             opus.editor_write (three_paragraphs ());
             opus.set_cursors ({ {0, 4} });
@@ -193,5 +207,7 @@ int main (string[] args) {
         }
     });
 
-    return Test.run ();
+    int status = Test.run ();
+    wrapped?.close ();
+    return status;
 }
