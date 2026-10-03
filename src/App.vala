@@ -114,26 +114,38 @@ public class App : Adw.Application {
    * argument going through Workspace.resolve instead of GLib's own
    * GFile-based "open" semantics.
    */
+  /**
+   * What argv can be answered by this very process, before run() ever
+   * hands it to an Opus that may already be open: `--version`, and a
+   * flag nobody knows (which would otherwise open a window on a folder
+   * named after it). Not command_line()'s job — with an instance
+   * running, that executes over there, and its print() travels back
+   * over D-Bus, which a Flatpak sandbox's bus proxy doesn't let through:
+   * the terminal that asked would hear nothing.
+   */
+  public static bool answers_locally (string[] args, out int exit_status) {
+    exit_status = 0;
+    foreach (var arg in args[1:args.length]) {
+      if (arg == "--version") {
+        print ("opus %s\n", BuildInfo.VERSION);
+        return true;
+      }
+      if (arg.has_prefix ("-") && arg != "-" && arg != "-v" && arg != "--verbose") {
+        printerr ("opus: unknown option %s\n", arg);
+        exit_status = 1;
+        return true;
+      }
+    }
+    return false;
+  }
+
   public override int command_line (ApplicationCommandLine command_line) {
     string[] argv = command_line.get_arguments ();
     string[] remaining = {};
     bool verbose = false;
     foreach (var arg in argv) {
-      if (arg == "--version") {
-        // command_line.print, not stdout: with an Opus already running
-        // this runs in that instance, and the answer belongs on the
-        // terminal that asked.
-        command_line.print ("opus %s\n", BuildInfo.VERSION);
-        return 0;
-      }
       if (arg == "-v" || arg == "--verbose") {
         verbose = true;
-      } else if (arg.has_prefix ("-") && arg != "-") {
-        // Not a path to open — the Flatpak launcher's own `--uninstall`
-        // never reaches here, but a typo would otherwise open a window
-        // on a folder named after the flag.
-        command_line.printerr ("opus: unknown option %s\n", arg);
-        return 1;
       } else {
         remaining += arg;
       }

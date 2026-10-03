@@ -16,6 +16,11 @@ int main (string[] args) {
   CrashHandler.install ();
   #endif
 
+  int exit_status;
+  if (App.answers_locally (args, out exit_status)) {
+    return exit_status;
+  }
+
   var app_id = Environment.get_variable ("OPUS_APP_ID") ?? "io.github.opus_editor.Opus";
 
   return new App (app_id).run (args);
