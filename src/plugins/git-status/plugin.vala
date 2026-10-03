@@ -3,7 +3,7 @@
  * key. A plain exported function, deliberately NOT [ModuleInit] — one
  * [ModuleInit] anywhere in this whole `valac` invocation would switch
  * every class in Opus to g_type_module_register_type (confirmed from
- * valac's own codegen source, see docs/decisions.md), which this single,
+ * valac's own codegen source, see docs/DECISIONS.md), which this single,
  * hand-written registration function avoids entirely.
  */
 [CCode (cname = "opus_git_status_register_types")]

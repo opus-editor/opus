@@ -154,7 +154,7 @@
  * --git-conflict-color has no libadwaita platform color to reach for at
  * all (none of them is orange), so it's derived by mixing
  * --warning-color and --error-color first (color-mix() confirmed to
- * nest cleanly — unlike light-dark(), see docs/decisions.md). */
+ * nest cleanly — unlike light-dark(), see docs/DECISIONS.md). */
 :root {
   --git-added-color: var(--success-color);
   --git-modified-color: var(--warning-color);

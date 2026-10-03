@@ -9,7 +9,7 @@
  * validates property names against this interface before ever touching a
  * concrete class, so the property must stay declared here — but a class
  * overriding a `{ get; construct; }` interface property can hit a valac
- * codegen bug (see docs/decisions.md). Plain `{ get; set; }` sidesteps it
+ * codegen bug (see docs/DECISIONS.md). Plain `{ get; set; }` sidesteps it
  * and still works fine with construction-time property assignment.
  */
 public interface IWorkspaceExtension : Object {

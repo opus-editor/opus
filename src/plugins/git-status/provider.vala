@@ -9,7 +9,7 @@
  * class lives inside `namespace Opus.Plugins.GitStatus`, whose own last
  * segment matches the top-level `GitStatus` class's own name — the same
  * class of namespace/name collision `ExplorerPane`'s own doc comment
- * already documents for `FileTree` (see docs/decisions.md).
+ * already documents for `FileTree` (see docs/DECISIONS.md).
  */
 namespace Opus.Plugins.GitStatus {
   public class Provider : Object, IWorkspaceExtension, FileDecoration.IProvider {

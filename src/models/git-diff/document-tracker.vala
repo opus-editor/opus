@@ -69,7 +69,7 @@ namespace GitDiff {
       // reconnects the identical bound-method closure over `this` right
       // after disconnecting it, which reproducibly finalized this very
       // object mid-call in testing (signal connections don't keep an
-      // object alive — see docs/decisions.md).
+      // object alive — see docs/DECISIONS.md).
       if (provider != current_provider) {
         disconnect_provider ();
         current_provider = provider;
