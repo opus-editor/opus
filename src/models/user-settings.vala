@@ -62,14 +62,13 @@ public class UserSettings : Object {
 
   private static string default_content () {
     return """{
-  "themes.syntaxHighlight": "Opus Colors",
-  "editor.fontFamily": null,
-  "editor.fontSize": %d,
-  "editor.fontWeight": "normal",
-  "editor.fontLigatures": false,
-  "editor.lineHeight": 1,
-  "editor.letterSpacing": 0,
-  "editor.wordWrap": false
+  "editor.font_family": null,
+  "editor.font_size": %d,
+  "editor.font_weight": "normal",
+  "editor.font_ligatures": false,
+  "editor.line_height": 1,
+  "editor.letter_spacing": 0,
+  "editor.word_wrap": false
 }
 """.printf (system_monospace_font_size ());
   }
@@ -102,7 +101,7 @@ public class UserSettings : Object {
   }
 
   /**
-   * Flips `editor.wordWrap` in settings.json and returns the new value —
+   * Flips `editor.word_wrap` in settings.json and returns the new value —
    * MainWindow's own Alt+W. Reads the real object, flips just this one
    * member, writes it back — see read_object()/write_object() for why
    * a future toggle/set on some other key would do the same two calls
@@ -111,9 +110,9 @@ public class UserSettings : Object {
   public static bool toggle_word_wrap (string config_dir) throws Error {
     var root = read_object (config_dir);
 
-    bool current_value = bool_member (root, "editor.wordWrap") ?? false;
+    bool current_value = bool_member (root, "editor.word_wrap") ?? false;
     bool new_value = !current_value;
-    root.set_boolean_member ("editor.wordWrap", new_value);
+    root.set_boolean_member ("editor.word_wrap", new_value);
 
     write_object (config_dir, root);
     return new_value;
@@ -193,13 +192,13 @@ public class UserSettings : Object {
       return values;
     }
 
-    values.font_family = string_member (root, "editor.fontFamily") ?? values.font_family;
-    values.font_size = int_member (root, "editor.fontSize") ?? values.font_size;
-    values.font_weight = string_member (root, "editor.fontWeight") ?? values.font_weight;
-    values.font_ligatures = bool_member (root, "editor.fontLigatures") ?? values.font_ligatures;
-    values.line_height = double_member (root, "editor.lineHeight") ?? values.line_height;
-    values.letter_spacing = double_member (root, "editor.letterSpacing") ?? values.letter_spacing;
-    values.word_wrap = bool_member (root, "editor.wordWrap") ?? values.word_wrap;
+    values.font_family = string_member (root, "editor.font_family") ?? values.font_family;
+    values.font_size = int_member (root, "editor.font_size") ?? values.font_size;
+    values.font_weight = string_member (root, "editor.font_weight") ?? values.font_weight;
+    values.font_ligatures = bool_member (root, "editor.font_ligatures") ?? values.font_ligatures;
+    values.line_height = double_member (root, "editor.line_height") ?? values.line_height;
+    values.letter_spacing = double_member (root, "editor.letter_spacing") ?? values.letter_spacing;
+    values.word_wrap = bool_member (root, "editor.word_wrap") ?? values.word_wrap;
     return values;
   }
 

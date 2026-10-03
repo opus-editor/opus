@@ -1,5 +1,5 @@
 /**
- * Up/Down/Home/End under `editor.wordWrap`: each moves by *display row*
+ * Up/Down/Home/End under `editor.word_wrap`: each moves by *display row*
  * (CodeEditorSourceView's own IDisplayRows over GTK's display lines,
  * through CursorCollection.move_by_row()), so a wrapped line's own
  * continuation rows are reachable from the keyboard — where they used
@@ -18,7 +18,7 @@ private const string PARAGRAPH =
     "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu "
   + "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu";
 
-private const string WRAP_ON = "{ \"editor.wordWrap\": true }";
+private const string WRAP_ON = "{ \"editor.word_wrap\": true }";
 
 private SystemTestSession launch (uint display, string? settings_json) throws Error {
     return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), display, null, settings_json);
@@ -192,7 +192,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/with_wrap_off_down_still_moves_by_paragraph", () => {
         try {
-            var opus = launch (109, null); // defaults: editor.wordWrap false — its own Opus, nothing to wait for
+            var opus = launch (109, null); // defaults: editor.word_wrap false — its own Opus, nothing to wait for
             opus.new_file ();
             opus.editor_write (three_paragraphs ());
             opus.set_cursors ({ {0, 4} });

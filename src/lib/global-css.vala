@@ -60,7 +60,7 @@ namespace GlobalCss {
    * Removes a provider previously returned by install_from_string() —
    * CSS providers only ever add rules, they don't replace one another:
    * a property this app set on the first install and *omits* on a
-   * later one (e.g. settings.json's editor.fontFamily going back to
+   * later one (e.g. settings.json's editor.font_family going back to
    * null) doesn't revert on its own, the first install's own rule for
    * it is still active and wins since nothing overrides it. Uninstalling
    * the previous provider before installing the next is what actually

@@ -42,8 +42,7 @@ private void test_ensure_exists_creates_the_file_with_default_content () {
 
         string contents;
         FileUtils.get_contents (path, out contents);
-        assert_true (contents.contains ("\"themes.syntaxHighlight\": \"Opus Colors\""));
-        assert_true (contents.contains ("\"editor.fontSize\": %d".printf (UserSettings.system_monospace_font_size ())));
+        assert_true (contents.contains ("\"editor.font_size\": %d".printf (UserSettings.system_monospace_font_size ())));
     } catch (Error e) {
         error ("failed to exercise ensure_exists: %s", e.message);
     } finally {
@@ -53,7 +52,7 @@ private void test_ensure_exists_creates_the_file_with_default_content () {
 
 private void test_ensure_exists_leaves_an_existing_file_untouched () {
     string config_dir = make_temp_config_dir ();
-    write_settings (config_dir, "{\"editor.fontSize\": 20}");
+    write_settings (config_dir, "{\"editor.font_size\": 20}");
 
     try {
         UserSettings.ensure_exists (config_dir);
@@ -67,7 +66,7 @@ private void test_ensure_exists_leaves_an_existing_file_untouched () {
     } catch (Error e) {
         error ("failed to read fixture settings.json: %s", e.message);
     }
-    assert_true (contents == "{\"editor.fontSize\": 20}");
+    assert_true (contents == "{\"editor.font_size\": 20}");
 
     remove_temp_config_dir (config_dir);
 }
@@ -91,13 +90,13 @@ private void test_load_returns_defaults_for_a_freshly_created_file () {
 private void test_load_reads_custom_editor_values () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
-  "editor.fontFamily": "Fira Code",
-  "editor.fontSize": 16,
-  "editor.fontWeight": "600",
-  "editor.fontLigatures": true,
-  "editor.lineHeight": 1.5,
-  "editor.letterSpacing": 0.5,
-  "editor.wordWrap": true
+  "editor.font_family": "Fira Code",
+  "editor.font_size": 16,
+  "editor.font_weight": "600",
+  "editor.font_ligatures": true,
+  "editor.line_height": 1.5,
+  "editor.letter_spacing": 0.5,
+  "editor.word_wrap": true
 }""");
 
     var settings = UserSettings.load (config_dir);
@@ -127,8 +126,8 @@ private void test_load_falls_back_to_defaults_on_invalid_json () {
 private void test_load_falls_back_per_key_when_a_value_has_the_wrong_type () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
-  "editor.fontSize": "big",
-  "editor.fontWeight": "bold"
+  "editor.font_size": "big",
+  "editor.font_weight": "bold"
 }""");
 
     var settings = UserSettings.load (config_dir);
@@ -142,7 +141,7 @@ private void test_load_falls_back_per_key_when_a_value_has_the_wrong_type () {
 private void test_toggle_word_wrap_defaults_to_off_when_the_key_is_absent () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
-  "editor.fontSize": 16
+  "editor.font_size": 16
 }""");
 
     try {
@@ -159,7 +158,7 @@ private void test_toggle_word_wrap_defaults_to_off_when_the_key_is_absent () {
 private void test_toggle_word_wrap_flips_an_existing_value () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
-  "editor.wordWrap": true
+  "editor.word_wrap": true
 }""");
 
     try {
@@ -176,8 +175,8 @@ private void test_toggle_word_wrap_flips_an_existing_value () {
 private void test_toggle_word_wrap_preserves_every_other_key () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
-  "editor.fontFamily": "Fira Code",
-  "editor.fontSize": 16
+  "editor.font_family": "Fira Code",
+  "editor.font_size": 16
 }""");
 
     try {

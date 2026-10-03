@@ -1,5 +1,5 @@
 /**
- * Selections, carets and the overtype block under `editor.wordWrap`:
+ * Selections, carets and the overtype block under `editor.word_wrap`:
  * every one is hand-painted (CodeEditorSelections, CodeEditorSourceView)
  * one display row at a time, and a logical line that wraps has several.
  * Each scenario seeds that painting through the real D-Bus surface and
@@ -35,7 +35,7 @@ private const string LONG_WORD =
   + "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   + "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
-private const string WRAP_ON = "{ \"editor.wordWrap\": true }";
+private const string WRAP_ON = "{ \"editor.word_wrap\": true }";
 
 private SystemTestSession launch (uint display, string? settings_json) throws Error {
     return new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), display, null, settings_json);
@@ -152,7 +152,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/wrap_off_sweep_is_unaffected", () => {
         try {
-            var opus = launch (110, null); // defaults: editor.wordWrap false — its own Opus
+            var opus = launch (110, null); // defaults: editor.word_wrap false — its own Opus
             opus.new_file ();
             opus.editor_write (LONG_LINE);
 

@@ -205,7 +205,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
    * absolute position. Vertically it is the row's full band, not
    * `get_iter_location()`'s glyph box, so the padding row and the
    * "already visible" test agree with the painted rows at any
-   * `editor.lineHeight`; under word wrap that band is the caret's own
+   * `editor.line_height`; under word wrap that band is the caret's own
    * display row, so a paragraph taller than the viewport reveals the
    * right row of it.
    *
@@ -498,7 +498,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
    * The vertical band [top, bottom) of the display row `on_row` sits
    * on: contiguous with the neighbouring rows, line-height included.
    * Not `get_iter_location()`'s rectangle — that's the glyph box, 16px
-   * high inside a 23px row at `editor.lineHeight: 1.5`, so anything
+   * high inside a 23px row at `editor.line_height: 1.5`, so anything
    * sized from it leaves a gap between consecutive rows. The extra
    * leading GTK adds for line-height sits half above and half below
    * each row's glyphs (the same symmetry GtkSourceView's own gutter

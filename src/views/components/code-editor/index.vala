@@ -163,7 +163,7 @@ public class CodeEditor : Object {
 
   /**
    * A transient adjustment on top of settings.json's own
-   * editor.fontSize — Ctrl+Plus/Minus/0, never written to disk. Ported
+   * editor.font_size — Ctrl+Plus/Minus/0, never written to disk. Ported
    * from VS Code's own real EditorZoom (checked editorZoom.ts): a
    * plain in-memory value, gone on restart. Static, not per-instance:
    * this app has no per-window zoom concept, one shared level applies
@@ -177,7 +177,7 @@ public class CodeEditor : Object {
   /** Static for the same reason zoom_level is: the provider it holds is display-wide, so with several CodeEditors alive at once (the file editor plus Find Results) the previous one has to be uninstalled no matter which instance reloads. */
   private static Gtk.CssProvider? font_provider = null;
 
-  /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.fontSize is already a plain point size, so a flat step matches it more directly than a percentage would. */
+  /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.font_size is already a plain point size, so a flat step matches it more directly than a percentage would. */
   public void zoom_in () {
     zoom_level += 1;
     reload_settings ();
@@ -189,7 +189,7 @@ public class CodeEditor : Object {
     reload_settings ();
   }
 
-  /** Ctrl+0 — back to settings.json's own editor.fontSize exactly, same as VS Code's real EditorFontZoomReset. */
+  /** Ctrl+0 — back to settings.json's own editor.font_size exactly, same as VS Code's real EditorFontZoomReset. */
   public void reset_zoom () {
     zoom_level = 0;
     reload_settings ();
@@ -200,14 +200,14 @@ public class CodeEditor : Object {
    * aren't their own dedicated "prop" (indent, hunks, …): turns the font
    * ones into a real stylesheet targeting `.code-editor` (text_view's
    * own class, set above), and sets `wrap_mode` directly (not a CSS
-   * concern) from `editor.wordWrap`. Run once at construction, again
+   * concern) from `editor.word_wrap`. Run once at construction, again
    * whenever MainWindow's own settings.json live-reload watch (armed
    * only while that file's tab is open — see its own
    * on_settings_tab_opened()) detects a change, and again on every
    * zoom_in()/zoom_out()/reset_zoom() (wrap_mode is unaffected by zoom,
    * re-set anyway since it's the same one `UserSettings.load()` call).
    * Uninstalls the previous font provider first — a property the last
-   * reload set and this one omits (e.g. editor.fontFamily going back to
+   * reload set and this one omits (e.g. editor.font_family going back to
    * null) needs the old rule gone, not just left uncontested by a new
    * one that doesn't mention it.
    *
@@ -215,7 +215,7 @@ public class CodeEditor : Object {
    * always tied to the real widget width (`Gtk.WrapMode` has no
    * "wrap at a fixed column" option at all — checked gtkenums.h), so
    * there's no native equivalent of `wordWrapColumn`/`bounded` to wire
-   * up here; this app's own `editor.wordWrap` is `on`/`off` only.
+   * up here; this app's own `editor.word_wrap` is `on`/`off` only.
    * `Gtk.WrapMode.WORD_CHAR` is the same mapping GNOME Text Editor's own
    * "Wrap Text" preference uses (checked editor-utils.c's
    * `_editor_gboolean_to_wrap_mode`): word boundaries first, falling

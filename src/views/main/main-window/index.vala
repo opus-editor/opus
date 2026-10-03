@@ -476,7 +476,7 @@ public class MainWindow : Object {
     }
   }
 
-  /** Alt+W — flips editor.wordWrap in settings.json and re-applies it right away, same as editing the file by hand and the live-reload watch picking it up (see on_settings_tab_opened()'s own doc comment), just without needing that tab open at all. */
+  /** Alt+W — flips editor.word_wrap in settings.json and re-applies it right away, same as editing the file by hand and the live-reload watch picking it up (see on_settings_tab_opened()'s own doc comment), just without needing that tab open at all. */
   private void toggle_word_wrap () {
     try {
       UserSettings.toggle_word_wrap (Environment.get_user_config_dir ());
