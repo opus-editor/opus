@@ -591,9 +591,12 @@ public class MainWindow : Object {
   /** Only the built-in providers' items are understood here (a path, a line); a future `>` provider's own accept behaviour belongs to that provider. */
   private void on_command_bar_item_accepted (CommandBar.Item item) {
     var provider = command_router.provider;
+    var filter = command_router.picker.filter;
     command_router.close ();
     if (provider == file_provider) {
-      open_from_command_bar (item.id);
+      int line;
+      CommandBar.FileProvider.split_line_suffix (filter, out line);
+      open_from_command_bar (item.id, line);
     } else if (provider == go_to_line_provider) {
       int line, column;
       CommandBar.GoToLineProvider.decode (item.id, out line, out column);
@@ -602,11 +605,16 @@ public class MainWindow : Object {
     }
   }
 
-  private void open_from_command_bar (string path) {
+  /** `line` is 1-based; 0 leaves the caret wherever the tab already has it. */
+  private void open_from_command_bar (string path, int line) {
     try {
       editor_pane.open (path, true);
     } catch (Error e) {
       show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
+      return;
+    }
+    if (line > 0) {
+      editor_pane.go_to_line (line, 0);
     }
   }
 

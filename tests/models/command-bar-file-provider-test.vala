@@ -214,6 +214,95 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/command-bar/file-provider/a-line-suffix-is-left-out-of-the-search", () => {
+        Scenario? scenario = null;
+        try {
+            scenario = new Scenario ();
+            scenario.provide_and_wait ();
+
+            scenario.picker.text = "readme:12";
+
+            assert_cmpstrv (ids_of (scenario.picker), { scenario.absolute ("README.md") });
+        } catch (Error e) {
+            assert_not_reached ();
+        } finally {
+            scenario?.close ();
+        }
+    });
+
+    Test.add_func ("/command-bar/file-provider/a-bare-trailing-colon-is-left-out-of-the-search", () => {
+        Scenario? scenario = null;
+        try {
+            scenario = new Scenario ();
+            scenario.provide_and_wait ();
+
+            scenario.picker.text = "readme:";
+
+            assert_cmpstrv (ids_of (scenario.picker), { scenario.absolute ("README.md") });
+        } catch (Error e) {
+            assert_not_reached ();
+        } finally {
+            scenario?.close ();
+        }
+    });
+
+    Test.add_func ("/command-bar/file-provider/typing-only-the-line-suffix-does-not-list-again", () => {
+        Scenario? scenario = null;
+        try {
+            scenario = new Scenario ();
+            scenario.provide_and_wait ();
+            scenario.picker.text = "readme";
+            int listings = 0;
+            scenario.picker.items_changed.connect (() => listings++);
+
+            scenario.picker.text = "readme:";
+            scenario.picker.text = "readme:1";
+            scenario.picker.text = "readme:12";
+
+            assert_cmpint (listings, CompareOperator.EQ, 0);
+        } catch (Error e) {
+            assert_not_reached ();
+        } finally {
+            scenario?.close ();
+        }
+    });
+
+    Test.add_func ("/command-bar/file-provider/split-line-suffix-reads-the-line-number", () => {
+        int line;
+
+        var filter = CommandBar.FileProvider.split_line_suffix ("App.vala:30", out line);
+
+        assert_cmpstr (filter, CompareOperator.EQ, "App.vala");
+        assert_cmpint (line, CompareOperator.EQ, 30);
+    });
+
+    Test.add_func ("/command-bar/file-provider/split-line-suffix-without-one-asks-for-no-line", () => {
+        int line;
+
+        var filter = CommandBar.FileProvider.split_line_suffix ("App.vala", out line);
+
+        assert_cmpstr (filter, CompareOperator.EQ, "App.vala");
+        assert_cmpint (line, CompareOperator.EQ, 0);
+    });
+
+    Test.add_func ("/command-bar/file-provider/split-line-suffix-bare-colon-asks-for-no-line", () => {
+        int line;
+
+        var filter = CommandBar.FileProvider.split_line_suffix ("App.vala:", out line);
+
+        assert_cmpstr (filter, CompareOperator.EQ, "App.vala");
+        assert_cmpint (line, CompareOperator.EQ, 0);
+    });
+
+    Test.add_func ("/command-bar/file-provider/split-line-suffix-keeps-a-non-numeric-colon-part", () => {
+        int line;
+
+        var filter = CommandBar.FileProvider.split_line_suffix ("App:vala", out line);
+
+        assert_cmpstr (filter, CompareOperator.EQ, "App:vala");
+        assert_cmpint (line, CompareOperator.EQ, 0);
+    });
+
     Test.add_func ("/command-bar/file-provider/accepting-an-item-records-it-as-recent", () => {
         Scenario? scenario = null;
         try {

@@ -45,6 +45,9 @@ namespace CommandBar {
     private Picker? picker = null;
     private Cancellable? picker_cancellable = null;
     private uint cold_timeout_id = 0;
+    // The filter the current list answers, line suffix already cut —
+    // null until this picker's first list.
+    private string? listed_filter = null;
 
     public FileProvider (WorkspaceContext context, RecentFiles recent) {
       Object (context: context);
@@ -123,6 +126,11 @@ namespace CommandBar {
     }
 
     private void on_filter_changed () {
+      // Typing the `:N` suffix leaves the search itself unchanged —
+      // listing again would also throw the active row back to the top.
+      if (split_line_suffix (picker.filter, null) == listed_filter) {
+        return;
+      }
       if (current == null) {
         schedule_cold_update ();
       } else {
@@ -146,13 +154,38 @@ namespace CommandBar {
       }
     }
 
+    /**
+     * `filter` without a trailing `:N`, and that N as `line` (1-based; 0
+     * when there is none) — `App.vala:30` searches for `App.vala` and
+     * opens whichever row is accepted at line 30, as VS Code's own Go to
+     * File does. A bare trailing `:` is cut too, so the list doesn't
+     * empty out between typing the colon and the number. Public for the
+     * host: only it can move the caret once the file is open.
+     */
+    public static string split_line_suffix (string filter, out int line) {
+      line = 0;
+      int colon = filter.last_index_of_char (':');
+      if (colon < 0) {
+        return filter;
+      }
+      var digits = filter.substring (colon + 1);
+      for (int i = 0; i < digits.length; i++) {
+        if (!digits[i].isdigit ()) {
+          return filter;
+        }
+      }
+      line = digits == "" ? 0 : int.parse (digits);
+      return filter.substring (0, colon).strip ();
+    }
+
     private void update () {
       if (picker == null || picker.is_closed || picker_cancellable.is_cancelled ()) {
         return;
       }
       picker.busy = source != null;
 
-      var filter = picker.filter;
+      var filter = split_line_suffix (picker.filter, null);
+      listed_filter = filter;
       if (filter == "") {
         picker.empty_message = _("Type to search files");
         picker.set_items (recent_items ());
@@ -286,6 +319,7 @@ namespace CommandBar {
       picker.filter_changed.disconnect (on_filter_changed);
       picker.accepted.disconnect (on_accepted);
       picker.closed.disconnect (on_picker_closed);
+      listed_filter = null;
       picker = null;
       picker_cancellable = null;
     }
