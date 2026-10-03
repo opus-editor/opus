@@ -20,3 +20,4 @@ flatpak-build/
 flatpak-repo/
 .flatpak-builder/
 Opus.flatpak
+build-aux/.ci.json

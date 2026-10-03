@@ -73,6 +73,9 @@ just bundle    # exports Opus.flatpak, what a release attaches
 just test
 ```
 
+Before merging or releasing, `just ci` — see
+[docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md).
+
 ## License
 
 Copyright (c) 2026-present, Alexandre Magro
