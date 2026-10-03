@@ -55,20 +55,40 @@ say "Installing..."
 flatpak install --user -y --noninteractive --reinstall "$bundle"
 
 # `opus` on the PATH: a wrapper around `flatpak run`, which also owns
-# `opus --uninstall` — that has to run on the host, where it can remove
-# the Flatpak, the app's data and itself; the sandboxed app can't.
+# `opus --update` and `opus --uninstall` — both have to run on the
+# host, where they can reach GitHub, the Flatpak, the app's data and
+# the wrapper itself; the sandboxed app can't. Written to a temp file
+# and moved into place: `opus --update` runs this very script, and a
+# shell script must never be overwritten while it is executing — mv
+# swaps the inode, the running copy keeps reading the old one.
 bin_dir="${XDG_BIN_HOME:-$HOME/.local/bin}"
 mkdir -p "$bin_dir"
-cat >"$bin_dir/opus" <<EOF
+cat >"$bin_dir/opus.tmp" <<EOF
 #!/bin/sh
-# Opus — written by install.sh. \`opus --uninstall\` removes everything.
+# Opus — written by install.sh. \`opus --update\` / \`opus --uninstall\`.
 app_id="$app_id"
-if [ "\$1" = "--uninstall" ]; then
+install_url="https://raw.githubusercontent.com/$repo/main/install.sh"
+case "\$1" in
+--uninstall)
   flatpak uninstall --user -y --noninteractive --delete-data "\$app_id"
   rm -f "\$0"
   echo "Opus removed."
   exit 0
-fi
+  ;;
+--update)
+  command -v curl >/dev/null 2>&1 || { echo "opus: 'curl' is required to check for updates." >&2; exit 1; }
+  installed=\$(flatpak info --user "\$app_id" 2>/dev/null | sed -n 's/^ *Version: *//p')
+  # The release page's redirect ends in /tag/vX.Y.Z — no API, no token.
+  latest=\$(curl -fsSI "https://github.com/$repo/releases/latest" | sed -n 's/^[Ll]ocation:.*\\/tag\\/v\\([^[:space:]]*\\).*/\\1/p')
+  [ -n "\$latest" ] || { echo "opus: could not reach GitHub to check the latest release." >&2; exit 1; }
+  if [ "\$installed" = "\$latest" ]; then
+    echo "Opus \$installed is up to date."
+    exit 0
+  fi
+  echo "Opus \$installed installed, \$latest is the latest release — updating..."
+  exec sh -c "curl -fsSL '\$install_url' | sh"
+  ;;
+esac
 if ! flatpak info --user "\$app_id" >/dev/null 2>&1; then
   echo "opus: Opus is no longer installed; removing this launcher." >&2
   rm -f "\$0"
@@ -76,12 +96,13 @@ if ! flatpak info --user "\$app_id" >/dev/null 2>&1; then
 fi
 exec flatpak run "\$app_id" "\$@"
 EOF
-chmod +x "$bin_dir/opus"
+chmod +x "$bin_dir/opus.tmp"
+mv -f "$bin_dir/opus.tmp" "$bin_dir/opus"
 
 say ""
 say "Opus is installed."
 say "  Run it:     opus [folder]   (or from your app launcher)"
-say "  Update it:  run this script again"
+say "  Update it:  opus --update"
 say "  Remove it:  opus --uninstall"
 case ":$PATH:" in
 *":$bin_dir:"*) ;;

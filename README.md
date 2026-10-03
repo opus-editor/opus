@@ -30,10 +30,9 @@ from Flathub the first time, and puts `opus` on your PATH:
 ```shell
 opus              # or from your app launcher
 opus ~/project
+opus --update     # installs the latest release, if newer
 opus --uninstall  # removes Opus and its settings
 ```
-
-Run the install script again to update.
 
 Git features (status tints, change bars, gitignore-aware search) use
 the `git` on your system. Settings live in
