@@ -54,8 +54,39 @@ fi
 say "Installing..."
 flatpak install --user -y --noninteractive --reinstall "$bundle"
 
+# `opus` on the PATH: a wrapper around `flatpak run`, which also owns
+# `opus --uninstall` — that has to run on the host, where it can remove
+# the Flatpak, the app's data and itself; the sandboxed app can't.
+bin_dir="${XDG_BIN_HOME:-$HOME/.local/bin}"
+mkdir -p "$bin_dir"
+cat >"$bin_dir/opus" <<EOF
+#!/bin/sh
+# Opus — written by install.sh. \`opus --uninstall\` removes everything.
+app_id="$app_id"
+if [ "\$1" = "--uninstall" ]; then
+  flatpak uninstall --user -y --noninteractive --delete-data "\$app_id"
+  rm -f "\$0"
+  echo "Opus removed."
+  exit 0
+fi
+if ! flatpak info --user "\$app_id" >/dev/null 2>&1; then
+  echo "opus: Opus is no longer installed; removing this launcher." >&2
+  rm -f "\$0"
+  exit 1
+fi
+exec flatpak run "\$app_id" "\$@"
+EOF
+chmod +x "$bin_dir/opus"
+
 say ""
 say "Opus is installed."
-say "  Run it:     flatpak run $app_id   (or from your app launcher)"
+say "  Run it:     opus [folder]   (or from your app launcher)"
 say "  Update it:  run this script again"
-say "  Remove it:  flatpak uninstall --user $app_id"
+say "  Remove it:  opus --uninstall"
+case ":$PATH:" in
+*":$bin_dir:"*) ;;
+*)
+  say ""
+  say "Note: $bin_dir is not on your PATH yet — open a new terminal, or add it to your shell's profile."
+  ;;
+esac

@@ -24,12 +24,16 @@ on your system:
 curl -fsSL https://raw.githubusercontent.com/opus-editor/opus/main/install.sh | sh
 ```
 
-It installs for your user only (no `sudo`) and pulls the GNOME runtime
-from Flathub the first time. Run it again to update. To remove:
+It installs for your user only (no `sudo`), pulls the GNOME runtime
+from Flathub the first time, and puts `opus` on your PATH:
 
 ```shell
-flatpak uninstall --user io.github.opus_editor.Opus
+opus              # or from your app launcher
+opus ~/project
+opus --uninstall  # removes Opus and its settings
 ```
+
+Run the install script again to update.
 
 Git features (status tints, change bars, gitignore-aware search) use
 the `git` on your system. Settings live in

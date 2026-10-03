@@ -128,6 +128,12 @@ public class App : Adw.Application {
       }
       if (arg == "-v" || arg == "--verbose") {
         verbose = true;
+      } else if (arg.has_prefix ("-") && arg != "-") {
+        // Not a path to open — the Flatpak launcher's own `--uninstall`
+        // never reaches here, but a typo would otherwise open a window
+        // on a folder named after the flag.
+        command_line.printerr ("opus: unknown option %s\n", arg);
+        return 1;
       } else {
         remaining += arg;
       }
