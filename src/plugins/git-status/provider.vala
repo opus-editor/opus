@@ -22,13 +22,18 @@ namespace Opus.Plugins.GitStatus {
     // repository where it takes a second isn't running it back to back.
     private const int64 COOLDOWN_FACTOR = 10;
     private const int64 MAX_COOLDOWN_US = 5 * TimeSpan.SECOND;
+    private const string IGNORE_FILE = ".gitignore";
 
     public WorkspaceContext context { get; set; }
 
     private FileMonitor? git_dir_monitor;
     private uint pending_refresh_id = 0;
     private bool refresh_running = false;
-    private bool refresh_pending_again = false;
+    // The one path the next refresh asks git about: where a change
+    // happened, widened to the common ancestor when several are waiting —
+    // the same narrowing WorkspaceWatcher does for its own rescans. Null
+    // when nothing is waiting.
+    private string? pending_scope = null;
     private int64 next_refresh_allowed_at = 0; // monotonic time, microseconds
     private global::GitStatus? snapshot = null;
 
@@ -59,7 +64,7 @@ namespace Opus.Plugins.GitStatus {
 
       // A freshly opened workspace must show correct decorations without
       // waiting for the first real change to trigger one.
-      schedule_refresh ();
+      schedule_refresh (context.root_path);
     }
 
     public void deactivate () {
@@ -71,6 +76,7 @@ namespace Opus.Plugins.GitStatus {
         Source.remove (pending_refresh_id);
         pending_refresh_id = 0;
       }
+      pending_scope = null;
       if (git_dir_monitor != null) {
         git_dir_monitor.cancel ();
         git_dir_monitor = null;
@@ -90,7 +96,9 @@ namespace Opus.Plugins.GitStatus {
     }
 
     private void on_workspace_changed (string path) {
-      schedule_refresh ();
+      // Ignore rules decide the status of everything beside and below them.
+      var scope = Path.get_basename (path) == IGNORE_FILE ? Path.get_dirname (path) : path;
+      schedule_refresh (scope);
     }
 
     private void on_git_dir_changed (File file, File? other_file, FileMonitorEvent event_type) {
@@ -99,11 +107,17 @@ namespace Opus.Plugins.GitStatus {
       if (file.get_basename ().has_suffix (".lock")) {
         return;
       }
-      schedule_refresh ();
+      // The index or HEAD moving (a stage, a commit, a checkout) can change
+      // the status of any path.
+      schedule_refresh (context.root_path);
     }
 
-    /** A git-status refresh is repo-wide regardless of which path triggered it — this trigger set only needs to be broad enough that *something* eventually fires soon after a real change, not exhaustive (see GIT_STATUS_PLUGIN_PLAN.md's own "Watching" section). */
-    private void schedule_refresh () {
+    private void schedule_refresh (string scope) {
+      pending_scope = pending_scope == null ? scope : GitScope.Paths.common_ancestor (pending_scope, scope);
+      arm_refresh_timer ();
+    }
+
+    private void arm_refresh_timer () {
       if (pending_refresh_id != 0) {
         return;
       }
@@ -119,15 +133,19 @@ namespace Opus.Plugins.GitStatus {
       return (uint) int64.max (REFRESH_LATENCY_MS, cooldown_left_ms);
     }
 
-    /** Guards against overlapping runs: a trigger arriving mid-refresh schedules exactly one more afterward, never dropped. */
+    /** Guards against overlapping runs: a scope that arrives mid-refresh waits in pending_scope for exactly one more afterward. */
     private async void run_refresh () {
-      if (refresh_running) {
-        refresh_pending_again = true;
+      if (refresh_running || pending_scope == null) {
         return;
       }
+      // Without a snapshot of the whole there is nothing to merge a
+      // narrower answer into.
+      var scope = snapshot == null ? context.root_path : pending_scope;
+      pending_scope = null;
+
       refresh_running = true;
       var started_at = get_monotonic_time ();
-      var result = yield global::GitStatus.run_async (context.root_path);
+      var result = yield global::GitStatus.run_async (context.root_path, scope);
       var finished_at = get_monotonic_time ();
       next_refresh_allowed_at = finished_at + int64.min ((finished_at - started_at) * COOLDOWN_FACTOR, MAX_COOLDOWN_US);
       refresh_running = false;
@@ -136,13 +154,20 @@ namespace Opus.Plugins.GitStatus {
         return; // deactivated while this refresh was in flight — nothing more to do
       }
 
-      snapshot = result;
+      apply (scope, result);
       decorations_changed ();
 
-      if (refresh_pending_again) {
-        refresh_pending_again = false;
-        schedule_refresh ();
+      if (pending_scope != null) {
+        arm_refresh_timer ();
       }
+    }
+
+    private void apply (string scope, global::GitStatus? result) {
+      if (scope == context.root_path || result == null) {
+        snapshot = result;
+        return;
+      }
+      snapshot.replace_under (scope, result);
     }
 
     private FileDecoration.State decoration_for_path (string path) {
