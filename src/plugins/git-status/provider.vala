@@ -13,9 +13,15 @@
  */
 namespace Opus.Plugins.GitStatus {
   public class Provider : Object, IWorkspaceExtension, FileDecoration.IProvider {
-    // Same value/reasoning as ExplorerPaneDirWatcher.WATCH_DEBOUNCE_MS —
-    // private to a different class, can't literally share the constant.
-    private const uint REFRESH_DEBOUNCE_MS = 400;
+    // How long the first change of a burst waits for its refresh, so the
+    // rest of the burst rides along. Never extended by later changes — a
+    // steady stream of them would otherwise postpone the refresh forever.
+    private const uint REFRESH_LATENCY_MS = 400;
+    // After a refresh, the next one waits this many times as long as it
+    // took: unnoticeable where `git status` takes milliseconds, and a
+    // repository where it takes a second isn't running it back to back.
+    private const int64 COOLDOWN_FACTOR = 10;
+    private const int64 MAX_COOLDOWN_US = 5 * TimeSpan.SECOND;
 
     public WorkspaceContext context { get; set; }
 
@@ -23,6 +29,7 @@ namespace Opus.Plugins.GitStatus {
     private uint pending_refresh_id = 0;
     private bool refresh_running = false;
     private bool refresh_pending_again = false;
+    private int64 next_refresh_allowed_at = 0; // monotonic time, microseconds
     private global::GitStatus? snapshot = null;
 
     // True only between activate() and deactivate() — run_refresh() checks
@@ -45,7 +52,7 @@ namespace Opus.Plugins.GitStatus {
       try {
         var git_dir = File.new_for_path (Path.build_filename (context.root_path, ".git"));
         git_dir_monitor = git_dir.monitor_directory (FileMonitorFlags.NONE, null);
-        git_dir_monitor.changed.connect ((file, other_file, event_type) => schedule_refresh ());
+        git_dir_monitor.changed.connect (on_git_dir_changed);
       } catch (Error e) {
         warning ("git-status: failed to watch %s/.git: %s", context.root_path, e.message);
       }
@@ -86,16 +93,30 @@ namespace Opus.Plugins.GitStatus {
       schedule_refresh ();
     }
 
+    private void on_git_dir_changed (File file, File? other_file, FileMonitorEvent event_type) {
+      // git takes and drops `index.lock` (and other `*.lock` files) around
+      // every write; the write itself is the event that matters.
+      if (file.get_basename ().has_suffix (".lock")) {
+        return;
+      }
+      schedule_refresh ();
+    }
+
     /** A git-status refresh is repo-wide regardless of which path triggered it — this trigger set only needs to be broad enough that *something* eventually fires soon after a real change, not exhaustive (see GIT_STATUS_PLUGIN_PLAN.md's own "Watching" section). */
     private void schedule_refresh () {
       if (pending_refresh_id != 0) {
-        Source.remove (pending_refresh_id);
+        return;
       }
-      pending_refresh_id = Timeout.add (REFRESH_DEBOUNCE_MS, () => {
+      pending_refresh_id = Timeout.add (refresh_delay_ms (), () => {
         pending_refresh_id = 0;
         run_refresh.begin ();
         return Source.REMOVE;
       });
+    }
+
+    private uint refresh_delay_ms () {
+      var cooldown_left_ms = (next_refresh_allowed_at - get_monotonic_time ()) / 1000;
+      return (uint) int64.max (REFRESH_LATENCY_MS, cooldown_left_ms);
     }
 
     /** Guards against overlapping runs: a trigger arriving mid-refresh schedules exactly one more afterward, never dropped. */
@@ -105,7 +126,10 @@ namespace Opus.Plugins.GitStatus {
         return;
       }
       refresh_running = true;
+      var started_at = get_monotonic_time ();
       var result = yield global::GitStatus.run_async (context.root_path);
+      var finished_at = get_monotonic_time ();
+      next_refresh_allowed_at = finished_at + int64.min ((finished_at - started_at) * COOLDOWN_FACTOR, MAX_COOLDOWN_US);
       refresh_running = false;
 
       if (!active) {

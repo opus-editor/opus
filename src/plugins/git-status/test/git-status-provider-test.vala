@@ -51,13 +51,17 @@ private bool wait_for_decorations_changed (Opus.Plugins.GitStatus.Provider provi
         fired = true;
         loop.quit ();
     });
-    var timeout_id = Timeout.add (2000, () => {
+    uint timeout_id = 0;
+    timeout_id = Timeout.add (2000, () => {
+        timeout_id = 0;
         loop.quit ();
         return Source.REMOVE;
     });
     loop.run ();
     provider.disconnect (handler_id);
-    Source.remove (timeout_id);
+    if (timeout_id != 0) {
+        Source.remove (timeout_id);
+    }
     return fired;
 }
 
@@ -160,6 +164,93 @@ int main (string[] args) {
             assert (state.tooltip == "Ignored");
             assert (!state.propagate);
             assert (state.covers_descendants);
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/git-status-provider/a-steady-stream-of-changes-still-refreshes", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+            assert (wait_for_decorations_changed (provider));
+            var path = Path.build_filename (root_path, "a.txt");
+            FileUtils.set_contents (path, "hello");
+
+            // A change every 100 ms for 1.5 s: never a quiet moment longer
+            // than that until the stream ends.
+            var loop = new MainLoop ();
+            bool refreshed_mid_stream = false;
+            var handler_id = provider.decorations_changed.connect (() => {
+                refreshed_mid_stream = true;
+            });
+            int ticks = 0;
+            Timeout.add (100, () => {
+                context.directory_changed (root_path);
+                ticks++;
+                if (ticks < 15) {
+                    return Source.CONTINUE;
+                }
+                loop.quit ();
+                return Source.REMOVE;
+            });
+            loop.run ();
+            provider.disconnect (handler_id);
+
+            assert (refreshed_mid_stream);
+            assert (provider.current_decorations ()[path] != null);
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/git-status-provider/a-change-inside-the-git-directory-refreshes", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+            assert (wait_for_decorations_changed (provider));
+
+            FileUtils.set_contents (Path.build_filename (root_path, ".git", "ORIG_HEAD"), "");
+
+            assert (wait_for_decorations_changed (provider));
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/git-status-provider/a-lock-file-inside-the-git-directory-does-not-refresh", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+            assert (wait_for_decorations_changed (provider));
+
+            FileStream.open (Path.build_filename (root_path, ".git", "index.lock"), "w").puts ("");
+
+            assert (!wait_for_decorations_changed (provider));
 
             provider.deactivate ();
         } catch (Error e) {
