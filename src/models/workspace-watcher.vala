@@ -248,6 +248,8 @@ public class WorkspaceWatcher : Object {
    * matched by an ignore pattern as one `!! dir/` entry and never
    * descends into it; a directory that merely holds ignored files isn't
    * reported, and stays watched. `-z`: paths verbatim, NUL-terminated.
+   * `--no-optional-locks`: never holds `index.lock` against the user's
+   * own git.
    */
   private static GenericSet<string>? list_ignored_directories (string root_path) {
     if (!HostCommand.has_program ("git")) {
@@ -256,7 +258,7 @@ public class WorkspaceWatcher : Object {
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
     string[] argv = HostCommand.argv ({
-      "git", "-C", root_path,
+      "git", "--no-optional-locks", "-C", root_path,
       "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
     });
 

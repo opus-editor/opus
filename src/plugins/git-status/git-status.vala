@@ -60,6 +60,10 @@ public class GitStatus : Object {
    * `-z` separates entries with NUL and prints every path verbatim —
    * without it git wraps a path containing a space (or a quote, a
    * backslash, a non-ASCII byte) in quotes and escapes it.
+   * `--no-optional-locks` keeps this from rewriting `.git/index` — a
+   * background status must never hold `index.lock` against the user's
+   * own git in a terminal. The flag rather than GIT_OPTIONAL_LOCKS: an
+   * environment variable doesn't cross HostCommand's `flatpak-spawn`.
    */
   public static GitStatus? run (string root_path) {
     if (!HostCommand.has_program ("git")) {
@@ -68,7 +72,7 @@ public class GitStatus : Object {
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
     string[] argv = HostCommand.argv ({
-      "git", "-C", root_path,
+      "git", "--no-optional-locks", "-C", root_path,
       "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
     });
 
