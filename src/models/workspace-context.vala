@@ -3,16 +3,16 @@
  * linked workspace — deliberately narrow, the analog of `vscode.workspace`,
  * not a general escape hatch back into the app.
  *
- * Re-broadcasts the filesystem signals ExplorerPaneDirWatcher already owns
- * rather than handing plugins their own Gio.FileMonitor — kernel watches
- * are a limited resource (see that class's own doc comment), and a plugin
- * needing a watch the explorer doesn't have (e.g. the git plugin's own
+ * Re-broadcasts the filesystem signals the workspace's own
+ * WorkspaceWatcher already owns rather than handing plugins their own
+ * Gio.FileMonitor — kernel watches are a limited resource, and a plugin
+ * needing a watch the workspace doesn't have (e.g. the git plugin's own
  * `.git/` monitor) uses plain Gio.FileMonitor itself — GLib, not host API.
  */
 public class WorkspaceContext : Object {
   public string root_path { get; construct; }
 
-  /** An expanded directory's immediate children changed on disk (create/delete/rename/move) — re-broadcast from the explorer's own watches. */
+  /** A watched directory's immediate children changed on disk (create/delete/rename/move) — see WorkspaceWatcher for which directories are watched. */
   public signal void directory_changed (string path);
 
   /** A file directly inside a watched directory had its contents written. */

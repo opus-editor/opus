@@ -48,6 +48,7 @@ opus_model_sources = files(
   'models/user-settings.vala',
   'models/workspace.vala',
   'models/workspace-context.vala',
+  'models/workspace-watcher.vala',
 )
 
 # Its own variable, not just an entry in opus_lib_sources below: plain

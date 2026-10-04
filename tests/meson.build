@@ -78,6 +78,13 @@ workspace_test = executable(
 )
 test('workspace', workspace_test)
 
+workspace_watcher_test = executable(
+  'workspace-watcher-test',
+  ['models/workspace-watcher-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('workspace-watcher', workspace_watcher_test)
+
 session_test = executable(
   'session-test',
   ['models/session-test.vala'],

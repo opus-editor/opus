@@ -14,7 +14,7 @@ namespace CommandBar {
    * listing in the background while the previous list keeps answering;
    * on the first opening there is no previous list, so the one being
    * filled answers instead, growing as batches land. Between listings,
-   * a directory the explorer already watches gets its own immediate
+   * a directory the workspace already watches gets its own immediate
    * children refreshed from `WorkspaceContext.directory_changed` — free,
    * since those watches exist anyway; directories it doesn't watch stay
    * as fresh as the last listing.
@@ -325,13 +325,13 @@ namespace CommandBar {
     }
 
     /**
-     * One level only: the explorer reports the directory whose own
+     * One level only: the workspace reports the directory whose own
      * listing changed, and a subdirectory created with contents gets
      * picked up by the next opening's listing. Reads the disk as is, so
      * a gitignored file created in a watched directory shows up here
      * until that next listing replaces the whole list — a few hundred
      * milliseconds after the next Ctrl+P, not worth a `git check-ignore`
-     * round-trip per explorer event.
+     * round-trip per event.
      */
     private void on_directory_changed (string directory_path) {
       if (current == null) {

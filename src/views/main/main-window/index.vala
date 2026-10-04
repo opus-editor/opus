@@ -34,6 +34,7 @@ public class MainWindow : Object {
   // together in link_folder(), all three torn down together in
   // teardown_workspace_extensions().
   private WorkspaceContext? workspace_context = null;
+  private WorkspaceWatcher? workspace_watcher = null;
   private FileDecoration.Registry? decorations = null;
   private Opus.Plugins.WorkspaceExtensions? decoration_providers = null;
 
@@ -341,6 +342,9 @@ public class MainWindow : Object {
     // explorer_pane until the new ExplorerPane has already been built
     // successfully.
     var new_workspace_context = new WorkspaceContext (path);
+    var new_workspace_watcher = new WorkspaceWatcher (path);
+    new_workspace_watcher.directory_changed.connect ((changed_path) => new_workspace_context.directory_changed (changed_path));
+    new_workspace_watcher.content_changed.connect ((changed_path) => new_workspace_context.file_content_changed (changed_path));
     var new_decorations = new FileDecoration.Registry (path);
     var new_decoration_providers = new Opus.Plugins.WorkspaceExtensions (typeof (FileDecoration.IProvider), new_workspace_context);
     new_decoration_providers.added.connect ((e) => new_decorations.add_provider ((FileDecoration.IProvider) e));
@@ -360,8 +364,9 @@ public class MainWindow : Object {
 
     EditorView.ExplorerPane new_explorer_pane;
     try {
-      new_explorer_pane = new EditorView.ExplorerPane (path, new_workspace_context, new_decorations);
+      new_explorer_pane = new EditorView.ExplorerPane (path, new_workspace_watcher, new_decorations);
     } catch (Error e) {
+      new_workspace_watcher.close ();
       new_decoration_providers.close ();
       new_diff_base_providers.close ();
       throw e;
@@ -370,6 +375,7 @@ public class MainWindow : Object {
 
     teardown_workspace_extensions ();
     workspace_context = new_workspace_context;
+    workspace_watcher = new_workspace_watcher;
     decorations = new_decorations;
     decoration_providers = new_decoration_providers;
     diff_base_providers = new_diff_base_providers;
@@ -438,6 +444,10 @@ public class MainWindow : Object {
     diff_base_provider = null;
 
     workspace_context = null;
+    if (workspace_watcher != null) {
+      workspace_watcher.close ();
+    }
+    workspace_watcher = null;
     editor_pane.set_decorations (null);
     editor_pane.set_diff_base_provider (null);
   }

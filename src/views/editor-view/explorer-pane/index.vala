@@ -26,6 +26,7 @@ namespace EditorView {
     private ExplorerPaneDirWatcher dir_watcher;
     private ExplorerPaneDragDrop drag_drop;
     private FileDecoration.Registry decorations;
+    private WorkspaceWatcher watcher;
 
     // The tree's own internal Cut/Copy clipboard — never the system
     // clipboard (copy_to_clipboard()/Copy Path are the only things that
@@ -48,8 +49,9 @@ namespace EditorView {
     /** `old_path` moved to `new_path` on disk — a Rename, or a Cut+Paste (menu or drag) actually moving something rather than copying it. */
     public signal void file_moved (string old_path, string new_path);
 
-    public ExplorerPane (string root_path, WorkspaceContext context, FileDecoration.Registry decorations) throws Error {
+    public ExplorerPane (string root_path, WorkspaceWatcher watcher, FileDecoration.Registry decorations) throws Error {
       this.root_path = root_path;
+      this.watcher = watcher;
       this.decorations = decorations;
       model = new FileTree (root_path);
 
@@ -64,7 +66,7 @@ namespace EditorView {
       tree.populate (model.root);
 
       inline_edit = new ExplorerPaneInlineEdit (tree);
-      dir_watcher = new ExplorerPaneDirWatcher (tree, root_path);
+      dir_watcher = new ExplorerPaneDirWatcher (tree, watcher);
       drag_drop = new ExplorerPaneDragDrop (tree);
 
       tree.file_activated.connect ((path, open_permanent) => file_activated (path, open_permanent));
@@ -79,12 +81,7 @@ namespace EditorView {
       inline_edit.create_entry_requested.connect (on_create_entry_requested);
       inline_edit.rename_entry_requested.connect (on_rename_entry_requested);
 
-      dir_watcher.directory_changed.connect (on_directory_changed);
-      // Both re-broadcast to context (for plugins, e.g. git-status's own
-      // Provider) — content_changed has no other consumer inside this
-      // class, directory_changed already does (on_directory_changed above).
-      dir_watcher.directory_changed.connect ((path) => context.directory_changed (path));
-      dir_watcher.content_changed.connect ((path) => context.file_content_changed (path));
+      watcher.directory_changed.connect (on_directory_changed);
       drag_drop.moved_via_drag.connect ((source_path, target_path) => do_paste (source_path, true, target_path));
 
       decorations.changed.connect (on_decorations_changed);
@@ -100,9 +97,10 @@ namespace EditorView {
       return tree.get_optimal_width ();
     }
 
-    /** Cancels every pending debounce timer and active filesystem watch, and disconnects from `decorations` (owned by MainWindow, outlives this pane) — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). Without this, the closure this pane never held a matching disconnect for would keep it (and its whole FileTree) alive for as long as `decorations` itself is, and could still call tree.rebind() on a pane the rest of the app has already discarded. */
+    /** Cancels every pending debounce timer, and disconnects from `watcher` and `decorations` (both owned by MainWindow, both outlive this pane) — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). Without this, the closure this pane never held a matching disconnect for would keep it (and its whole FileTree) alive for as long as `decorations` itself is, and could still call tree.rebind() on a pane the rest of the app has already discarded. */
     public void close () {
       dir_watcher.close ();
+      watcher.directory_changed.disconnect (on_directory_changed);
       decorations.changed.disconnect (on_decorations_changed);
     }
 
@@ -128,6 +126,10 @@ namespace EditorView {
         return;
       }
 
+      stamp_children_decorations (node);
+    }
+
+    private void stamp_children_decorations (FileNode node) {
       for (uint i = 0; i < node.children.length; i++) {
         var child = node.children[i];
         child.decoration = decorations.decoration_for (child.path, child.is_directory);
@@ -163,8 +165,8 @@ namespace EditorView {
      */
     private void on_directory_changed (string path) {
       var node = model.find (path);
-      if (node == null) {
-        return; // gone (deleted/renamed away) before this event was handled
+      if (node == null || !node.children_loaded) {
+        return; // never shown, or gone (deleted/renamed away) before this event was handled
       }
 
       try {
@@ -173,6 +175,8 @@ namespace EditorView {
         return; // the directory itself was likely just deleted/renamed away
       }
 
+      // An entry new to the tree binds its row inside refresh_children().
+      stamp_children_decorations (node);
       tree.refresh_children (path, node.children);
       inline_edit.on_children_refreshed (path);
     }
