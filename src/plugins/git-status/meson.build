@@ -21,6 +21,13 @@ git_status_classify_test = executable(
 )
 test('git-status-classify', git_status_classify_test)
 
+git_status_scope_test = executable(
+  'git-status-scope-test',
+  ['test/git-status-scope-test.vala', 'git-status.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-status-scope', git_status_scope_test)
+
 # provider.vala implements FileDecoration.IProvider/IWorkspaceExtension —
 # needs the shared model contract (opus_model_sources), but not Peas
 # itself (only plugin.vala touches that).

@@ -43,6 +43,30 @@ public class GitStatus : Object {
   }
 
   /**
+   * Brings everything at or under `scope` to what `partial` — a run()
+   * narrowed to that same scope — says, and leaves the rest as it was. A
+   * path `partial` no longer mentions is one git has nothing to say
+   * about anymore: reverted, committed, or gone.
+   */
+  public void replace_under (string scope, GitStatus partial) {
+    var stale = new GenericArray<string> ();
+    foreach (var path in file_status.get_keys ()) {
+      if (GitScope.Paths.is_at_or_under (path, scope)) {
+        stale.add (path);
+      }
+    }
+    foreach (var path in stale) {
+      file_status.remove (path);
+      file_status_label.remove (path);
+    }
+
+    foreach (var path in partial.file_status.get_keys ()) {
+      file_status[path] = partial.file_status[path];
+      file_status_label[path] = partial.file_status_label[path];
+    }
+  }
+
+  /**
    * Synchronous core. Unlike FindInFilesSearch.run(), this never throws:
    * there's no user-initiated action here to show an error dialog for,
    * only a background watcher that should just quietly have nothing to
@@ -50,9 +74,13 @@ public class GitStatus : Object {
    * already accepts for its own background rescans. Null when git
    * couldn't answer (see GitScope.StatusQuery, which also documents the
    * command itself).
+   *
+   * `scope` narrows the answer to one path of the repository (a
+   * directory's whole subtree, or one file) — meant for replace_under()
+   * on a snapshot of the whole. Left out, it is the whole repository.
    */
-  public static GitStatus? run (string root_path) {
-    var entries = GitScope.StatusQuery.run (root_path, root_path);
+  public static GitStatus? run (string root_path, string? scope = null) {
+    var entries = GitScope.StatusQuery.run (root_path, scope ?? root_path);
     if (entries == null) {
       return null;
     }
@@ -63,12 +91,12 @@ public class GitStatus : Object {
   }
 
   /** Thread + Idle.add, same shape as FindInFilesSearch.run_async — the second consumer of that pattern in this codebase. */
-  public static async GitStatus? run_async (string root_path) {
+  public static async GitStatus? run_async (string root_path, string? scope = null) {
     SourceFunc callback = run_async.callback;
     GitStatus? result = null;
 
     new Thread<void> ("git-status", () => {
-      result = run (root_path);
+      result = run (root_path, scope);
       Idle.add ((owned) callback);
     });
 

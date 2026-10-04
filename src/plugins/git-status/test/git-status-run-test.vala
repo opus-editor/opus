@@ -74,7 +74,7 @@ int main (string[] args) {
 
             var loop = new MainLoop ();
             GitStatus? result = null;
-            GitStatus.run_async.begin (root_path, (obj, res) => {
+            GitStatus.run_async.begin (root_path, null, (obj, res) => {
                 result = GitStatus.run_async.end (res);
                 loop.quit ();
             });
