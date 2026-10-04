@@ -43,6 +43,7 @@ opus_model_sources = files(
   'models/i-workspace-extension.vala',
   'models/icon-theme.vala',
   'models/indent-guides.vala',
+  'models/last-folder.vala',
   'models/replace-pattern.vala',
   'models/selection-snapshot.vala',
   'models/session.vala',

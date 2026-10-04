@@ -16,6 +16,7 @@ public class App : Adw.Application {
   private GLib.Settings settings;
   private GenericArray<MainWindow> windows = new GenericArray<MainWindow> ();
   private Opus.Plugins.Engine plugins_engine;
+  private LastFolder last_folder;
 
   #if DEBUG
   // See src/lib/CLAUDE.md's own note on why Opus.Dev.DevServer lives
@@ -84,6 +85,11 @@ public class App : Adw.Application {
     apply_color_scheme ();
     settings.changed["style-variant"].connect (() => apply_color_scheme ());
 
+    var saved_pathname = settings.get_string ("last-folder");
+    last_folder = new LastFolder (restore_folder_setting (), saved_pathname == "" ? null : saved_pathname);
+    save_last_folder ();
+    last_folder.notify["recorded-pathname"].connect (save_last_folder);
+
     // GtkText/GtkEntry (and friends) call gtk_widget_error_bell() — an
     // audible system beep — on actions that can't do anything (Backspace
     // on an empty entry, Left at position 0, …). Gated by this one
@@ -101,9 +107,18 @@ public class App : Adw.Application {
     #endif
   }
 
+  private static bool restore_folder_setting () {
+    return UserSettings.load (Environment.get_user_config_dir ()).restore_folder;
+  }
+
+  private void save_last_folder () {
+    settings.set_string ("last-folder", last_folder.recorded_pathname ?? "");
+  }
+
   /**
    * `opus` (no argument) opens blank — no folder linked, no sidebar, no
-   * tab. `opus <file>` opens that file, still with no folder linked.
+   * tab — or, with `window.restore_folder` on, on the folder LastFolder
+   * recorded. `opus <file>` opens that file, still with no folder linked.
    * `opus <dir>` links it as the workspace root, sidebar shown, no tab
    * open yet (browse it via the tree).
    *
@@ -157,8 +172,10 @@ public class App : Adw.Application {
     Workspace.resolve (remaining, out folder_path, out file_path);
     if (folder_path != null) {
       open_workspace (folder_path);
-    } else {
+    } else if (file_path != null) {
       open_window (file_path);
+    } else {
+      open_window (null, last_folder.get_pathname ());
     }
     return 0;
   }
@@ -170,11 +187,19 @@ public class App : Adw.Application {
    * genuinely blank window) until "Open Folder…" gives it a real project
    * root (MainWindow.link_folder(), from its own primary menu/Ctrl+Shift+O).
    */
-  public void open_window (string? initial_file) {
+  public void open_window (string? initial_file, string? restored_folder = null) {
     var root_path = initial_file != null ? Path.get_dirname (initial_file) : Environment.get_current_dir ();
     var window = create_window (root_path);
 
     window.new_window_requested.connect (() => open_window (initial_file));
+
+    if (restored_folder != null) {
+      try {
+        window.link_folder (restored_folder);
+      } catch (Error e) {
+        Logger.warn ("couldn't restore %s: %s".printf (restored_folder, e.message));
+      }
+    }
 
     if (initial_file != null) {
       window.open_initial_file (initial_file);
@@ -206,6 +231,10 @@ public class App : Adw.Application {
     #if DEBUG
     dev_server.add_session (window);
     #endif
+
+    window.folder_linked.connect ((path) => last_folder.record (path));
+    window.folder_unlinked.connect (() => last_folder.clear ());
+    window.user_settings_changed.connect (() => last_folder.apply_setting (restore_folder_setting (), window.linked_folder));
 
     window.closed.connect (() => {
       windows.remove (window);

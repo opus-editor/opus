@@ -1,10 +1,12 @@
 /**
- * The parsed, typed form of settings.json's `editor.*` keys — always
+ * The parsed, typed form of settings.json's keys — always
  * fully populated (each field falls back to the same default the file
  * itself ships with) so a caller never has to null-check a value the
  * user simply hasn't set yet.
  */
 public class UserSettingsValues : Object {
+  /** `window.restore_folder` — see LastFolder. */
+  public bool restore_folder = false;
   public string? font_family = null;
   public int font_size = UserSettings.system_monospace_font_size ();
   public string font_weight = "normal";
@@ -62,6 +64,7 @@ public class UserSettings : Object {
 
   private static string default_content () {
     return """{
+  "window.restore_folder": false,
   "editor.font_family": null,
   "editor.font_size": %d,
   "editor.font_weight": "normal",
@@ -154,7 +157,7 @@ public class UserSettings : Object {
 
   /**
    * Reads settings.json (creating it with defaults first if missing)
-   * and parses its `editor.*` keys — a missing key, or the whole file
+   * and parses its keys — a missing key, or the whole file
    * being unreadable or not valid JSON, each just fall back to
    * UserSettingsValues' own defaults rather than failing: this is
    * hand-edited user input, not a build artifact, so a typo in one key
@@ -192,6 +195,7 @@ public class UserSettings : Object {
       return values;
     }
 
+    values.restore_folder = bool_member (root, "window.restore_folder") ?? values.restore_folder;
     values.font_family = string_member (root, "editor.font_family") ?? values.font_family;
     values.font_size = int_member (root, "editor.font_size") ?? values.font_size;
     values.font_weight = string_member (root, "editor.font_weight") ?? values.font_weight;

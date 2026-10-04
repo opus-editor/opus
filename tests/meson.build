@@ -78,6 +78,13 @@ workspace_test = executable(
 )
 test('workspace', workspace_test)
 
+last_folder_test = executable(
+  'last-folder-test',
+  ['models/last-folder-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('last-folder', last_folder_test)
+
 workspace_watcher_test = executable(
   'workspace-watcher-test',
   ['models/workspace-watcher-test.vala'],

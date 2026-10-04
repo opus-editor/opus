@@ -98,4 +98,9 @@ install_data(
 # means a plain `ninja` already produces it, no `ninja install` needed, so
 # GLib.Settings works for an uninstalled `just run` too (see the justfile's
 # own GSETTINGS_SCHEMA_DIR, pointed at this same build dir).
-gnome.compile_schemas(build_by_default: true)
+# depend_files: without it the compiled file is never rebuilt when a key
+# is added, and the app aborts on the key it can't find.
+gnome.compile_schemas(
+  build_by_default: true,
+  depend_files: 'io.github.opus_editor.Opus.gschema.xml',
+)

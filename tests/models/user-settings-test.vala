@@ -87,6 +87,65 @@ private void test_load_returns_defaults_for_a_freshly_created_file () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_ensure_exists_lists_restore_folder_first () {
+    string config_dir = make_temp_config_dir ();
+
+    try {
+        string path = UserSettings.ensure_exists (config_dir);
+
+        string contents;
+        FileUtils.get_contents (path, out contents);
+        assert_true (contents.has_prefix ("{\n  \"window.restore_folder\": false,\n"));
+    } catch (Error e) {
+        error ("failed to exercise ensure_exists: %s", e.message);
+    } finally {
+        remove_temp_config_dir (config_dir);
+    }
+}
+
+private void test_load_reads_restore_folder () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"window.restore_folder\": true}");
+
+    var settings = UserSettings.load (config_dir);
+
+    assert_true (settings.restore_folder);
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_load_restore_folder_is_off_for_a_freshly_created_file () {
+    string config_dir = make_temp_config_dir ();
+
+    var settings = UserSettings.load (config_dir);
+
+    assert_false (settings.restore_folder);
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_load_restore_folder_is_off_when_null () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"window.restore_folder\": null}");
+
+    var settings = UserSettings.load (config_dir);
+
+    assert_false (settings.restore_folder);
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_load_restore_folder_is_off_when_absent () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"editor.font_size\": 20}");
+
+    var settings = UserSettings.load (config_dir);
+
+    assert_false (settings.restore_folder);
+
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_load_reads_custom_editor_values () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{
@@ -198,6 +257,11 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/ensure_exists_creates_the_file_with_default_content", test_ensure_exists_creates_the_file_with_default_content);
     Test.add_func ("/models/user-settings/ensure_exists_leaves_an_existing_file_untouched", test_ensure_exists_leaves_an_existing_file_untouched);
     Test.add_func ("/models/user-settings/load_returns_defaults_for_a_freshly_created_file", test_load_returns_defaults_for_a_freshly_created_file);
+    Test.add_func ("/models/user-settings/ensure_exists_lists_restore_folder_first", test_ensure_exists_lists_restore_folder_first);
+    Test.add_func ("/models/user-settings/load_reads_restore_folder", test_load_reads_restore_folder);
+    Test.add_func ("/models/user-settings/load_restore_folder_is_off_for_a_freshly_created_file", test_load_restore_folder_is_off_for_a_freshly_created_file);
+    Test.add_func ("/models/user-settings/load_restore_folder_is_off_when_null", test_load_restore_folder_is_off_when_null);
+    Test.add_func ("/models/user-settings/load_restore_folder_is_off_when_absent", test_load_restore_folder_is_off_when_absent);
     Test.add_func ("/models/user-settings/load_reads_custom_editor_values", test_load_reads_custom_editor_values);
     Test.add_func ("/models/user-settings/load_falls_back_to_defaults_on_invalid_json", test_load_falls_back_to_defaults_on_invalid_json);
     Test.add_func ("/models/user-settings/load_falls_back_per_key_when_a_value_has_the_wrong_type", test_load_falls_back_per_key_when_a_value_has_the_wrong_type);

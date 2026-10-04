@@ -143,6 +143,20 @@ public class MainWindow : Object {
   /** Ctrl+Shift+N, or the primary menu's own "New Window" — reopening a window as either blank/file/folder is a decision only whoever manages the app's own window list can make. */
   public signal void new_window_requested ();
 
+  /** link_folder() succeeded for `path`. */
+  public signal void folder_linked (string path);
+
+  /** unlink_folder() closed the folder this window had linked. */
+  public signal void folder_unlinked ();
+
+  /** settings.json was rewritten while its tab is open here — the only edits to it that take effect on a running Opus. */
+  public signal void user_settings_changed ();
+
+  /** The folder this window has linked, or null. */
+  public string? linked_folder {
+    get { return has_linked_folder ? editor_pane.linked_folder_path : null; }
+  }
+
   /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window. */
   public signal void closed ();
 
@@ -400,6 +414,7 @@ public class MainWindow : Object {
     has_linked_folder = true;
     split_view.show_sidebar = true;
     update_folder_dependent_ui ();
+    folder_linked (path);
   }
 
   /** "Close Folder" — the opposite of link_folder(): the sidebar goes back to not existing at all, same as a window that never had one linked. Open tabs stay exactly as they are; only the sidebar (and what "Copy Relative Path" resolves against) are affected. */
@@ -416,6 +431,7 @@ public class MainWindow : Object {
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     update_folder_dependent_ui ();
+    folder_unlinked ();
   }
 
   /** Coming back to this window is when a change made elsewhere is expected to show — the one moment worth paying for a re-read in case its event never arrived. */
@@ -522,7 +538,10 @@ public class MainWindow : Object {
 
     try {
       settings_monitor = File.new_for_path (settings_path).monitor_file (FileMonitorFlags.NONE, null);
-      settings_monitor.changed.connect (() => editor_pane.code_editor.reload_settings ());
+      settings_monitor.changed.connect (() => {
+        editor_pane.code_editor.reload_settings ();
+        user_settings_changed ();
+      });
     } catch (Error e) {
       Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
     }
