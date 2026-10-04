@@ -17,7 +17,7 @@ sourceview_dep = dependency('gtksourceview-5')
 # src/models/icon-theme.vala) — the one place in this app that reads
 # structured data it doesn't own the schema of.
 json_glib_dep = dependency('json-glib-1.0')
-# The plugin engine (src/lib/plugins/) — see src/plugins/CLAUDE.md for why
+# The plugin engine (src/lib/plugins/) — see src/plugins/AGENTS.md for why
 # libpeas over a hand-rolled registry or a VS-Code-style extension host
 # (GIT_STATUS_PLUGIN_PLAN.md's own Recommendation section).
 peas_dep = dependency('libpeas-2')

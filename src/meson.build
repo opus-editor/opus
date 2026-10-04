@@ -77,7 +77,7 @@ opus_logger_sources = files('lib/logger.vala')
 # opus_lib_sources.
 opus_host_command_sources = files('lib/host-command.vala')
 
-# The Command Bar's generic fuzzy-finding engine (see src/lib/CLAUDE.md):
+# The Command Bar's generic fuzzy-finding engine (see src/lib/AGENTS.md):
 # GLib/Gio only — no Gtk,
 # no Logger, nothing from models/. Its own variable for the same reason
 # opus_logger_sources is: the Command Bar models reference it, so every
@@ -120,7 +120,7 @@ opus_model_test_dep = declare_dependency(
 subdir('plugins')
 
 # Generic, app-domain-independent infrastructure — the "lib/" half of the
-# Rails-style app/ vs lib/ split (see src/lib/CLAUDE.md): may need
+# Rails-style app/ vs lib/ split (see src/lib/AGENTS.md): may need
 # Gtk/Adw when the task itself does (GlobalCss loads a real
 # Gtk.CssProvider; DevServer drives a real EditorView.EditorPaneWidget), but
 # neither is an Opus-specific view/widget concept the way everything in

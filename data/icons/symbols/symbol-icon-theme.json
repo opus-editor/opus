@@ -1155,6 +1155,7 @@
 		".cursorignore": "cursor",
 		".cursorindexingignore": "cursor",
 		"CLAUDE.md": "claude",
+		"AGENTS.md": "claude",
 		".claude": "claude",
 		".clauderc": "claude",
 		"claude.json": "claude",

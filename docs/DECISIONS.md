@@ -1,7 +1,7 @@
 # Decisions
 
 Short technical notes for things confirmed by testing, not assumption —
-kept here instead of bloating a `CLAUDE.md` with the proof.
+kept here instead of bloating a `AGENTS.md` with the proof.
 
 ## `g_signal_connect_object` disconnects cleanly but doesn't keep anything alive
 
@@ -151,7 +151,7 @@ not a property, for the identical reason.
 `provider.bases_changed.connect (on_bases_changed)`, where
 `on_bases_changed` is one of `GitDiff.DocumentTracker`'s own instance
 methods, uses `g_signal_connect_object`-style semantics under the hood
-(same fact `src/views/CLAUDE.md` already documents the other direction:
+(same fact `src/views/AGENTS.md` already documents the other direction:
 "it never keeps that object alive itself") — meaning GObject
 automatically disconnects the connection the moment `DocumentTracker`
 itself is destroyed, with **no notification back** to whatever field is

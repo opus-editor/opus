@@ -1,6 +1,6 @@
 /**
  * Prerequisite-first, same rule as FileDecoration.IProvider — see
- * docs/DECISIONS.md and src/plugins/CLAUDE.md.
+ * docs/DECISIONS.md and src/plugins/AGENTS.md.
  */
 namespace GitDiff {
   public interface IBaseProvider : Object, IWorkspaceExtension {

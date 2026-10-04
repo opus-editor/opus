@@ -54,7 +54,7 @@ Adw.ApplicationWindow window {
         Gtk.StackPage {
           name: "command-bar";
           // Filled in code with CommandBarPopover's own entry widget —
-          // see src/views/CLAUDE.md for why a custom type never
+          // see src/views/AGENTS.md for why a custom type never
           // appears here by name directly.
           child: Adw.Bin command_bar_bin {};
         }
@@ -168,7 +168,7 @@ Adw.ApplicationWindow window {
     };
 
     // Filled in code (MainWindow's own constructor) with EditorView.FindBar's
-    // widget — see src/views/CLAUDE.md for why a custom type never
+    // widget — see src/views/AGENTS.md for why a custom type never
     // appears here by name directly. Sibling of split_view, not nested
     // inside its content column: spans the *whole* window width, below
     // the sidebar too, the same way the header above it does — a

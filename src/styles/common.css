@@ -24,7 +24,7 @@
  * own instance is created lazily, only after a first Find in Files
  * search) — so it's available to every domain from app start, the same
  * "shared across domains" reasoning views/components/ already applies
- * to widget classes (src/views/CLAUDE.md). */
+ * to widget classes (src/views/AGENTS.md). */
 .compact-control {
   min-height: 24px;
   padding: 2px 8px;

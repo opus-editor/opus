@@ -8,7 +8,7 @@
  * `windows` keeps every open MainWindow alive: a `this`-capturing closure
  * connects through `g_signal_connect_object`, which only guarantees a
  * clean disconnect if the connected object dies — it never keeps that
- * object alive itself (see src/views/CLAUDE.md's own note on this).
+ * object alive itself (see src/views/AGENTS.md's own note on this).
  * Without this array, a MainWindow with no other reference to it would be
  * collected the moment open_window()/open_workspace() returns.
  */
@@ -20,7 +20,7 @@ public class App : Adw.Application {
   private LastFolder last_folder;
 
   #if DEBUG
-  // See src/lib/CLAUDE.md's own note on why Opus.Dev.DevServer lives
+  // See src/lib/AGENTS.md's own note on why Opus.Dev.DevServer lives
   // outside views/ despite reaching into one — a debug-only D-Bus
   // control surface for the terminal, gated the same way Logger's own
   // debug-only work is (see lib/logger.vala).

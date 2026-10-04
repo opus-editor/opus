@@ -24,7 +24,7 @@ meson test -C out/native
 ```
 
 One test binary per Model. Views are currently untested — see
-`src/views/CLAUDE.md`.
+`src/views/AGENTS.md`.
 
 ## Logging
 
@@ -60,15 +60,15 @@ src/
   main.vala   entry point: constructs App and hands it argv via run()
   App.vala    the Adw.Application — reads argv (command_line()), owns every
               open MainWindow, GLib.Settings, DevServer
-  models/     see src/models/CLAUDE.md
-  lib/        generic infra, independent of Opus's own domain — see src/lib/CLAUDE.md
-  plugins/    libpeas plugins, one directory each — see src/plugins/CLAUDE.md
-  styles/     .css loaded by resource — see src/views/CLAUDE.md
-  views/      see src/views/CLAUDE.md
+  models/     see src/models/AGENTS.md
+  lib/        generic infra, independent of Opus's own domain — see src/lib/AGENTS.md
+  plugins/    libpeas plugins, one directory each — see src/plugins/AGENTS.md
+  styles/     .css loaded by resource — see src/views/AGENTS.md
+  views/      see src/views/AGENTS.md
 data/         .desktop file, GResource XML, icons
 ```
 
 ## Architecture
 
 See `docs/ARCHITECTURE.md` for the rules. Read the directory-local
-`CLAUDE.md` before touching a layer.
+`AGENTS.md` before touching a layer.

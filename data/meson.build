@@ -1,6 +1,6 @@
 # Each view owns its own index.blp, colocated with its index.vala under
 # src/views/<domain>/<name>/ (a private sub-component's is _name.blp
-# next to its _name.vala) — see src/views/CLAUDE.md for the domain
+# next to its _name.vala) — see src/views/AGENTS.md for the domain
 # layout. The base dir passed to blueprint-compiler is the whole views/
 # directory, so batch-compile mirrors that layout into the compiled .ui
 # resources (e.g. src/views/main/main-window/index.blp ->

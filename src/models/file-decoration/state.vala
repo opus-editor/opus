@@ -9,7 +9,7 @@
  * collision in this codebase (see ExplorerPane's own doc comment on
  * FileTree). Every reference from outside this namespace spells the full
  * path (`FileDecoration.State`), never a bare `using` shortcut — same
- * discipline `views/CLAUDE.md` already holds View namespaces to.
+ * discipline `views/AGENTS.md` already holds View namespaces to.
  */
 namespace FileDecoration {
   public class State : Object {

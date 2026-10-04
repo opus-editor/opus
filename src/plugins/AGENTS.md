@@ -8,7 +8,7 @@ would be).
 
 - A plugin's own code is Model-grade by default: no `Gtk`/`Adw`, same
   rule as `src/models/`. A plugin that needs widgets puts them in its own
-  `views/` subdirectory, following `src/views/CLAUDE.md`.
+  `views/` subdirectory, following `src/views/AGENTS.md`.
 - Only `plugin.vala` (the manifest's own `Embedded=` entry point) may
   import `Peas` — every other file in a plugin, including its own
   provider classes, only ever touches the plain `I*` interfaces and
@@ -21,8 +21,8 @@ would be).
   importing a View.
 - One (or more, split by concern — see `git-status/test/`) test binary
   per plugin, under its own `test/` subdirectory, not the top-level
-  `tests/` tree: `src/plugins/CLAUDE.md`'s own "one binary per Model"
-  cousin rule in `src/models/CLAUDE.md` doesn't bind a plugin package,
+  `tests/` tree: `src/plugins/AGENTS.md`'s own "one binary per Model"
+  cousin rule in `src/models/AGENTS.md` doesn't bind a plugin package,
   since a plugin isn't a Model.
 
 ## Interface declaration order matters
