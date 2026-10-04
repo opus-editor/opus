@@ -12,6 +12,11 @@ public class WorkspaceWatcher : Object {
   // Long enough for a burst (a checkout, an unpacked archive) to end up
   // as one rescan.
   private const uint RESCAN_DEBOUNCE_MS = 400;
+  // A burst (a build, a checkout) is reported as one batch per window
+  // rather than once per event — every report makes a consumer re-read a
+  // directory. Opened by the first event and never extended, so a steady
+  // stream still gets through.
+  private const uint EVENT_LATENCY_MS = 100;
   private const string GIT_DIRECTORY = ".git";
   private const string IGNORE_FILE = ".gitignore";
 
@@ -19,6 +24,10 @@ public class WorkspaceWatcher : Object {
   private HashTable<string, FileMonitor> monitors = new HashTable<string, FileMonitor> (str_hash, str_equal);
   private GenericSet<string> unignored = new GenericSet<string> (str_hash, str_equal);
   private GenericSet<string> requested = new GenericSet<string> (str_hash, str_equal);
+
+  private GenericSet<string> changed_directories = new GenericSet<string> (str_hash, str_equal);
+  private GenericSet<string> changed_contents = new GenericSet<string> (str_hash, str_equal);
+  private uint pending_flush_id = 0;
 
   private uint pending_rescan_id = 0;
   private bool rescan_running = false;
@@ -55,9 +64,13 @@ public class WorkspaceWatcher : Object {
     }
   }
 
-  /** Cancels every watch and pending rescan — call before discarding this object: an active Gio.FileMonitor keeps firing into its handler's closure, which holds this object alive. */
+  /** Cancels every watch, pending report and pending rescan — call before discarding this object: an active Gio.FileMonitor keeps firing into its handler's closure, which holds this object alive. */
   public void close () {
     closed = true;
+    if (pending_flush_id != 0) {
+      Source.remove (pending_flush_id);
+      pending_flush_id = 0;
+    }
     if (pending_rescan_id != 0) {
       Source.remove (pending_rescan_id);
       pending_rescan_id = 0;
@@ -100,16 +113,44 @@ public class WorkspaceWatcher : Object {
         if (changes_unignored_set (file) || (other_file != null && changes_unignored_set (other_file))) {
           schedule_rescan ();
         }
-        directory_changed (directory);
+        changed_directories.add (directory);
+        schedule_flush ();
         break;
       case FileMonitorEvent.CHANGED:
         if (file.get_basename () == IGNORE_FILE) {
           schedule_rescan ();
         }
-        content_changed (file.get_path ());
+        changed_contents.add (file.get_path ());
+        schedule_flush ();
         break;
       default:
         break;
+    }
+  }
+
+  private void schedule_flush () {
+    if (pending_flush_id != 0) {
+      return;
+    }
+    pending_flush_id = Timeout.add (EVENT_LATENCY_MS, () => {
+      pending_flush_id = 0;
+      flush ();
+      return Source.REMOVE;
+    });
+  }
+
+  private void flush () {
+    // Taken before emitting: a handler can cause changes of its own.
+    var directories = changed_directories;
+    var contents = changed_contents;
+    changed_directories = new GenericSet<string> (str_hash, str_equal);
+    changed_contents = new GenericSet<string> (str_hash, str_equal);
+
+    foreach (var path in directories.get_values ()) {
+      directory_changed (path);
+    }
+    foreach (var path in contents.get_values ()) {
+      content_changed (path);
     }
   }
 

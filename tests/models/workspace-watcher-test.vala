@@ -94,13 +94,18 @@ private GenericArray<string> collect_reports (WorkspaceWatcher watcher) {
     return reports;
 }
 
-private bool reported (GenericArray<string> reports, string report) {
+private uint count_reported (GenericArray<string> reports, string report) {
+    uint count = 0;
     for (uint i = 0; i < reports.length; i++) {
         if (reports[i] == report) {
-            return true;
+            count++;
         }
     }
-    return false;
+    return count;
+}
+
+private bool reported (GenericArray<string> reports, string report) {
+    return count_reported (reports, report) > 0;
 }
 
 int main (string[] args) {
@@ -118,6 +123,28 @@ int main (string[] args) {
             var reports = collect_reports (watcher);
 
             assert (reported (reports, "directory " + src_path));
+            watcher.close ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/workspace-watcher/reports-a-burst-in-one-directory-once", () => {
+        string root_path = "";
+        try {
+            root_path = make_repository ();
+            var src_path = Path.build_filename (root_path, "src");
+            var watcher = new WorkspaceWatcher (root_path);
+            wait_for_rescan (watcher);
+
+            for (int i = 0; i < 20; i++) {
+                write_file (Path.build_filename (src_path, "new-%d.txt".printf (i)));
+            }
+            var reports = collect_reports (watcher);
+
+            assert (count_reported (reports, "directory " + src_path) == 1);
             watcher.close ();
         } catch (Error e) {
             error (e.message);
