@@ -2,6 +2,10 @@
   <img src="assets/logo.svg" alt="logo"/>
 </p>
 
+<p align="center">
+  <b id="app-version">0.1.2</b>
+</p>
+
 A lightweight, capable source code editor for the GNOME desktop — built
 native with GTK4 and Libadwaita, in Vala.
 

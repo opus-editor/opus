@@ -65,7 +65,7 @@ ci:
     gh signoff
 
 # Cuts version X.Y.Z from main — see docs/DEVELOPMENT_WORKFLOW.md. Bumps
-# meson.build and the metainfo on a release branch, runs `just ci` on
+# meson.build, the metainfo and the README on a release branch, runs `just ci` on
 # it, fast-forwards main, and pushes the tag that makes GitHub build
 # and attach Opus.flatpak.
 # Cut version X.Y.Z: bump, `just ci`, fast-forward main, push the tag.
@@ -82,7 +82,8 @@ release version:
     git checkout -q -b "release/$v"
     sed -i "s/^  version: '[^']*',/  version: '$v',/" meson.build
     sed -i "s|<releases>|<releases>\n    <release version=\"$v\" date=\"$(date -I)\"/>|" data/io.github.opus_editor.Opus.metainfo.xml
-    git add meson.build data/io.github.opus_editor.Opus.metainfo.xml
+    sed -i -E "s|(<b id=\"app-version\">)[^<]*(</b>)|\\1$v\\2|" README.md
+    git add meson.build data/io.github.opus_editor.Opus.metainfo.xml README.md
     git commit -q -m "chore: release $v"
     git push -q -u origin "release/$v"
     just ci
