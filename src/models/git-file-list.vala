@@ -29,7 +29,7 @@
  * the line separator everywhere else anyway. `-c core.quotePath=false`
  * stops git from octal-escaping non-ASCII bytes in that output; a path
  * containing a literal `"` or `\` is still always escaped and never
- * unescaped here — the same accepted limitation GitStatus documents.
+ * unescaped here — an accepted limitation.
  */
 public class GitFileList : Object, Opus.FuzzyFinder.IPathSource {
   public uint batch_size { get; set; default = 256; }

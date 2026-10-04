@@ -68,6 +68,25 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/git-status/untracked-file-with-a-space-in-its-name-is-new", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var path = Path.build_filename (root_path, "Empty File");
+            FileUtils.set_contents (path, "hello");
+
+            var status = GitStatus.run (root_path);
+
+            assert (status != null);
+            assert (status.status_for (path) == GitFileStatus.NEW);
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/git-status/staged-new-file-is-still-new", () => {
         string root_path = "";
         try {

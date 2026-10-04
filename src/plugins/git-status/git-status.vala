@@ -57,11 +57,9 @@ public class GitStatus : Object {
    * `--ignored=matching` reports an ignored folder as one entry instead
    * of listing everything inside it — a `node_modules/` would otherwise
    * cost thousands of lines per refresh.
-   * `-c core.quotePath=false` stops git from quoting/escaping non-ASCII
-   * path bytes in its own porcelain output; a path containing a literal
-   * `"` or `\` is still always escaped regardless and this parser doesn't
-   * unescape it — an accepted limitation, same class as GitFileList's
-   * own newline-separated-paths one.
+   * `-z` separates entries with NUL and prints every path verbatim —
+   * without it git wraps a path containing a space (or a quote, a
+   * backslash, a non-ASCII byte) in quotes and escapes it.
    */
   public static GitStatus? run (string root_path) {
     if (!HostCommand.has_program ("git")) {
@@ -70,15 +68,15 @@ public class GitStatus : Object {
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
     string[] argv = HostCommand.argv ({
-      "git", "-c", "core.quotePath=false", "-C", root_path,
-      "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
+      "git", "-C", root_path,
+      "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
     });
 
     Subprocess process;
-    string? stdout_buf;
+    Bytes? stdout_buf;
     try {
       process = launcher.spawnv (argv);
-      process.communicate_utf8 (null, null, out stdout_buf, null);
+      process.communicate (null, null, out stdout_buf, null);
     } catch (Error e) {
       return null;
     }
@@ -107,29 +105,33 @@ public class GitStatus : Object {
   }
 
   /**
-   * Plain newline-separated `git status --porcelain` output, one entry per
-   * line — not `-z`/NUL-separated: same reason GitFileList's own doc
-   * comment already gives (Vala has no way to spell a literal NUL as a
-   * string.split() delimiter). A rename/copy line reads `XY old -> new`;
-   * only the new path is kept (the old one, if it still existed as a
-   * separate live path, would show its own NONE — nothing to attach a
-   * status to).
+   * `git status --porcelain -z` output: one `XY path` entry per NUL. A
+   * rename/copy is two entries, the new path's `XY new` followed by the
+   * bare old path; only the new one is kept (the old one, if it still
+   * existed as a separate live path, would show its own NONE — nothing
+   * to attach a status to).
    */
-  private void parse (string porcelain_output, string root_path) {
-    foreach (var line in porcelain_output.split ("\n")) {
-      if (line == "") {
-        continue;
+  private void parse (Bytes porcelain_output, string root_path) {
+    var entries = split_nul_terminated (porcelain_output);
+    for (uint i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      if (entry.length < 4) {
+        continue; // "XY " is always exactly 3 characters, then a path
+      }
+      if (is_rename_or_copy (entry[0], entry[1])) {
+        i++;
+      }
+      if (!entry.validate ()) {
+        continue; // a path that isn't UTF-8 can't match any row's own path
       }
 
       string label;
-      var status = classify (line[0], line[1], out label);
+      var status = classify (entry[0], entry[1], out label);
       if (status == GitFileStatus.NONE) {
         continue; // deleted, or otherwise nothing to attach to a live path
       }
 
-      var rest = line.substring (3); // "XY " is always exactly 3 characters
-      var arrow = rest.index_of (" -> ");
-      var relative_path = arrow < 0 ? rest : rest.substring (arrow + 4);
+      var relative_path = entry.substring (3);
       // git marks a directory entry (an ignored folder) with a trailing
       // slash; every lookup here is by the plain path.
       if (relative_path.has_suffix ("/")) {
@@ -140,6 +142,25 @@ public class GitStatus : Object {
       file_status[absolute_path] = status;
       file_status_label[absolute_path] = label;
     }
+  }
+
+  private static bool is_rename_or_copy (char x, char y) {
+    return x == 'R' || x == 'C' || y == 'R' || y == 'C';
+  }
+
+  /** Bytes after the last NUL are dropped: git terminates every entry, so an unterminated tail is a truncated one. */
+  private static GenericArray<string> split_nul_terminated (Bytes bytes) {
+    var entries = new GenericArray<string> ();
+    unowned uint8[] data = bytes.get_data ();
+    int start = 0;
+    for (int i = 0; i < data.length; i++) {
+      if (data[i] != 0) {
+        continue;
+      }
+      entries.add ((string) data[start:i]);
+      start = i + 1;
+    }
+    return entries;
   }
 
   /**
