@@ -9,9 +9,10 @@
  * ignore list to tell the two apart, and every directory is on request.
  */
 public class WorkspaceWatcher : Object {
-  // Long enough for a burst (a checkout, an unpacked archive) to end up
-  // as one rescan.
-  private const uint RESCAN_DEBOUNCE_MS = 400;
+  // How long the first structural change of a burst (a checkout, an
+  // unpacked archive) waits for its rescan, so the rest of the burst
+  // rides along. Never extended, same as EVENT_LATENCY_MS below.
+  private const uint RESCAN_LATENCY_MS = 400;
   // A burst (a build, a checkout) is reported as one batch per window
   // rather than once per event — every report makes a consumer re-read a
   // directory. Opened by the first event and never extended, so a steady
@@ -29,9 +30,12 @@ public class WorkspaceWatcher : Object {
   private GenericSet<string> changed_contents = new GenericSet<string> (str_hash, str_equal);
   private uint pending_flush_id = 0;
 
+  // The one subtree the next rescan re-reads: the directory a structural
+  // change happened in, widened to the common ancestor when several are
+  // waiting. Null when nothing is.
+  private string? pending_rescan_scope = null;
   private uint pending_rescan_id = 0;
   private bool rescan_running = false;
-  private bool rescan_pending_again = false;
   private bool scanned_once = false;
   private bool closed = false;
 
@@ -47,6 +51,7 @@ public class WorkspaceWatcher : Object {
   public WorkspaceWatcher (string root_path) {
     this.root_path = root_path;
     request (root_path);
+    pending_rescan_scope = root_path;
     run_rescan.begin ();
   }
 
@@ -111,14 +116,14 @@ public class WorkspaceWatcher : Object {
       case FileMonitorEvent.MOVED_IN:
       case FileMonitorEvent.MOVED_OUT:
         if (changes_unignored_set (file) || (other_file != null && changes_unignored_set (other_file))) {
-          schedule_rescan ();
+          schedule_rescan (directory);
         }
         changed_directories.add (directory);
         schedule_flush ();
         break;
       case FileMonitorEvent.CHANGED:
         if (file.get_basename () == IGNORE_FILE) {
-          schedule_rescan ();
+          schedule_rescan (directory);
         }
         changed_contents.add (file.get_path ());
         schedule_flush ();
@@ -154,62 +159,81 @@ public class WorkspaceWatcher : Object {
     }
   }
 
-  /** Whether an entry appearing or disappearing at `file` can add or remove an unignored directory: a directory itself (a known one that is gone now, or one on disk now), or the ignore rules. */
+  /** Whether an entry appearing or disappearing at `file` can add or remove an unignored directory: a directory itself (a known one that is gone now, or one on disk now), the ignore rules, or the repository. */
   private bool changes_unignored_set (File file) {
     var path = file.get_path ();
-    return file.get_basename () == IGNORE_FILE || unignored.contains (path) || is_real_directory (path);
+    var name = file.get_basename ();
+    return name == IGNORE_FILE || name == GIT_DIRECTORY || unignored.contains (path) || is_real_directory (path);
   }
 
-  private void schedule_rescan () {
-    if (pending_rescan_id != 0) {
-      Source.remove (pending_rescan_id);
+  /** `directory` is where the change happened. Nothing under an ignored directory (watched only on request) can become unignored, so a change there needs no rescan; the root always does — it is where a repository appears. */
+  private void schedule_rescan (string directory) {
+    if (directory != root_path && !unignored.contains (directory)) {
+      return;
     }
-    pending_rescan_id = Timeout.add (RESCAN_DEBOUNCE_MS, () => {
+    pending_rescan_scope = pending_rescan_scope == null ? directory : common_ancestor (pending_rescan_scope, directory);
+    arm_rescan_timer ();
+  }
+
+  private void arm_rescan_timer () {
+    if (pending_rescan_id != 0) {
+      return;
+    }
+    pending_rescan_id = Timeout.add (RESCAN_LATENCY_MS, () => {
       pending_rescan_id = 0;
       run_rescan.begin ();
       return Source.REMOVE;
     });
   }
 
-  /** Guards against overlapping runs: a trigger arriving mid-rescan schedules exactly one more afterward, never dropped. */
+  /** Guards against overlapping runs: a scope that arrives mid-rescan waits in pending_rescan_scope for exactly one more afterward. */
   private async void run_rescan () {
-    if (rescan_running) {
-      rescan_pending_again = true;
+    if (rescan_running || pending_rescan_scope == null) {
       return;
     }
+    var scope = pending_rescan_scope;
+    pending_rescan_scope = null;
+
     rescan_running = true;
-    var found = yield list_unignored_directories_async (root_path);
+    var found = yield list_unignored_directories_async (root_path, scope);
     rescan_running = false;
 
     if (closed) {
       return;
     }
 
-    apply_unignored (found);
+    apply_unignored (scope, found);
     scanned_once = true;
     rescanned ();
 
-    if (rescan_pending_again) {
-      rescan_pending_again = false;
-      schedule_rescan ();
+    if (pending_rescan_scope != null) {
+      arm_rescan_timer ();
     }
   }
 
-  private void apply_unignored (GenericSet<string> found) {
+  /** Brings the part of `unignored` at or under `scope` to match `found`; everything outside it is left alone. */
+  private void apply_unignored (string scope, GenericSet<string> found) {
+    var gone = new GenericArray<string> ();
     foreach (var path in unignored.get_values ()) {
-      if (!found.contains (path) && !requested.contains (path)) {
+      if (is_at_or_under (path, scope) && !found.contains (path)) {
+        gone.add (path);
+      }
+    }
+    foreach (var path in gone) {
+      unignored.remove (path);
+      if (!requested.contains (path)) {
         drop_monitor (path);
       }
     }
 
     var newly_watched = new GenericArray<string> ();
     foreach (var path in found.get_values ()) {
+      unignored.add (path);
       if (!monitors.contains (path)) {
         ensure_monitor (path);
         newly_watched.add (path);
       }
     }
-    unignored = found;
 
     if (!scanned_once) {
       return; // the first scan reads the workspace as it is being opened — nothing was missed yet
@@ -219,13 +243,26 @@ public class WorkspaceWatcher : Object {
     }
   }
 
+  private static bool is_at_or_under (string path, string directory) {
+    return path == directory || path.has_prefix (directory + "/");
+  }
+
+  /** Both are directories at or under the same root, so the walk up from `a` always reaches one that holds `b`. */
+  private static string common_ancestor (string a, string b) {
+    var ancestor = a;
+    while (!is_at_or_under (b, ancestor)) {
+      ancestor = Path.get_dirname (ancestor);
+    }
+    return ancestor;
+  }
+
   /** Thread + Idle.add, same shape as FindInFilesSearch.run_async. */
-  private static async GenericSet<string> list_unignored_directories_async (string root_path) {
+  private static async GenericSet<string> list_unignored_directories_async (string root_path, string scope) {
     SourceFunc callback = list_unignored_directories_async.callback;
     GenericSet<string>? result = null;
 
     new Thread<void> ("workspace-watcher", () => {
-      result = list_unignored_directories (root_path);
+      result = list_unignored_directories (root_path, scope);
       Idle.add ((owned) callback);
     });
 
@@ -233,17 +270,26 @@ public class WorkspaceWatcher : Object {
     return result;
   }
 
-  /** Empty whenever there is no ignore list to go by: `root_path` isn't a repository root, or git couldn't answer. */
-  private static GenericSet<string> list_unignored_directories (string root_path) {
+  /**
+   * Every unignored directory at or under `scope` — itself a directory
+   * known to be unignored, or the root. Empty whenever there is no
+   * ignore list to go by (`root_path` isn't a repository root, or git
+   * couldn't answer), and when `scope` is gone or has become a
+   * repository of its own.
+   */
+  private static GenericSet<string> list_unignored_directories (string root_path, string scope) {
     var directories = new GenericSet<string> (str_hash, str_equal);
-    if (!GitFileList.is_repository_root (root_path)) {
+    if (!GitFileList.is_repository_root (root_path) || !is_real_directory (scope)) {
       return directories;
     }
-    var ignored = list_ignored_directories (root_path);
+    if (scope != root_path && GitFileList.is_repository_root (scope)) {
+      return directories;
+    }
+    var ignored = list_ignored_directories (root_path, scope);
     if (ignored == null) {
       return directories;
     }
-    collect_directories (root_path, ignored, directories);
+    collect_directories (scope, ignored, directories);
     return directories;
   }
 
@@ -284,24 +330,31 @@ public class WorkspaceWatcher : Object {
   }
 
   /**
-   * Absolute paths of every directory git ignores as a whole, or null
-   * when git couldn't answer. `--ignored=matching` reports a directory
+   * Absolute paths of every directory at or under `scope` that git
+   * ignores as a whole, or null when git couldn't answer. Asking about
+   * `scope` alone costs git that subtree, not the repository. `--ignored=matching` reports a directory
    * matched by an ignore pattern as one `!! dir/` entry and never
    * descends into it; a directory that merely holds ignored files isn't
    * reported, and stays watched. `-z`: paths verbatim, NUL-terminated.
    * `--no-optional-locks`: never holds `index.lock` against the user's
-   * own git.
+   * own git. `--literal-pathspecs`: a `*` or `[` in a directory's own
+   * name is not a pattern.
    */
-  private static GenericSet<string>? list_ignored_directories (string root_path) {
+  private static GenericSet<string>? list_ignored_directories (string root_path, string scope) {
     if (!HostCommand.has_program ("git")) {
       return null;
     }
 
     var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] argv = HostCommand.argv ({
-      "git", "--no-optional-locks", "-C", root_path,
+    string[] command = {
+      "git", "--no-optional-locks", "--literal-pathspecs", "-C", root_path,
       "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
-    });
+    };
+    if (scope != root_path) {
+      command += "--";
+      command += scope.substring (root_path.length + 1);
+    }
+    string[] argv = HostCommand.argv (command);
 
     Subprocess process;
     Bytes? stdout_buf;

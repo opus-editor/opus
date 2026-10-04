@@ -281,6 +281,98 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/workspace-watcher/reports-a-directory-created-inside-a-subdirectory", () => {
+        string root_path = "";
+        try {
+            root_path = make_repository ();
+            var deep_path = Path.build_filename (root_path, "src", "deep");
+            var watcher = new WorkspaceWatcher (root_path);
+            wait_for_rescan (watcher);
+            DirUtils.create (deep_path, 0755);
+            wait_for_rescan (watcher);
+
+            write_file (Path.build_filename (deep_path, "new.txt"));
+            var reports = collect_reports (watcher);
+
+            assert (reported (reports, "directory " + deep_path));
+            watcher.close ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/workspace-watcher/keeps-reporting-other-directories-after-one-subdirectory-changes", () => {
+        string root_path = "";
+        try {
+            root_path = make_repository ();
+            var docs_path = Path.build_filename (root_path, "docs");
+            write_file (Path.build_filename (docs_path, "a.md"));
+            var watcher = new WorkspaceWatcher (root_path);
+            wait_for_rescan (watcher);
+            DirUtils.create (Path.build_filename (root_path, "src", "deep"), 0755);
+            wait_for_rescan (watcher);
+
+            write_file (Path.build_filename (docs_path, "new.md"));
+            var reports = collect_reports (watcher);
+
+            assert (reported (reports, "directory " + docs_path));
+            watcher.close ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/workspace-watcher/stays-silent-about-a-directory-a-subdirectory-s-own-ignore-rules-hide", () => {
+        string root_path = "";
+        try {
+            root_path = make_repository ();
+            var generated_path = Path.build_filename (root_path, "src", "generated");
+            write_file (Path.build_filename (generated_path, "a.c"));
+            var watcher = new WorkspaceWatcher (root_path);
+            wait_for_rescan (watcher);
+            write_file (Path.build_filename (root_path, "src", ".gitignore"), "generated/\n");
+            wait_for_rescan (watcher);
+
+            write_file (Path.build_filename (generated_path, "b.c"));
+            var reports = collect_reports (watcher);
+
+            assert (reports.length == 0);
+            watcher.close ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/workspace-watcher/stays-silent-about-a-directory-created-inside-a-requested-ignored-one", () => {
+        string root_path = "";
+        try {
+            root_path = make_repository ();
+            var build_path = Path.build_filename (root_path, "build");
+            var nested_path = Path.build_filename (build_path, "objects");
+            var watcher = new WorkspaceWatcher (root_path);
+            wait_for_rescan (watcher);
+            watcher.request (build_path);
+            DirUtils.create (nested_path, 0755);
+            collect_reports (watcher);
+
+            write_file (Path.build_filename (nested_path, "a.o"));
+            var reports = collect_reports (watcher);
+
+            assert (reports.length == 0);
+            watcher.close ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/workspace-watcher/reports-a-directory-the-ignore-rules-stop-hiding", () => {
         string root_path = "";
         try {
