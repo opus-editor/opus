@@ -3,42 +3,42 @@
 
 command_bar_picker_test = executable(
   'command-bar-picker-test',
-  ['models/command-bar-picker-test.vala'],
+  ['models/command-bar/picker-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-picker', command_bar_picker_test)
 
 command_bar_registry_test = executable(
   'command-bar-registry-test',
-  ['models/command-bar-registry-test.vala'],
+  ['models/command-bar/registry-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-registry', command_bar_registry_test)
 
 command_bar_router_test = executable(
   'command-bar-router-test',
-  ['models/command-bar-router-test.vala'],
+  ['models/command-bar/router-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-router', command_bar_router_test)
 
 command_bar_recent_files_test = executable(
   'command-bar-recent-files-test',
-  ['models/command-bar-recent-files-test.vala'],
+  ['models/command-bar/recent-files-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-recent-files', command_bar_recent_files_test)
 
 command_bar_file_provider_test = executable(
   'command-bar-file-provider-test',
-  ['models/command-bar-file-provider-test.vala'],
+  ['models/command-bar/file-provider-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-file-provider', command_bar_file_provider_test)
 
 command_bar_go_to_line_provider_test = executable(
   'command-bar-go-to-line-provider-test',
-  ['models/command-bar-go-to-line-provider-test.vala'],
+  ['models/command-bar/go-to-line-provider-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
@@ -108,28 +108,28 @@ test('file-tree', file_tree_test)
 
 file_decoration_registry_test = executable(
   'file-decoration-registry-test',
-  ['models/file-decoration-registry-test.vala'],
+  ['models/file-decoration/registry-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('file-decoration-registry', file_decoration_registry_test)
 
 git_diff_parse_test = executable(
   'git-diff-parse-test',
-  ['models/git-diff-parse-test.vala'],
+  ['models/git-diff/parse-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('git-diff-parse', git_diff_parse_test)
 
 git_diff_engine_test = executable(
   'git-diff-engine-test',
-  ['models/git-diff-engine-test.vala'],
+  ['models/git-diff/engine-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('git-diff-engine', git_diff_engine_test)
 
 git_diff_document_tracker_test = executable(
   'git-diff-document-tracker-test',
-  ['models/git-diff-document-tracker-test.vala'],
+  ['models/git-diff/document-tracker-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('git-diff-document-tracker', git_diff_document_tracker_test)
@@ -143,14 +143,14 @@ test('git-file-list', git_file_list_test)
 
 git_scope_paths_test = executable(
   'git-scope-paths-test',
-  ['models/git-scope-paths-test.vala'],
+  ['models/git-scope/paths-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('git-scope-paths', git_scope_paths_test)
 
 git_scope_status_query_test = executable(
   'git-scope-status-query-test',
-  ['models/git-scope-status-query-test.vala'],
+  ['models/git-scope/status-query-test.vala'],
   dependencies: [opus_model_test_dep],
 )
 test('git-scope-status-query', git_scope_status_query_test)
