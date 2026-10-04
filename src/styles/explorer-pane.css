@@ -22,6 +22,16 @@ listview.data-table row {
   min-height: 24px;
   border-radius: 0;
 }
+/* `.navigation-sidebar` (ExplorerPaneTree's own list_view, base.css) puts
+ * 6px padding above the first row and below the last — on the listview
+ * itself, not the row, so the row-level reset above never touched it.
+ * Left in, the first row sat 6px below root_header_box with nothing
+ * visibly explaining the gap (confirmed live: the listview's own CSS
+ * node is where it actually is). */
+listview.navigation-sidebar {
+  padding-top: 0;
+  padding-bottom: 24px;
+}
 /* The transition lives on this separate, briefly-toggled class
  * (see ExplorerPaneTree's own REVEAL_FLASH_TRANSITION_CSS_CLASS comment)
  * rather than on every row unconditionally — that made native hover/
@@ -105,6 +115,21 @@ listview.data-table row:selected:not(:focus):not(:hover) {
 }
 .file-tree-root-label {
   font-weight: bold;
+}
+.file-tree-branch-label {
+  font-size: 90%;
+  font-style: italic;
+}
+/* `icon-name` makes GTK add its own "image-button" class, whose Adwaita
+ * rule (`button.image-button { min-width: 24px; padding-left/right: 5px;
+ * }`) stacks with the plain `button` rule's own 24px min-height and 5px
+ * top/bottom padding — a ~34x34px button for one 16px symbolic icon.
+ * Shrunk back down to the icon's own size, same reasoning as the
+ * sidebar's own .root-header-button before it got reverted. */
+.root-header-more-button {
+  min-width: 28px;
+  min-height: 16px;
+  padding: 0;
 }
 /* A plugin's own decoration (git status, a future linter badge, …) — a
  * small filled circle, right-aligned on the row. tone-accent has no

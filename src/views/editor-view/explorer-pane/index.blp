@@ -1,26 +1,43 @@
 using Gtk 4.0;
 
-// Gtk.ScrolledWindow is final, so this loads as a plain widget tree via
-// Gtk.Builder, not a composite template. list_view isn't declared here —
-// it needs a Gtk.SignalListItemFactory built in code (ExplorerPaneTree's own
-// constructor), so it's built there and dropped into scrolled_window via
-// set_child(), the same split CodeEditor uses for its own
-// CodeEditorSourceView.
 Gtk.Box root_box {
   orientation: vertical;
 
-  // The linked folder's own name — set once populate() actually knows it.
-  // Ellipsizes rather than wrapping/overflowing for a workspace with a
-  // long directory name.
-  Gtk.Label root_label {
-    styles ["file-tree-root-label"]
-    label: "";
-    halign: start;
-    ellipsize: end;
-    margin-start: 12;
-    margin-end: 12;
-    margin-top: 8;
-    margin-bottom: 4;
+  Gtk.Box root_header_box {
+    styles ["root-header-button"]
+
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 12;
+      margin-bottom: 6;
+
+      Gtk.Label root_label {
+        styles ["file-tree-root-label"]
+        label: "";
+        halign: start;
+        ellipsize: end;
+      }
+
+      Gtk.Label branch_label {
+        styles ["file-tree-branch-label", "dim-label"]
+        label: "";
+        visible: false;
+        halign: start;
+        ellipsize: end;
+      }
+    }
+
+    Gtk.Button more_button {
+      styles ["root-header-more-button", "flat"]
+      icon-name: "open-menu-symbolic";
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 0;
+      margin-bottom: 6;
+    }
   }
 
   Gtk.ScrolledWindow scrolled_window {

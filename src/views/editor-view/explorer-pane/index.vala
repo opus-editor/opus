@@ -15,7 +15,10 @@ namespace EditorView {
    */
   public class ExplorerPane : Object {
     private Gtk.Box root_box;
+    private Gtk.Box root_header_box;
     private Gtk.Label root_label;
+    private Gtk.Label branch_label;
+    private Gtk.Button more_button;
     private Gtk.ScrolledWindow scrolled_window;
 
     private FileTree model;
@@ -57,12 +60,18 @@ namespace EditorView {
 
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/explorer-pane/index.ui");
       root_box = (Gtk.Box) builder.get_object ("root_box");
+      root_header_box = (Gtk.Box) builder.get_object ("root_header_box");
       root_label = (Gtk.Label) builder.get_object ("root_label");
+      branch_label = (Gtk.Label) builder.get_object ("branch_label");
+      more_button = (Gtk.Button) builder.get_object ("more_button");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
 
       tree = new ExplorerPaneTree ();
       scrolled_window.child = tree.widget;
       root_label.label = model.root.name;
+      // Placeholder until the real git-branch provider is wired in.
+      branch_label.label = "No branch";
+      branch_label.visible = true;
       tree.populate (model.root);
 
       inline_edit = new ExplorerPaneInlineEdit (tree);
@@ -71,7 +80,10 @@ namespace EditorView {
 
       tree.file_activated.connect ((path, open_permanent) => file_activated (path, open_permanent));
       tree.children_load_requested.connect (on_children_load_requested);
-      tree.context_menu_requested.connect (show_context_menu);
+      tree.context_menu_requested.connect ((target, x, y) => show_context_menu (tree.widget, x, y, target));
+      // Same menu the tree's own background click opens (target == null),
+      // anchored on the button itself rather than the tree.
+      more_button.clicked.connect (() => show_context_menu (more_button, 0, more_button.get_height (), null));
       // Same two entry points the "Rename…"/"Delete" context menu items
       // already use (see show_context_menu()) — F2/Delete are just
       // another way to reach them, keyboard-only, no menu involved.
@@ -367,12 +379,16 @@ namespace EditorView {
      * destination, shown only when the clipboard actually holds something.
      * A file only has Cut/Copy. Rename/Delete/Copy Path/Copy Relative Path
      * apply to any *existing* entry, just not the workspace root itself.
+     * `anchor` is `tree.widget` for every row/background click (`x`/`y`
+     * already point at a position inside it); more_button's own click
+     * passes itself instead, since `x`/`y` there are relative to the
+     * button, not the tree.
      */
-    private void show_context_menu (FileNode? target, double x, double y) {
+    private void show_context_menu (Gtk.Widget anchor, double x, double y, FileNode? target) {
       var context_path = target == null ? model.root.path : target.path;
       var has_clipboard = clipboard_node != null;
 
-      ContextMenu.popup_at (tree.widget, x, y, (popover, box) => {
+      ContextMenu.popup_at (anchor, x, y, (popover, box) => {
         if (target == null || target.is_directory) {
           box.append (ContextMenu.item (_("New File…"), () => inline_edit.request_new_entry (target, false), popover));
           box.append (ContextMenu.item (_("New Folder…"), () => inline_edit.request_new_entry (target, true), popover));
