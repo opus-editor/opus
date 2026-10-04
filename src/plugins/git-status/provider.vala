@@ -98,7 +98,34 @@ namespace Opus.Plugins.GitStatus {
     private void on_workspace_changed (string path) {
       // Ignore rules decide the status of everything beside and below them.
       var scope = Path.get_basename (path) == IGNORE_FILE ? Path.get_dirname (path) : path;
+      if (is_ignored (scope)) {
+        return;
+      }
       schedule_refresh (scope);
+    }
+
+    /**
+     * Whether `path` is, or sits under, something the snapshot has as
+     * ignored. Nothing in there has a status to change: git reports a
+     * directory as ignored only while it tracks nothing inside it, and
+     * that can only stop being true through the index — a change inside
+     * `.git`, which re-reads everything.
+     */
+    private bool is_ignored (string path) {
+      if (snapshot == null) {
+        return false;
+      }
+      var candidate = path;
+      while (GitScope.Paths.is_at_or_under (candidate, context.root_path)) {
+        if (snapshot.status_for (candidate) == global::GitFileStatus.IGNORED) {
+          return true;
+        }
+        if (candidate == context.root_path) {
+          break;
+        }
+        candidate = Path.get_dirname (candidate);
+      }
+      return false;
     }
 
     private void on_git_dir_changed (File file, File? other_file, FileMonitorEvent event_type) {

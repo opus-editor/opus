@@ -379,6 +379,64 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/git-status-provider/a-change-inside-an-ignored-directory-does-not-refresh", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, ".gitignore"), "out/\n");
+            var out_path = Path.build_filename (root_path, "out");
+            DirUtils.create (out_path, 0755);
+            FileUtils.set_contents (Path.build_filename (out_path, "a.o"), "hello");
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+            assert (wait_for_decorations_changed (provider));
+            FileUtils.set_contents (Path.build_filename (out_path, "b.o"), "hello");
+
+            context.directory_changed (out_path);
+
+            assert (!wait_for_decorations_changed (provider));
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
+    Test.add_func ("/git-status-provider/a-tracked-file-inside-an-ignored-directory-still-refreshes", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            FileUtils.set_contents (Path.build_filename (root_path, ".gitignore"), "out/\n");
+            var out_path = Path.build_filename (root_path, "out");
+            DirUtils.create (out_path, 0755);
+            var path = Path.build_filename (out_path, "tracked.txt");
+            FileUtils.set_contents (path, "hello");
+            run_git (root_path, { "add", "-f", "out/tracked.txt" });
+            run_git (root_path, { "commit", "-q", "-m", "init" });
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.Provider (context);
+            provider.activate ();
+            assert (wait_for_decorations_changed (provider));
+            FileUtils.set_contents (path, "changed");
+
+            context.file_content_changed (path);
+
+            assert (wait_for_decorations_changed (provider));
+            assert (provider.current_decorations ()[path].tone == FileDecoration.Tone.WARNING);
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/git-status-provider/a-steady-stream-of-changes-still-refreshes", () => {
         string root_path = "";
         try {
