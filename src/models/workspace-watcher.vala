@@ -171,7 +171,7 @@ public class WorkspaceWatcher : Object {
     if (directory != root_path && !unignored.contains (directory)) {
       return;
     }
-    pending_rescan_scope = pending_rescan_scope == null ? directory : common_ancestor (pending_rescan_scope, directory);
+    pending_rescan_scope = pending_rescan_scope == null ? directory : GitScope.Paths.common_ancestor (pending_rescan_scope, directory);
     arm_rescan_timer ();
   }
 
@@ -215,7 +215,7 @@ public class WorkspaceWatcher : Object {
   private void apply_unignored (string scope, GenericSet<string> found) {
     var gone = new GenericArray<string> ();
     foreach (var path in unignored.get_values ()) {
-      if (is_at_or_under (path, scope) && !found.contains (path)) {
+      if (GitScope.Paths.is_at_or_under (path, scope) && !found.contains (path)) {
         gone.add (path);
       }
     }
@@ -241,19 +241,6 @@ public class WorkspaceWatcher : Object {
     foreach (var path in newly_watched) {
       directory_changed (path);
     }
-  }
-
-  private static bool is_at_or_under (string path, string directory) {
-    return path == directory || path.has_prefix (directory + "/");
-  }
-
-  /** Both are directories at or under the same root, so the walk up from `a` always reaches one that holds `b`. */
-  private static string common_ancestor (string a, string b) {
-    var ancestor = a;
-    while (!is_at_or_under (b, ancestor)) {
-      ancestor = Path.get_dirname (ancestor);
-    }
-    return ancestor;
   }
 
   /** Thread + Idle.add, same shape as FindInFilesSearch.run_async. */
@@ -331,52 +318,18 @@ public class WorkspaceWatcher : Object {
 
   /**
    * Absolute paths of every directory at or under `scope` that git
-   * ignores as a whole, or null when git couldn't answer. Asking about
-   * `scope` alone costs git that subtree, not the repository. `--ignored=matching` reports a directory
-   * matched by an ignore pattern as one `!! dir/` entry and never
-   * descends into it; a directory that merely holds ignored files isn't
-   * reported, and stays watched. `-z`: paths verbatim, NUL-terminated.
-   * `--no-optional-locks`: never holds `index.lock` against the user's
-   * own git. `--literal-pathspecs`: a `*` or `[` in a directory's own
-   * name is not a pattern.
+   * ignores as a whole, or null when git couldn't answer. Only a
+   * directory matched by an ignore pattern is reported (as one `!! dir/`
+   * entry); one that merely holds ignored files isn't, and stays watched.
    */
   private static GenericSet<string>? list_ignored_directories (string root_path, string scope) {
-    if (!HostCommand.has_program ("git")) {
-      return null;
-    }
-
-    var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] command = {
-      "git", "--no-optional-locks", "--literal-pathspecs", "-C", root_path,
-      "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
-    };
-    if (scope != root_path) {
-      command += "--";
-      command += scope.substring (root_path.length + 1);
-    }
-    string[] argv = HostCommand.argv (command);
-
-    Subprocess process;
-    Bytes? stdout_buf;
-    try {
-      process = launcher.spawnv (argv);
-      process.communicate (null, null, out stdout_buf, null);
-    } catch (Error e) {
-      return null;
-    }
-    if (!process.get_successful () || stdout_buf == null) {
+    var entries = GitScope.StatusQuery.run (root_path, scope);
+    if (entries == null) {
       return null;
     }
 
     var ignored = new GenericSet<string> (str_hash, str_equal);
-    unowned uint8[] data = stdout_buf.get_data ();
-    int start = 0;
-    for (int i = 0; i < data.length; i++) {
-      if (data[i] != 0) {
-        continue;
-      }
-      unowned string entry = (string) data[start:i];
-      start = i + 1;
+    foreach (var entry in entries) {
       if (entry.has_prefix ("!! ") && entry.has_suffix ("/")) {
         ignored.add (Path.build_filename (root_path, entry.substring (3, entry.length - 4)));
       }

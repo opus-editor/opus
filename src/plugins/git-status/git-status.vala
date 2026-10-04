@@ -43,54 +43,22 @@ public class GitStatus : Object {
   }
 
   /**
-   * Synchronous core — same subprocess idiom as GitFileList (SubprocessLauncher
-   * + spawnv, swallowed to a null sentinel on any failure). Unlike
-   * FindInFilesSearch.run(), this never throws: there's no user-initiated
-   * action here to show an error dialog for, only a background watcher
-   * that should just quietly have nothing to report — the same contract
-   * ExplorerPane.on_directory_changed() already accepts for its own
-   * background rescans.
-   *
-   * `--untracked-files=all` lists every untracked file individually rather
-   * than collapsing a wholly-untracked directory to one entry — needed so
-   * a file deep inside a new, unadded folder still gets its own status.
-   * `--ignored=matching` reports an ignored folder as one entry instead
-   * of listing everything inside it — a `node_modules/` would otherwise
-   * cost thousands of lines per refresh.
-   * `-z` separates entries with NUL and prints every path verbatim —
-   * without it git wraps a path containing a space (or a quote, a
-   * backslash, a non-ASCII byte) in quotes and escapes it.
-   * `--no-optional-locks` keeps this from rewriting `.git/index` — a
-   * background status must never hold `index.lock` against the user's
-   * own git in a terminal. The flag rather than GIT_OPTIONAL_LOCKS: an
-   * environment variable doesn't cross HostCommand's `flatpak-spawn`.
+   * Synchronous core. Unlike FindInFilesSearch.run(), this never throws:
+   * there's no user-initiated action here to show an error dialog for,
+   * only a background watcher that should just quietly have nothing to
+   * report — the same contract ExplorerPane.on_directory_changed()
+   * already accepts for its own background rescans. Null when git
+   * couldn't answer (see GitScope.StatusQuery, which also documents the
+   * command itself).
    */
   public static GitStatus? run (string root_path) {
-    if (!HostCommand.has_program ("git")) {
+    var entries = GitScope.StatusQuery.run (root_path, root_path);
+    if (entries == null) {
       return null;
-    }
-
-    var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
-    string[] argv = HostCommand.argv ({
-      "git", "--no-optional-locks", "-C", root_path,
-      "status", "--porcelain", "-z", "--untracked-files=all", "--ignored=matching",
-    });
-
-    Subprocess process;
-    Bytes? stdout_buf;
-    try {
-      process = launcher.spawnv (argv);
-      process.communicate (null, null, out stdout_buf, null);
-    } catch (Error e) {
-      return null;
-    }
-
-    if (!process.get_successful () || stdout_buf == null) {
-      return null; // not a git repository, or some other git-level failure
     }
 
     var status = new GitStatus ();
-    status.parse (stdout_buf, root_path);
+    status.parse (entries, root_path);
     return status;
   }
 
@@ -109,14 +77,13 @@ public class GitStatus : Object {
   }
 
   /**
-   * `git status --porcelain -z` output: one `XY path` entry per NUL. A
-   * rename/copy is two entries, the new path's `XY new` followed by the
-   * bare old path; only the new one is kept (the old one, if it still
+   * GitScope.StatusQuery's entries: one `XY path` each. A rename/copy
+   * is two entries, the new path's `XY new` followed by the bare old
+   * path; only the new one is kept (the old one, if it still
    * existed as a separate live path, would show its own NONE — nothing
    * to attach a status to).
    */
-  private void parse (Bytes porcelain_output, string root_path) {
-    var entries = split_nul_terminated (porcelain_output);
+  private void parse (GenericArray<string> entries, string root_path) {
     for (uint i = 0; i < entries.length; i++) {
       var entry = entries[i];
       if (entry.length < 4) {
@@ -150,21 +117,6 @@ public class GitStatus : Object {
 
   private static bool is_rename_or_copy (char x, char y) {
     return x == 'R' || x == 'C' || y == 'R' || y == 'C';
-  }
-
-  /** Bytes after the last NUL are dropped: git terminates every entry, so an unterminated tail is a truncated one. */
-  private static GenericArray<string> split_nul_terminated (Bytes bytes) {
-    var entries = new GenericArray<string> ();
-    unowned uint8[] data = bytes.get_data ();
-    int start = 0;
-    for (int i = 0; i < data.length; i++) {
-      if (data[i] != 0) {
-        continue;
-      }
-      entries.add ((string) data[start:i]);
-      start = i + 1;
-    }
-    return entries;
   }
 
   /**

@@ -134,6 +134,20 @@ git_file_list_test = executable(
 )
 test('git-file-list', git_file_list_test)
 
+git_scope_paths_test = executable(
+  'git-scope-paths-test',
+  ['models/git-scope-paths-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-paths', git_scope_paths_test)
+
+git_scope_status_query_test = executable(
+  'git-scope-status-query-test',
+  ['models/git-scope-status-query-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-status-query', git_scope_status_query_test)
+
 find_in_files_search_test = executable(
   'find-in-files-search-test',
   ['models/find-in-files-search-test.vala'],

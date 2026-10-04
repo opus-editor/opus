@@ -4,20 +4,20 @@
 opus_git_status_plugin_sources = files('git-status.vala', 'provider.vala', 'diff-base-provider.vala')
 opus_plugin_sources += opus_git_status_plugin_sources + files('plugin.vala')
 
-# git-status.vala alone has no dependency on the shared FileDecoration.*/
-# WorkspaceContext contract — kept standalone here (no opus_model_sources)
-# so these two stay cheap/fast, same shape as before provider.vala existed.
+# git-status.vala needs only GitScope.StatusQuery from the shared models;
+# linking opus_model_test_dep costs these two nothing to compile (see its
+# comment in src/meson.build).
 git_status_run_test = executable(
   'git-status-run-test',
-  ['test/git-status-run-test.vala', 'git-status.vala', opus_host_command_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  ['test/git-status-run-test.vala', 'git-status.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-status-run', git_status_run_test)
 
 git_status_classify_test = executable(
   'git-status-classify-test',
-  ['test/git-status-classify-test.vala', 'git-status.vala', opus_host_command_sources],
-  dependencies: [glib_dep, gobject_dep, gio_dep],
+  ['test/git-status-classify-test.vala', 'git-status.vala'],
+  dependencies: [opus_model_test_dep],
 )
 test('git-status-classify', git_status_classify_test)
 
