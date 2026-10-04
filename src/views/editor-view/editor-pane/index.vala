@@ -44,6 +44,7 @@ namespace EditorView {
     private Adw.Bin editor_area_bin;
     private EditorPane.TabBar tab_bar;
     private string root_path;
+    private UserSettings user_settings;
 
     private HashTable<string, OpenTab> tabs = new HashTable<string, OpenTab> (str_hash, str_equal);
     private string? active_path = null;
@@ -85,11 +86,12 @@ namespace EditorView {
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
     public signal void reveal_in_sidebar_requested (string path);
 
-    public EditorPaneWidget (string root_path) {
+    public EditorPaneWidget (string root_path, UserSettings user_settings) {
       this.root_path = root_path;
+      this.user_settings = user_settings;
 
       tab_bar = new EditorPane.TabBar ();
-      document_tab = new EditorPane.TabDocument (root_path);
+      document_tab = new EditorPane.TabDocument (root_path, user_settings);
       wire_kind (document_tab);
 
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
@@ -233,7 +235,7 @@ namespace EditorView {
     /** Find in Files — see TabFindResults.search(). The tab kind itself is created on the first search only. */
     public async void search_in_files (FindInFilesQuery query) {
       if (tab_find_results == null) {
-        tab_find_results = new EditorPane.TabFindResults ();
+        tab_find_results = new EditorPane.TabFindResults (user_settings);
         wire_kind (tab_find_results);
         tab_find_results.navigate_requested.connect ((path, line, column) => document_tab.open_at (path, line, column));
       }

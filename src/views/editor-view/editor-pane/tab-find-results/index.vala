@@ -158,7 +158,7 @@ namespace EditorView.EditorPane {
     // result goes back to showing.
     private GenericArray<string>? replace_summary_skipped_paths = null;
 
-    public TabFindResults () {
+    public TabFindResults (UserSettings user_settings) {
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-find-results/index.ui");
       root = (Gtk.Box) builder.get_object ("root");
       header_label = (Gtk.Label) builder.get_object ("header_label");
@@ -216,7 +216,7 @@ namespace EditorView.EditorPane {
         }
       });
 
-      code_editor = new CodeEditor () {
+      code_editor = new CodeEditor (user_settings) {
         read_only = true,
         show_line_numbers = false,
         show_indent_guides = false,

@@ -20,6 +20,9 @@ public class MainWindow : Object {
   private Adw.Bin content_bin;
   private Adw.Bin search_bar_bin;
   private GLib.Settings settings;
+  // Both app-wide, shared by every window — App owns them.
+  private UserSettings user_settings;
+  private LastFolder last_folder;
 
   private EditorView.FindBar find_bar;
   private EditorView.FindInFilesBar find_in_files_bar;
@@ -143,25 +146,13 @@ public class MainWindow : Object {
   /** Ctrl+Shift+N, or the primary menu's own "New Window" — reopening a window as either blank/file/folder is a decision only whoever manages the app's own window list can make. */
   public signal void new_window_requested ();
 
-  /** link_folder() succeeded for `path`. */
-  public signal void folder_linked (string path);
-
-  /** unlink_folder() closed the folder this window had linked. */
-  public signal void folder_unlinked ();
-
-  /** settings.json was rewritten while its tab is open here — the only edits to it that take effect on a running Opus. */
-  public signal void user_settings_changed ();
-
-  /** The folder this window has linked, or null. */
-  public string? linked_folder {
-    get { return has_linked_folder ? editor_pane.linked_folder_path : null; }
-  }
-
   /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window. */
   public signal void closed ();
 
-  public MainWindow (Gtk.Application app, GLib.Settings settings, string root_path) {
+  public MainWindow (Gtk.Application app, GLib.Settings settings, UserSettings user_settings, LastFolder last_folder, string root_path) {
     this.settings = settings;
+    this.user_settings = user_settings;
+    this.last_folder = last_folder;
 
     var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/main-window/index.ui");
     window = (Adw.ApplicationWindow) builder.get_object ("window");
@@ -177,7 +168,7 @@ public class MainWindow : Object {
     view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
     command_bar_bin = (Adw.Bin) builder.get_object ("command_bar_bin");
 
-    editor_pane = new EditorView.EditorPaneWidget (root_path);
+    editor_pane = new EditorView.EditorPaneWidget (root_path, user_settings);
     // Set once — editor_pane.widget's own child already toggles itself
     // between its real content and its own empty state as tabs open/close.
     content_bin.child = editor_pane.widget;
@@ -414,7 +405,7 @@ public class MainWindow : Object {
     has_linked_folder = true;
     split_view.show_sidebar = true;
     update_folder_dependent_ui ();
-    folder_linked (path);
+    last_folder.record (path);
   }
 
   /** "Close Folder" — the opposite of link_folder(): the sidebar goes back to not existing at all, same as a window that never had one linked. Open tabs stay exactly as they are; only the sidebar (and what "Copy Relative Path" resolves against) are affected. */
@@ -431,7 +422,7 @@ public class MainWindow : Object {
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     update_folder_dependent_ui ();
-    folder_unlinked ();
+    last_folder.clear ();
   }
 
   /** Coming back to this window is when a change made elsewhere is expected to show — the one moment worth paying for a re-read in case its event never arrived. */
@@ -507,18 +498,18 @@ public class MainWindow : Object {
 
   private void open_settings () {
     try {
-      var path = UserSettings.ensure_exists (Environment.get_user_config_dir ());
-      editor_pane.open (path, true);
+      user_settings.ensure_exists ();
+      editor_pane.open (user_settings.path, true);
     } catch (Error e) {
       show_error (_("Couldn’t open settings: %s").printf (e.message));
     }
   }
 
-  /** Alt+W — flips editor.word_wrap in settings.json and re-applies it right away, same as editing the file by hand and the live-reload watch picking it up (see on_settings_tab_opened()'s own doc comment), just without needing that tab open at all. */
+  /** Alt+W — flips editor.word_wrap for every open editor right away and writes it to settings.json, same as editing the file by hand with its tab open (see on_settings_tab_opened()'s own doc comment), just without needing that tab at all. */
   private void toggle_word_wrap () {
+    user_settings.word_wrap = !user_settings.word_wrap;
     try {
-      UserSettings.toggle_word_wrap (Environment.get_user_config_dir ());
-      editor_pane.code_editor.reload_settings ();
+      user_settings.save ();
     } catch (Error e) {
       show_error (_("Couldn’t update settings: %s").printf (e.message));
     }
@@ -526,29 +517,31 @@ public class MainWindow : Object {
 
   /**
    * Arms a live-reload watch on settings.json for exactly as long as
-   * its own tab stays open — every open tab's font re-renders on each
-   * change (the font CSS is display-wide, see CodeEditor's own
-   * font_css()), not just whichever tab happens to be active.
+   * its own tab stays open — the only edits to it that take effect on a
+   * running Opus. Every window's editors follow (UserSettings is shared,
+   * and they listen to its own `changed`).
    */
   private void on_settings_tab_opened (string uri) {
-    var settings_path = UserSettings.path (Environment.get_user_config_dir ());
-    if (uri != Document.uri_for_path (settings_path) || settings_monitor != null) {
+    if (uri != Document.uri_for_path (user_settings.path) || settings_monitor != null) {
       return;
     }
 
     try {
-      settings_monitor = File.new_for_path (settings_path).monitor_file (FileMonitorFlags.NONE, null);
-      settings_monitor.changed.connect (() => {
-        editor_pane.code_editor.reload_settings ();
-        user_settings_changed ();
-      });
+      settings_monitor = File.new_for_path (user_settings.path).monitor_file (FileMonitorFlags.NONE, null);
+      settings_monitor.changed.connect (on_settings_file_changed);
     } catch (Error e) {
       Logger.warn ("failed to watch settings.json for live-reload: %s".printf (e.message));
     }
   }
 
+  /** This window is where the setting was edited, so its own linked folder is the one `window.restore_folder` picks up when turned on. */
+  private void on_settings_file_changed () {
+    user_settings.reload ();
+    last_folder.apply_setting (user_settings.restore_folder, has_linked_folder ? editor_pane.linked_folder_path : null);
+  }
+
   private void on_settings_tab_closed (string uri) {
-    if (uri != Document.uri_for_path (UserSettings.path (Environment.get_user_config_dir ())) || settings_monitor == null) {
+    if (uri != Document.uri_for_path (user_settings.path) || settings_monitor == null) {
       return;
     }
     settings_monitor.cancel ();

@@ -51,14 +51,14 @@ namespace EditorView.EditorPane {
     public TabCapability capabilities { get { return TabCapability.TEXT_SEARCH; } }
     public CodeEditor? search_editor { get { return code_editor; } }
 
-    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly, and MainWindow's way to re-apply settings.json's display-wide font. */
+    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly. */
     public CodeEditor code_editor { get; private set; }
 
-    public TabDocument (string root_path) {
+    public TabDocument (string root_path, UserSettings user_settings) {
       this.root_path = root_path;
       editor_config = EditorConfig.load (root_path);
 
-      code_editor = new CodeEditor ();
+      code_editor = new CodeEditor (user_settings);
       change_banner = new TabDocumentChangeBanner ();
       file_watcher = new TabDocumentFileWatcher ();
 

@@ -16,6 +16,7 @@ public class App : Adw.Application {
   private GLib.Settings settings;
   private GenericArray<MainWindow> windows = new GenericArray<MainWindow> ();
   private Opus.Plugins.Engine plugins_engine;
+  private UserSettings user_settings;
   private LastFolder last_folder;
 
   #if DEBUG
@@ -86,7 +87,8 @@ public class App : Adw.Application {
     settings.changed["style-variant"].connect (() => apply_color_scheme ());
 
     var saved_pathname = settings.get_string ("last-folder");
-    last_folder = new LastFolder (restore_folder_setting (), saved_pathname == "" ? null : saved_pathname);
+    user_settings = new UserSettings (Environment.get_user_config_dir ());
+    last_folder = new LastFolder (user_settings.restore_folder, saved_pathname == "" ? null : saved_pathname);
     save_last_folder ();
     last_folder.notify["recorded-pathname"].connect (save_last_folder);
 
@@ -105,10 +107,6 @@ public class App : Adw.Application {
       dev_server.start (connection, object_path + "/Dev");
     }
     #endif
-  }
-
-  private static bool restore_folder_setting () {
-    return UserSettings.load (Environment.get_user_config_dir ()).restore_folder;
   }
 
   private void save_last_folder () {
@@ -225,16 +223,12 @@ public class App : Adw.Application {
 
   /** Builds a window and registers it with everything app-wide that needs to know about it — the one bit both open_window()/open_workspace() actually share, now that MainWindow itself owns everything else a window needs wired in. */
   private MainWindow create_window (string root_path) {
-    var window = new MainWindow (this, settings, root_path);
+    var window = new MainWindow (this, settings, user_settings, last_folder, root_path);
     windows.add (window);
 
     #if DEBUG
     dev_server.add_session (window);
     #endif
-
-    window.folder_linked.connect ((path) => last_folder.record (path));
-    window.folder_unlinked.connect (() => last_folder.clear ());
-    window.user_settings_changed.connect (() => last_folder.apply_setting (restore_folder_setting (), window.linked_folder));
 
     window.closed.connect (() => {
       windows.remove (window);

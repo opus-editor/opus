@@ -34,6 +34,7 @@
 public class CodeEditor : Object {
   private Gtk.ScrolledWindow scrolled_window;
   private CodeEditorSourceView text_view;
+  private UserSettings settings;
   private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
   private CodeEditorCursors cursors;
   private CodeEditorClipboard clipboard;
@@ -109,7 +110,9 @@ public class CodeEditor : Object {
   /** Re-emitted from the input sub-component — a Ctrl+click or a plain double-click released on the line it was pressed on, on any view (see CodeEditorInput's own on_pressed() comment). This component knows nothing about what that should *do*; that's entirely up to whoever's listening (Find Results' own filename/line hyperlinks). */
   public signal void link_click (int offset);
 
-  public CodeEditor () {
+  public CodeEditor (UserSettings settings) {
+    this.settings = settings;
+    settings.changed.connect (apply_settings);
     text_view = new CodeEditorSourceView () {
       monospace = true,
       top_margin = 8,
@@ -141,7 +144,7 @@ public class CodeEditor : Object {
     text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
     install_css ();
-    reload_settings ();
+    apply_settings ();
 
     // GtkSource.Buffer paints with a StyleScheme's own fixed colors
     // instead of following the app's GTK theme, so it stays put through
@@ -168,7 +171,7 @@ public class CodeEditor : Object {
    * plain in-memory value, gone on restart. Static, not per-instance:
    * this app has no per-window zoom concept, one shared level applies
    * everywhere at once — matches the font CSS itself already being
-   * display-wide (see reload_settings()), so any one instance
+   * display-wide (see apply_settings()), so any one instance
    * recomputing it after a change is enough to re-render every open
    * window's text.
    */
@@ -180,32 +183,29 @@ public class CodeEditor : Object {
   /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.font_size is already a plain point size, so a flat step matches it more directly than a percentage would. */
   public void zoom_in () {
     zoom_level += 1;
-    reload_settings ();
+    apply_settings ();
   }
 
   /** Ctrl+Minus — see zoom_in()'s own doc comment. */
   public void zoom_out () {
     zoom_level -= 1;
-    reload_settings ();
+    apply_settings ();
   }
 
   /** Ctrl+0 — back to settings.json's own editor.font_size exactly, same as VS Code's real EditorFontZoomReset. */
   public void reset_zoom () {
     zoom_level = 0;
-    reload_settings ();
+    apply_settings ();
   }
 
   /**
-   * Reads settings.json's `editor.*` keys and applies the ones that
-   * aren't their own dedicated "prop" (indent, hunks, …): turns the font
-   * ones into a real stylesheet targeting `.code-editor` (text_view's
-   * own class, set above), and sets `wrap_mode` directly (not a CSS
-   * concern) from `editor.word_wrap`. Run once at construction, again
-   * whenever MainWindow's own settings.json live-reload watch (armed
-   * only while that file's tab is open — see its own
-   * on_settings_tab_opened()) detects a change, and again on every
-   * zoom_in()/zoom_out()/reset_zoom() (wrap_mode is unaffected by zoom,
-   * re-set anyway since it's the same one `UserSettings.load()` call).
+   * Applies UserSettings' `editor.*` values that aren't their own
+   * dedicated "prop" (indent, hunks, …): turns the font ones into a real
+   * stylesheet targeting `.code-editor` (text_view's own class, set
+   * above), and sets `wrap_mode` directly (not a CSS concern) from
+   * `editor.word_wrap`. Run once at construction, again on every
+   * UserSettings.changed, and again on every zoom_in()/zoom_out()/
+   * reset_zoom() (wrap_mode is unaffected by zoom, re-set anyway).
    * Uninstalls the previous font provider first — a property the last
    * reload set and this one omits (e.g. editor.font_family going back to
    * null) needs the old rule gone, not just left uncontested by a new
@@ -221,12 +221,11 @@ public class CodeEditor : Object {
    * `_editor_gboolean_to_wrap_mode`): word boundaries first, falling
    * back to a mid-word break only when a single word can't fit at all.
    */
-  public void reload_settings () {
-    var settings = UserSettings.load (Environment.get_user_config_dir ());
+  private void apply_settings () {
     if (font_provider != null) {
       GlobalCss.uninstall (font_provider);
     }
-    font_provider = GlobalCss.install_from_string (font_css (settings));
+    font_provider = GlobalCss.install_from_string (font_css ());
     text_view.wrap_mode = settings.word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
   }
 
@@ -246,7 +245,7 @@ public class CodeEditor : Object {
    * _editor_font_description_to_css(), editor-source-view.c's own
    * "line-height" property).
    */
-  private string font_css (UserSettingsValues settings) {
+  private string font_css () {
     var css = new StringBuilder ("textview.code-editor {\n");
     if (settings.font_family != null) {
       css.append ("  font-family: \"%s\";\n".printf (settings.font_family.replace ("\"", "'")));
