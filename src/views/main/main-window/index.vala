@@ -48,6 +48,7 @@ public class MainWindow : Object {
   // simply wins.
   private Opus.Plugins.WorkspaceExtensions? diff_base_providers = null;
   private GitDiff.IBaseProvider? diff_base_provider = null;
+  private Opus.Plugins.WorkspaceExtensions? branch_providers = null;
 
   /** Whichever of find_bar/find_in_files_bar is currently open — Ctrl+F/Ctrl+H and Ctrl+Shift+F are mutually exclusive, see set_active_bottom_panel(). Null when neither is open. */
   private IGlobalPanel? active_bottom_panel = null;
@@ -379,12 +380,17 @@ public class MainWindow : Object {
     }
     wire_explorer_pane (new_explorer_pane);
 
+    var new_branch_providers = new Opus.Plugins.WorkspaceExtensions (typeof (GitBranch.IProvider), new_workspace_context);
+    new_branch_providers.added.connect ((e) => new_explorer_pane.set_branch_provider ((GitBranch.IProvider) e));
+    new_branch_providers.removed.connect ((e) => new_explorer_pane.set_branch_provider (null));
+
     teardown_workspace_extensions ();
     workspace_context = new_workspace_context;
     workspace_watcher = new_workspace_watcher;
     decorations = new_decorations;
     decoration_providers = new_decoration_providers;
     diff_base_providers = new_diff_base_providers;
+    branch_providers = new_branch_providers;
     editor_pane.set_decorations (new_decorations);
 
     recent_files = new CommandBar.RecentFiles ();
@@ -461,6 +467,11 @@ public class MainWindow : Object {
     }
     diff_base_providers = null;
     diff_base_provider = null;
+
+    if (branch_providers != null) {
+      branch_providers.close ();
+    }
+    branch_providers = null;
 
     workspace_context = null;
     if (workspace_watcher != null) {

@@ -1,7 +1,13 @@
 # git-status.vala/provider.vala are plain Model-grade code (no Peas) —
 # only plugin.vala touches Peas, so opus_git_status_plugin_sources (used
 # by tests that don't want libpeas linked in) stays split from it.
-opus_git_status_plugin_sources = files('git-status.vala', 'provider.vala', 'diff-base-provider.vala')
+opus_git_status_plugin_sources = files(
+  'git-status.vala',
+  'provider.vala',
+  'diff-base-provider.vala',
+  'git-head.vala',
+  'branch-provider.vala',
+)
 opus_plugin_sources += opus_git_status_plugin_sources + files('plugin.vala')
 
 # git-status.vala needs only GitScope.StatusQuery from the shared models;
@@ -46,3 +52,17 @@ diff_base_provider_test = executable(
   dependencies: [opus_model_test_dep],
 )
 test('diff-base-provider', diff_base_provider_test)
+
+git_head_test = executable(
+  'git-head-test',
+  ['test/git-head-test.vala', 'git-head.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-head', git_head_test)
+
+branch_provider_test = executable(
+  'branch-provider-test',
+  ['test/branch-provider-test.vala', opus_git_status_plugin_sources],
+  dependencies: [opus_model_test_dep],
+)
+test('branch-provider', branch_provider_test)

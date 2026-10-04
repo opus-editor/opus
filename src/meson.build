@@ -34,6 +34,7 @@ opus_model_sources = files(
   'models/git-file-list.vala',
   'models/git-scope/paths.vala',
   'models/git-scope/status-query.vala',
+  'models/git-branch/i-provider.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
   'models/git-diff/i-base-provider.vala',

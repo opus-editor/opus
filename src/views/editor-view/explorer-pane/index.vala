@@ -30,6 +30,7 @@ namespace EditorView {
     private ExplorerPaneDragDrop drag_drop;
     private FileDecoration.Registry decorations;
     private WorkspaceWatcher watcher;
+    private GitBranch.IProvider? branch_provider = null;
 
     // The tree's own internal Cut/Copy clipboard — never the system
     // clipboard (copy_to_clipboard()/Copy Path are the only things that
@@ -69,9 +70,7 @@ namespace EditorView {
       tree = new ExplorerPaneTree ();
       scrolled_window.child = tree.widget;
       root_label.label = model.root.name;
-      // Placeholder until the real git-branch provider is wired in.
-      branch_label.label = "No branch";
-      branch_label.visible = true;
+      update_branch_label ();
       tree.populate (model.root);
 
       inline_edit = new ExplorerPaneInlineEdit (tree);
@@ -97,6 +96,26 @@ namespace EditorView {
       drag_drop.moved_via_drag.connect ((source_path, target_path) => do_paste (source_path, true, target_path));
 
       decorations.changed.connect (on_decorations_changed);
+    }
+
+    /** Whose current_branch() the header shows — null (no plugin provides one) shows the same text as a folder outside any repository. */
+    public void set_branch_provider (GitBranch.IProvider? provider) {
+      if (branch_provider != null) {
+        branch_provider.branch_changed.disconnect (update_branch_label);
+      }
+      branch_provider = provider;
+      if (branch_provider != null) {
+        branch_provider.branch_changed.connect (update_branch_label);
+      }
+      update_branch_label ();
+    }
+
+    private void update_branch_label () {
+      string? branch = null;
+      if (branch_provider != null) {
+        branch = branch_provider.current_branch ();
+      }
+      branch_label.label = branch ?? _("No branch");
     }
 
     /** "Reveal in Sidebar" from a tab's context menu. */
@@ -125,6 +144,7 @@ namespace EditorView {
     /** Cancels every pending debounce timer, and disconnects from `watcher` and `decorations` (both owned by MainWindow, both outlive this pane) — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). Without this, the closure this pane never held a matching disconnect for would keep it (and its whole FileTree) alive for as long as `decorations` itself is, and could still call tree.rebind() on a pane the rest of the app has already discarded. */
     public void close () {
       dir_watcher.close ();
+      set_branch_provider (null);
       watcher.directory_changed.disconnect (on_directory_changed);
       decorations.changed.disconnect (on_decorations_changed);
     }
