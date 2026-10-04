@@ -97,6 +97,19 @@ namespace EditorView {
       return tree.get_optimal_width ();
     }
 
+    /** Re-reads every directory already loaded — for when change events may have been lost (the window was in the background, a watch failed to start). */
+    public void resync () {
+      var loaded_paths = new GenericArray<string> ();
+      model.each_loaded_node ((node) => {
+        if (node.is_directory && node.children_loaded) {
+          loaded_paths.add (node.path);
+        }
+      });
+      foreach (var path in loaded_paths) {
+        on_directory_changed (path);
+      }
+    }
+
     /** Cancels every pending debounce timer, and disconnects from `watcher` and `decorations` (both owned by MainWindow, both outlive this pane) — call before discarding this pane (e.g. "Close Folder", or replacing it with a freshly-opened one). Without this, the closure this pane never held a matching disconnect for would keep it (and its whole FileTree) alive for as long as `decorations` itself is, and could still call tree.rebind() on a pane the rest of the app has already discarded. */
     public void close () {
       dir_watcher.close ();
@@ -107,8 +120,10 @@ namespace EditorView {
     /**
      * Answers ExplorerPaneTree.children_load_requested() synchronously —
      * the one place FileTree's own lazy, one-level-at-a-time scanning
-     * actually gets triggered. A no-op if `node` was already scanned
-     * (FileTree.ensure_children_loaded() checks that itself).
+     * actually gets triggered. A directory scanned on an earlier expand
+     * is read again: nothing reports what changed inside an unwatched
+     * one (ignored by git, or outside a repository) while it sat
+     * collapsed.
      *
      * Also stamps each newly materialized child's own decoration from the
      * current snapshot — this fires strictly before any of those
@@ -120,7 +135,11 @@ namespace EditorView {
      */
     private void on_children_load_requested (FileNode node) {
       try {
-        model.ensure_children_loaded (node);
+        if (node.children_loaded) {
+          model.rescan_children (node);
+        } else {
+          model.ensure_children_loaded (node);
+        }
       } catch (Error e) {
         show_error (_("Couldn’t read “%s”: %s").printf (node.name, e.message));
         return;

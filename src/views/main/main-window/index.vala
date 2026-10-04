@@ -237,6 +237,7 @@ public class MainWindow : Object {
     });
 
     setup_sidebar_resize ();
+    window.notify["is-active"].connect (resync_workspace);
 
     // Gtk.Window has its own plain destroy() method (calls
     // gtk_window_destroy()), which shadows Gtk.Widget's own `destroy`
@@ -415,6 +416,17 @@ public class MainWindow : Object {
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     update_folder_dependent_ui ();
+  }
+
+  /** Coming back to this window is when a change made elsewhere is expected to show — the one moment worth paying for a re-read in case its event never arrived. */
+  private void resync_workspace () {
+    if (!window.is_active || explorer_pane == null) {
+      return;
+    }
+    explorer_pane.resync ();
+    // Plugins only hear about the workspace through its change signals;
+    // the root is the one directory guaranteed to exist to report.
+    workspace_context.directory_changed (workspace_context.root_path);
   }
 
   /** Deactivates and drops every plugin extension for whichever folder was linked, if any — a no-op with none (a plain "no folder yet" window). Called before constructing a fresh trio in link_folder() too, not just on unlink/close, so a folder-switch never leaves the previous one's plugins running alongside the new one's. */
