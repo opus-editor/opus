@@ -189,6 +189,47 @@ private void test_a_line_broken_after_a_block_opener_goes_one_level_in () {
     assert_cmpint (change, CompareOperator.EQ, 1);
 }
 
+/** The style painted on `word`, where it first appears in `text`, in the bundled language claiming `file_name` — "" when it is left plain. */
+private string style_of (string file_name, string text, string word) {
+    int at = text.index_of (word);
+    uint32 row = 0;
+    uint32 column = 0;
+    for (int i = 0; i < at; i++) {
+        if (text[i] == '\n') {
+            row++;
+            column = 0;
+        } else {
+            column++;
+        }
+    }
+    // Held until the style is copied out: a span's style belongs to the document's language.
+    var document = bundled (file_name, text);
+    string style = "";
+    foreach (var span in document.highlights (row, row)) {
+        if (span.start_row == row && span.start_column <= column && column < span.end_column) {
+            style = span.style;
+        }
+    }
+    return style;
+}
+
+private void test_a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed () {
+    assert_cmpstr (style_of ("a.rb", "def foo", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo\n  ", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo\n  s", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n  still_typing", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n\nbar", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def self.foo\n  s", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "class Foo\n  def foo\n    s", "foo"), CompareOperator.EQ, "function");
+    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing\nend", "foo"), CompareOperator.EQ, "function");
+}
+
+private void test_only_the_name_after_def_is_taken_for_a_method_name () {
+    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing", "still_typing"), CompareOperator.EQ, "variable");
+    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n\nbar", "bar"), CompareOperator.EQ, "variable");
+}
+
 /** How many levels Enter at the very end of `text` adds, in the bundled language claiming `file_name`. */
 private int change_at_the_end (string file_name, string text) {
     return bundled (file_name, text).new_line_indent_change (text.char_count ());
@@ -801,5 +842,7 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/ruby_ordinary_lines_stay_level_with_code_all_around_them", test_ruby_ordinary_lines_stay_level_with_code_all_around_them);
     Test.add_func ("/models/syntax/syntax-document/ruby_nested_openers_go_in_while_the_outer_block_is_still_open", test_ruby_nested_openers_go_in_while_the_outer_block_is_still_open);
     Test.add_func ("/models/syntax/syntax-document/an_inner_closer_comes_out_while_the_outer_block_is_still_open", test_an_inner_closer_comes_out_while_the_outer_block_is_still_open);
+    Test.add_func ("/models/syntax/syntax-document/a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed", test_a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed);
+    Test.add_func ("/models/syntax/syntax-document/only_the_name_after_def_is_taken_for_a_method_name", test_only_the_name_after_def_is_taken_for_a_method_name);
     Test.run ();
 }

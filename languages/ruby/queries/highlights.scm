@@ -1,3 +1,7 @@
+; Written for Opus: Helix's Ruby highlight query, plus the rules at the
+; end for a method whose `end` hasn't been typed yet.
+; tools/port-helix-language.py never overwrites a file starting this way.
+
 ; Operators
 [
 ":"
@@ -189,3 +193,24 @@
 
 ((identifier) @keyword.control.exception
  (#match? @keyword.control.exception "^(raise|fail)$"))
+
+; A method being typed has no `end` yet, and the parser often makes
+; nothing of it: `def` and what follows are left loose inside an error,
+; where the name is one more identifier. Ruby's own grammar leaves no
+; doubt about it, though — after `def` comes the method's name, or a
+; receiver, a dot and then the name — so it is colored as one here too,
+; and doesn't lose its color while the body is being written.
+
+(ERROR
+  "def"
+  .
+  [(identifier) (constant)] @function.method)
+
+(ERROR
+  "def"
+  .
+  (_)
+  .
+  ["." "::"]
+  .
+  [(identifier) (constant)] @function.method)
