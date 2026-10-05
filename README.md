@@ -25,6 +25,17 @@ native with GTK4 and Libadwaita, in Vala.
 - File tree and tabs tinted by git status
 - Git change bars in the gutter
 
+## Supported languages
+
+Highlighted out of the box:
+
+- **Web:** HTML, CSS, SCSS, JavaScript, TypeScript, JSX, TSX, Vue,
+  Svelte, Markdown
+- **Backend:** Ruby, ERB, PHP, Java, Python, Go
+- **Low level:** C, C++, Rust, Vala
+- **Data:** JSON, YAML, TOML, XML, SQL
+- **Tooling:** Bash, Dockerfile, Diff, Git commit messages, Meson
+
 ## Install
 
 Opus ships as a Flatpak. With [Flatpak](https://flatpak.org/setup/)
