@@ -59,13 +59,21 @@ Git features (status tints, change bars, gitignore-aware search) use
 the `git` on your system. Settings live in
 `~/.var/app/io.github.opus_editor.Opus/config/`.
 
-## Prerequisites
+## Development
 
-To build from source:
+Only needed to build Opus from source — to use it, see
+[Install](#install).
+
+### Prerequisites
 
 - Vala (`valac`) 0.56+
 - Meson 1.0+ and Ninja
-- GTK4 (4.18+) and Libadwaita (1.7+) development headers
+- A C and a C++ compiler (`gcc`/`g++`) — Tree-sitter and the language
+  grammars are built from source
+- `git` and a network connection the first time: Meson fetches
+  Tree-sitter and each bundled grammar at its pinned commit
+- GTK4 (4.18+), Libadwaita (1.7+), GtkSourceView 5, libpeas 2 and
+  JSON-GLib development headers
 - `blueprint-compiler`
 - `gettext` (the full package — `msgfmt`/`xgettext`, not just `gettext-base`)
 - [`just`](https://github.com/casey/just), to run the commands below
@@ -73,11 +81,12 @@ To build from source:
 On Debian/Ubuntu:
 
 ```shell
-sudo apt install valac meson ninja-build libgtk-4-dev libadwaita-1-dev \
+sudo apt install valac meson ninja-build gcc g++ git libgtk-4-dev \
+  libadwaita-1-dev libgtksourceview-5-dev libpeas-2-dev libjson-glib-dev \
   blueprint-compiler gettext just
 ```
 
-## Building
+### Building
 
 ```shell
 just build
@@ -91,7 +100,7 @@ just flatpak   # builds and installs it for your user
 just bundle    # exports out/flatpak/Opus.flatpak, what a release attaches
 ```
 
-## Testing
+### Testing
 
 ```shell
 just test
@@ -110,5 +119,8 @@ Software Foundation, either version 3 of the License, or (at your
 option) any later version. See [LICENSE](LICENSE).
 
 Parts are ported from Visual Studio Code (MIT) and GNOME Text Editor
-(GPL-3.0-or-later), and the bundled Symbols icon theme is MIT — see
+(GPL-3.0-or-later). Syntax highlighting is built on Tree-sitter and its
+grammars (MIT, except the Vala grammar, LGPL-2.1), with language queries
+from Helix (MPL-2.0). The bundled editor themes take their colors from
+the GitHub VS Code theme (MIT), and the Symbols icon theme is MIT — see
 [NOTICE](NOTICE) for the credits.
