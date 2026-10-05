@@ -36,6 +36,27 @@ command_bar_file_provider_test = executable(
 )
 test('command-bar-file-provider', command_bar_file_provider_test)
 
+command_bar_item_filter_test = executable(
+  'command-bar-item-filter-test',
+  ['models/command-bar/item-filter-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-item-filter', command_bar_item_filter_test)
+
+command_bar_command_provider_test = executable(
+  'command-bar-command-provider-test',
+  ['models/command-bar/command-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-command-provider', command_bar_command_provider_test)
+
+command_bar_language_provider_test = executable(
+  'command-bar-language-provider-test',
+  ['models/command-bar/language-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-language-provider', command_bar_language_provider_test)
+
 command_bar_go_to_line_provider_test = executable(
   'command-bar-go-to-line-provider-test',
   ['models/command-bar/go-to-line-provider-test.vala'],
@@ -854,6 +875,26 @@ syntax_highlight_test = executable(
 test(
   'syntax-highlight',
   syntax_highlight_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+command_bar_commands_test = executable(
+  'command-bar-commands-test',
+  ['system/command-bar/commands-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'command-bar-commands',
+  command_bar_commands_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',

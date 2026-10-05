@@ -194,6 +194,10 @@ namespace Opus.Dev {
       current_window ().open_command_bar ();
     }
 
+    public void open_commands () throws DBusError, IOError {
+      current_window ().open_commands ();
+    }
+
     public void command_bar_set_text (string text) throws DBusError, IOError {
       current_window ().command_bar_set_text (text);
     }

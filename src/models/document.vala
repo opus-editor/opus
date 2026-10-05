@@ -25,6 +25,13 @@ public class Document : Object {
   /** This document's own short display name — a real file's basename, or a synthetic tab's plain name ("Untitled-1", "Find Results"). Set once at creation and kept in sync with `pathname`/`uri` by move_to()/save_as(); never derived from `uri` itself, which is a machine key only and never guaranteed to look presentable. */
   public string name { get; private set; }
   public string content { get; set; default = ""; }
+  /**
+   * The name of the language package this document was set to by
+   * hand, over whatever its own name would make it — null while it
+   * hasn't been. Lives and dies with the document: kept through a
+   * rename or a "Save As", gone once it is closed.
+   */
+  public string? language_override { get; set; default = null; }
   public bool is_preview { get; set; default = false; }
   public bool readable { get; private set; default = true; }
   public bool is_untitled { get; private set; default = false; }

@@ -110,6 +110,9 @@ namespace Opus.Dev {
     /** Ctrl+P — opens the Command Bar over the linked folder (a no-op with none linked, same as the real key). */
     public abstract void open_command_bar () throws DBusError, IOError;
 
+    /** Opens the Command Bar on its `>` list of commands — same as Ctrl+Shift+P, and like it needs no folder. */
+    public abstract void open_commands () throws DBusError, IOError;
+
     /** Replaces the open Command Bar's entry text — the same path a real keystroke takes, through the entry's own `changed`. */
     public abstract void command_bar_set_text (string text) throws DBusError, IOError;
 

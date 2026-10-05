@@ -109,6 +109,30 @@ private void test_untitled_uri_and_title_are_independent () {
     assert_cmpstr (document.name, CompareOperator.EQ, "Sem título 7");
 }
 
+private void test_a_document_has_no_language_set_by_hand_to_begin_with () {
+    var document = Document.untitled ("1", "Untitled-1");
+
+    assert_null (document.language_override);
+}
+
+private void test_a_language_set_by_hand_survives_save_as () {
+    string path = Path.build_filename (
+        Environment.get_tmp_dir (),
+        "opus-document-test-%u-%u.txt".printf (Random.next_int (), Random.next_int ())
+    );
+    var document = Document.untitled ("1", "Untitled-1");
+    document.language_override = "ruby";
+
+    try {
+        document.save_as (path);
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+
+    assert_cmpstr (document.language_override, CompareOperator.EQ, "ruby");
+    FileUtils.remove (path);
+}
+
 private void test_save_as_clears_untitled_and_moves_the_document_to_the_new_path () {
     string path = Path.build_filename (
         Environment.get_tmp_dir (),
@@ -279,6 +303,8 @@ int main (string[] args) {
     Test.add_func ("/models/document/invalid_utf8_is_unreadable", test_invalid_utf8_is_unreadable);
     Test.add_func ("/models/document/untitled_document_starts_clean_and_untitled", test_untitled_document_starts_clean_and_untitled);
     Test.add_func ("/models/document/untitled_uri_and_title_are_independent", test_untitled_uri_and_title_are_independent);
+    Test.add_func ("/models/document/a_document_has_no_language_set_by_hand_to_begin_with", test_a_document_has_no_language_set_by_hand_to_begin_with);
+    Test.add_func ("/models/document/a_language_set_by_hand_survives_save_as", test_a_language_set_by_hand_survives_save_as);
     Test.add_func ("/models/document/save_as_clears_untitled_and_moves_the_document_to_the_new_path", test_save_as_clears_untitled_and_moves_the_document_to_the_new_path);
     Test.add_func ("/models/document/load_sets_a_file_scheme_uri_and_the_real_pathname", test_load_sets_a_file_scheme_uri_and_the_real_pathname);
     Test.add_func ("/models/document/move_to_updates_uri_and_pathname_together", test_move_to_updates_uri_and_pathname_together);

@@ -78,12 +78,19 @@ public class MainWindow : Object {
   private Gtk.Stack title_stack;
   private Adw.ViewSwitcher view_switcher;
   private Adw.Bin command_bar_bin;
+  // What the `>` list hands back for each of its rows — see on_command_accepted().
+  private const string COMMAND_SET_LANGUAGE = "set-language";
+  private const string COMMAND_TOGGLE_WORD_WRAP = "toggle-word-wrap";
+  private const string COMMAND_USER_SETTINGS = "user-settings";
+
   private CommandBar.Registry command_registry = new CommandBar.Registry ();
   private CommandBar.Router command_router;
   private CommandBarPopover command_bar;
   private CommandBar.RecentFiles? recent_files = null;
   private CommandBar.FileProvider? file_provider = null;
   private CommandBar.GoToLineProvider go_to_line_provider;
+  private CommandBar.CommandProvider command_provider;
+  private CommandBar.LanguageProvider language_provider;
   // Whatever held keyboard focus right before Ctrl+P — title_stack
   // switching its page back away from the entry on close otherwise
   // leaves GTK to pick its own fallback (the view switcher button).
@@ -196,6 +203,14 @@ public class MainWindow : Object {
     command_router.closed.connect (on_command_bar_closed);
     go_to_line_provider = new CommandBar.GoToLineProvider (editor_pane.caret_position);
     command_registry.add (go_to_line_provider);
+    command_provider = new CommandBar.CommandProvider ({
+      new CommandBar.Command (COMMAND_SET_LANGUAGE, _("File / Set language...")),
+      new CommandBar.Command (COMMAND_TOGGLE_WORD_WRAP, _("Editor / Toggle word wrap")),
+      new CommandBar.Command (COMMAND_USER_SETTINGS, _("User Settings")),
+    });
+    command_registry.add (command_provider);
+    // Not registered: no prefix leads to it, only "Set language...".
+    language_provider = new CommandBar.LanguageProvider (Syntax.Languages.instance);
 
     find_bar = new EditorView.FindBar ();
     register_global_panel (find_bar);
@@ -580,15 +595,28 @@ public class MainWindow : Object {
     });
   }
 
-  /** Ctrl+P — or, while the bar is already open, "next result" (VS Code's own Ctrl+P-again). Public for Opus.Dev.DevServer's own OpenCommandBar, same as the three below. */
+  /** Ctrl+P — or, while the bar is already open, "next result" (VS Code's own Ctrl+P-again). Public for Opus.Dev.DevServer's own OpenCommandBar, same as the ones below. */
   public void open_command_bar () {
     if (command_router.is_open) {
       command_router.picker.move_active (1);
       return;
     }
+    show_command_bar ("");
+  }
+
+  /** Ctrl+Shift+P — the Command Bar already on its `>` list. With the bar open on something else, that is switched to the commands rather than reopened. */
+  public void open_commands () {
+    if (command_router.is_open) {
+      command_bar.set_text (command_provider.prefix);
+      return;
+    }
+    show_command_bar (command_provider.prefix);
+  }
+
+  private void show_command_bar (string initial_text) {
     focus_before_command_bar = window.get_focus ();
     title_stack.visible_child_name = "command-bar";
-    command_router.open ();
+    command_router.open (initial_text);
     if (!command_router.is_open) {
       title_stack.visible_child_name = "switcher";
       return;
@@ -621,6 +649,21 @@ public class MainWindow : Object {
     picker.accepted.connect (on_command_bar_item_accepted);
   }
 
+  private void on_command_accepted (string command_id) {
+    if (command_id == COMMAND_TOGGLE_WORD_WRAP) {
+      toggle_word_wrap ();
+    } else if (command_id == COMMAND_USER_SETTINGS) {
+      open_settings ();
+    }
+  }
+
+  /** The languages the active tab can be set to, in place of the commands: the bar stays open, only what it lists changes. */
+  private void show_language_list () {
+    language_provider.has_document = editor_pane.document_tab.has_active;
+    language_provider.offers_auto_detect = editor_pane.document_tab.active_has_language_override;
+    command_router.open_with (language_provider);
+  }
+
   /** Without this, the view switcher button underneath the entry's own title_stack page picks up focus on its own once that page becomes visible again. Restores focus_before_command_bar (set in open_command_bar()) rather than always the editor — Ctrl+P isn't only ever pressed from there. */
   private void on_command_bar_closed () {
     command_bar.close ();
@@ -637,8 +680,18 @@ public class MainWindow : Object {
   private void on_command_bar_item_accepted (CommandBar.Item item) {
     var provider = command_router.provider;
     var filter = command_router.picker.filter;
+    if (provider == command_provider && item.id == COMMAND_SET_LANGUAGE) {
+      // The one accept that doesn't close the bar: its answer is another list.
+      show_language_list ();
+      return;
+    }
     command_router.close ();
-    if (provider == file_provider) {
+    if (provider == command_provider) {
+      on_command_accepted (item.id);
+    } else if (provider == language_provider) {
+      editor_pane.document_tab.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
+      editor_pane.code_editor.grab_focus ();
+    } else if (provider == file_provider) {
       int line;
       CommandBar.FileProvider.split_line_suffix (filter, out line);
       open_from_command_bar (item.id, line);
@@ -1103,9 +1156,13 @@ public class MainWindow : Object {
         open_settings ();
         return true;
       case Gdk.Key.p:
-        // Same gate as Ctrl+Shift+F: no folder linked means nothing to
-        // search.
-        if (has_linked_folder) {
+        if (shift) {
+          // No gate: commands don't need a folder, and the first of
+          // them is for a file that isn't anywhere yet.
+          open_commands ();
+        } else if (has_linked_folder) {
+          // Same gate as Ctrl+Shift+F: no folder linked means nothing
+          // to search.
           open_command_bar ();
         }
         return true;

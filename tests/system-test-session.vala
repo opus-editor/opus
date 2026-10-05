@@ -268,6 +268,7 @@ public class SystemTestSession : Object {
 
     // Command Bar — see SystemTestCommandBar.
     public void open_command_bar () throws Error { command_bar.open (); }
+    public void open_commands () throws Error { command_bar.open_commands (); }
     public void command_bar_type (string text) throws Error { command_bar.type (text); }
     public void command_bar_accept () throws Error { command_bar.accept (); }
     public string[] command_bar_items () throws Error { return command_bar.items (); }

@@ -279,7 +279,7 @@ namespace EditorView.EditorPane {
         promote_document (document);
       }
       code_editor.read_only = false;
-      code_editor.set_text (text, document.pathname ?? document.uri);
+      code_editor.set_text (text, document.pathname ?? document.uri, document.language_override);
       emit_marks (document);
     }
 
@@ -292,6 +292,34 @@ namespace EditorView.EditorPane {
      * two arrays don't have the same length, or if there's no active
      * document.
      */
+    /** Whether a document tab is the one showing. */
+    public bool has_active {
+      get { return active_document () != null; }
+    }
+
+    /** Whether the active tab's language was picked by hand — false with no tab active. */
+    public bool active_has_language_override {
+      get {
+        var document = active_document ();
+        return document != null && document.language_override != null;
+      }
+    }
+
+    /**
+     * Sets the active tab's language by hand: a language package's
+     * name, or null to go back to what the file's own name says. Kept
+     * on the Document, so it stays with the tab through switching away
+     * and back, and through a "Save As". A no-op with no tab active.
+     */
+    public void set_active_language (string? language_name) {
+      var document = active_document ();
+      if (document == null) {
+        return;
+      }
+      document.language_override = language_name;
+      code_editor.set_language_override (language_name);
+    }
+
     public void set_active_cursors (int[] anchors, int[] positions) {
       var document = active_document ();
       if (document == null || anchors.length != positions.length) {
@@ -389,7 +417,8 @@ namespace EditorView.EditorPane {
       // previous file's own language.
       code_editor.read_only = !document.readable;
       code_editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
-                            document.readable ? display_path : "");
+                            document.readable ? display_path : "",
+                            document.readable ? document.language_override : null);
       change_banner.set_visible (document.is_externally_modified);
 
       var indent_size = editor_config?.indent_size_for (relative_path (display_path)) ?? DEFAULT_INDENT_SIZE;

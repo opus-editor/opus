@@ -45,6 +45,8 @@ public class CodeEditor : Object {
   private CodeEditorSyntaxHighlighter syntax_highlighter;
   /** What set_text() last showed — "" for none. Kept so the language can be worked out again when the packages change. */
   private string language_path = "";
+  /** The language package named by hand for what is showing, over whatever `language_path` says — null for none. */
+  private string? language_override = null;
 
   /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
@@ -273,26 +275,38 @@ public class CodeEditor : Object {
   }
 
   /**
-   * Shows `text`, highlighted as whichever language package claims
-   * `path` — by its name, or failing that by `text`'s own first line
-   * (a shebang). None if no package does, or if `path` is "".
+   * Shows `text`, highlighted as the language package named
+   * `language_override` when one is given, and otherwise as whichever
+   * claims `path` — by its name, or failing that by `text`'s own first
+   * line (a shebang). None if no package does, or if `path` is "".
    */
-  public void set_text (string text, string path) {
+  public void set_text (string text, string path, string? language_override = null) {
     if (pending_reveal_id != 0) {
       Source.remove (pending_reveal_id);
       pending_reveal_id = 0;
     }
     language_path = path;
+    this.language_override = language_override;
     syntax_highlighter.set_language (language_for (text));
     cursors.load_text (text);
   }
 
-  /** A package was installed, edited or finished building while this text was showing. */
+  /** Changes the language of the text already showing: a package's name, or null to go back to the one its path says. */
+  public void set_language_override (string? language_override) {
+    this.language_override = language_override;
+    apply_language ();
+  }
+
+  /** A package was installed, edited or finished building while this text was showing — or the language was just set by hand. */
   private void apply_language () {
     syntax_highlighter.set_language (language_for (text_view.buffer.text));
   }
 
+  /** A language named by hand that no longer exists (its package was removed) leaves the text plain rather than falling back to a guess the user already overruled. */
   private Syntax.LoadedLanguage? language_for (string text) {
+    if (language_override != null) {
+      return Syntax.Languages.instance.by_name (language_override);
+    }
     return language_path == "" ? null : Syntax.Languages.instance.detect (language_path, first_line_of (text));
   }
 

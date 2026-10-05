@@ -134,6 +134,81 @@ int main (string[] args) {
         assert_cmpint (closed, CompareOperator.EQ, 0);
     });
 
+    Test.add_func ("/command-bar/router/open-with-hands-a-picker-to-the-provider-given", () => {
+        var files = new RecordingProvider ("");
+        var commands = new RecordingProvider (">");
+        var languages = new RecordingProvider ("");
+        var router = new CommandBar.Router (registry_with (files, commands));
+
+        router.open_with (languages);
+
+        assert_true (router.is_open);
+        assert_true (router.provider == languages);
+        assert_cmpint (languages.provide_count, CompareOperator.EQ, 1);
+        assert_cmpint (files.provide_count, CompareOperator.EQ, 0);
+    });
+
+    Test.add_func ("/command-bar/router/a-provider-given-starts-with-nothing-typed", () => {
+        var files = new RecordingProvider ("");
+        var commands = new RecordingProvider (">");
+        var languages = new RecordingProvider ("");
+        var router = new CommandBar.Router (registry_with (files, commands));
+        router.open (">set");
+
+        router.open_with (languages);
+
+        assert_cmpstr (router.picker.text, CompareOperator.EQ, "");
+    });
+
+    Test.add_func ("/command-bar/router/a-provider-given-while-open-takes-over-without-a-close", () => {
+        var files = new RecordingProvider ("");
+        var commands = new RecordingProvider (">");
+        var languages = new RecordingProvider ("");
+        var router = new CommandBar.Router (registry_with (files, commands));
+        router.open (">");
+        var commands_picker = router.picker;
+        int closed = 0;
+        int opened = 0;
+        router.closed.connect (() => closed++);
+        router.opened.connect (() => opened++);
+
+        router.open_with (languages);
+
+        assert_cmpint (closed, CompareOperator.EQ, 0);
+        assert_cmpint (opened, CompareOperator.EQ, 1);
+        assert_true (commands_picker.is_closed);
+        assert_true (commands.last_cancellable.is_cancelled ());
+    });
+
+    Test.add_func ("/command-bar/router/a-provider-given-stays-on-duty-whatever-is-typed", () => {
+        var files = new RecordingProvider ("");
+        var commands = new RecordingProvider (">");
+        var languages = new RecordingProvider ("");
+        var router = new CommandBar.Router (registry_with (files, commands));
+        router.open_with (languages);
+
+        router.picker.text = "ruby";
+        router.picker.text = ">";
+
+        assert_true (router.provider == languages);
+        assert_cmpint (files.provide_count, CompareOperator.EQ, 0);
+        assert_cmpint (commands.provide_count, CompareOperator.EQ, 0);
+    });
+
+    Test.add_func ("/command-bar/router/closing-a-provider-given-brings-prefixes-back", () => {
+        var files = new RecordingProvider ("");
+        var commands = new RecordingProvider (">");
+        var languages = new RecordingProvider ("");
+        var router = new CommandBar.Router (registry_with (files, commands));
+        router.open_with (languages);
+        router.close ();
+
+        router.open ();
+        router.picker.text = ">";
+
+        assert_true (router.provider == commands);
+    });
+
     Test.add_func ("/command-bar/router/empty-registry-never-opens", () => {
         var router = new CommandBar.Router (new CommandBar.Registry ());
         bool opened = false;

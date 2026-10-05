@@ -16,6 +16,11 @@ public class SystemTestCommandBar : Object {
         call ("OpenCommandBar");
     }
 
+    /** Opens the bar on its list of commands — Ctrl+Shift+P, which needs no folder. */
+    public void open_commands () throws Error {
+        call ("OpenCommands");
+    }
+
     public void type (string text) throws Error {
         call ("CommandBarSetText", new Variant ("(s)", text));
     }

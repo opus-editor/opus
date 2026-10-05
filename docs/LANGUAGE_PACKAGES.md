@@ -54,6 +54,7 @@ only install packages you trust.
 ```json
 {
   "name": "kotlin",
+  "title": "Kotlin",
   "file-types": ["kt", "kts", { "glob": "build.gradle.kts" }],
   "shebangs": ["kotlin"],
   "injection-regex": "kotlin|kt",
@@ -67,6 +68,7 @@ only install packages you trust.
 | Key | Meaning |
 |---|---|
 | `name` | Required. What other packages call this language, and its folder name once installed. |
+| `title` | How the language is written where a person picks one ("C++" for `cpp`). Defaults to `name`. |
 | `file-types` | Which files are this language. A string is an extension (`kt`, or `html.erb`); `{ "glob": … }` is matched against the whole path, for files told apart by name (`Dockerfile`, `*.tfstate.backup`). |
 | `shebangs` | Interpreter names: a file starting with `#!/usr/bin/env kotlin` is this language whatever it is called. |
 | `injection-regex` | Matched against the name another language asks for when it embeds code — the `kt` of a Markdown fence. |
@@ -81,6 +83,11 @@ ones.
 
 A package with no `grammar` is never used on a file by itself; it
 exists to lend its queries to others (see *Sharing queries* below).
+
+A language can also be picked by hand for one tab, saved or not:
+`Ctrl+Shift+P`, then *File / Set language...*. That list holds every
+package with a grammar that claims some file type or shebang; the rest
+only make sense inside another language.
 
 ### 2. The queries
 
