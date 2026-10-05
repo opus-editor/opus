@@ -1,5 +1,6 @@
 {
   "name": "sql",
+  "title": "SQL",
   "file-types": [
     "sql",
     "dsql"

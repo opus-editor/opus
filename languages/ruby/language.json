@@ -1,5 +1,6 @@
 {
   "name": "ruby",
+  "title": "Ruby",
   "file-types": [
     "rb",
     "rake",

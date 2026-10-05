@@ -1,5 +1,6 @@
 {
   "name": "git-commit",
+  "title": "Git Commit",
   "file-types": [
     { "glob": "COMMIT_EDITMSG" },
     { "glob": "MERGE_MSG" },

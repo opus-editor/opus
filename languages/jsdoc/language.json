@@ -1,8 +1,5 @@
 {
   "name": "jsdoc",
-  "file-types": [
-    "jsdoc"
-  ],
   "injection-regex": "jsdoc",
   "grammar": {
     "repository": "https://github.com/tree-sitter/tree-sitter-jsdoc",

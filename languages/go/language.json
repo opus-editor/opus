@@ -1,5 +1,6 @@
 {
   "name": "go",
+  "title": "Go",
   "file-types": [
     "go"
   ],

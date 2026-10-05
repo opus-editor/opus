@@ -1,9 +1,5 @@
 {
   "name": "regex",
-  "file-types": [
-    "regex",
-    { "glob": ".Rbuildignore" }
-  ],
   "injection-regex": "regex",
   "grammar": {
     "repository": "https://github.com/tree-sitter/tree-sitter-regex",

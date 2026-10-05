@@ -1,5 +1,6 @@
 {
   "name": "yaml",
+  "title": "YAML",
   "file-types": [
     "yml",
     "yaml",

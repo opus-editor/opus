@@ -51,6 +51,11 @@ namespace Syntax {
       return packages_by_name[name];
     }
 
+    /** Every package, in no particular order. */
+    public GenericArray<LanguagePackage> all () {
+      return packages.copy ((package) => package);
+    }
+
     /**
      * The language for the file at `path`: the longest matching glob
      * first, then the extension, then `first_line`'s shebang.

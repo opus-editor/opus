@@ -1,5 +1,6 @@
 {
   "name": "meson",
+  "title": "Meson",
   "file-types": [
     { "glob": "meson.build" },
     { "glob": "meson.options" },

@@ -1,5 +1,6 @@
 {
   "name": "typescript",
+  "title": "TypeScript",
   "file-types": [
     "ts",
     "mts",

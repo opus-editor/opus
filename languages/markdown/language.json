@@ -1,5 +1,6 @@
 {
   "name": "markdown",
+  "title": "Markdown",
   "file-types": [
     "md",
     "livemd",

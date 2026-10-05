@@ -1,5 +1,6 @@
 {
   "name": "erb",
+  "title": "ERB",
   "file-types": [
     "erb"
   ],

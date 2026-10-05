@@ -1,5 +1,6 @@
 {
   "name": "vala",
+  "title": "Vala",
   "file-types": [
     "vala",
     "vapi"

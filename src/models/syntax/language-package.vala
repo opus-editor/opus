@@ -40,6 +40,8 @@ namespace Syntax {
 
     public string directory { get; private set; }
     public string name { get; private set; }
+    /** How the language is written for a person to read ("C++", where `name` is "cpp") — `name` itself when the manifest gives none. */
+    public string title { get; private set; }
     /** File extensions, without the dot. */
     public string[] extensions { get; private set; }
     /** See {@link Glob.compile} for the syntax. */
@@ -71,11 +73,17 @@ namespace Syntax {
       var package = new LanguagePackage ();
       package.directory = directory;
       package.name = required_string (root, "name");
+      package.title = optional_string (root, "title") ?? package.name;
       package.shebangs = string_array (root, "shebangs");
       package.injection_regex = injection_regex_of (root);
       package.grammar = grammar_of (root, package.name);
       package.read_file_types (root);
       return package;
+    }
+
+    /** Whether a file can be this language: it has a grammar to parse with and claims some kind of file. The rest only exist inside other languages (`markdown.inline`, `comment`) or lend them queries (`ecma`). */
+    public bool opens_files {
+      get { return grammar != null && (extensions.length > 0 || globs.length > 0 || shebangs.length > 0); }
     }
 
     /** Null when this package has no `queries/<query_name>.scm`. */

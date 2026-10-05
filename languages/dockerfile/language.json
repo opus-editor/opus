@@ -1,5 +1,6 @@
 {
   "name": "dockerfile",
+  "title": "Dockerfile",
   "file-types": [
     "Dockerfile",
     { "glob": "Dockerfile" },

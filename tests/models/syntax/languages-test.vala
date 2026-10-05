@@ -191,6 +191,73 @@ private void test_a_grammar_never_compiled_is_built_on_first_use () {
     assert_nonnull (languages.detect ("/project/a.json"));
 }
 
+private void test_a_language_is_loaded_by_its_name () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string");
+    var languages = languages_over (directory);
+
+    var language = languages.by_name ("json");
+
+    assert_cmpstr (language.package.name, CompareOperator.EQ, "json");
+}
+
+private void test_a_language_by_name_is_the_one_detection_gives () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string");
+    var languages = languages_over (directory);
+
+    var named = languages.by_name ("json");
+    var detected = languages.detect ("/project/a.json");
+
+    assert_true (named == detected);
+}
+
+private void test_a_name_no_package_has_is_no_language () {
+    var languages = languages_over (new_languages_directory ());
+
+    var language = languages.by_name ("klingon");
+
+    assert_null (language);
+}
+
+private void test_selectable_lists_the_languages_a_file_can_be_by_title () {
+    string directory = new_languages_directory ();
+    add_package (directory, "ruby", """{ "name": "ruby", "title": "Ruby", "file-types": ["rb"], "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    add_package (directory, "cpp", """{ "name": "cpp", "title": "C++", "file-types": ["cpp"], "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    add_package (directory, "bash", """{ "name": "bash", "title": "bash", "shebangs": ["sh"], "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    var languages = languages_over (directory);
+
+    var selectable = languages.selectable ();
+
+    assert_cmpuint (selectable.length, CompareOperator.EQ, 3);
+    assert_cmpstr (selectable[0].name, CompareOperator.EQ, "bash");
+    assert_cmpstr (selectable[1].name, CompareOperator.EQ, "cpp");
+    assert_cmpstr (selectable[2].name, CompareOperator.EQ, "ruby");
+}
+
+private void test_selectable_leaves_out_what_only_lives_inside_other_languages () {
+    string directory = new_languages_directory ();
+    add_package (directory, "ruby", """{ "name": "ruby", "file-types": ["rb"], "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    add_package (directory, "comment", """{ "name": "comment", "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    add_package (directory, "ecma", """{ "name": "ecma" }""", "");
+    var languages = languages_over (directory);
+
+    var selectable = languages.selectable ();
+
+    assert_cmpuint (selectable.length, CompareOperator.EQ, 1);
+    assert_cmpstr (selectable[0].name, CompareOperator.EQ, "ruby");
+}
+
+private void test_selectable_lists_a_language_whose_grammar_was_never_compiled () {
+    string directory = new_languages_directory ();
+    add_package (directory, "klingon", """{ "name": "klingon", "file-types": ["kl"], "grammar": { "repository": "r", "rev": "abc" } }""", "");
+    var languages = languages_over (directory);
+
+    var selectable = languages.selectable ();
+
+    assert_cmpuint (selectable.length, CompareOperator.EQ, 1);
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/languages/a_claimed_file_gets_its_language_loaded", test_a_claimed_file_gets_its_language_loaded);
@@ -205,5 +272,11 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/languages/reload_announces_the_change", test_reload_announces_the_change);
     Test.add_func ("/models/syntax/languages/a_watched_package_reloads_when_its_query_is_edited", test_a_watched_package_reloads_when_its_query_is_edited);
     Test.add_func ("/models/syntax/languages/a_grammar_never_compiled_is_built_on_first_use", test_a_grammar_never_compiled_is_built_on_first_use);
+    Test.add_func ("/models/syntax/languages/a_language_is_loaded_by_its_name", test_a_language_is_loaded_by_its_name);
+    Test.add_func ("/models/syntax/languages/a_language_by_name_is_the_one_detection_gives", test_a_language_by_name_is_the_one_detection_gives);
+    Test.add_func ("/models/syntax/languages/a_name_no_package_has_is_no_language", test_a_name_no_package_has_is_no_language);
+    Test.add_func ("/models/syntax/languages/selectable_lists_the_languages_a_file_can_be_by_title", test_selectable_lists_the_languages_a_file_can_be_by_title);
+    Test.add_func ("/models/syntax/languages/selectable_leaves_out_what_only_lives_inside_other_languages", test_selectable_leaves_out_what_only_lives_inside_other_languages);
+    Test.add_func ("/models/syntax/languages/selectable_lists_a_language_whose_grammar_was_never_compiled", test_selectable_lists_a_language_whose_grammar_was_never_compiled);
     Test.run ();
 }

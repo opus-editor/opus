@@ -1,5 +1,6 @@
 {
   "name": "toml",
+  "title": "TOML",
   "file-types": [
     "toml",
     { "glob": "pdm.lock" },

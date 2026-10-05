@@ -22,6 +22,42 @@ private void test_a_minimal_manifest_only_needs_a_name () {
     assert_cmpstr (package.directory, CompareOperator.EQ, "/packages/example");
 }
 
+private void test_a_title_is_how_the_language_is_written_for_a_person () {
+    var package = parse ("""{ "name": "cpp", "title": "C++" }""");
+
+    assert_cmpstr (package.title, CompareOperator.EQ, "C++");
+}
+
+private void test_a_package_without_a_title_goes_by_its_name () {
+    var package = parse ("""{ "name": "ruby" }""");
+
+    assert_cmpstr (package.title, CompareOperator.EQ, "ruby");
+}
+
+private void test_a_package_with_a_grammar_and_a_file_type_opens_files () {
+    var package = parse ("""{ "name": "ruby", "file-types": ["rb"], "grammar": { "repository": "r", "rev": "abc" } }""");
+
+    assert_true (package.opens_files);
+}
+
+private void test_a_package_claimed_only_by_a_shebang_opens_files () {
+    var package = parse ("""{ "name": "ruby", "shebangs": ["ruby"], "grammar": { "repository": "r", "rev": "abc" } }""");
+
+    assert_true (package.opens_files);
+}
+
+private void test_a_package_claiming_no_file_does_not_open_files () {
+    var package = parse ("""{ "name": "comment", "grammar": { "repository": "r", "rev": "abc" } }""");
+
+    assert_false (package.opens_files);
+}
+
+private void test_a_package_without_a_grammar_does_not_open_files () {
+    var package = parse ("""{ "name": "ecma", "file-types": ["es"] }""");
+
+    assert_false (package.opens_files);
+}
+
 private void test_string_file_types_are_extensions () {
     var package = parse ("""{ "name": "ruby", "file-types": ["rb", { "glob": "Gemfile" }, "rake"] }""");
 
@@ -150,5 +186,11 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/language-package/a_grammar_without_a_commit_is_invalid", test_a_grammar_without_a_commit_is_invalid);
     Test.add_func ("/models/syntax/language-package/loading_a_directory_without_a_manifest_is_unreadable", test_loading_a_directory_without_a_manifest_is_unreadable);
     Test.add_func ("/models/syntax/language-package/query_path_finds_an_existing_query_file", test_query_path_finds_an_existing_query_file);
+    Test.add_func ("/models/syntax/language-package/a_title_is_how_the_language_is_written_for_a_person", test_a_title_is_how_the_language_is_written_for_a_person);
+    Test.add_func ("/models/syntax/language-package/a_package_without_a_title_goes_by_its_name", test_a_package_without_a_title_goes_by_its_name);
+    Test.add_func ("/models/syntax/language-package/a_package_with_a_grammar_and_a_file_type_opens_files", test_a_package_with_a_grammar_and_a_file_type_opens_files);
+    Test.add_func ("/models/syntax/language-package/a_package_claimed_only_by_a_shebang_opens_files", test_a_package_claimed_only_by_a_shebang_opens_files);
+    Test.add_func ("/models/syntax/language-package/a_package_claiming_no_file_does_not_open_files", test_a_package_claiming_no_file_does_not_open_files);
+    Test.add_func ("/models/syntax/language-package/a_package_without_a_grammar_does_not_open_files", test_a_package_without_a_grammar_does_not_open_files);
     Test.run ();
 }

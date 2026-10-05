@@ -76,6 +76,24 @@ namespace Syntax {
       return package == null ? null : load (package);
     }
 
+    /** The language named `name`, ready to use — for a language picked by hand rather than detected. Null on the same terms as {@link detect}. */
+    public LoadedLanguage? by_name (string name) {
+      var package = registry.by_name (name);
+      return package == null ? null : load (package);
+    }
+
+    /** The languages a file can be set to, by title — what a "pick a language" list shows. Nothing is loaded for it. */
+    public GenericArray<LanguagePackage> selectable () {
+      var packages = new GenericArray<LanguagePackage> ();
+      foreach (var package in registry.all ()) {
+        if (package.opens_files) {
+          packages.add (package);
+        }
+      }
+      packages.sort ((a, b) => strcmp (a.title.casefold (), b.title.casefold ()));
+      return packages;
+    }
+
     /** Reads every package from disk again and forgets every loaded language. Compiled grammars stay: a library can't be unloaded, so a rebuilt one only takes effect on the next start. */
     public void reload () {
       registry = new LanguageRegistry (language_directories);

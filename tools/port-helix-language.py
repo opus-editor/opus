@@ -6,8 +6,8 @@ https://github.com/helix-editor/helix.
 Usage: tools/port-helix-language.py <path-to-helix-clone> <language>...
 
 For each language it writes languages/<language>/language.json,
-translated from Helix's languages.toml, and copies the query files Opus
-reads. A name Helix has queries for but no languages.toml entry (ecma,
+translated from Helix's languages.toml (plus the title in TITLES below),
+and copies the query files Opus reads. A name Helix has queries for but no languages.toml entry (ecma,
 _jsx: query-only languages others inherit from) becomes a package with
 no grammar.
 
@@ -28,6 +28,48 @@ import tomllib
 # tags, …); they come over when what reads them does.
 QUERIES = ["highlights", "injections", "locals", "indents"]
 
+# How each language is written for a person to read: what a list of
+# languages shows. Helix has no such thing; a language missing here is
+# shown by its name.
+TITLES = {
+    "bash": "Bash",
+    "c": "C",
+    "cpp": "C++",
+    "css": "CSS",
+    "diff": "Diff",
+    "dockerfile": "Dockerfile",
+    "ejs": "EJS",
+    "erb": "ERB",
+    "git-commit": "Git Commit",
+    "go": "Go",
+    "html": "HTML",
+    "java": "Java",
+    "javascript": "JavaScript",
+    "json": "JSON",
+    "jsx": "JSX",
+    "markdown": "Markdown",
+    "meson": "Meson",
+    "php": "PHP",
+    "python": "Python",
+    "ruby": "Ruby",
+    "rust": "Rust",
+    "scss": "SCSS",
+    "sql": "SQL",
+    "svelte": "Svelte",
+    "toml": "TOML",
+    "tsx": "TSX",
+    "typescript": "TypeScript",
+    "vala": "Vala",
+    "vue": "Vue",
+    "xml": "XML",
+    "yaml": "YAML",
+}
+
+# Languages Opus only ships to be embedded in others. Helix lets a file
+# be one of them (`.regex`); here that would only put them in the list
+# of languages to pick from, where they mean nothing.
+EMBEDDED_ONLY = {"jsdoc", "regex"}
+
 LOCAL_MARKER = "; Written for Opus"
 
 if len(sys.argv) < 3:
@@ -44,12 +86,15 @@ grammars = {grammar["name"]: grammar for grammar in config["grammar"]}
 
 def manifest_for(name):
     manifest = {"name": name}
+    if name in TITLES:
+        manifest["title"] = TITLES[name]
     language = languages.get(name)
     if language is None:
         return manifest
 
     for key in ("file-types", "shebangs", "injection-regex"):
-        if language.get(key):
+        claims_files = key != "injection-regex"
+        if language.get(key) and not (claims_files and name in EMBEDDED_ONLY):
             manifest[key] = language[key]
 
     grammar_name = language.get("grammar", name)
