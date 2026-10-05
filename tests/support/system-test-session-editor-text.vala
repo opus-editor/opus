@@ -50,6 +50,27 @@ public class SystemTestEditorText : Object {
         call ("SelectAll");
     }
 
+    /** The syntax style key painted at character `offset` of the active tab, "" where nothing is. */
+    public string syntax_style_at (int offset) throws Error {
+        string style;
+        call ("SyntaxStyleAt", new Variant ("(i)", offset)).get_child (0, "s", out style);
+        return style;
+    }
+
+    /** Highlighting lands an idle after the text does, so this waits for it rather than reading once. */
+    public void wait_for_syntax_style (int offset, string expected) throws Error {
+        int64 deadline = get_monotonic_time () + WAIT_TIMEOUT_USEC;
+        while (syntax_style_at (offset) != expected) {
+            if (get_monotonic_time () >= deadline) {
+                throw new IOError.TIMED_OUT ("offset %d never got the syntax style \"%s\" (has: \"%s\")".printf (offset, expected, syntax_style_at (offset)));
+            }
+            Thread.usleep (WAIT_POLL_INTERVAL_MSEC * 1000);
+        }
+    }
+
+    private const int64 WAIT_TIMEOUT_USEC = 5 * 1000 * 1000;
+    private const uint WAIT_POLL_INTERVAL_MSEC = 50;
+
     public string active_text () throws Error {
         string text;
         call ("GetActiveText").get_child (0, "s", out text);

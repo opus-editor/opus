@@ -74,6 +74,17 @@ public class App : Adw.Application {
     // plugin is discovered/loaded exactly once, process-wide.
     plugins_engine = new Opus.Plugins.Engine ();
 
+    // Same deadline: every CodeEditor asks it for its file's language.
+    // The two variables point an uninstalled build (`just run`, the
+    // tests) at the source tree's packages and the build dir's
+    // grammars. No style keys yet — EditorTheme, below, supplies its
+    // theme's.
+    Syntax.Languages.instance = new Syntax.Languages (
+      { Environment.get_variable ("OPUS_LANGUAGES_DIR") ?? BuildInfo.LANGUAGES_DIR },
+      { Environment.get_variable ("OPUS_GRAMMARS_DIR") ?? BuildInfo.GRAMMARS_DIR },
+      {}
+    );
+
     // One-way (settings -> style manager): the reverse never happens
     // through this app, since nothing here ever sets color_scheme
     // directly — every actual write goes through the theme selector's
@@ -88,6 +99,15 @@ public class App : Adw.Application {
 
     var saved_pathname = settings.get_string ("last-folder");
     user_settings = new UserSettings (Environment.get_user_config_dir ());
+
+    // The bundled themes, then the user's own, which win a shared name.
+    EditorTheme.instance = new EditorTheme (
+      user_settings,
+      {
+        Environment.get_variable ("OPUS_THEMES_DIR") ?? BuildInfo.THEMES_DIR,
+        Path.build_filename (Environment.get_user_data_dir (), "opus", "themes"),
+      }
+    );
     last_folder = new LastFolder (user_settings.restore_folder, saved_pathname == "" ? null : saved_pathname);
     save_last_folder ();
     last_folder.notify["recorded-pathname"].connect (save_last_folder);

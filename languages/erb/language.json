@@ -1,0 +1,12 @@
+{
+  "name": "erb",
+  "file-types": [
+    "erb"
+  ],
+  "injection-regex": "erb",
+  "grammar": {
+    "name": "embedded-template",
+    "repository": "https://github.com/tree-sitter/tree-sitter-embedded-template",
+    "rev": "5bce9d580d3b78f48e13e331f69dfa0abd4ff68b"
+  }
+}

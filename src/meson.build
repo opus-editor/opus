@@ -48,8 +48,20 @@ opus_model_sources = files(
   'models/last-folder.vala',
   'models/replace-pattern.vala',
   'models/selection-snapshot.vala',
+  'models/syntax/capture-styles.vala',
+  'models/syntax/grammar-loader.vala',
+  'models/syntax/language-package.vala',
+  'models/syntax/language-registry.vala',
+  'models/syntax/languages.vala',
+  'models/syntax/loaded-language.vala',
+  'models/syntax/query-predicates.vala',
+  'models/syntax/query-source.vala',
+  'models/syntax/syntax-document.vala',
+  'models/syntax/syntax-highlights.vala',
+  'models/syntax/syntax-injections.vala',
   'models/session.vala',
   'models/text-edit.vala',
+  'models/theme.vala',
   'models/user-settings.vala',
   'models/workspace.vala',
   'models/workspace-context.vala',
@@ -61,7 +73,6 @@ opus_model_sources = files(
 # git-status/meson.build's own provider/diff-base-provider tests) need
 # Logger too — models call Logger.warn()/info() directly (UserSettings,
 # …) — but not the rest of opus_lib_sources, which needs Gtk
-  'models/theme.vala',
 # (GlobalCss, DevServer) those tests have no reason to link. Declared
 # before subdir('plugins') below (git-status/meson.build's own tests
 # reference it) rather than where opus_lib_sources itself is declared
@@ -103,7 +114,7 @@ opus_fuzzy_finder_sources = files(
 # none needs Gtk. Declared here, before subdir('plugins'), because the
 # git-status plugin's own tests link it too.
 opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources
-opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep]
+opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep, gmodule_dep, tree_sitter_dep]
 opus_model_test_lib = static_library(
   'opus-model-test',
   opus_model_test_sources,
@@ -140,6 +151,8 @@ opus_lib_sources = opus_logger_sources + opus_host_command_sources + opus_fuzzy_
 opus_gtk_view_sources = files(
   'views/lib/dialogs.vala',
   'views/lib/drag-icons.vala',
+  'views/lib/editor-theme.vala',
+  'views/lib/syntax-tags.vala',
   'views/lib/system-color.vala',
   'views/lib/file-drag/_payload.vala',
   'views/lib/file-drag/_candidate.vala',
@@ -154,6 +167,7 @@ opus_gtk_view_sources = files(
   'views/components/code-editor/_search.vala',
   'views/components/code-editor/_selections.vala',
   'views/components/code-editor/_source-view.vala',
+  'views/components/code-editor/_syntax-highlighter.vala',
   'views/components/code-editor/index.vala',
   'views/main/_i-global-panel.vala',
   'views/main/main-window/index.vala',
@@ -206,7 +220,7 @@ opus_exe = executable(
   'opus',
   opus_sources,
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep, peas_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep, peas_dep, gmodule_dep, tree_sitter_dep],
   export_dynamic: true,
   install: true,
 )

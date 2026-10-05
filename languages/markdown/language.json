@@ -1,0 +1,24 @@
+{
+  "name": "markdown",
+  "file-types": [
+    "md",
+    "livemd",
+    "markdown",
+    "mdx",
+    "mkd",
+    "mkdn",
+    "mdwn",
+    "mdown",
+    "markdn",
+    "mdtxt",
+    "mdtext",
+    "workbook",
+    { "glob": "PULLREQ_EDITMSG" }
+  ],
+  "injection-regex": "md|markdown",
+  "grammar": {
+    "repository": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+    "rev": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+    "path": "tree-sitter-markdown"
+  }
+}

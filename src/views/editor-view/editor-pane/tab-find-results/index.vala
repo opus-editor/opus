@@ -6,10 +6,9 @@
  * line. Its own structural styling (filename/line-number-prefix/match)
  * is plain manual Gtk.TextTag application, the same technique
  * code-editor/_search.vala already uses for match highlighting — no
- * custom GtkSourceView `.lang` grammar file, since one wouldn't add any
- * real capability here (the per-file code coloring below has to be
- * manual tag copying regardless, see TabFindResultsLanguageHighlighter's
- * own doc comment for why).
+ * language of its own: the per-file code coloring below comes from each
+ * file's own language package, block by block (see
+ * TabFindResultsLanguageHighlighter).
  *
  * Its own header and Find/Replace row (the results count, the
  * confirmation dialog, context_lines' controls) around an embedded
@@ -86,7 +85,7 @@ namespace EditorView.EditorPane {
       public int code_length;
     }
 
-    /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(), same reason TabFindResultsLanguageHighlighter.clear() exists: a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
+    /** Every per-span nav tag render() has created so far — dropped from the tag table at the top of the next render(): a fresh render() replaces the text wholesale, so the previous pass's tags would otherwise just pile up unused. */
     private GenericArray<Gtk.TextTag> nav_tags = new GenericArray<Gtk.TextTag> ();
 
     /** A Ctrl+click landed on a filename or result line — `line` is -1 for "just open" (see NavTarget's own doc comment). The pane wires this to TabDocument.open_at() — opening/jumping is that kind's job, not this one's. */
@@ -235,8 +234,11 @@ namespace EditorView.EditorPane {
 
       code_editor.link_click.connect (on_link_click);
 
+      // EditorTheme's own change, not Adw.StyleManager's "dark" directly:
+      // it fires for a light/dark switch too, and only once the theme
+      // for the new mode is the one in effect.
       var style_manager = Adw.StyleManager.get_default ();
-      style_manager.notify["dark"].connect (() => apply_style_scheme (style_manager.dark));
+      EditorTheme.instance.changed.connect (() => apply_style_scheme (style_manager.dark));
       apply_style_scheme (style_manager.dark);
     }
 
@@ -602,21 +604,17 @@ namespace EditorView.EditorPane {
     }
 
     /**
-     * The editor's *real* background, straight off the GtkSource.
-     * StyleScheme CodeEditor applies for `dark` (get_style("text").
-     * background) — same technique its own _source-view.vala uses for
-     * the same reason (see its inverted_glyph_color()'s doc comment): a
-     * plain CSS background-color on a GtkSourceView is transparent by
-     * design in Adwaita, so the scheme's own style is the only real
-     * source for this color. Looked up by the same id CodeEditor uses
-     * rather than read off its buffer, so this doesn't depend on whose
-     * `notify["dark"]` handler ran first. Falls back to Adwaita's own
-     * plain light/dark window background only if the scheme has none
-     * set — not expected for Adwaita/Adwaita-dark (both real schemes
-     * do), just defensive.
+     * The editor's *real* background, straight off the style scheme
+     * EditorTheme has in effect (get_style("text").background) — same
+     * technique CodeEditor's own _source-view.vala uses for the same
+     * reason (see its inverted_glyph_color()'s doc comment): a plain
+     * CSS background-color on a GtkSourceView is transparent by design
+     * in Adwaita, so the scheme's own style is the only real source
+     * for this color. Falls back to Adwaita's own plain light/dark
+     * window background only if the scheme has none set.
      */
     private string replace_row_background (bool dark) {
-      var scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (dark ? "Adwaita-dark" : "Adwaita");
+      var scheme = EditorTheme.instance.scheme;
       var style = scheme?.get_style ("text");
       if (style != null && style.background_set) {
         return style.background;
@@ -637,7 +635,6 @@ namespace EditorView.EditorPane {
     }
 
     private void render () {
-      language_highlighter.clear ();
       foreach (var tag in nav_tags) {
         results_buffer.tag_table.remove (tag);
       }

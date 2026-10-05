@@ -1,0 +1,8 @@
+{
+  "name": "comment",
+  "injection-regex": "comment",
+  "grammar": {
+    "repository": "https://github.com/stsewd/tree-sitter-comment",
+    "rev": "66272d2b6c73fb61157541b69dd0a7ce7b42a5ad"
+  }
+}

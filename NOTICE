@@ -48,6 +48,37 @@ parts of src/views/components/code-editor/_source-view.vala
 
 --------------------------------------------------------------------------
 
+Helix — https://github.com/helix-editor/helix
+Mozilla Public License, version 2.0. Copyright (c) the Helix contributors.
+
+The query files under languages/*/queries/ are taken from Helix's
+runtime/queries/, and each language.json there is translated from its
+languages.toml. Those files stay under the MPL 2.0:
+https://www.mozilla.org/en-US/MPL/2.0/
+
+--------------------------------------------------------------------------
+
+GitHub VS Code theme — https://github.com/primer/github-vscode-theme
+MIT License. Copyright (c) 2020 Primer.
+
+The colors of themes/github-light.json and themes/github-dark.json are
+its "GitHub Light" and "GitHub Dark" themes, converted by
+tools/port-vscode-theme.py. Under the same permission notice reproduced
+above for Visual Studio Code.
+
+--------------------------------------------------------------------------
+
+Tree-sitter — https://github.com/tree-sitter/tree-sitter
+MIT License. Copyright (c) 2018 Max Brunsfeld.
+
+The parsing runtime, built from source (subprojects/tree-sitter.wrap), and
+the grammars each bundled language pins in its language.json, compiled
+into one library apiece. Every grammar is under the license of its own
+repository — MIT for all of them so far, under the same permission
+notice reproduced above for Visual Studio Code.
+
+--------------------------------------------------------------------------
+
 Symbols icon theme — https://github.com/miguelsolorio/vscode-symbols
 MIT License. Copyright (c) 2020-22 Miguel Solorio.
 

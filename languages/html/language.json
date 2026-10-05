@@ -1,0 +1,22 @@
+{
+  "name": "html",
+  "file-types": [
+    "html",
+    "htm",
+    "shtml",
+    "xhtml",
+    "xht",
+    "jsp",
+    "asp",
+    "aspx",
+    "jshtm",
+    "volt",
+    "rhtml",
+    "cshtml"
+  ],
+  "injection-regex": "html",
+  "grammar": {
+    "repository": "https://github.com/tree-sitter/tree-sitter-html",
+    "rev": "73a3947324f6efddf9e17c0ea58d454843590cc0"
+  }
+}

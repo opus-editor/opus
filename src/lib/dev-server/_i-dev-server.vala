@@ -48,6 +48,9 @@ namespace Opus.Dev {
     /** Replaces the active tab's cursor set — `anchors[i]`/`positions[i]` pair up into one cursor each (collapsed when equal). Lets a system test seed a multi-cursor starting state directly, without typing/clicking it into place first. */
     public abstract void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError;
 
+    /** The syntax style key painted at character `offset` of the active tab ("keyword", "string", …), or "" where nothing is. */
+    public abstract string syntax_style_at (int offset) throws DBusError, IOError;
+
     /** The active tab's current buffer content, or "" if none — the reverse of set_active_text(). */
     public abstract string get_active_text () throws DBusError, IOError;
 

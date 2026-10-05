@@ -17,8 +17,10 @@ test: build
 # already compiles into the build dir (gnome.compile_schemas), so this
 # works without `ninja install` — GLib.Settings would otherwise abort at
 # startup, unable to find io.github.opus_editor.Opus's own schema at all.
+# The others do the same for the bundled languages and themes: packages
+# and themes straight from the source tree, grammars from the build dir.
 run *ARGS: build
-    GSETTINGS_SCHEMA_DIR=out/native/data ./out/native/src/opus {{ARGS}}
+    GSETTINGS_SCHEMA_DIR=out/native/data OPUS_LANGUAGES_DIR=languages OPUS_GRAMMARS_DIR=out/native/languages OPUS_THEMES_DIR=themes ./out/native/src/opus {{ARGS}}
 
 # Build the Flatpak from build/'s manifest and install it for the
 # current user, so `flatpak run io.github.opus_editor.Opus` runs this

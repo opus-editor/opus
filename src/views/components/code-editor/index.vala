@@ -4,7 +4,8 @@
 * composes child components — cursor state and editing transactions live
 * in CodeEditorCursors (_cursors.vala), keys/mouse/context menu in
 * CodeEditorInput, the clipboard in CodeEditorClipboard, Find/Replace in
-* CodeEditorSearch, the git change bars in CodeEditorChangeGutter. Plural "Cursors": it's
+* CodeEditorSearch, the git change bars in CodeEditorChangeGutter,
+* syntax highlighting in CodeEditorSyntaxHighlighter. Plural "Cursors": it's
 * the manager for however many cursors exist, not one instance per
 * cursor — see its own doc comment for why (checked against VS Code's
 * real ViewCursors/ViewCursor split).
@@ -23,7 +24,7 @@
 * colors, rather than one central "theme" object reaching into siblings
 * it doesn't otherwise know about. What's left here is only what's
 * genuinely CodeEditor's own: the drop-feedback CSS, the editor font, and
-* the buffer's style scheme (GtkSource.StyleSchemeManager).
+* the buffer's style scheme (EditorTheme's).
 *
 * set_text() routes its actual buffer write through
 * cursors.load_text() rather than text_view.buffer directly — only
@@ -41,6 +42,7 @@ public class CodeEditor : Object {
   private CodeEditorInput input;
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
+  private CodeEditorSyntaxHighlighter syntax_highlighter;
 
   /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
@@ -143,15 +145,16 @@ public class CodeEditor : Object {
     change_gutter = new CodeEditorChangeGutter ();
     text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
+    syntax_highlighter = new CodeEditorSyntaxHighlighter (text_view, scrolled_window.vadjustment);
+
     install_css ();
     apply_settings ();
 
     // GtkSource.Buffer paints with a StyleScheme's own fixed colors
     // instead of following the app's GTK theme, so it stays put through
     // a light/dark switch unless told otherwise.
-    var style_manager = Adw.StyleManager.get_default ();
-    style_manager.notify["dark"].connect (() => apply_style_scheme (style_manager.dark));
-    apply_style_scheme (style_manager.dark);
+    EditorTheme.instance.changed.connect (apply_style_scheme);
+    apply_style_scheme ();
   }
 
   /** Rules themselves live in styles/code-editor.css, not here — see GlobalCss.install_from_resource()'s own doc comment for why. */
@@ -159,9 +162,8 @@ public class CodeEditor : Object {
     GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/code-editor.css");
   }
 
-  private void apply_style_scheme (bool dark) {
-    var scheme_id = dark ? "Adwaita-dark" : "Adwaita";
-    source_buffer.style_scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (scheme_id);
+  private void apply_style_scheme () {
+    source_buffer.style_scheme = EditorTheme.instance.scheme;
   }
 
   /**
@@ -263,18 +265,27 @@ public class CodeEditor : Object {
   }
 
   /**
-   * Shows `text`, highlighted as whichever language `path`'s name/
-   * extension matches (none, if it matches none, or if `path` is "" —
-   * guess_language() itself asserts on an empty filename with no
-   * content_type either, checked gtksourcelanguage-manager.c).
+   * Shows `text`, highlighted as whichever language package claims
+   * `path` — by its name, or failing that by `text`'s own first line
+   * (a shebang). None if no package does, or if `path` is "".
    */
   public void set_text (string text, string path) {
     if (pending_reveal_id != 0) {
       Source.remove (pending_reveal_id);
       pending_reveal_id = 0;
     }
-    source_buffer.language = path == "" ? null : GtkSource.LanguageManager.get_default ().guess_language (path, null);
+    syntax_highlighter.set_language (path == "" ? null : Syntax.Languages.instance.detect (path, first_line_of (text)));
     cursors.load_text (text);
+  }
+
+  private static string first_line_of (string text) {
+    int line_end = text.index_of_char ('\n');
+    return line_end < 0 ? text : text.substring (0, line_end);
+  }
+
+  /** The syntax style key painted at `offset`, or "" where nothing is — no UI caller, only Opus.Dev.DevServer's own SyntaxStyleAt, for the system-test DSL. */
+  public string syntax_style_at (int offset) {
+    return syntax_highlighter.style_key_at (offset);
   }
 
   public string get_text () {

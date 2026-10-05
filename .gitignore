@@ -5,9 +5,11 @@ out/
 # Derived manifest `just ci` writes next to the real one
 build/.ci.json
 
-# Meson subprojects: keep the .wrap files, not the fetched sources
+# Meson subprojects: keep the .wrap files and the build files overlaid
+# on them, not the fetched sources
 subprojects/*/
 !subprojects/*.wrap
+!subprojects/packagefiles/
 
 # Planning
 sprint/

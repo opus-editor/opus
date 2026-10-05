@@ -122,6 +122,10 @@ namespace Opus.Dev {
       current_editor_pane ().document_tab.set_active_cursors (anchors, positions);
     }
 
+    public string syntax_style_at (int offset) throws DBusError, IOError {
+      return current_editor_pane ().code_editor.syntax_style_at (offset);
+    }
+
     public string get_active_text () throws DBusError, IOError {
       return current_editor_pane ().document_tab.active_content;
     }

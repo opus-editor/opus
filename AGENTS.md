@@ -13,6 +13,9 @@ ninja -C out/native
 
 - Reconfigure after adding/removing a `.vala` file: `meson setup
   --reconfigure out/native` (Meson doesn't glob sources).
+- After adding a bundled language or changing its `grammar` pin, run
+  `tools/sync-grammars.py`: it regenerates the wraps, `languages/meson.build`
+  and the Flatpak's grammar sources from `languages/*/language.json`.
 - Or via `justfile`: `just build`, `just test`, `just run [folder]`,
   `just clean`.
 - Toolchain: Vala 0.56, Meson 1.7, GTK4 4.18, Libadwaita 1.7.
@@ -66,6 +69,12 @@ src/
   styles/     .css loaded by resource — see src/views/AGENTS.md
   views/      see src/views/AGENTS.md
 data/         .desktop file, GResource XML, icons
+themes/       bundled editor themes, one JSON file each — the same file a
+              user drops in their own themes directory
+languages/    bundled language packages, one directory each: language.json
+              + queries/*.scm — the same shape a user's own package has
+subprojects/  tree-sitter and one pinned grammar per .wrap
+vapi/         hand-written bindings (tree-sitter)
 ```
 
 ## Architecture

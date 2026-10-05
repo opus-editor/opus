@@ -247,6 +247,8 @@ public class SystemTestSession : Object {
     public void select_all () throws Error { editor_text.select_all (); }
     public string active_text () throws Error { return editor_text.active_text (); }
     public void assert_editor_text (string expected) throws Error { editor_text.assert_editor_text (expected); }
+    public string syntax_style_at (int offset) throws Error { return editor_text.syntax_style_at (offset); }
+    public void wait_for_syntax_style (int offset, string expected) throws Error { editor_text.wait_for_syntax_style (offset, expected); }
 
     // --- SystemTestCursors ---
     public void set_cursors (int[,] pairs) throws Error { cursors.set_cursors (pairs); }

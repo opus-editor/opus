@@ -1,0 +1,10 @@
+{
+  "name": "markdown.inline",
+  "injection-regex": "markdown\\.inline",
+  "grammar": {
+    "name": "markdown_inline",
+    "repository": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+    "rev": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+    "path": "tree-sitter-markdown-inline"
+  }
+}

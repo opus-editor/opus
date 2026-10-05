@@ -43,6 +43,117 @@ command_bar_go_to_line_provider_test = executable(
 )
 test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
 
+# src/models/syntax/ — all but the first three run against the bundled
+# JSON grammar languages/meson.build compiles, found through the same
+# OPUS_GRAMMARS_DIR an uninstalled `just run` uses.
+syntax_capture_styles_test = executable(
+  'syntax-capture-styles-test',
+  ['models/syntax/capture-styles-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('syntax-capture-styles', syntax_capture_styles_test)
+
+syntax_language_package_test = executable(
+  'syntax-language-package-test',
+  ['models/syntax/language-package-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('syntax-language-package', syntax_language_package_test)
+
+syntax_language_registry_test = executable(
+  'syntax-language-registry-test',
+  ['models/syntax/language-registry-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('syntax-language-registry', syntax_language_registry_test)
+
+syntax_grammar_loader_test = executable(
+  'syntax-grammar-loader-test',
+  ['models/syntax/grammar-loader-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-grammar-loader',
+  syntax_grammar_loader_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+syntax_query_predicates_test = executable(
+  'syntax-query-predicates-test',
+  ['models/syntax/query-predicates-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-query-predicates',
+  syntax_query_predicates_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+syntax_query_source_test = executable(
+  'syntax-query-source-test',
+  ['models/syntax/query-source-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-query-source',
+  syntax_query_source_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+syntax_languages_test = executable(
+  'syntax-languages-test',
+  ['models/syntax/languages-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-languages',
+  syntax_languages_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+syntax_loaded_language_test = executable(
+  'syntax-loaded-language-test',
+  ['models/syntax/loaded-language-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-loaded-language',
+  syntax_loaded_language_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+syntax_syntax_document_test = executable(
+  'syntax-syntax-document-test',
+  ['models/syntax/syntax-document-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-syntax-document',
+  syntax_syntax_document_test,
+  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  depends: opus_grammar_modules,
+)
+
+bundled_languages_test = executable(
+  'bundled-languages-test',
+  ['languages/bundled-languages-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'bundled-languages',
+  bundled_languages_test,
+  env: [
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+  ],
+  depends: opus_grammar_modules,
+)
+
 theme_test = executable(
   'theme-test',
   ['models/theme-test.vala'],
@@ -653,6 +764,26 @@ host_command_test = executable(
   dependencies: [glib_dep, gobject_dep, gio_dep],
 )
 test('host-command', host_command_test)
+
+syntax_highlight_test = executable(
+  'syntax-highlight-test',
+  ['system/syntax/highlight-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'syntax-highlight',
+  syntax_highlight_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
 
 command_bar_open_file_test = executable(
   'command-bar-open-file-test',

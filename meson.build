@@ -21,6 +21,18 @@ json_glib_dep = dependency('json-glib-1.0')
 # libpeas over a hand-rolled registry or a VS-Code-style extension host
 # (GIT_STATUS_PLUGIN_PLAN.md's own Recommendation section).
 peas_dep = dependency('libpeas-2')
+# Language packages (src/models/syntax/) load each grammar's compiled
+# library at runtime.
+gmodule_dep = dependency('gmodule-2.0')
+# Always the pinned subproject, never a system copy: a grammar's ABI
+# has to fall in the range this exact runtime accepts, and distributions
+# ship older ones.
+tree_sitter_dep = declare_dependency(
+  dependencies: [
+    subproject('tree-sitter').get_variable('tree_sitter_dep'),
+    meson.get_compiler('vala').find_library('tree-sitter', dirs: meson.project_source_root() / 'vapi'),
+  ],
+)
 
 gnome = import('gnome')
 i18n = import('i18n')
@@ -47,6 +59,10 @@ add_project_arguments('--pkg=posix', language: 'vala')
 add_project_arguments(
   '-DGETTEXT_PACKAGE="@0@"'.format(gettext_package), # required by glib/gi18n-lib.h, which valac emits for any _() call
   '-DOPUS_VERSION="@0@"'.format(meson.project_version()), # the one source of the version — see src/build-info.vala
+  # The install dirs languages/meson.build uses — see src/build-info.vala.
+  '-DOPUS_LANGUAGES_DIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'opus' / 'languages'),
+  '-DOPUS_THEMES_DIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'opus' / 'themes'),
+  '-DOPUS_GRAMMARS_DIR="@0@"'.format(get_option('prefix') / get_option('libdir') / 'opus' / 'grammars'),
   '-Wno-discarded-qualifiers', # glib's g_once_init_enter() macro (used by every Vala-generated get_type()) discards volatile
   '-Wno-unused-variable', # valac always emits a *_properties array, even for classes with zero GObject properties
   '-Wno-unused-but-set-variable', # valac's generated array-length bookkeeping (e.g. string.data, array literals) always assigns a shadow _size_ local, even when unused
@@ -55,6 +71,9 @@ add_project_arguments(
 )
 
 subdir('data')
+# The bundled editor themes — see src/models/theme.vala for the format.
+install_subdir('themes', install_dir: get_option('datadir') / 'opus')
+subdir('languages')
 subdir('src')
 subdir('po')
 subdir('tests')
