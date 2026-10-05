@@ -45,7 +45,8 @@ namespace Syntax {
    * that misses a case, shifts a line by a level at most instead of
    * rewriting its indentation.
    *
-   * Not read: `@align`/`@anchor`, `@extend` and `@opaque`.
+   * Not read: `@align`/`@anchor`, `@extend` and `@opaque` (what the
+   * last one is for, {@link in_literal} gets from the highlights).
    *
    * A line is usually broken while the code around it is unfinished —
    * right after `def foo(arg)`, with no `end` yet — and that is where
@@ -85,6 +86,39 @@ namespace Syntax {
         return 1;
       }
       return change;
+    }
+
+    /**
+     * Whether a line broken off at byte `position` starts inside a
+     * string or a comment: text, where a line reading `def foo` opens
+     * nothing. Told by the highlights query, which marks both in every
+     * language — the same nodes Helix's indent queries call `@opaque`,
+     * for the ones that bother to.
+     *
+     * Inside, not at the end: after the last character of a comment
+     * the next line is code again.
+     */
+    internal bool in_literal (LoadedLanguage language, TreeSitter.Tree tree, NodeTextFunc node_text, uint32 position) {
+      if (position == 0) {
+        return false;
+      }
+      var cursor = new TreeSitter.QueryCursor ();
+      cursor.set_byte_range (position - 1, position);
+      cursor.exec (language.highlights, tree.root_node ());
+
+      TreeSitter.QueryMatch match;
+      while (cursor.next_match (out match)) {
+        if (!language.highlight_predicates.accepts (match, node_text)) {
+          continue;
+        }
+        foreach (var capture in match.captures) {
+          if (language.highlight_literal_captures[capture.index]
+              && capture.node.start_byte () < position && position < capture.node.end_byte ()) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     private bool opens_a_bracket (TreeSitter.Node token) {

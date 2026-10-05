@@ -20,6 +20,10 @@ namespace Syntax {
     internal TreeSitter.Query highlights;
     // Indexed by capture id — null for a capture no style key covers.
     internal string?[] highlight_styles;
+    // Indexed by capture id: whether the capture marks literal text, a
+    // string or a comment. Known from the capture's own name, whatever
+    // the theme makes of it.
+    internal bool[] highlight_literal_captures;
 
     // Null for a language that embeds no other.
     internal TreeSitter.Query? injections;
@@ -64,6 +68,7 @@ namespace Syntax {
         language.grammar = grammars.load (package.grammar);
         language.highlights = QuerySource.compile (language.grammar, highlights_source);
         language.highlight_predicates = new QueryPredicates (language.highlights);
+        language.find_literal_captures ();
       } catch (GrammarError e) {
         if (e is GrammarError.NOT_FOUND) {
           throw new LanguageError.GRAMMAR_NOT_BUILT ("%s", e.message);
@@ -77,6 +82,16 @@ namespace Syntax {
       language.load_locals (queries.read (package.name, "locals"));
       language.load_indents (queries.read (package.name, "indents"));
       return language;
+    }
+
+    private void find_literal_captures () {
+      highlight_literal_captures = new bool[highlights.capture_count ()];
+      for (uint32 id = 0; id < highlight_literal_captures.length; id++) {
+        uint32 length;
+        unowned string name = highlights.capture_name_for_id (id, out length);
+        highlight_literal_captures[id] = name == "string" || name.has_prefix ("string.")
+          || name == "comment" || name.has_prefix ("comment.");
+      }
     }
 
     private void load_indents (string? source) throws LanguageError {

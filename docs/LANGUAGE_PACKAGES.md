@@ -183,7 +183,10 @@ query describes, so a file indented its own way keeps its style.
 
 Helix's `@align`, `@anchor`, `@extend` and `@opaque` are accepted and
 ignored: their effects (aligning arguments under a parenthesis,
-Python's dedent after `return`) don't happen in Opus.
+Python's dedent after `return`) don't happen in Opus. What `@opaque`
+protects is covered another way: a line broken inside anything
+`highlights.scm` captures as `@string…` or `@comment…` just keeps its
+indentation.
 
 Supported predicates: `#eq?`, `#match?`, `#any-of?` and their `#not-`
 forms; `#is? local` and `#is-not? local`; and, for indent queries,

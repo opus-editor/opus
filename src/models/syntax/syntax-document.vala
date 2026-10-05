@@ -146,19 +146,24 @@ namespace Syntax {
     /**
      * How many indent levels a line broken off at character
      * `char_offset` should have beyond the line it is broken from:
-     * positive after something that opens a block, negative after
-     * something that closes one. 0 whenever there is nothing to say —
-     * no indents query, or trees that aren't current.
+     * one or more after something that opens a block, never fewer
+     * than none. 0 whenever there is nothing to say —
+     * no indents query, trees that aren't current, or a break inside
+     * a string or a comment, where nothing is code.
      */
     public int new_line_indent_change (int char_offset) {
       uint32 position = byte_of (char_offset);
       var layer = indenting_layer_at (position);
-      if (layer == null) {
+      if (layer == null || SyntaxIndents.in_literal (layer.language, layer.tree, node_text, position)) {
         return 0;
       }
       int change = SyntaxIndents.new_line_change (layer.language, layer.tree, text, node_text, position);
-      // Nothing from the whole text is not yet "stays level": see below.
-      return change != 0 ? change : int.max (0, line_alone_indent_change (layer.language, position));
+      // Anything short of "goes in" is not yet "stays level": see
+      // below. And a new line never comes out by itself: where blocks
+      // end by indentation alone (Python), the tree shows every block
+      // as over at the last thing typed in it, which is exactly where
+      // the next line is about to continue it.
+      return change > 0 ? change : int.max (0, line_alone_indent_change (layer.language, position));
     }
 
     /**
