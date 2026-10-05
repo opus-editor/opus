@@ -34,6 +34,49 @@ namespace TreeSitter {
     public uint32 end_byte;
   }
 
+  [CCode (cname = "TSInputEncoding", has_type_id = false)]
+  public enum InputEncoding {
+    [CCode (cname = "TSInputEncodingUTF8")]
+    UTF8,
+  }
+
+  /** C's own `bool`, one byte: what tree-sitter's callbacks return, where Vala's `bool` is GLib's int-sized one. */
+  [CCode (cname = "bool", has_type_id = false)]
+  [BooleanType]
+  public struct CBool {
+  }
+
+  /** Hands the parser the text from `byte_index` on, as much of it as is convenient; zero `bytes_read` ends the input. */
+  [CCode (has_target = false, has_typedef = false)]
+  public delegate unowned string InputReadFunc (void* payload, uint32 byte_index, Point position, out uint32 bytes_read);
+
+  [CCode (cname = "TSInput", has_type_id = false)]
+  [SimpleType]
+  public struct Input {
+    public void* payload;
+    public InputReadFunc read;
+    public InputEncoding encoding;
+    public void* decode;
+  }
+
+  [CCode (cname = "TSParseState", has_type_id = false)]
+  public struct ParseState {
+    public void* payload;
+    public uint32 current_byte_offset;
+    public bool has_error;
+  }
+
+  /** Called every so often during a parse; returning true halts it. */
+  [CCode (has_target = false, has_typedef = false)]
+  public delegate CBool ParseProgressFunc (ParseState* state);
+
+  [CCode (cname = "TSParseOptions", has_type_id = false)]
+  [SimpleType]
+  public struct ParseOptions {
+    public void* payload;
+    public ParseProgressFunc progress_callback;
+  }
+
   [CCode (cname = "TSInputEdit", has_type_id = false)]
   public struct InputEdit {
     public uint32 start_byte;
@@ -104,6 +147,17 @@ namespace TreeSitter {
     /** `length` in bytes. `old_tree`, already {@link Tree.edit}ed, makes the parse incremental. */
     [CCode (cname = "ts_parser_parse_string")]
     public Tree? parse_string (Tree? old_tree, string text, uint32 length);
+
+    /**
+     * A parse that `options`' progress callback can halt: it then
+     * returns null, and the same call over again picks up where it
+     * stopped. {@link reset} instead makes the next parse start over.
+     */
+    [CCode (cname = "ts_parser_parse_with_options")]
+    public Tree? parse_with_options (Tree? old_tree, Input input, ParseOptions options);
+
+    [CCode (cname = "ts_parser_reset")]
+    public void reset ();
   }
 
   [CCode (cname = "TSQueryError", has_type_id = false)]

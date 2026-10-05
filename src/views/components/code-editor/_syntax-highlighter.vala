@@ -9,17 +9,31 @@
  * what comes into view. Tags left on rows nobody is looking at are
  * stale until then, which costs nothing — they're repainted before
  * they can be seen.
+ *
+ * Parsing is done a few milliseconds at a time. An edit to an ordinary
+ * file finishes inside the first slice; opening a file of several
+ * megabytes takes many, with the window answering in between and the
+ * text painted from the previous parse until the new one is done.
  */
 public class CodeEditorSyntaxHighlighter : Object {
   // Enough that an ordinary scroll step lands on text already painted.
   private const int MARGIN_ROWS = 40;
   private const int NONE = -1;
+  // Short enough to fit, with painting, in the 16 ms of one frame.
+  private const int64 PARSE_SLICE_USEC = 5000;
+  // Between GTK's redraw (HIGH_IDLE + 20) and Gtk.TextView measuring
+  // the lines of a freshly loaded buffer (HIGH_IDLE + 25): the window
+  // is drawn and answers input ahead of a slice, but a large file's
+  // measuring, which goes on for seconds, doesn't hold parsing up.
+  private const int PARSE_PRIORITY = Priority.HIGH_IDLE + 22;
 
   private Gtk.TextView text_view;
   private Gtk.TextBuffer buffer;
   private SyntaxTags tags;
   private Syntax.SyntaxDocument? document;
   private bool text_stale = false;
+  // A parse ran out of its slice and has to be carried on.
+  private bool parsing = false;
   // The one contiguous run of rows whose tags match the current text.
   private int painted_first = NONE;
   private int painted_last = NONE;
@@ -87,18 +101,41 @@ public class CodeEditorSyntaxHighlighter : Object {
       return Source.REMOVE;
     }
 
+    bool was_parsing = parsing;
     if (text_stale) {
-      document.set_text (buffer.text);
+      parsing = !document.set_text (buffer.text, PARSE_SLICE_USEC);
       text_stale = false;
       painted_first = NONE;
       painted_last = NONE;
+    } else if (parsing) {
+      parsing = !document.resume (PARSE_SLICE_USEC);
+      if (!parsing) {
+        // What is on screen was painted from the previous parse.
+        painted_first = NONE;
+        painted_last = NONE;
+      }
     }
 
-    int first;
-    int last;
-    rows_to_show (out first, out last);
-    paint_missing (first, last);
+    // While a parse is still going, nothing new can be said about the
+    // text: what the previous trees give is painted once, not once a
+    // slice.
+    if (!(parsing && was_parsing)) {
+      int first;
+      int last;
+      rows_to_show (out first, out last);
+      paint_missing (first, last);
+    }
+    if (parsing) {
+      continue_parsing ();
+    }
     return Source.REMOVE;
+  }
+
+  /** Behind GTK's own redraw and input handling, unlike schedule_refresh(): the point of slicing is that the window gets a turn between slices. */
+  private void continue_parsing () {
+    if (refresh_id == 0) {
+      refresh_id = Idle.add_full (PARSE_PRIORITY, refresh);
+    }
   }
 
   private void rows_to_show (out int first, out int last) {

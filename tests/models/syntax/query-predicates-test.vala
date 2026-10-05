@@ -92,16 +92,49 @@ private void test_not_any_of_rejects_each_listed_text () {
     assert_cmpstrv (texts, { "1" });
 }
 
-private void test_is_not_local_rejects_every_match () {
-    var texts = accepted ("((number) @n (#is-not? local))", "[1, 2]");
+/** Like accepted(), with every node whose text is `local_text` taken for a reference to a local. */
+private string[] accepted_with_local (string query_text, string json, string local_text) {
+    var query = compile (query_text);
+    Syntax.QueryPredicates predicates;
+    try {
+        predicates = new Syntax.QueryPredicates (query);
+    } catch (Syntax.QueryError e) {
+        error ("%s", e.message);
+    }
+    var parser = new TreeSitter.Parser ();
+    parser.set_language (json_language ());
+    var tree = parser.parse_string (null, json, (uint32) json.length);
+    var cursor = new TreeSitter.QueryCursor ();
+    cursor.exec (query, tree.root_node ());
+    Syntax.NodeTextFunc node_text = (node) => json.substring (node.start_byte (), node.end_byte () - node.start_byte ());
+    Syntax.NodeIsLocalFunc is_local = (node) => node_text (node) == local_text;
 
-    assert_cmpuint (texts.length, CompareOperator.EQ, 0);
+    string[] texts = {};
+    TreeSitter.QueryMatch match;
+    while (cursor.next_match (out match)) {
+        if (predicates.accepts (match, node_text, is_local)) {
+            texts += node_text (match.captures[0].node);
+        }
+    }
+    return texts;
 }
 
-private void test_is_local_rejects_every_match () {
-    var texts = accepted ("((number) @n (#is? local))", "[1, 2]");
+private void test_is_not_local_rejects_a_reference_to_a_local () {
+    var texts = accepted_with_local ("((number) @n (#is-not? local))", "[1, 2]", "2");
 
-    assert_cmpuint (texts.length, CompareOperator.EQ, 0);
+    assert_cmpstrv (texts, { "1" });
+}
+
+private void test_is_local_accepts_only_a_reference_to_a_local () {
+    var texts = accepted_with_local ("((number) @n (#is? local))", "[1, 2]", "2");
+
+    assert_cmpstrv (texts, { "2" });
+}
+
+private void test_without_locals_nothing_is_a_local () {
+    var texts = accepted ("((number) @n (#is-not? local))", "[1, 2]");
+
+    assert_cmpstrv (texts, { "1", "2" });
 }
 
 private void test_a_property_other_than_local_is_an_error () {
@@ -198,8 +231,9 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/query-predicates/not_match_rejects_text_the_regex_finds", test_not_match_rejects_text_the_regex_finds);
     Test.add_func ("/models/syntax/query-predicates/any_of_accepts_each_listed_text", test_any_of_accepts_each_listed_text);
     Test.add_func ("/models/syntax/query-predicates/not_any_of_rejects_each_listed_text", test_not_any_of_rejects_each_listed_text);
-    Test.add_func ("/models/syntax/query-predicates/is_not_local_rejects_every_match", test_is_not_local_rejects_every_match);
-    Test.add_func ("/models/syntax/query-predicates/is_local_rejects_every_match", test_is_local_rejects_every_match);
+    Test.add_func ("/models/syntax/query-predicates/is_not_local_rejects_a_reference_to_a_local", test_is_not_local_rejects_a_reference_to_a_local);
+    Test.add_func ("/models/syntax/query-predicates/is_local_accepts_only_a_reference_to_a_local", test_is_local_accepts_only_a_reference_to_a_local);
+    Test.add_func ("/models/syntax/query-predicates/without_locals_nothing_is_a_local", test_without_locals_nothing_is_a_local);
     Test.add_func ("/models/syntax/query-predicates/a_property_other_than_local_is_an_error", test_a_property_other_than_local_is_an_error);
     Test.add_func ("/models/syntax/query-predicates/every_predicate_of_a_pattern_must_hold", test_every_predicate_of_a_pattern_must_hold);
     Test.add_func ("/models/syntax/query-predicates/predicates_belong_to_their_own_pattern", test_predicates_belong_to_their_own_pattern);

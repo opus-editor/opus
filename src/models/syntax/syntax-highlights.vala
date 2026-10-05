@@ -41,22 +41,40 @@ namespace Syntax {
     }
 
     /**
-     * Adds one parsed layer. `ranges` are the stretches of the text an
+     * Adds one parsed layer, with what its locals query resolved if it
+     * has one. `ranges` are the stretches of the text an
      * injected layer was parsed over — empty for the document's own
      * language, which covers everything. A node of an injected layer
      * can reach across the gaps between them (a Ruby `if … end`
      * wrapped around ERB's HTML), so its captures are cut down to the
      * ranges.
      */
-    public void add_layer (LoadedLanguage language, TreeSitter.Tree tree, TreeSitter.Range[] ranges, int depth) {
+    public void add_layer (LoadedLanguage language, TreeSitter.Tree tree, TreeSitter.Range[] ranges, int depth, LocalReferences? locals) {
       var cursor = new TreeSitter.QueryCursor ();
       cursor.set_point_range (range_start, range_end);
       cursor.exec (language.highlights, tree.root_node ());
+      NodeIsLocalFunc? is_local = null;
+      if (locals != null) {
+        is_local = (node) => locals.contains (node);
+      }
 
       TreeSitter.QueryMatch match;
       while (cursor.next_match (out match)) {
-        if (language.highlight_predicates.accepts (match, node_text)) {
+        if (language.highlight_predicates.accepts (match, node_text, is_local)) {
           add_match (language, match, ranges, depth);
+        }
+      }
+      if (locals != null) {
+        add_local_references (locals, depth);
+      }
+    }
+
+    /** Over whatever `highlights.scm` made of the same node: a reference to a parameter is a parameter. */
+    private void add_local_references (LocalReferences locals, int depth) {
+      for (int i = locals.first_on_row (range_start.row); i < locals.length && locals.start_of (i).row < range_end.row; i++) {
+        unowned string? style = locals.style_of (i);
+        if (style != null) {
+          add_capture (locals.start_of (i), locals.end_of (i), depth, uint16.MAX, style);
         }
       }
     }

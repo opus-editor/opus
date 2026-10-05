@@ -22,7 +22,7 @@ import tomllib
 
 # The queries Opus has a feature for. Helix ships more (indents,
 # textobjects, …); they come over when what reads them does.
-QUERIES = ["highlights", "injections"]
+QUERIES = ["highlights", "injections", "locals"]
 
 if len(sys.argv) < 3:
     sys.exit(f"usage: {sys.argv[0]} <path-to-helix-clone> <language>...")

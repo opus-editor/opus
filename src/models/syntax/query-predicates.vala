@@ -2,15 +2,15 @@ namespace Syntax {
   /** The text a node covers — the one thing a predicate needs from whoever holds the document. */
   public delegate string NodeTextFunc (TreeSitter.Node node);
 
+  /** Whether a node is a reference to a local variable, as a locals query resolved it. */
+  public delegate bool NodeIsLocalFunc (TreeSitter.Node node);
+
   private enum PredicateKind {
     EQ,
     MATCH,
     ANY_OF,
-    // `(#is? local)` / `(#is-not? local)`: whether the node is a local
-    // variable. Telling takes a locals query, which Opus doesn't read
-    // yet, so a pattern conditioned on it either way never applies:
-    // Ruby's "an identifier that isn't a local is a method call" would
-    // otherwise paint every variable as one.
+    // `(#is? local)` / `(#is-not? local)`: whether what the pattern
+    // captured is a reference to a local variable.
     LOCAL,
   }
 
@@ -53,14 +53,29 @@ namespace Syntax {
       }
     }
 
-    /** Whether every predicate of `match`'s pattern holds. */
-    public bool accepts (TreeSitter.QueryMatch match, NodeTextFunc node_text) {
+    /** Whether every predicate of `match`'s pattern holds. Without `is_local`, no node is a local. */
+    public bool accepts (TreeSitter.QueryMatch match, NodeTextFunc node_text, NodeIsLocalFunc? is_local = null) {
       foreach (var predicate in predicates_by_pattern[match.pattern_index]) {
-        if (predicate.kind == PredicateKind.LOCAL || holds (predicate, match, node_text) == predicate.negated) {
+        bool held = predicate.kind == PredicateKind.LOCAL
+          ? captures_a_local (match, is_local)
+          : holds (predicate, match, node_text);
+        if (held == predicate.negated) {
           return false;
         }
       }
       return true;
+    }
+
+    private static bool captures_a_local (TreeSitter.QueryMatch match, NodeIsLocalFunc? is_local) {
+      if (is_local == null) {
+        return false;
+      }
+      foreach (var capture in match.captures) {
+        if (is_local (capture.node)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     /** What `(#set! key value)` gave pattern `pattern_index` — "" for a bare `(#set! key)`, null when it never set `key`. */
@@ -138,6 +153,7 @@ namespace Syntax {
       }
       var predicate = new Predicate ();
       predicate.kind = PredicateKind.LOCAL;
+      predicate.negated = name == "is-not?";
       return predicate;
     }
 

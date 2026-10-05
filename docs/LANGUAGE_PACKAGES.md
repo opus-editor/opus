@@ -11,7 +11,10 @@ kotlin/
   queries/
     highlights.scm
     injections.scm
+    locals.scm
 ```
+
+Only `language.json` and `highlights.scm` are required.
 
 ## Installing a package
 
@@ -128,10 +131,30 @@ and between two patterns on the very same node, the one written
 | `(#set! injection.combined)` | Every match of the pattern is parsed as one document — a template's scattered code. |
 | `(#set! injection.include-children)` | Include the content node's children. They are left out by default. |
 
+**`queries/locals.scm`** says which names are local variables, so a
+use of a parameter can be colored as a parameter:
+
+```scheme
+[(function_declaration) (lambda_literal)] @local.scope
+
+(parameter (simple_identifier) @local.definition.variable.parameter)
+
+(simple_identifier) @local.reference
+```
+
+| Capture | Meaning |
+|---|---|
+| `@local.scope` | A definition is visible inside the scope it was made in, and in the scopes nested there. `(#set! local.scope-inherits false)` makes a scope see nothing from outside it. |
+| `@local.definition.<class>` | Introduces a name. Its references are colored as `<class>`: `variable.parameter` here. |
+| `@local.reference` | A name that may refer to a definition. It does when a visible definition, made earlier in the file, has the same text. |
+| anything else | Written after the reference pattern, cancels the reference on that node. |
+
+In `highlights.scm`, `(#is-not? local)` then keeps a pattern off names
+that turned out to be locals, and `(#is? local)` restricts it to them.
+
 Supported predicates: `#eq?`, `#match?`, `#any-of?` and their `#not-`
-forms. `#is? local` and `#is-not? local` are recognized, but Opus does
-not track local variables yet, so a pattern using either never applies.
-Any other predicate is an error.
+forms, plus `#is? local` and `#is-not? local`. Any other predicate is
+an error.
 
 ### 3. Sharing queries
 

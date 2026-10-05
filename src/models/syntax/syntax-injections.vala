@@ -16,7 +16,27 @@ namespace Syntax {
    * `injection.include-children` says otherwise.
    */
   namespace SyntaxInjections {
-    internal GenericArray<Injection> find (LoadedLanguage host, TreeSitter.Tree tree, Languages languages, NodeTextFunc node_text) {
+    /**
+     * The combined injections of a whole layer: they gather text from
+     * all over it, so nothing short of the whole tree finds them.
+     * Empty, and free, for a language with no such pattern.
+     */
+    internal GenericArray<Injection> find_combined (LoadedLanguage host, TreeSitter.Tree tree, Languages languages, NodeTextFunc node_text) {
+      if (!host.has_combined_injections) {
+        return new GenericArray<Injection> ();
+      }
+      var cursor = new TreeSitter.QueryCursor ();
+      return find (host, tree, cursor, true, languages, node_text);
+    }
+
+    /** The injections that are each a document of their own, among those intersecting rows `first_row` to `last_row`. */
+    internal GenericArray<Injection> find_in_rows (LoadedLanguage host, TreeSitter.Tree tree, uint32 first_row, uint32 last_row, Languages languages, NodeTextFunc node_text) {
+      var cursor = new TreeSitter.QueryCursor ();
+      cursor.set_point_range ({ first_row, 0 }, { last_row + 1, 0 });
+      return find (host, tree, cursor, false, languages, node_text);
+    }
+
+    private GenericArray<Injection> find (LoadedLanguage host, TreeSitter.Tree tree, TreeSitter.QueryCursor cursor, bool want_combined, Languages languages, NodeTextFunc node_text) {
       var found = new GenericArray<Injection> ();
       if (host.injections == null || host.injection_content_capture < 0) {
         return found;
@@ -24,12 +44,12 @@ namespace Syntax {
 
       // One per pattern that set `injection.combined`, by pattern index and language.
       var combined = new HashTable<string, Injection> (str_hash, str_equal);
-      var cursor = new TreeSitter.QueryCursor ();
       cursor.exec (host.injections, tree.root_node ());
 
       TreeSitter.QueryMatch match;
       while (cursor.next_match (out match)) {
-        if (!host.injection_predicates.accepts (match, node_text)) {
+        bool is_combined = host.injection_predicates.property (match.pattern_index, "injection.combined") != null;
+        if (is_combined != want_combined || !host.injection_predicates.accepts (match, node_text)) {
           continue;
         }
         var language = language_of (host, match, languages, node_text);

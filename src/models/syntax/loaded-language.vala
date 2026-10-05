@@ -7,10 +7,12 @@ namespace Syntax {
 
   /**
    * A language package made ready to work with: its grammar loaded and
-   * its highlights and injections queries compiled. Building one is the expensive step
+   * its highlights, injections and locals queries compiled. Building one is the expensive step
    * — {@link Languages} does it once per language and shares it.
    */
   public class LoadedLanguage : Object {
+    private const string LOCAL_DEFINITION_PREFIX = "local.definition.";
+
     public LanguagePackage package { get; private set; }
     public unowned TreeSitter.Language grammar { get; private set; }
     public QueryPredicates highlight_predicates { get; private set; }
@@ -26,6 +28,17 @@ namespace Syntax {
     // `injections`; -1 when the query never uses the capture.
     internal int64 injection_content_capture = -1;
     internal int64 injection_language_capture = -1;
+    // Whether any pattern sets `injection.combined` — the only kind
+    // that can't be found by looking at just the rows on screen.
+    internal bool has_combined_injections = false;
+
+    // Null for a language with no locals query: nothing in it is ever a local.
+    internal TreeSitter.Query? locals;
+    internal QueryPredicates? local_predicates;
+    // Both indexed by the locals query's capture ids.
+    internal LocalRole[] local_roles;
+    // For a `@local.definition.<class>` capture: the style its references are painted with.
+    internal string?[] local_definition_styles;
 
     private LoadedLanguage () {}
 
@@ -53,9 +66,44 @@ namespace Syntax {
       } catch (QueryError e) {
         throw new LanguageError.UNUSABLE ("language \"%s\", highlights query: %s", package.name, e.message);
       }
-      language.resolve_styles (styles);
       language.load_injections (queries.read (package.name, "injections"));
+      language.load_locals (queries.read (package.name, "locals"));
+      language.resolve_styles (styles);
       return language;
+    }
+
+    private void load_locals (string? source) throws LanguageError {
+      if (source == null) {
+        return;
+      }
+      try {
+        locals = QuerySource.compile (grammar, source);
+        local_predicates = new QueryPredicates (locals);
+      } catch (QueryError e) {
+        throw new LanguageError.UNUSABLE ("language \"%s\", locals query: %s", package.name, e.message);
+      }
+      local_roles = new LocalRole[locals.capture_count ()];
+      for (uint32 id = 0; id < local_roles.length; id++) {
+        local_roles[id] = role_of (local_capture_name (id));
+      }
+    }
+
+    private unowned string local_capture_name (uint32 id) {
+      uint32 length;
+      return locals.capture_name_for_id (id, out length);
+    }
+
+    private static LocalRole role_of (string capture_name) {
+      if (capture_name == "local.scope") {
+        return LocalRole.SCOPE;
+      }
+      if (capture_name == "local.reference") {
+        return LocalRole.REFERENCE;
+      }
+      if (capture_name.has_prefix (LOCAL_DEFINITION_PREFIX)) {
+        return LocalRole.DEFINITION;
+      }
+      return LocalRole.DISCARD;
     }
 
     private void load_injections (string? source) throws LanguageError {
@@ -67,6 +115,11 @@ namespace Syntax {
         injection_predicates = new QueryPredicates (injections);
       } catch (QueryError e) {
         throw new LanguageError.UNUSABLE ("language \"%s\", injections query: %s", package.name, e.message);
+      }
+      for (uint32 pattern = 0; pattern < injections.pattern_count (); pattern++) {
+        if (injection_predicates.property (pattern, "injection.combined") != null) {
+          has_combined_injections = true;
+        }
       }
       for (uint32 id = 0; id < injections.capture_count (); id++) {
         uint32 length;
@@ -87,6 +140,22 @@ namespace Syntax {
         resolved[id] = styles.resolve (highlights.capture_name_for_id (id, out length));
       }
       highlight_styles = resolved;
+      resolve_local_styles (styles);
+    }
+
+    /** `@local.definition.variable.parameter` paints its references as `variable.parameter`. */
+    private void resolve_local_styles (CaptureStyles styles) {
+      if (locals == null) {
+        return;
+      }
+      var resolved = new string?[locals.capture_count ()];
+      for (uint32 id = 0; id < resolved.length; id++) {
+        unowned string name = local_capture_name (id);
+        if (name.has_prefix (LOCAL_DEFINITION_PREFIX)) {
+          resolved[id] = styles.resolve (name.substring (LOCAL_DEFINITION_PREFIX.length));
+        }
+      }
+      local_definition_styles = resolved;
     }
   }
 }

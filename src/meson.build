@@ -62,6 +62,7 @@ opus_model_sources = files(
   'models/syntax/syntax-document.vala',
   'models/syntax/syntax-highlights.vala',
   'models/syntax/syntax-injections.vala',
+  'models/syntax/syntax-locals.vala',
   'models/session.vala',
   'models/text-edit.vala',
   'models/theme.vala',
