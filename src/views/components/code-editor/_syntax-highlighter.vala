@@ -44,12 +44,23 @@ public class CodeEditorSyntaxHighlighter : Object {
     vadjustment.changed.connect (schedule_refresh);
   }
 
-  /** What the text about to be loaded is written in — null for none, which leaves it unpainted. Call before loading the text: the load is what triggers the first parse. */
+  /** What the buffer's text is written in — null for none, which leaves it unpainted. Takes effect on the text the buffer holds once this main-loop turn is over, so it can be called right before loading a new one. */
   public void set_language (Syntax.LoadedLanguage? language) {
     document = language == null ? null : new Syntax.SyntaxDocument (language, Syntax.Languages.instance);
     text_stale = true;
     painted_first = NONE;
     painted_last = NONE;
+    if (language == null) {
+      unpaint ();
+    }
+    schedule_refresh ();
+  }
+
+  private void unpaint () {
+    Gtk.TextIter start;
+    Gtk.TextIter end;
+    buffer.get_bounds (out start, out end);
+    tags.clear (start, end);
   }
 
   /** The style key painted at `offset`, or "" where nothing is. */

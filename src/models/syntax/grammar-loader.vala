@@ -21,32 +21,45 @@ namespace Syntax {
     private string[] directories;
     private HashTable<string, unowned TreeSitter.Language> loaded = new HashTable<string, unowned TreeSitter.Language> (str_hash, str_equal);
 
-    /** `directories` are searched in order for `<grammar name>.so`. */
+    /**
+     * `directories` are searched in order, each for a library built
+     * from exactly the grammar's commit ({@link library_name}) and
+     * then for a plain `<grammar name>.so` — what Opus's own build
+     * names the bundled ones, whose commit is whatever it shipped.
+     */
     public GrammarLoader (string[] directories) {
       this.directories = directories;
     }
 
+    /** The file name of `grammar`'s library when built for its pinned commit. */
+    public static string library_name (GrammarSource grammar) {
+      return "%s-%s.%s".printf (grammar.name, grammar.rev, LIBRARY_SUFFIX);
+    }
+
     public unowned TreeSitter.Language load (GrammarSource grammar) throws GrammarError {
-      unowned TreeSitter.Language? cached = loaded[grammar.name];
+      var path = find (grammar);
+      unowned TreeSitter.Language? cached = loaded[path];
       if (cached != null) {
         return cached;
       }
 
-      unowned TreeSitter.Language language = open (find (grammar), grammar);
+      unowned TreeSitter.Language language = open (path, grammar);
       check_abi (language, grammar);
-      loaded[grammar.name] = language;
+      loaded[path] = language;
       return language;
     }
 
     private string find (GrammarSource grammar) throws GrammarError {
-      var file_name = "%s.%s".printf (grammar.name, LIBRARY_SUFFIX);
+      string[] file_names = { library_name (grammar), "%s.%s".printf (grammar.name, LIBRARY_SUFFIX) };
       foreach (unowned string directory in directories) {
-        var path = Path.build_filename (directory, file_name);
-        if (FileUtils.test (path, FileTest.IS_REGULAR)) {
-          return path;
+        foreach (unowned string file_name in file_names) {
+          var path = Path.build_filename (directory, file_name);
+          if (FileUtils.test (path, FileTest.IS_REGULAR)) {
+            return path;
+          }
         }
       }
-      throw new GrammarError.NOT_FOUND ("no compiled grammar \"%s\" (%s)", grammar.name, file_name);
+      throw new GrammarError.NOT_FOUND ("no compiled grammar \"%s\"", grammar.name);
     }
 
     private static unowned TreeSitter.Language open (string path, GrammarSource grammar) throws GrammarError {

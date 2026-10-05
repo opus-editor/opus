@@ -75,15 +75,9 @@ public class App : Adw.Application {
     plugins_engine = new Opus.Plugins.Engine ();
 
     // Same deadline: every CodeEditor asks it for its file's language.
-    // The two variables point an uninstalled build (`just run`, the
-    // tests) at the source tree's packages and the build dir's
-    // grammars. No style keys yet — EditorTheme, below, supplies its
-    // theme's.
-    Syntax.Languages.instance = new Syntax.Languages (
-      { Environment.get_variable ("OPUS_LANGUAGES_DIR") ?? BuildInfo.LANGUAGES_DIR },
-      { Environment.get_variable ("OPUS_GRAMMARS_DIR") ?? BuildInfo.GRAMMARS_DIR },
-      {}
-    );
+    // No style keys yet — EditorTheme, below, supplies its theme's.
+    Syntax.Languages.instance = new Syntax.Languages (language_directories (), grammar_directories (), {}, grammar_builder ());
+    Syntax.Languages.instance.watch (user_languages_directory ());
 
     // One-way (settings -> style manager): the reverse never happens
     // through this app, since nothing here ever sets color_scheme
@@ -149,8 +143,8 @@ public class App : Adw.Application {
    */
   /**
    * What argv can be answered by this very process, before run() ever
-   * hands it to an Opus that may already be open: `--version`, and a
-   * flag nobody knows (which would otherwise open a window on a folder
+   * hands it to an Opus that may already be open: `--version`, the
+   * language package commands, and a flag nobody knows (which would otherwise open a window on a folder
    * named after it). Not command_line()'s job — with an instance
    * running, that executes over there, and its print() travels back
    * over D-Bus, which a Flatpak sandbox's bus proxy doesn't let through:
@@ -158,6 +152,10 @@ public class App : Adw.Application {
    */
   public static bool answers_locally (string[] args, out int exit_status) {
     exit_status = 0;
+    if (args.length > 1 && (args[1] == "--install-language" || args[1] == "--check-language")) {
+      exit_status = run_language_command (args);
+      return true;
+    }
     foreach (var arg in args[1:args.length]) {
       if (arg == "--version") {
         print ("opus %s\n", BuildInfo.VERSION);
@@ -170,6 +168,78 @@ public class App : Adw.Application {
       }
     }
     return false;
+  }
+
+  /** The bundled packages, then the user's own, which win a shared name. The variable points an uninstalled build (`just run`, the tests) at the source tree's packages. */
+  private static string[] language_directories () {
+    return { Environment.get_variable ("OPUS_LANGUAGES_DIR") ?? BuildInfo.LANGUAGES_DIR, user_languages_directory () };
+  }
+
+  private static string user_languages_directory () {
+    return Path.build_filename (Environment.get_user_data_dir (), "opus", "languages");
+  }
+
+  /** What the user's packages had built first — a package pinning its own commit of a bundled grammar gets that one — then what Opus shipped. */
+  private static string[] grammar_directories () {
+    return { user_grammars_directory (), Environment.get_variable ("OPUS_GRAMMARS_DIR") ?? BuildInfo.GRAMMARS_DIR };
+  }
+
+  /** The cache, not the data directory: every file here can be built again from a package's manifest. */
+  private static string user_grammars_directory () {
+    return Path.build_filename (Environment.get_user_cache_dir (), "opus", "grammars");
+  }
+
+  private static Syntax.GrammarBuilder grammar_builder () {
+    return new Syntax.GrammarBuilder (
+      Path.build_filename (Environment.get_user_cache_dir (), "opus", "grammar-sources"),
+      user_grammars_directory ()
+    );
+  }
+
+  /** `--install-language <folder|git url>` and `--check-language <folder>`: answered and printed here, on the terminal that asked. */
+  private static int run_language_command (string[] args) {
+    if (args.length != 3) {
+      printerr ("usage: opus %s <%s>\n", args[1], args[1] == "--install-language" ? "folder or git url" : "folder");
+      return 1;
+    }
+    return args[1] == "--install-language" ? install_language (args[2]) : check_language (args[2]);
+  }
+
+  private static int install_language (string source) {
+    var installer = new Syntax.LanguageInstaller (user_languages_directory ());
+    try {
+      var package = FileUtils.test (source, FileTest.IS_DIR)
+        ? installer.install (source)
+        : installer.install_from_repository (source);
+      print ("Installed %s in %s\n", package.name, package.directory);
+      if (package.grammar != null) {
+        print ("Building its grammar...\n");
+        grammar_builder ().build (package.grammar);
+      }
+      return report (check_problems (package.directory));
+    } catch (Error e) {
+      printerr ("opus: %s\n", e.message);
+      return 1;
+    }
+  }
+
+  private static int check_language (string directory) {
+    return report (check_problems (directory));
+  }
+
+  private static string[] check_problems (string directory) {
+    var checker = new Syntax.LanguageChecker (language_directories (), new Syntax.GrammarLoader (grammar_directories ()), grammar_builder ());
+    return checker.check (directory);
+  }
+
+  private static int report (string[] problems) {
+    foreach (unowned string problem in problems) {
+      printerr ("%s\n", problem);
+    }
+    if (problems.length == 0) {
+      print ("No problems found.\n");
+    }
+    return problems.length == 0 ? 0 : 1;
   }
 
   public override int command_line (ApplicationCommandLine command_line) {

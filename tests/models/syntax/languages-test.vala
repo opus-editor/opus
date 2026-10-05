@@ -103,6 +103,94 @@ private void test_new_style_keys_apply_to_a_language_loaded_afterwards () {
     assert_cmpstr (spans[0].style, CompareOperator.EQ, "constant");
 }
 
+private void test_reload_reads_an_edited_package_again () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(number) @string");
+    var languages = languages_over (directory);
+    languages.detect ("/project/a.json");
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string");
+
+    languages.reload ();
+
+    var document = new Syntax.SyntaxDocument (languages.detect ("/project/a.json"));
+    document.set_text ("[\"a\", 1]");
+    var spans = document.highlights (0, 0);
+    assert_cmpuint (spans.length, CompareOperator.EQ, 1);
+    assert_cmpuint (spans[0].start_column, CompareOperator.EQ, 1);
+}
+
+private void test_reload_finds_a_package_added_since () {
+    string directory = new_languages_directory ();
+    var languages = languages_over (directory);
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string");
+
+    languages.reload ();
+
+    assert_nonnull (languages.detect ("/project/a.json"));
+}
+
+private void test_reload_announces_the_change () {
+    var languages = languages_over (new_languages_directory ());
+    int announced = 0;
+    languages.changed.connect (() => announced++);
+
+    languages.reload ();
+
+    assert_cmpint (announced, CompareOperator.EQ, 1);
+}
+
+private void test_a_watched_package_reloads_when_its_query_is_edited () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(number) @string");
+    var languages = languages_over (directory);
+    languages.watch (directory);
+    var loop = new MainLoop ();
+    bool announced = false;
+    languages.changed.connect (() => {
+        announced = true;
+        loop.quit ();
+    });
+    Timeout.add_seconds (5, () => {
+        loop.quit ();
+        return Source.REMOVE;
+    });
+
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string");
+    loop.run ();
+
+    assert_true (announced);
+}
+
+private void test_a_grammar_never_compiled_is_built_on_first_use () {
+    string repository = Environment.get_variable ("OPUS_TEST_GRAMMAR_REPOSITORY");
+    if (!FileUtils.test (Path.build_filename (repository, ".git"), FileTest.EXISTS) || !HostCommand.has_program ("git") || !HostCommand.has_program ("cc")) {
+        Test.skip ("needs git, cc and a git checkout of the JSON grammar");
+        return;
+    }
+    string rev;
+    try {
+        rev = Syntax.LanguagePackage.load (Path.build_filename (Environment.get_variable ("OPUS_LANGUAGES_DIR"), "json")).grammar.rev;
+    } catch (Syntax.PackageError e) {
+        error ("%s", e.message);
+    }
+    string directory = new_languages_directory ();
+    string built = new_languages_directory ();
+    add_package (directory, "json", "{ \"name\": \"json\", \"file-types\": [\"json\"], \"grammar\": { \"repository\": \"%s\", \"rev\": \"%s\" } }".printf (repository, rev), "(string) @string");
+    var languages = new Syntax.Languages ({ directory }, { built }, { "string" }, new Syntax.GrammarBuilder (new_languages_directory (), built));
+    var loop = new MainLoop ();
+    languages.changed.connect (() => loop.quit ());
+    Timeout.add_seconds (60, () => {
+        loop.quit ();
+        return Source.REMOVE;
+    });
+
+    var before_the_build = languages.detect ("/project/a.json");
+    loop.run ();
+
+    assert_null (before_the_build);
+    assert_nonnull (languages.detect ("/project/a.json"));
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/languages/a_claimed_file_gets_its_language_loaded", test_a_claimed_file_gets_its_language_loaded);
@@ -112,5 +200,10 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/languages/a_language_that_cannot_be_loaded_is_no_language", test_a_language_that_cannot_be_loaded_is_no_language);
     Test.add_func ("/models/syntax/languages/new_style_keys_reach_a_language_already_loaded", test_new_style_keys_reach_a_language_already_loaded);
     Test.add_func ("/models/syntax/languages/new_style_keys_apply_to_a_language_loaded_afterwards", test_new_style_keys_apply_to_a_language_loaded_afterwards);
+    Test.add_func ("/models/syntax/languages/reload_reads_an_edited_package_again", test_reload_reads_an_edited_package_again);
+    Test.add_func ("/models/syntax/languages/reload_finds_a_package_added_since", test_reload_finds_a_package_added_since);
+    Test.add_func ("/models/syntax/languages/reload_announces_the_change", test_reload_announces_the_change);
+    Test.add_func ("/models/syntax/languages/a_watched_package_reloads_when_its_query_is_edited", test_a_watched_package_reloads_when_its_query_is_edited);
+    Test.add_func ("/models/syntax/languages/a_grammar_never_compiled_is_built_on_first_use", test_a_grammar_never_compiled_is_built_on_first_use);
     Test.run ();
 }

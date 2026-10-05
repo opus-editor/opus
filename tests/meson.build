@@ -46,6 +46,16 @@ test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
 # src/models/syntax/ — all but the first three run against the bundled
 # JSON grammar languages/meson.build compiles, found through the same
 # OPUS_GRAMMARS_DIR an uninstalled `just run` uses.
+# What the tests that need a real grammar run against: the bundled
+# packages, the grammars this build compiled for them, and — for the
+# ones that build a grammar themselves — the JSON grammar's own
+# checkout, so nothing is fetched from the network.
+opus_syntax_test_env = [
+  'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+  'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+  'OPUS_TEST_GRAMMAR_REPOSITORY=' + meson.project_source_root() / 'subprojects' / 'tree-sitter-json',
+]
+
 syntax_capture_styles_test = executable(
   'syntax-capture-styles-test',
   ['models/syntax/capture-styles-test.vala'],
@@ -75,7 +85,7 @@ syntax_grammar_loader_test = executable(
 test(
   'syntax-grammar-loader',
   syntax_grammar_loader_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
 
@@ -87,7 +97,7 @@ syntax_query_predicates_test = executable(
 test(
   'syntax-query-predicates',
   syntax_query_predicates_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
 
@@ -99,7 +109,7 @@ syntax_query_source_test = executable(
 test(
   'syntax-query-source',
   syntax_query_source_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
 
@@ -111,7 +121,7 @@ syntax_languages_test = executable(
 test(
   'syntax-languages',
   syntax_languages_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
 
@@ -123,7 +133,7 @@ syntax_loaded_language_test = executable(
 test(
   'syntax-loaded-language',
   syntax_loaded_language_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
 
@@ -135,9 +145,42 @@ syntax_syntax_document_test = executable(
 test(
   'syntax-syntax-document',
   syntax_syntax_document_test,
-  env: ['OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir],
+  env: opus_syntax_test_env,
   depends: opus_grammar_modules,
 )
+
+syntax_grammar_builder_test = executable(
+  'syntax-grammar-builder-test',
+  ['models/syntax/grammar-builder-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-grammar-builder',
+  syntax_grammar_builder_test,
+  env: opus_syntax_test_env,
+  depends: opus_grammar_modules,
+  timeout: 120,
+)
+
+syntax_language_checker_test = executable(
+  'syntax-language-checker-test',
+  ['models/syntax/language-checker-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'syntax-language-checker',
+  syntax_language_checker_test,
+  env: opus_syntax_test_env,
+  depends: opus_grammar_modules,
+  timeout: 120,
+)
+
+syntax_language_installer_test = executable(
+  'syntax-language-installer-test',
+  ['models/syntax/language-installer-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('syntax-language-installer', syntax_language_installer_test)
 
 bundled_languages_test = executable(
   'bundled-languages-test',

@@ -43,6 +43,8 @@ public class CodeEditor : Object {
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
   private CodeEditorSyntaxHighlighter syntax_highlighter;
+  /** What set_text() last showed — "" for none. Kept so the language can be worked out again when the packages change. */
+  private string language_path = "";
 
   /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
@@ -146,6 +148,7 @@ public class CodeEditor : Object {
     text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
     syntax_highlighter = new CodeEditorSyntaxHighlighter (text_view, scrolled_window.vadjustment);
+    Syntax.Languages.instance.changed.connect (apply_language);
 
     install_css ();
     apply_settings ();
@@ -274,8 +277,18 @@ public class CodeEditor : Object {
       Source.remove (pending_reveal_id);
       pending_reveal_id = 0;
     }
-    syntax_highlighter.set_language (path == "" ? null : Syntax.Languages.instance.detect (path, first_line_of (text)));
+    language_path = path;
+    syntax_highlighter.set_language (language_for (text));
     cursors.load_text (text);
+  }
+
+  /** A package was installed, edited or finished building while this text was showing. */
+  private void apply_language () {
+    syntax_highlighter.set_language (language_for (text_view.buffer.text));
+  }
+
+  private Syntax.LoadedLanguage? language_for (string text) {
+    return language_path == "" ? null : Syntax.Languages.instance.detect (language_path, first_line_of (text));
   }
 
   private static string first_line_of (string text) {

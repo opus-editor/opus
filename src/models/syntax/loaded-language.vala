@@ -1,6 +1,8 @@
 namespace Syntax {
   public errordomain LanguageError {
     UNUSABLE,
+    // Set apart from the rest: the one failure that building the grammar fixes.
+    GRAMMAR_NOT_BUILT,
   }
 
   /**
@@ -44,6 +46,9 @@ namespace Syntax {
         language.highlights = QuerySource.compile (language.grammar, highlights_source);
         language.highlight_predicates = new QueryPredicates (language.highlights);
       } catch (GrammarError e) {
+        if (e is GrammarError.NOT_FOUND) {
+          throw new LanguageError.GRAMMAR_NOT_BUILT ("%s", e.message);
+        }
         throw new LanguageError.UNUSABLE ("%s", e.message);
       } catch (QueryError e) {
         throw new LanguageError.UNUSABLE ("language \"%s\", highlights query: %s", package.name, e.message);

@@ -73,6 +73,7 @@ themes/       bundled editor themes, one JSON file each — the same file a
               user drops in their own themes directory
 languages/    bundled language packages, one directory each: language.json
               + queries/*.scm — the same shape a user's own package has
+              (see docs/LANGUAGE_PACKAGES.md)
 subprojects/  tree-sitter and one pinned grammar per .wrap
 vapi/         hand-written bindings (tree-sitter)
 ```
