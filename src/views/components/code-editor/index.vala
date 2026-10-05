@@ -149,6 +149,11 @@ public class CodeEditor : Object {
 
     syntax_highlighter = new CodeEditorSyntaxHighlighter (text_view, scrolled_window.vadjustment);
     Syntax.Languages.instance.changed.connect (apply_language);
+    // The two don't know each other: this is what owns both.
+    cursors.set_indentation (
+      (offset) => syntax_highlighter.new_line_indent_change (offset),
+      (offset, reference_offset, out levels) => syntax_highlighter.outdent_change (offset, reference_offset, out levels)
+    );
 
     install_css ();
     apply_settings ();

@@ -12,6 +12,7 @@ kotlin/
     highlights.scm
     injections.scm
     locals.scm
+    indents.scm
 ```
 
 Only `language.json` and `highlights.scm` are required.
@@ -159,9 +160,35 @@ Unlike Helix, Opus does not recolor a reference as its definition's
 keep whatever `highlights.scm` gives them. The class is accepted so
 Helix's files work unchanged.
 
+**`queries/indents.scm`** says where the indentation goes in and out,
+so Enter after a line that opens a block starts one level in, and
+typing what closes a block pulls that line back out:
+
+```scheme
+[(function_body) (class_body) (value_arguments)] @indent
+
+["}" ")" "]"] @outdent
+```
+
+| Capture | Meaning |
+|---|---|
+| `@indent` | Every line the node holds after its own first line is one level in. Nodes that start on the same line count once. |
+| `@outdent` | The line this node starts on is one level out — a closing token, or a keyword like `else`. |
+| `@indent.always`, `@outdent.always` | The same, but each one counts even when several start on one line. |
+| `(#set! "scope" "header")` | On an `@indent`: the level starts at the parent node's first line. For a body with no braces around it. |
+
+A node captured as both `@indent` and `@outdent` counts as neither.
+Opus only ever moves a line by the difference between two lines the
+query describes, so a file indented its own way keeps its style.
+
+Helix's `@align`, `@anchor`, `@extend` and `@opaque` are accepted and
+ignored: their effects (aligning arguments under a parenthesis,
+Python's dedent after `return`) don't happen in Opus.
+
 Supported predicates: `#eq?`, `#match?`, `#any-of?` and their `#not-`
-forms, plus `#is? local` and `#is-not? local`. Any other predicate is
-an error.
+forms; `#is? local` and `#is-not? local`; and, for indent queries,
+`#kind-eq?`, `#same-line?`, `#one-line?` and their `#not-` forms. Any
+other predicate is an error.
 
 ### 3. Sharing queries
 

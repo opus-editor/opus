@@ -143,6 +143,102 @@ namespace Syntax {
       return collector.spans ();
     }
 
+    /**
+     * How many indent levels a line broken off at character
+     * `char_offset` should have beyond the line it is broken from:
+     * positive after something that opens a block, negative after
+     * something that closes one. 0 whenever there is nothing to say —
+     * no indents query, or trees that aren't current.
+     */
+    public int new_line_indent_change (int char_offset) {
+      uint32 position = byte_of (char_offset);
+      var layer = indenting_layer_at (position);
+      if (layer == null) {
+        return 0;
+      }
+      int change = SyntaxIndents.new_line_change (layer.language, layer.tree, text, node_text, position);
+      // Nothing from the whole text is not yet "stays level": see below.
+      return change != 0 ? change : int.max (0, line_alone_indent_change (layer.language, position));
+    }
+
+    /**
+     * The same question asked of the line by itself, up to the break
+     * and with the break already in it. The line being broken is
+     * nearly always unfinished code — a `def foo` whose `end` hasn't
+     * been typed — and what the parser makes of that depends on
+     * everything after it: the same header is a method in one file
+     * and a run of loose words inside an error in the next. Alone,
+     * it is read the same way every time. Only ever used to go in a
+     * level: what closes a block needs its context to be known.
+     */
+    private int line_alone_indent_change (LoadedLanguage layer_language, uint32 position) {
+      uint32 line_start = position;
+      while (line_start > 0 && text[line_start - 1] != '\n') {
+        line_start--;
+      }
+      var line = text.substring (line_start, position - line_start) + "\n";
+
+      parser.set_language (layer_language.grammar);
+      parser.set_included_ranges (null);
+      var tree = parser.parse_string (null, line, (uint32) line.length);
+      if (tree == null) {
+        return 0;
+      }
+      NodeTextFunc line_text = (node) => line.substring (node.start_byte (), node.end_byte () - node.start_byte ());
+      return SyntaxIndents.new_line_change (layer_language, tree, line, line_text, (uint32) line.length - 1);
+    }
+
+    /**
+     * Whether the line the character at `char_offset` was just typed
+     * on now starts with something that closes a block, and if so how
+     * many levels it should have beyond the line `reference_offset`
+     * is on. False whenever there is nothing to say.
+     */
+    public bool outdent_change (int char_offset, int reference_offset, out int levels) {
+      levels = 0;
+      uint32 position = byte_of (char_offset);
+      var layer = indenting_layer_at (position);
+      return layer != null && SyntaxIndents.outdent_change (layer.language, layer.tree, text, node_text, position, byte_of (reference_offset), out levels);
+    }
+
+    private uint32 byte_of (int char_offset) {
+      return (uint32) text.index_of_nth_char (char_offset);
+    }
+
+    /** The innermost layer covering `position` that knows how to indent — the script inside the page, not the page. Null when none does, or while a parse is halted. */
+    private Layer? indenting_layer_at (uint32 position) {
+      if (halted) {
+        return null;
+      }
+      Layer? innermost = null;
+      foreach (var layer in layers) {
+        innermost = deeper_of (innermost, layer, position);
+      }
+      foreach (var layer in on_demand.get_values ()) {
+        innermost = deeper_of (innermost, layer, position);
+      }
+      return innermost;
+    }
+
+    private static Layer? deeper_of (Layer? current, Layer candidate, uint32 position) {
+      if (candidate.language.indents == null || !covers (candidate, position)) {
+        return current;
+      }
+      return current == null || candidate.depth > current.depth ? candidate : current;
+    }
+
+    private static bool covers (Layer layer, uint32 position) {
+      if (layer.ranges.length == 0) {
+        return true;
+      }
+      foreach (var range in layer.ranges) {
+        if (range.start_byte <= position && position <= range.end_byte) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     private void add_injected_in_rows (Layer host, uint32 first_row, uint32 last_row, GenericArray<Layer> visible) {
       if (languages == null || halted || host.depth + 1 >= MAX_INJECTION_DEPTH) {
         return;

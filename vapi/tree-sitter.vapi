@@ -90,8 +90,26 @@ namespace TreeSitter {
   [CCode (cname = "TSNode", has_type_id = false)]
   [SimpleType]
   public struct Node {
+    /** Identifies the node within its tree: two Nodes are the same node when their ids are equal. */
+    public void* id;
+
     [CCode (cname = "ts_node_type")]
     public unowned string type ();
+
+    /** A null node (see {@link is_null}) for the root. */
+    [CCode (cname = "ts_node_parent")]
+    public Node parent ();
+
+    [CCode (cname = "ts_node_is_null")]
+    public bool is_null ();
+
+    /** A token the grammar required and the text doesn't have, put in by the parser to recover: the `end` nobody typed yet. */
+    [CCode (cname = "ts_node_is_missing")]
+    public bool is_missing ();
+
+    /** The smallest node that spans the given bytes. */
+    [CCode (cname = "ts_node_descendant_for_byte_range")]
+    public Node descendant_for_byte_range (uint32 start, uint32 end);
 
     [CCode (cname = "ts_node_start_byte")]
     public uint32 start_byte ();
@@ -245,6 +263,9 @@ namespace TreeSitter {
     /** Limits the next {@link exec} to matches that intersect the range. */
     [CCode (cname = "ts_query_cursor_set_point_range")]
     public bool set_point_range (Point start, Point end);
+
+    [CCode (cname = "ts_query_cursor_set_byte_range")]
+    public bool set_byte_range (uint32 start, uint32 end);
 
     [CCode (cname = "ts_query_cursor_next_match")]
     public bool next_match (out QueryMatch match);

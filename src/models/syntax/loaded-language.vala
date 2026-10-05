@@ -7,7 +7,7 @@ namespace Syntax {
 
   /**
    * A language package made ready to work with: its grammar loaded and
-   * its highlights, injections and locals queries compiled. Building one is the expensive step
+   * its highlights, injections, locals and indents queries compiled. Building one is the expensive step
    * — {@link Languages} does it once per language and shares it.
    */
   public class LoadedLanguage : Object {
@@ -38,6 +38,14 @@ namespace Syntax {
     // Indexed by the locals query's capture ids.
     internal LocalRole[] local_roles;
 
+    // Null for a language with no indents query: Enter just carries the line's indentation on.
+    internal TreeSitter.Query? indents;
+    internal QueryPredicates? indent_predicates;
+    // Indexed by the indents query's capture ids.
+    internal IndentRole[] indent_roles;
+    // Indexed by pattern: whether it set `scope` to `header`.
+    internal bool[] indent_header_patterns;
+
     private LoadedLanguage () {}
 
     /** Fails when `package` can't highlight: no grammar, no `highlights` query, or a query that doesn't compile. */
@@ -67,7 +75,45 @@ namespace Syntax {
       language.resolve_styles (styles);
       language.load_injections (queries.read (package.name, "injections"));
       language.load_locals (queries.read (package.name, "locals"));
+      language.load_indents (queries.read (package.name, "indents"));
       return language;
+    }
+
+    private void load_indents (string? source) throws LanguageError {
+      if (source == null) {
+        return;
+      }
+      try {
+        indents = QuerySource.compile (grammar, source);
+        indent_predicates = new QueryPredicates (indents);
+      } catch (QueryError e) {
+        throw new LanguageError.UNUSABLE ("language \"%s\", indents query: %s", package.name, e.message);
+      }
+
+      indent_roles = new IndentRole[indents.capture_count ()];
+      for (uint32 id = 0; id < indent_roles.length; id++) {
+        uint32 length;
+        indent_roles[id] = indent_role_of (indents.capture_name_for_id (id, out length));
+      }
+      indent_header_patterns = new bool[indents.pattern_count ()];
+      for (uint32 pattern = 0; pattern < indent_header_patterns.length; pattern++) {
+        indent_header_patterns[pattern] = indent_predicates.property (pattern, "scope") == "header";
+      }
+    }
+
+    private static IndentRole indent_role_of (string capture_name) {
+      switch (capture_name) {
+        case "indent":
+          return IndentRole.INDENT;
+        case "indent.always":
+          return IndentRole.INDENT_ALWAYS;
+        case "outdent":
+          return IndentRole.OUTDENT;
+        case "outdent.always":
+          return IndentRole.OUTDENT_ALWAYS;
+        default:
+          return IndentRole.NONE;
+      }
     }
 
     private void load_locals (string? source) throws LanguageError {

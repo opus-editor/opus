@@ -17,6 +17,12 @@ public enum RowMoveOp {
 }
 
 /** What a single keystroke's edit should do to each cursor's own range. */
+/** How many indent levels the line broken off at character `offset` should have beyond the line it is broken from. */
+public delegate int IndentChangeFunc (int offset);
+
+/** Whether the line `offset` is on now starts with something that closes a block, and how many `levels` it should then have beyond the line `reference_offset` is on. */
+public delegate bool OutdentChangeFunc (int offset, int reference_offset, out int levels);
+
 public enum EditIntent {
   INSERT,
   DELETE_LEFT,
@@ -573,8 +579,13 @@ public class CursorCollection : Object {
    * (leftover tabs in a spaces-configured file, say) still comes out
    * canonical on the new line. A cursor with a selection replaces it,
    * same as {@link compute_edits}'s own INSERT case.
+   *
+   * `indent_change`, when given, is asked per cursor how many levels
+   * the new line should have beyond that — one more after a line that
+   * opens a block, say. It is what knows the language; without it
+   * every new line simply keeps the indentation described above.
    */
-  public TaggedTextEdit[] compute_enter_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove) {
+  public TaggedTextEdit[] compute_enter_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove, IndentChangeFunc? indent_change = null) {
     var chars = to_chars (text);
     var attempted = new GenericArray<TaggedTextEdit> ();
 
@@ -595,13 +606,16 @@ public class CursorCollection : Object {
         whitespace_end++;
       }
       int captured_end = int.min (start, whitespace_end);
-      string indentation = normalize_indentation (chars, ls, captured_end, indent_size, insert_spaces);
+      int width = visible_column (chars, ls, captured_end, indent_size);
+      if (indent_change != null) {
+        width = int.max (0, width + indent_change (start) * indent_size);
+      }
 
       var edit = new TextEdit ();
       edit.start_offset = start;
       edit.end_offset = end;
       edit.old_text = chars_to_string (chars, start, end);
-      edit.new_text = "\n" + indentation;
+      edit.new_text = "\n" + indentation_of_width (width, indent_size, insert_spaces);
 
       var tagged = new TaggedTextEdit ();
       tagged.edit = edit;
@@ -610,6 +624,91 @@ public class CursorCollection : Object {
     }
 
     return finalize_edits (attempted, out cursors_to_remove);
+  }
+
+  /**
+   * Re-indents the line of each cursor that has just finished typing
+   * something that closes a block — the `end` or `}` that belongs one
+   * level out from the body above it. `outdent_change` is what knows
+   * whether a cursor did: it answers for the cursor's offset and the
+   * offset of the line to measure from, and says how many levels the
+   * cursor's line should have beyond that one.
+   *
+   * The line measured from is the nearest one above with anything on
+   * it, and only the cursor's own leading whitespace is rewritten. A
+   * cursor with a selection, one on the first line with text, or one
+   * whose line is already where it belongs yields no edit.
+   *
+   * Plain edits, ascending, rather than tagged ones: no cursor
+   * "produced" them the way it produces a typed character, so each
+   * cursor keeps its place in its line — see
+   * {@link shift_for_external_edits}.
+   */
+  public TextEdit[] compute_outdent_edits (bool insert_spaces, int indent_size, string text, OutdentChangeFunc outdent_change) {
+    var chars = to_chars (text);
+    var by_line_start = new HashTable<int, TextEdit> (direct_hash, direct_equal);
+
+    for (uint i = 0; i < cursors.length; i++) {
+      var cursor = cursors[i];
+      if (!cursor.is_empty) {
+        continue;
+      }
+      int ls = line_start (chars, cursor.position_offset);
+      int reference = previous_line_with_text (chars, ls);
+      if (reference < 0) {
+        continue;
+      }
+      int levels;
+      if (!outdent_change (cursor.position_offset, reference, out levels)) {
+        continue;
+      }
+
+      int whitespace_end = leading_whitespace_end (chars, ls);
+      int reference_width = visible_column (chars, reference, leading_whitespace_end (chars, reference), indent_size);
+      var indentation = indentation_of_width (int.max (0, reference_width + levels * indent_size), indent_size, insert_spaces);
+      var current = chars_to_string (chars, ls, whitespace_end);
+      if (indentation == current) {
+        continue;
+      }
+
+      // Two cursors can't both have just typed a line's first token,
+      // but keying by line makes that a fact here rather than a hope.
+      var edit = new TextEdit ();
+      edit.start_offset = ls;
+      edit.end_offset = whitespace_end;
+      edit.old_text = current;
+      edit.new_text = indentation;
+      by_line_start[ls] = edit;
+    }
+
+    var line_starts = by_line_start.get_keys ();
+    line_starts.sort ((a, b) => a - b);
+    TextEdit[] edits = {};
+    foreach (int ls in line_starts) {
+      edits += by_line_start[ls];
+    }
+    return edits;
+  }
+
+  /** The start of the nearest line above the one starting at `ls` that isn't blank — -1 when there is none. */
+  private static int previous_line_with_text (unichar[] chars, int ls) {
+    int start = ls;
+    while (start > 0) {
+      start = line_start (chars, start - 1);
+      int whitespace_end = leading_whitespace_end (chars, start);
+      if (whitespace_end < chars.length && chars[whitespace_end] != NEWLINE) {
+        return start;
+      }
+    }
+    return -1;
+  }
+
+  private static int leading_whitespace_end (unichar[] chars, int ls) {
+    int end = ls;
+    while (end < chars.length && (chars[end] == ' ' || chars[end] == '\t')) {
+      end++;
+    }
+    return end;
   }
 
   /**
@@ -1312,9 +1411,8 @@ public class CursorCollection : Object {
     return true;
   }
 
-  /** Re-expresses a whitespace-only run (`chars[from:to]`) using `indent_size`/`insert_spaces` — same visible width (via {@link visible_column}), canonical characters: all spaces when `insert_spaces`, otherwise as many whole `indent_size`-wide tabs as fit plus leftover spaces. Ported from VS Code's own `normalizeIndentation` (`core/misc/indentation.ts`). */
-  private static string normalize_indentation (unichar[] chars, int from, int to, int indent_size, bool insert_spaces) {
-    int width = visible_column (chars, from, to, indent_size);
+  /** Indentation `width` columns wide in canonical characters: all spaces when `insert_spaces`, otherwise as many whole `indent_size`-wide tabs as fit plus leftover spaces. Ported from VS Code's own `normalizeIndentation` (`core/misc/indentation.ts`). */
+  private static string indentation_of_width (int width, int indent_size, bool insert_spaces) {
     if (insert_spaces) {
       return string.nfill (width, ' ');
     }

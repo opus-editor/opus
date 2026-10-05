@@ -11,6 +11,10 @@ reads. A name Helix has queries for but no languages.toml entry (ecma,
 _jsx: query-only languages others inherit from) becomes a package with
 no grammar.
 
+A query file whose first line starts with "; Written for Opus" is left
+alone: it is one Opus maintains itself, because Helix has none or has
+one that falls short.
+
 Run tools/sync-grammars.py afterwards.
 """
 import json
@@ -20,9 +24,11 @@ import shutil
 import sys
 import tomllib
 
-# The queries Opus has a feature for. Helix ships more (indents,
-# textobjects, …); they come over when what reads them does.
-QUERIES = ["highlights", "injections", "locals"]
+# The queries Opus has a feature for. Helix ships more (textobjects,
+# tags, …); they come over when what reads them does.
+QUERIES = ["highlights", "injections", "locals", "indents"]
+
+LOCAL_MARKER = "; Written for Opus"
 
 if len(sys.argv) < 3:
     sys.exit(f"usage: {sys.argv[0]} <path-to-helix-clone> <language>...")
@@ -69,6 +75,14 @@ def dump(manifest):
     return re.sub(r'\{\s*\n\s*"glob": ("(?:[^"\\]|\\.)*")\s*\n\s*\}', r'{ "glob": \1 }', text) + "\n"
 
 
+def maintained_here(path):
+    """A query Opus keeps its own version of says so on its first line; importing must not undo it."""
+    if not os.path.exists(path):
+        return False
+    with open(path) as file:
+        return file.readline().startswith(LOCAL_MARKER)
+
+
 for name in sys.argv[2:]:
     queries_source = os.path.join(HELIX, "runtime", "queries", name)
     if name not in languages and not os.path.isdir(queries_source):
@@ -81,6 +95,7 @@ for name in sys.argv[2:]:
 
     for query in QUERIES:
         source = os.path.join(queries_source, f"{query}.scm")
-        if os.path.exists(source):
-            shutil.copyfile(source, os.path.join(package, "queries", f"{query}.scm"))
+        target = os.path.join(package, "queries", f"{query}.scm")
+        if os.path.exists(source) and not maintained_here(target):
+            shutil.copyfile(source, target)
     print(f"languages/{name}")

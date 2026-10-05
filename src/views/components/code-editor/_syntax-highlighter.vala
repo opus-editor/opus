@@ -77,6 +77,35 @@ public class CodeEditorSyntaxHighlighter : Object {
     tags.clear (start, end);
   }
 
+  /** How many indent levels a line broken off at character `offset` should have beyond the line it is broken from — 0 with no language, or while a large file is still being parsed. */
+  public int new_line_indent_change (int offset) {
+    return trees_are_current () ? document.new_line_indent_change (offset) : 0;
+  }
+
+  /** Whether the line `offset` is on now starts with something that closes a block, and how many `levels` it should then have beyond the line `reference_offset` is on. */
+  public bool outdent_change (int offset, int reference_offset, out int levels) {
+    levels = 0;
+    return trees_are_current () && document.outdent_change (offset, reference_offset, out levels);
+  }
+
+  /** Brings the document up to the buffer's text if a slice is enough for that — an edit to anything but a huge file — and says whether it got there. */
+  private bool trees_are_current () {
+    if (document == null) {
+      return false;
+    }
+    if (text_stale) {
+      parse_changed_text ();
+    }
+    return !parsing;
+  }
+
+  private void parse_changed_text () {
+    parsing = !document.set_text (buffer.text, PARSE_SLICE_USEC);
+    text_stale = false;
+    painted_first = NONE;
+    painted_last = NONE;
+  }
+
   /** The style key painted at `offset`, or "" where nothing is. */
   public string style_key_at (int offset) {
     Gtk.TextIter iter;
@@ -103,10 +132,7 @@ public class CodeEditorSyntaxHighlighter : Object {
 
     bool was_parsing = parsing;
     if (text_stale) {
-      parsing = !document.set_text (buffer.text, PARSE_SLICE_USEC);
-      text_stale = false;
-      painted_first = NONE;
-      painted_last = NONE;
+      parse_changed_text ();
     } else if (parsing) {
       parsing = !document.resume (PARSE_SLICE_USEC);
       if (!parsing) {

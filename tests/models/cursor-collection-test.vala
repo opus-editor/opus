@@ -773,6 +773,163 @@ private void test_compute_enter_edits_with_a_selection_replaces_it () {
     assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
 }
 
+private void test_compute_enter_edits_adds_the_levels_the_language_asks_for () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (9) }); // end of "  def foo"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, "  def foo", out to_remove, (offset) => 1);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n    ");
+}
+
+private void test_compute_enter_edits_adds_a_level_as_a_tab_when_indenting_with_tabs () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (8) }); // end of "\tdef foo"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (false, 2, "\tdef foo", out to_remove, (offset) => 1);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n\t\t");
+}
+
+private void test_compute_enter_edits_takes_levels_off_when_the_language_asks () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (7) }); // end of "    end"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, "    end", out to_remove, (offset) => -1);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
+}
+
+private void test_compute_enter_edits_never_indents_to_less_than_nothing () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (3) }); // end of "end"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, "end", out to_remove, (offset) => -1);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n");
+}
+
+private void test_compute_enter_edits_asks_the_language_about_each_cursor () {
+    var cc = new CursorCollection ();
+    //             0123456 7 8 901
+    string text = "def foo\n\nbar";
+    cc.set_cursors ({ new Cursor (7), new Cursor (12) }); // end of "def foo", end of "bar"
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 2, text, out to_remove, (offset) => offset == 7 ? 1 : 0);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n  ");
+    assert_cmpstr (edits[1].edit.new_text, CompareOperator.EQ, "\n");
+}
+
+private void test_compute_outdent_edits_pulls_a_closed_line_out () {
+    var cc = new CursorCollection ();
+    //             01234567 890123 456789
+    string text = "def foo\n  bar\n  end";
+    cc.set_cursors ({ new Cursor (19) }); // right after "end"
+
+    var edits = cc.compute_outdent_edits (true, 2, text, (offset, reference, out levels) => {
+        levels = -1;
+        return true;
+    });
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].start_offset, CompareOperator.EQ, 14);
+    assert_cmpint (edits[0].end_offset, CompareOperator.EQ, 16);
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "");
+}
+
+private void test_compute_outdent_edits_measures_from_the_nearest_line_with_text () {
+    var cc = new CursorCollection ();
+    //             01234567 890123 4 567890
+    string text = "def foo\n  bar\n\n  end";
+    cc.set_cursors ({ new Cursor (20) }); // right after "end", past a blank line
+    int asked_reference = -1;
+
+    cc.compute_outdent_edits (true, 2, text, (offset, reference, out levels) => {
+        asked_reference = reference;
+        levels = 0;
+        return true;
+    });
+
+    assert_cmpint (asked_reference, CompareOperator.EQ, 8); // the start of "  bar"
+}
+
+private void test_compute_outdent_edits_rewrites_tabs_as_tabs () {
+    var cc = new CursorCollection ();
+    //             01234567 8 9012 3 4 567
+    string text = "def foo\n\tbar\n\t\tend";
+    cc.set_cursors ({ new Cursor (18) }); // right after "end"
+
+    var edits = cc.compute_outdent_edits (false, 2, text, (offset, reference, out levels) => {
+        levels = -1;
+        return true;
+    });
+
+    assert_cmpstr (edits[0].old_text, CompareOperator.EQ, "\t\t");
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "");
+}
+
+private void test_compute_outdent_edits_leaves_a_line_already_in_place () {
+    var cc = new CursorCollection ();
+    string text = "def foo\n  bar\nend";
+    cc.set_cursors ({ new Cursor (17) }); // right after "end", already at the margin
+
+    var edits = cc.compute_outdent_edits (true, 2, text, (offset, reference, out levels) => {
+        levels = -1;
+        return true;
+    });
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+}
+
+private void test_compute_outdent_edits_leaves_a_line_that_closes_nothing () {
+    var cc = new CursorCollection ();
+    string text = "def foo\n  bar\n  baz";
+    cc.set_cursors ({ new Cursor (19) });
+
+    var edits = cc.compute_outdent_edits (true, 2, text, (offset, reference, out levels) => {
+        levels = 0;
+        return false;
+    });
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+}
+
+private void test_compute_outdent_edits_leaves_the_first_line_with_text () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (5) }); // right after "end" on the only line
+    bool asked = false;
+
+    var edits = cc.compute_outdent_edits (true, 2, "  end", (offset, reference, out levels) => {
+        asked = true;
+        levels = -1;
+        return true;
+    });
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+    assert_false (asked);
+}
+
+private void test_compute_outdent_edits_leaves_a_cursor_with_a_selection () {
+    var cc = new CursorCollection ();
+    string text = "def foo\n  bar\n  end";
+    var selecting = new Cursor (16);
+    selecting.position_offset = 19; // "end" selected
+    cc.set_cursors ({ selecting });
+
+    var edits = cc.compute_outdent_edits (true, 2, text, (offset, reference, out levels) => {
+        levels = -1;
+        return true;
+    });
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 0);
+}
+
 private void test_compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation () {
     var cc = new CursorCollection ();
     string text = "  a\n    b"; // line 0: 2-space indent; line 1: 4-space indent
@@ -1152,6 +1309,18 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace", test_compute_enter_edits_truncates_indentation_when_cursor_is_inside_the_leading_whitespace);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false", test_compute_enter_edits_normalizes_to_tabs_when_insert_spaces_is_false);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_with_a_selection_replaces_it", test_compute_enter_edits_with_a_selection_replaces_it);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_adds_the_levels_the_language_asks_for", test_compute_enter_edits_adds_the_levels_the_language_asks_for);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_adds_a_level_as_a_tab_when_indenting_with_tabs", test_compute_enter_edits_adds_a_level_as_a_tab_when_indenting_with_tabs);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_takes_levels_off_when_the_language_asks", test_compute_enter_edits_takes_levels_off_when_the_language_asks);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_never_indents_to_less_than_nothing", test_compute_enter_edits_never_indents_to_less_than_nothing);
+    Test.add_func ("/models/cursor-collection/compute_enter_edits_asks_the_language_about_each_cursor", test_compute_enter_edits_asks_the_language_about_each_cursor);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_pulls_a_closed_line_out", test_compute_outdent_edits_pulls_a_closed_line_out);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_measures_from_the_nearest_line_with_text", test_compute_outdent_edits_measures_from_the_nearest_line_with_text);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_rewrites_tabs_as_tabs", test_compute_outdent_edits_rewrites_tabs_as_tabs);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_leaves_a_line_already_in_place", test_compute_outdent_edits_leaves_a_line_already_in_place);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_leaves_a_line_that_closes_nothing", test_compute_outdent_edits_leaves_a_line_that_closes_nothing);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_leaves_the_first_line_with_text", test_compute_outdent_edits_leaves_the_first_line_with_text);
+    Test.add_func ("/models/cursor-collection/compute_outdent_edits_leaves_a_cursor_with_a_selection", test_compute_outdent_edits_leaves_a_cursor_with_a_selection);
     Test.add_func ("/models/cursor-collection/compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation", test_compute_enter_edits_gives_each_cursor_its_own_independently_computed_indentation);
     Test.add_func ("/models/cursor-collection/compute_tab_edits_inserting_spaces_from_column_zero_fills_a_whole_indent_size", test_compute_tab_edits_inserting_spaces_from_column_zero_fills_a_whole_indent_size);
     Test.add_func ("/models/cursor-collection/compute_tab_edits_inserting_spaces_from_a_misaligned_column_only_reaches_the_next_stop", test_compute_tab_edits_inserting_spaces_from_a_misaligned_column_only_reaches_the_next_stop);

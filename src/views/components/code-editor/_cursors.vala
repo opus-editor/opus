@@ -49,6 +49,9 @@ public class CodeEditorCursors : Object {
   private int indent_size = 4;
   private bool insert_spaces = false;
 
+  private IndentChangeFunc? indent_change;
+  private OutdentChangeFunc? outdent_change;
+
   /** Suppresses on_insert_text_native/on_delete_range_native/on_mark_set while apply_edits() is itself mutating the buffer — otherwise our own edits would be misread as untracked native ones. */
   private bool updating_programmatically = false;
 
@@ -221,7 +224,32 @@ public class CodeEditorCursors : Object {
   /** One typed character, honoring Session.insert_mode (overtype) — the only command that keeps the space-run bookkeeping typing_kind() needs for undo coalescing. */
   public void type_char (unichar ch) {
     var intent = Session.get_default ().insert_mode ? EditIntent.OVERTYPE : EditIntent.INSERT;
-    apply_edit (intent, ch.to_string (), typing_kind (ch));
+    var kind = typing_kind (ch);
+    apply_edit (intent, ch.to_string (), kind);
+    if (!ch.isspace ()) {
+      outdent_lines_just_closed (kind);
+    }
+  }
+
+  /**
+   * A line that the character just typed made start with something
+   * closing a block — the `d` of `end`, a `}` — is pulled out to where
+   * that belongs. Recorded under the keystroke's own `kind`, so the
+   * two coalesce into one history step: one undo takes back the
+   * character and the indentation together.
+   */
+  private void outdent_lines_just_closed (EditKind kind) {
+    if (outdent_change == null) {
+      return;
+    }
+    var edits = cursors.compute_outdent_edits (insert_spaces, indent_size, get_text (), outdent_change);
+    execute_edit (edits, kind, () => cursors.shift_for_external_edits (edits));
+  }
+
+  /** What knows the language being edited: how far in a new line goes, and when a line just closed a block. Both null until set, and Enter and typing then behave as if no language were known. */
+  public void set_indentation (owned IndentChangeFunc? indent_change, owned OutdentChangeFunc? outdent_change) {
+    this.indent_change = (owned) indent_change;
+    this.outdent_change = (owned) outdent_change;
   }
 
   /** A plain paste — the same text at every cursor, as one non-coalescing step. */
@@ -261,7 +289,7 @@ public class CodeEditorCursors : Object {
   public void enter () {
     previous_typed_was_space = false;
     Cursor[] cursors_to_remove;
-    var tagged_edits = cursors.compute_enter_edits (insert_spaces, indent_size, get_text (), out cursors_to_remove);
+    var tagged_edits = cursors.compute_enter_edits (insert_spaces, indent_size, get_text (), out cursors_to_remove, indent_change);
     apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
   }
 

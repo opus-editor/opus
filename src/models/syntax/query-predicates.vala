@@ -12,6 +12,11 @@ namespace Syntax {
     // `(#is? local)` / `(#is-not? local)`: whether what the pattern
     // captured is a reference to a local variable.
     LOCAL,
+    // The three below are what indent queries ask: a node's kind, and
+    // which lines nodes sit on.
+    KIND_EQ,
+    SAME_LINE,
+    ONE_LINE,
   }
 
   private class Predicate : Object {
@@ -32,8 +37,9 @@ namespace Syntax {
 
   /**
    * The predicates (`#eq?`, `#match?`, `#any-of?` and their `not-`
-   * forms, `#is? local` and `#is-not? local`) and `#set!` properties
-   * of one compiled query. tree-sitter
+   * forms, `#is? local` and `#is-not? local`, and the `#kind-eq?`,
+   * `#same-line?` and `#one-line?` of indent queries with theirs) and
+   * `#set!` properties of one compiled query. tree-sitter
    * itself only stores them: matching a pattern says nothing about
    * whether its predicates hold, so every match has to be put through
    * {@link accepts}.
@@ -53,17 +59,88 @@ namespace Syntax {
       }
     }
 
-    /** Whether every predicate of `match`'s pattern holds. Without `is_local`, no node is a local. */
-    public bool accepts (TreeSitter.QueryMatch match, NodeTextFunc node_text, NodeIsLocalFunc? is_local = null) {
+    /**
+     * Whether every predicate of `match`'s pattern holds. Without
+     * `is_local`, no node is a local. `new_line_byte`, when not
+     * negative, has the line predicates answer for the text as it
+     * will be once a line break is inserted at that byte — see
+     * {@link start_row}.
+     */
+    public bool accepts (TreeSitter.QueryMatch match, NodeTextFunc node_text, NodeIsLocalFunc? is_local = null, int64 new_line_byte = -1) {
       foreach (var predicate in predicates_by_pattern[match.pattern_index]) {
-        bool held = predicate.kind == PredicateKind.LOCAL
-          ? captures_a_local (match, is_local)
-          : holds (predicate, match, node_text);
-        if (held == predicate.negated) {
+        if (!satisfied (predicate, match, node_text, is_local, new_line_byte)) {
           return false;
         }
       }
       return true;
+    }
+
+    /** The row `node` starts on — one further down when it starts at or after a line break about to be inserted at `new_line_byte`. */
+    internal static uint32 start_row (TreeSitter.Node node, int64 new_line_byte) {
+      uint32 row = node.start_point ().row;
+      return new_line_byte >= 0 && node.start_byte () >= new_line_byte ? row + 1 : row;
+    }
+
+    /** The row `node` ends on — one further down when it reaches past the break. */
+    internal static uint32 end_row (TreeSitter.Node node, int64 new_line_byte) {
+      uint32 row = node.end_point ().row;
+      return new_line_byte >= 0 && node.end_byte () > new_line_byte ? row + 1 : row;
+    }
+
+    private static bool satisfied (Predicate predicate, TreeSitter.QueryMatch match, NodeTextFunc node_text, NodeIsLocalFunc? is_local, int64 new_line_byte) {
+      switch (predicate.kind) {
+        case PredicateKind.LOCAL:
+          return captures_a_local (match, is_local) != predicate.negated;
+        case PredicateKind.KIND_EQ:
+          return kind_matches (predicate, match);
+        case PredicateKind.SAME_LINE:
+          return lines_match (predicate, match, new_line_byte);
+        case PredicateKind.ONE_LINE:
+          return fits_one_line (predicate, match, new_line_byte);
+        default:
+          return holds (predicate, match, node_text) != predicate.negated;
+      }
+    }
+
+    /** A capture the match didn't take has no kind to compare: `#not-kind-eq?` holds, `#kind-eq?` doesn't. */
+    private static bool kind_matches (Predicate predicate, TreeSitter.QueryMatch match) {
+      TreeSitter.Node node;
+      if (!first_node (match, predicate.capture, out node)) {
+        return predicate.negated;
+      }
+      return (node.type () == predicate.values[0]) != predicate.negated;
+    }
+
+    /** Needs both nodes to be there, negated or not — Helix's own reading. */
+    private static bool lines_match (Predicate predicate, TreeSitter.QueryMatch match, int64 new_line_byte) {
+      TreeSitter.Node first;
+      if (!first_node (match, predicate.capture, out first)) {
+        return false;
+      }
+      TreeSitter.Node second;
+      if (!first_node (match, (uint32) predicate.other_capture, out second)) {
+        return false;
+      }
+      return (start_row (first, new_line_byte) == start_row (second, new_line_byte)) != predicate.negated;
+    }
+
+    private static bool fits_one_line (Predicate predicate, TreeSitter.QueryMatch match, int64 new_line_byte) {
+      TreeSitter.Node node;
+      if (!first_node (match, predicate.capture, out node)) {
+        return false;
+      }
+      return (start_row (node, new_line_byte) == end_row (node, new_line_byte)) != predicate.negated;
+    }
+
+    private static bool first_node (TreeSitter.QueryMatch match, uint32 capture_index, out TreeSitter.Node node) {
+      foreach (var capture in match.captures) {
+        if (capture.index == capture_index) {
+          node = capture.node;
+          return true;
+        }
+      }
+      node = match.captures[0].node;
+      return false;
     }
 
     private static bool captures_a_local (TreeSitter.QueryMatch match, NodeIsLocalFunc? is_local) {
@@ -123,6 +200,12 @@ namespace Syntax {
       predicate.negated = name.has_prefix ("not-");
       var kind_name = predicate.negated ? name.substring (4) : name;
 
+      if (kind_name == "same-line?" || kind_name == "one-line?") {
+        read_line_predicate (name, kind_name, arguments, predicate);
+        predicates.add (predicate);
+        return;
+      }
+
       if (arguments.length < 3 || !arguments[1].is_capture) {
         throw new QueryError.INVALID ("#%s needs a capture and at least one value", name);
       }
@@ -141,10 +224,34 @@ namespace Syntax {
           predicate.kind = PredicateKind.ANY_OF;
           predicate.values = texts_from (arguments, 2);
           break;
+        case "kind-eq?":
+          predicate.kind = PredicateKind.KIND_EQ;
+          predicate.values = { arguments[2].text };
+          break;
         default:
           throw new QueryError.INVALID ("unsupported predicate #%s", name);
       }
       predicates.add (predicate);
+    }
+
+    /** `(#same-line? @a @b)` and `(#one-line? @a)`: captures only, where every other predicate ends in a value. */
+    private static void read_line_predicate (string name, string kind_name, GenericArray<PredicateArgument> arguments, Predicate predicate) throws QueryError {
+      int captures_wanted = kind_name == "same-line?" ? 2 : 1;
+      if (arguments.length != captures_wanted + 1) {
+        throw new QueryError.INVALID ("#%s takes %d capture(s)", name, captures_wanted);
+      }
+      for (int i = 1; i < arguments.length; i++) {
+        if (!arguments[i].is_capture) {
+          throw new QueryError.INVALID ("#%s takes %d capture(s)", name, captures_wanted);
+        }
+      }
+      predicate.capture = arguments[1].capture;
+      if (captures_wanted == 2) {
+        predicate.kind = PredicateKind.SAME_LINE;
+        predicate.other_capture = arguments[2].capture;
+      } else {
+        predicate.kind = PredicateKind.ONE_LINE;
+      }
     }
 
     private static Predicate local_assertion (string name, GenericArray<PredicateArgument> arguments) throws QueryError {
