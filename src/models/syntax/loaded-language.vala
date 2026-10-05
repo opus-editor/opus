@@ -35,10 +35,8 @@ namespace Syntax {
     // Null for a language with no locals query: nothing in it is ever a local.
     internal TreeSitter.Query? locals;
     internal QueryPredicates? local_predicates;
-    // Both indexed by the locals query's capture ids.
+    // Indexed by the locals query's capture ids.
     internal LocalRole[] local_roles;
-    // For a `@local.definition.<class>` capture: the style its references are painted with.
-    internal string?[] local_definition_styles;
 
     private LoadedLanguage () {}
 
@@ -66,9 +64,9 @@ namespace Syntax {
       } catch (QueryError e) {
         throw new LanguageError.UNUSABLE ("language \"%s\", highlights query: %s", package.name, e.message);
       }
+      language.resolve_styles (styles);
       language.load_injections (queries.read (package.name, "injections"));
       language.load_locals (queries.read (package.name, "locals"));
-      language.resolve_styles (styles);
       return language;
     }
 
@@ -140,22 +138,7 @@ namespace Syntax {
         resolved[id] = styles.resolve (highlights.capture_name_for_id (id, out length));
       }
       highlight_styles = resolved;
-      resolve_local_styles (styles);
     }
 
-    /** `@local.definition.variable.parameter` paints its references as `variable.parameter`. */
-    private void resolve_local_styles (CaptureStyles styles) {
-      if (locals == null) {
-        return;
-      }
-      var resolved = new string?[locals.capture_count ()];
-      for (uint32 id = 0; id < resolved.length; id++) {
-        unowned string name = local_capture_name (id);
-        if (name.has_prefix (LOCAL_DEFINITION_PREFIX)) {
-          resolved[id] = styles.resolve (name.substring (LOCAL_DEFINITION_PREFIX.length));
-        }
-      }
-      local_definition_styles = resolved;
-    }
   }
 }

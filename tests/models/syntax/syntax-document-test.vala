@@ -54,11 +54,12 @@ private Syntax.SyntaxDocument json_embedding_css (string json_injections) {
 
 /**
  * A JSON language with a locals query, where an object is a scope, a
- * pair's key defines a local of class "constant" and every string is a
- * reference — so a string value spelled like a key of its object is a
- * reference to it. Strings are painted "string" otherwise.
+ * pair's key defines a local and every string is a reference — so a
+ * string value spelled like a key of its object is a reference to it.
+ * By default a string is painted "keyword" unless it is such a
+ * reference, which makes the resolved ones the strings left unpainted.
  */
-private Syntax.SyntaxDocument json_with_locals (string locals_query, string highlights_query = "(string) @string") {
+private Syntax.SyntaxDocument json_with_locals (string locals_query, string highlights_query = "((string) @keyword (#is-not? local))") {
     string languages = Path.build_filename (Environment.get_tmp_dir (), "opus-syntax-document-test-%u".printf (Random.next_int ()));
     string queries = Path.build_filename (languages, "json", "queries");
     DirUtils.create_with_parents (queries, 0700);
@@ -80,52 +81,52 @@ private Syntax.SyntaxDocument json_with_locals (string locals_query, string high
 
 private const string KEYS_DEFINE_LOCALS = "(object) @local.scope\n(pair key: (string) @local.definition.constant)\n(string) @local.reference";
 
-private void test_a_reference_is_painted_as_its_definition () {
+private void test_a_reference_to_a_local_is_told_apart_from_other_names () {
     var document = json_with_locals (KEYS_DEFINE_LOCALS);
-    //                  0123456789012
+    //                  0123456789012345
+    document.set_text ("{\"a\": [\"a\", \"b\"]}");
+
+    var spans = document.highlights (0, 0);
+
+    assert_cmpstrv (described (spans), { "0:12-0:15 keyword" });
+}
+
+private void test_a_reference_is_not_repainted_as_its_definition () {
+    var document = json_with_locals (KEYS_DEFINE_LOCALS, "(string) @string");
     document.set_text ("{\"a\": [\"a\"]}");
 
     var spans = document.highlights (0, 0);
 
-    assert_cmpstrv (described (spans), { "0:1-0:4 constant", "0:7-0:10 constant" });
-}
-
-private void test_a_name_nothing_defines_keeps_its_own_highlight () {
-    var document = json_with_locals (KEYS_DEFINE_LOCALS);
-    document.set_text ("{\"a\": [\"b\"]}");
-
-    var spans = document.highlights (0, 0);
-
-    assert_cmpstrv (described (spans), { "0:1-0:4 constant", "0:7-0:10 string" });
+    assert_cmpstrv (described (spans), { "0:1-0:4 string", "0:7-0:10 string" });
 }
 
 private void test_a_definition_is_not_visible_outside_its_scope () {
     var document = json_with_locals (KEYS_DEFINE_LOCALS);
-    //                  01234567890123456
+    //                  01234567890123
     document.set_text ("[{\"a\": 1}, \"a\"]");
 
     var spans = document.highlights (0, 0);
 
-    assert_cmpstrv (described (spans), { "0:2-0:5 constant", "0:11-0:14 string" });
+    assert_cmpstrv (described (spans), { "0:11-0:14 keyword" });
 }
 
 private void test_an_inner_scope_sees_the_definitions_around_it () {
     var document = json_with_locals (KEYS_DEFINE_LOCALS);
-    //                  012345678901234567
     document.set_text ("{\"a\": {\"b\": \"a\"}}");
 
     var spans = document.highlights (0, 0);
 
-    assert_true ("0:12-0:15 constant" in described (spans));
+    assert_cmpuint (spans.length, CompareOperator.EQ, 0);
 }
 
 private void test_a_scope_that_does_not_inherit_hides_the_definitions_around_it () {
     var document = json_with_locals ("((object) @local.scope (#set! local.scope-inherits false))\n(pair key: (string) @local.definition.constant)\n(string) @local.reference");
+    //                  012345678901234
     document.set_text ("{\"a\": {\"b\": \"a\"}}");
 
     var spans = document.highlights (0, 0);
 
-    assert_true ("0:12-0:15 string" in described (spans));
+    assert_cmpstrv (described (spans), { "0:12-0:15 keyword" });
 }
 
 private void test_a_later_capture_on_the_node_cancels_the_reference () {
@@ -134,26 +135,26 @@ private void test_a_later_capture_on_the_node_cancels_the_reference () {
 
     var spans = document.highlights (0, 0);
 
-    assert_cmpstrv (described (spans), { "0:1-0:4 constant", "0:7-0:10 string" });
+    assert_cmpstrv (described (spans), { "0:7-0:10 keyword" });
 }
 
 private void test_a_reference_ahead_of_its_definition_is_not_resolved () {
     var document = json_with_locals (KEYS_DEFINE_LOCALS);
-    //                  0123456789012345679
+    //                  0123456789
     document.set_text ("{\"b\": \"a\", \"a\": 1}");
 
     var spans = document.highlights (0, 0);
 
-    assert_true ("0:6-0:9 string" in described (spans));
+    assert_cmpstrv (described (spans), { "0:6-0:9 keyword" });
 }
 
-private void test_a_pattern_for_what_is_not_local_skips_a_resolved_reference () {
-    var document = json_with_locals ("(object) @local.scope\n(pair key: (string) @local.definition.variable)\n(string) @local.reference", "((string) @keyword (#is-not? local))");
+private void test_a_pattern_for_locals_only_applies_to_resolved_references () {
+    var document = json_with_locals (KEYS_DEFINE_LOCALS, "((string) @keyword (#is? local))");
     document.set_text ("{\"a\": [\"a\", \"b\"]}");
 
     var spans = document.highlights (0, 0);
 
-    assert_cmpstrv (described (spans), { "0:12-0:15 keyword" });
+    assert_cmpstrv (described (spans), { "0:1-0:4 keyword", "0:7-0:10 keyword" });
 }
 
 private void test_locals_follow_an_edit () {
@@ -162,7 +163,7 @@ private void test_locals_follow_an_edit () {
 
     document.set_text ("{\"b\": [\"b\"]}");
 
-    assert_cmpstrv (described (document.highlights (0, 0)), { "0:1-0:4 constant", "0:7-0:10 constant" });
+    assert_cmpuint (document.highlights (0, 0).length, CompareOperator.EQ, 0);
 }
 
 /** JSON large enough that a parse of it is asked whether to go on many times over: one number per row. */
@@ -503,19 +504,19 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/editing_inside_an_injection_repaints_it", test_editing_inside_an_injection_repaints_it);
     Test.add_func ("/models/syntax/syntax-document/editing_before_an_injection_moves_it", test_editing_before_an_injection_moves_it);
     Test.add_func ("/models/syntax/syntax-document/removing_the_injected_text_removes_its_highlights", test_removing_the_injected_text_removes_its_highlights);
-    Test.add_func ("/models/syntax/syntax-document/a_reference_is_painted_as_its_definition", test_a_reference_is_painted_as_its_definition);
-    Test.add_func ("/models/syntax/syntax-document/a_name_nothing_defines_keeps_its_own_highlight", test_a_name_nothing_defines_keeps_its_own_highlight);
-    Test.add_func ("/models/syntax/syntax-document/a_definition_is_not_visible_outside_its_scope", test_a_definition_is_not_visible_outside_its_scope);
-    Test.add_func ("/models/syntax/syntax-document/an_inner_scope_sees_the_definitions_around_it", test_an_inner_scope_sees_the_definitions_around_it);
-    Test.add_func ("/models/syntax/syntax-document/a_scope_that_does_not_inherit_hides_the_definitions_around_it", test_a_scope_that_does_not_inherit_hides_the_definitions_around_it);
-    Test.add_func ("/models/syntax/syntax-document/a_later_capture_on_the_node_cancels_the_reference", test_a_later_capture_on_the_node_cancels_the_reference);
-    Test.add_func ("/models/syntax/syntax-document/a_reference_ahead_of_its_definition_is_not_resolved", test_a_reference_ahead_of_its_definition_is_not_resolved);
-    Test.add_func ("/models/syntax/syntax-document/a_pattern_for_what_is_not_local_skips_a_resolved_reference", test_a_pattern_for_what_is_not_local_skips_a_resolved_reference);
-    Test.add_func ("/models/syntax/syntax-document/locals_follow_an_edit", test_locals_follow_an_edit);
     Test.add_func ("/models/syntax/syntax-document/a_parse_within_its_budget_finishes", test_a_parse_within_its_budget_finishes);
     Test.add_func ("/models/syntax/syntax-document/a_parse_out_of_budget_stops_unfinished", test_a_parse_out_of_budget_stops_unfinished);
     Test.add_func ("/models/syntax/syntax-document/an_unfinished_parse_keeps_answering_from_the_previous_trees", test_an_unfinished_parse_keeps_answering_from_the_previous_trees);
     Test.add_func ("/models/syntax/syntax-document/resuming_finishes_the_parse", test_resuming_finishes_the_parse);
     Test.add_func ("/models/syntax/syntax-document/new_text_replaces_an_unfinished_parse", test_new_text_replaces_an_unfinished_parse);
+    Test.add_func ("/models/syntax/syntax-document/a_reference_to_a_local_is_told_apart_from_other_names", test_a_reference_to_a_local_is_told_apart_from_other_names);
+    Test.add_func ("/models/syntax/syntax-document/a_reference_is_not_repainted_as_its_definition", test_a_reference_is_not_repainted_as_its_definition);
+    Test.add_func ("/models/syntax/syntax-document/a_definition_is_not_visible_outside_its_scope", test_a_definition_is_not_visible_outside_its_scope);
+    Test.add_func ("/models/syntax/syntax-document/an_inner_scope_sees_the_definitions_around_it", test_an_inner_scope_sees_the_definitions_around_it);
+    Test.add_func ("/models/syntax/syntax-document/a_scope_that_does_not_inherit_hides_the_definitions_around_it", test_a_scope_that_does_not_inherit_hides_the_definitions_around_it);
+    Test.add_func ("/models/syntax/syntax-document/a_later_capture_on_the_node_cancels_the_reference", test_a_later_capture_on_the_node_cancels_the_reference);
+    Test.add_func ("/models/syntax/syntax-document/a_reference_ahead_of_its_definition_is_not_resolved", test_a_reference_ahead_of_its_definition_is_not_resolved);
+    Test.add_func ("/models/syntax/syntax-document/a_pattern_for_locals_only_applies_to_resolved_references", test_a_pattern_for_locals_only_applies_to_resolved_references);
+    Test.add_func ("/models/syntax/syntax-document/locals_follow_an_edit", test_locals_follow_an_edit);
     Test.run ();
 }

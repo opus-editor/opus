@@ -11,74 +11,37 @@ namespace Syntax {
 
   /**
    * The references one parsed layer's locals query resolved to a local
-   * definition, each with the style its definition asked for. Read by
-   * highlighting twice over: a resolved reference is painted as its
-   * definition's class rather than as whatever `highlights.scm` made
-   * of the bare identifier, and `(#is-not? local)` patterns skip it.
+   * definition. All highlighting asks of it is whether a node is one:
+   * that is what `(#is-not? local)` and `(#is? local)` test.
+   *
+   * Helix goes one step further and repaints a resolved reference in
+   * its definition's class, so a parameter is colored as one wherever
+   * it is used. Opus deliberately doesn't: a name is colored where it
+   * is declared, by `highlights.scm`, and its uses stay plain.
    */
   internal class LocalReferences {
     // Parallel, in document order.
     private uint32[] start_bytes = {};
     private uint32[] end_bytes = {};
-    private TreeSitter.Point[] start_points = {};
-    private TreeSitter.Point[] end_points = {};
-    private string?[] styles = {};
 
-    public int length { get { return start_bytes.length; } }
-
-    internal void add (TreeSitter.Node node, string? style) {
+    internal void add (TreeSitter.Node node) {
       start_bytes += node.start_byte ();
       end_bytes += node.end_byte ();
-      start_points += node.start_point ();
-      end_points += node.end_point ();
-      styles += style;
     }
 
     public bool contains (TreeSitter.Node node) {
-      int index = first_from (node.start_byte ());
-      return index < length && start_bytes[index] == node.start_byte () && end_bytes[index] == node.end_byte ();
-    }
-
-    /** The index of the first reference starting on `row` or later. */
-    public int first_on_row (uint32 row) {
+      uint32 start = node.start_byte ();
       int low = 0;
-      int high = length;
+      int high = start_bytes.length;
       while (low < high) {
         int middle = (low + high) / 2;
-        if (start_points[middle].row < row) {
+        if (start_bytes[middle] < start) {
           low = middle + 1;
         } else {
           high = middle;
         }
       }
-      return low;
-    }
-
-    public TreeSitter.Point start_of (int index) {
-      return start_points[index];
-    }
-
-    public TreeSitter.Point end_of (int index) {
-      return end_points[index];
-    }
-
-    /** Null for a definition class no style key covers: the reference is local all the same, just not repainted. */
-    public unowned string? style_of (int index) {
-      return styles[index];
-    }
-
-    private int first_from (uint32 start_byte) {
-      int low = 0;
-      int high = length;
-      while (low < high) {
-        int middle = (low + high) / 2;
-        if (start_bytes[middle] < start_byte) {
-          low = middle + 1;
-        } else {
-          high = middle;
-        }
-      }
-      return low;
+      return low < start_bytes.length && start_bytes[low] == start && end_bytes[low] == node.end_byte ();
     }
   }
 
@@ -87,21 +50,20 @@ namespace Syntax {
     public uint32 end;
     /** False for a scope that hides what encloses it — a Ruby method body sees none of the locals around it. */
     public bool inherits = true;
-    public HashTable<string, int> definitions = new HashTable<string, int> (str_hash, str_equal);
+    public GenericSet<string> definitions = new GenericSet<string> (str_hash, str_equal);
   }
 
   private class LocalName {
     public TreeSitter.Node node;
     public LocalRole role;
     public uint16 pattern;
-    /** For a definition: its capture id, which is what the reference's style is looked up by. */
-    public uint32 capture;
   }
 
   /**
    * Resolves a layer's locals query, Helix's way: `@local.scope` nodes
    * bound where a definition is visible, `@local.definition.<class>`
-   * introduces a name, and a `@local.reference` whose text matches a
+   * introduces a name (the class is Helix's, unused here — see
+   * LocalReferences), and a `@local.reference` whose text matches a
    * definition visible from where it stands is that local. A scope
    * sees the definitions of the scopes around it unless it sets
    * `local.scope-inherits` to false; an inner definition shadows an
@@ -140,12 +102,9 @@ namespace Syntax {
         }
 
         if (name.role == LocalRole.DEFINITION) {
-          stack[stack.length - 1].definitions[node_text (name.node)] = (int) name.capture;
-        } else if (name.role == LocalRole.REFERENCE && !discarded (names, i)) {
-          int capture = definition_visible_from (stack, node_text (name.node));
-          if (capture >= 0) {
-            references.add (name.node, language.local_definition_styles[capture]);
-          }
+          stack[stack.length - 1].definitions.add (node_text (name.node));
+        } else if (name.role == LocalRole.REFERENCE && !discarded (names, i) && defined_in (stack, node_text (name.node))) {
+          references.add (name.node);
         }
       }
       return references;
@@ -175,7 +134,6 @@ namespace Syntax {
           name.node = capture.node;
           name.role = role;
           name.pattern = match.pattern_index;
-          name.capture = capture.index;
           names.add (name);
         }
       }
@@ -215,17 +173,17 @@ namespace Syntax {
       return a.node.start_byte () == b.node.start_byte () && a.node.end_byte () == b.node.end_byte ();
     }
 
-    /** The capture id of the definition of `text` nearest to the innermost scope, or -1. */
-    private int definition_visible_from (GenericArray<LocalScope> stack, string text) {
+    /** Whether a definition of `text` is visible from the innermost scope of `stack`. */
+    private bool defined_in (GenericArray<LocalScope> stack, string text) {
       for (int i = stack.length - 1; i >= 0; i--) {
         if (stack[i].definitions.contains (text)) {
-          return stack[i].definitions[text];
+          return true;
         }
         if (!stack[i].inherits) {
-          return -1;
+          return false;
         }
       }
-      return -1;
+      return false;
     }
   }
 }

@@ -131,8 +131,10 @@ and between two patterns on the very same node, the one written
 | `(#set! injection.combined)` | Every match of the pattern is parsed as one document — a template's scattered code. |
 | `(#set! injection.include-children)` | Include the content node's children. They are left out by default. |
 
-**`queries/locals.scm`** says which names are local variables, so a
-use of a parameter can be colored as a parameter:
+**`queries/locals.scm`** says which names are local variables, so
+`highlights.scm` can tell a use of one from anything else spelled the
+same way — in a language where a bare name may be a variable or a
+call, that is the only way to know:
 
 ```scheme
 [(function_declaration) (lambda_literal)] @local.scope
@@ -145,12 +147,17 @@ use of a parameter can be colored as a parameter:
 | Capture | Meaning |
 |---|---|
 | `@local.scope` | A definition is visible inside the scope it was made in, and in the scopes nested there. `(#set! local.scope-inherits false)` makes a scope see nothing from outside it. |
-| `@local.definition.<class>` | Introduces a name. Its references are colored as `<class>`: `variable.parameter` here. |
+| `@local.definition.<class>` | Introduces a name. |
 | `@local.reference` | A name that may refer to a definition. It does when a visible definition, made earlier in the file, has the same text. |
 | anything else | Written after the reference pattern, cancels the reference on that node. |
 
 In `highlights.scm`, `(#is-not? local)` then keeps a pattern off names
 that turned out to be locals, and `(#is? local)` restricts it to them.
+
+Unlike Helix, Opus does not recolor a reference as its definition's
+`<class>`: a parameter is colored where it is declared, and its uses
+keep whatever `highlights.scm` gives them. The class is accepted so
+Helix's files work unchanged.
 
 Supported predicates: `#eq?`, `#match?`, `#any-of?` and their `#not-`
 forms, plus `#is? local` and `#is-not? local`. Any other predicate is

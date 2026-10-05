@@ -64,19 +64,6 @@ namespace Syntax {
           add_match (language, match, ranges, depth);
         }
       }
-      if (locals != null) {
-        add_local_references (locals, depth);
-      }
-    }
-
-    /** Over whatever `highlights.scm` made of the same node: a reference to a parameter is a parameter. */
-    private void add_local_references (LocalReferences locals, int depth) {
-      for (int i = locals.first_on_row (range_start.row); i < locals.length && locals.start_of (i).row < range_end.row; i++) {
-        unowned string? style = locals.style_of (i);
-        if (style != null) {
-          add_capture (locals.start_of (i), locals.end_of (i), depth, uint16.MAX, style);
-        }
-      }
     }
 
     /** In document order, never overlapping. */
