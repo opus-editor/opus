@@ -1,0 +1,19 @@
+# Locale settings
+default: en
+fallback: true
+max_age: 3600
+ratio: 0.9
+aliases: ~
+
+locales:
+  - code: en
+    name: English
+  - code: pt-BR
+    name: "Português"
+
+messages: &messages
+  greeting: |
+    Hello,
+    world
+overrides:
+  <<: *messages

@@ -1,0 +1,18 @@
+<!-- Angular template -->
+<ul class="locale-list">
+  @for (locale of locales; track locale.code) {
+    <li
+      class="locale"
+      [class.is-active]="locale.code === current()"
+      (click)="current.set(locale.code)"
+    >
+      {{ locale.name | titlecase }} <small>({{ locale.code }})</small>
+    </li>
+  } @empty {
+    <li>No locales</li>
+  }
+</ul>
+
+@if (current(); as code) {
+  <p>Current locale: {{ code }}</p>
+}

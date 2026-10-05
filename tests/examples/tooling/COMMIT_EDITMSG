@@ -1,0 +1,12 @@
+add: Spanish locale and regional Portuguese tag
+
+- `pt` becomes `pt-BR`, matching what browsers actually send
+- `es` joins the list
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch feat/locales
+# Changes to be committed:
+#	modified:   locales.js
+#

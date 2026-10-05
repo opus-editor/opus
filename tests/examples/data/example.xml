@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Locale settings -->
+<settings xmlns:l="https://example.org/locales" default="en" fallback="true">
+  <l:locales>
+    <l:locale code="en">English</l:locale>
+    <l:locale code="pt-BR">Portugu&#234;s</l:locale>
+  </l:locales>
+  <greeting><![CDATA[Hello, <world>]]></greeting>
+</settings>

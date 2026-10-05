@@ -1,0 +1,26 @@
+@use "sass:math"
+
+$accent: #1a5fb4
+$gap: 8px
+
+=row($spacing: $gap)
+  display: flex
+  flex-direction: column
+  gap: $spacing
+
+// One row per locale
+.locale-list
+  +row
+  margin: 0
+  list-style: none
+
+  > li
+    padding: math.div($gap, 2) $gap
+
+    &:hover,
+    &.is-active
+      color: $accent
+      font-weight: 600
+
+  @media (max-width: 600px)
+    +row(math.div($gap, 2))

@@ -1,0 +1,13 @@
+<%# One row per locale %>
+<ul class="locale-list">
+  <% @locales.each do |locale| %>
+    <li class="<%= locale.code == @current ? "locale is-active" : "locale" %>">
+      <%= link_to locale.name, locale_path(locale.code) %>
+      <small>(<%= locale.code %>)</small>
+    </li>
+  <% end %>
+</ul>
+
+<% if @locales.empty? %>
+  <p>No locales</p>
+<% end %>

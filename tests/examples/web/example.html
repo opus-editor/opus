@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Locale picker</title>
+    <style>
+      .locale { padding: 4px 8px; }
+      .locale.is-active { font-weight: bold; color: #1a5fb4; }
+    </style>
+  </head>
+  <body>
+    <!-- Filled in by the script below -->
+    <ul id="locales" class="locale-list"></ul>
+
+    <script>
+      const locales = [
+        { code: "en", name: "English" },
+        { code: "pt-BR", name: "Português" },
+      ];
+
+      const list = document.getElementById("locales");
+      for (const locale of locales) {
+        const item = document.createElement("li");
+        item.className = "locale";
+        item.textContent = `${locale.name} (${locale.code})`;
+        list.append(item);
+      }
+    </script>
+  </body>
+</html>

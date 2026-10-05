@@ -1,0 +1,11 @@
+{
+  "default": "en",
+  "fallback": true,
+  "maxAge": 3600,
+  "ratio": 0.9,
+  "aliases": null,
+  "locales": [
+    { "code": "en", "name": "English" },
+    { "code": "pt-BR", "name": "Português" }
+  ]
+}

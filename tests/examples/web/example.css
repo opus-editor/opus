@@ -1,0 +1,28 @@
+@import url("reset.css");
+
+:root {
+  --accent: #1a5fb4;
+  --gap: 8px;
+}
+
+/* One row per locale */
+.locale-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.locale-list > li:hover,
+.locale.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .locale-list {
+    gap: calc(var(--gap) / 2);
+  }
+}

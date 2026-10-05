@@ -1,0 +1,19 @@
+# Locale settings
+default = "en"
+fallback = true
+max_age = 3600
+ratio = 0.9
+updated = 2026-10-04T12:00:00Z
+
+[messages]
+greeting = """
+Hello,
+world"""
+
+[[locales]]
+code = "en"
+name = "English"
+
+[[locales]]
+code = "pt-BR"
+name = "Português"

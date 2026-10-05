@@ -1,0 +1,13 @@
+diff --git a/locales.js b/locales.js
+index 3f1c2aa..9b0d4e1 100644
+--- a/locales.js
++++ b/locales.js
+@@ -1,6 +1,7 @@
+ const locales = [
+   { code: "en", name: "English" },
+-  { code: "pt", name: "Português" },
++  { code: "pt-BR", name: "Português" },
++  { code: "es", name: "Español" },
+ ];
+ 
+ function findLocale(code) {
