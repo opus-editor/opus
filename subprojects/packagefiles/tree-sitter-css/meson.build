@@ -4,7 +4,11 @@ project('tree-sitter-css', 'c')
 fs = import('fs')
 
 css_sources = files('src/parser.c')
+css_needs_cpp = false
 if fs.exists('src/scanner.c')
   css_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  css_sources += files('src/scanner.cc')
+  css_needs_cpp = true
 endif
 css_include = include_directories('src')

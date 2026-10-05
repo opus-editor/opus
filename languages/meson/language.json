@@ -1,0 +1,13 @@
+{
+  "name": "meson",
+  "file-types": [
+    { "glob": "meson.build" },
+    { "glob": "meson.options" },
+    { "glob": "meson_options.txt" }
+  ],
+  "injection-regex": "meson",
+  "grammar": {
+    "repository": "https://github.com/tree-sitter-grammars/tree-sitter-meson",
+    "rev": "c84f3540624b81fc44067030afce2ff78d6ede05"
+  }
+}

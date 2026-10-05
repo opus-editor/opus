@@ -1,0 +1,12 @@
+{
+  "name": "svelte",
+  "file-types": [
+    "svelte"
+  ],
+  "injection-regex": "svelte",
+  "grammar": {
+    "repository": "https://github.com/themixednuts/tree-sitter-htmlx",
+    "rev": "c9b9cc35709fff494a3a9e41cd9471b633649e45",
+    "path": "crates/tree-sitter-svelte"
+  }
+}

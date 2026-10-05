@@ -4,7 +4,11 @@ project('tree-sitter-javascript', 'c')
 fs = import('fs')
 
 javascript_sources = files('src/parser.c')
+javascript_needs_cpp = false
 if fs.exists('src/scanner.c')
   javascript_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  javascript_sources += files('src/scanner.cc')
+  javascript_needs_cpp = true
 endif
 javascript_include = include_directories('src')

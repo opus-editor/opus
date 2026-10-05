@@ -4,13 +4,21 @@ project('tree-sitter-php', 'c')
 fs = import('fs')
 
 php_only_sources = files('php_only/src/parser.c')
+php_only_needs_cpp = false
 if fs.exists('php_only/src/scanner.c')
   php_only_sources += files('php_only/src/scanner.c')
+elif fs.exists('php_only/src/scanner.cc')
+  php_only_sources += files('php_only/src/scanner.cc')
+  php_only_needs_cpp = true
 endif
 php_only_include = include_directories('php_only/src')
 
 php_sources = files('php/src/parser.c')
+php_needs_cpp = false
 if fs.exists('php/src/scanner.c')
   php_sources += files('php/src/scanner.c')
+elif fs.exists('php/src/scanner.cc')
+  php_sources += files('php/src/scanner.cc')
+  php_needs_cpp = true
 endif
 php_include = include_directories('php/src')

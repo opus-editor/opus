@@ -1,0 +1,12 @@
+{
+  "name": "sql",
+  "file-types": [
+    "sql",
+    "dsql"
+  ],
+  "injection-regex": "sql",
+  "grammar": {
+    "repository": "https://github.com/DerekStride/tree-sitter-sql",
+    "rev": "851e9cb257ba7c66cc8c14214a31c44d2f1e954e"
+  }
+}

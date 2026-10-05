@@ -1,0 +1,13 @@
+{
+  "name": "git-commit",
+  "file-types": [
+    { "glob": "COMMIT_EDITMSG" },
+    { "glob": "MERGE_MSG" },
+    { "glob": "TAG_EDITMSG" }
+  ],
+  "grammar": {
+    "name": "gitcommit",
+    "repository": "https://github.com/gbprod/tree-sitter-gitcommit",
+    "rev": "49715a9e6f19ce3d33b875aacdd6ad8ddaee0ffe"
+  }
+}

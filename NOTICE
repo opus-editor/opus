@@ -74,8 +74,10 @@ MIT License. Copyright (c) 2018 Max Brunsfeld.
 The parsing runtime, built from source (subprojects/tree-sitter.wrap), and
 the grammars each bundled language pins in its language.json, compiled
 into one library apiece. Every grammar is under the license of its own
-repository — MIT for all of them so far, under the same permission
-notice reproduced above for Visual Studio Code.
+repository: MIT, under the same permission notice reproduced above for
+Visual Studio Code, for all but tree-sitter-vala
+(https://github.com/vala-lang/tree-sitter-vala), which is under the GNU
+Lesser General Public License, version 2.1.
 
 --------------------------------------------------------------------------
 

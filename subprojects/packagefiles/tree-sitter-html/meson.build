@@ -4,7 +4,11 @@ project('tree-sitter-html', 'c')
 fs = import('fs')
 
 html_sources = files('src/parser.c')
+html_needs_cpp = false
 if fs.exists('src/scanner.c')
   html_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  html_sources += files('src/scanner.cc')
+  html_needs_cpp = true
 endif
 html_include = include_directories('src')

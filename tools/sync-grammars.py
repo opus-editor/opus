@@ -99,8 +99,12 @@ def overlay_file(key, repository):
         src = f"{path}/src" if path else "src"
         lines += [
             f"\n{variable}_sources = files('{src}/parser.c')\n",
+            f"{variable}_needs_cpp = false\n",
             f"if fs.exists('{src}/scanner.c')\n",
             f"  {variable}_sources += files('{src}/scanner.c')\n",
+            f"elif fs.exists('{src}/scanner.cc')\n",
+            f"  {variable}_sources += files('{src}/scanner.cc')\n",
+            f"  {variable}_needs_cpp = true\n",
             "endif\n",
             f"{variable}_include = include_directories('{src}')\n",
         ]
@@ -124,12 +128,18 @@ def languages_meson(repositories, packages):
         for name, _path in repository["grammars"]:
             variable = identifier(name)
             lines += [
+                "# A compiler belongs to the project that builds with it, so the\n",
+                "# one for a C++ scanner is added here, not in the subproject.\n",
+                f"if {subproject}.get_variable('{variable}_needs_cpp')\n",
+                "  add_languages('cpp', native: false)\n",
+                "endif\n",
                 "opus_grammar_modules += shared_module(\n",
                 f"  '{name}',\n",
                 f"  {subproject}.get_variable('{variable}_sources'),\n",
                 f"  include_directories: {subproject}.get_variable('{variable}_include'),\n",
                 "  # Generated parser tables and third-party scanners: not ours to fix.\n",
                 "  c_args: ['-w'],\n",
+                "  cpp_args: ['-w'],\n",
                 "  name_prefix: '',\n",
                 "  install: true,\n",
                 "  install_dir: opus_grammars_install_dir,\n",
@@ -152,7 +162,9 @@ def flatpak_sources():
         revision = git["revision"]
         pin = "commit" if re.fullmatch(r"[0-9a-f]{40}", revision) else "tag"
         dest = f"subprojects/{key}"
-        sources.append({"type": "git", "url": git["url"], pin: revision, "dest": dest})
+        # No submodules: a grammar's own are test suites, never sources,
+        # and one that has gone missing upstream would fail the build.
+        sources.append({"type": "git", "url": git["url"], pin: revision, "dest": dest, "disable-submodules": True})
 
         overlay = os.path.join(PACKAGEFILES, git["patch_directory"])
         for root, _dirs, files in sorted(os.walk(overlay)):
@@ -172,5 +184,9 @@ remove_stale(repositories)
 for key, repository in repositories.items():
     write(os.path.join(SUBPROJECTS, f"{key}.wrap"), wrap_file(key, repository))
     write(os.path.join(PACKAGEFILES, key, "meson.build"), overlay_file(key, repository))
+    # Meson only lays the overlay over a subproject when it first
+    # fetches it; one already on disk would keep the old build file.
+    if os.path.isdir(os.path.join(SUBPROJECTS, key)):
+        write(os.path.join(SUBPROJECTS, key, "meson.build"), overlay_file(key, repository))
 write(os.path.join(LANGUAGES, "meson.build"), languages_meson(repositories, packages))
 write(os.path.join(REPO_ROOT, "build", "grammar-sources.json"), flatpak_sources())

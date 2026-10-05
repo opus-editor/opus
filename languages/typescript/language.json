@@ -1,0 +1,19 @@
+{
+  "name": "typescript",
+  "file-types": [
+    "ts",
+    "mts",
+    "cts"
+  ],
+  "shebangs": [
+    "deno",
+    "bun",
+    "ts-node"
+  ],
+  "injection-regex": "(ts|typescript)",
+  "grammar": {
+    "repository": "https://github.com/tree-sitter/tree-sitter-typescript",
+    "rev": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+    "path": "typescript"
+  }
+}

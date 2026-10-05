@@ -4,7 +4,11 @@ project('tree-sitter-json', 'c')
 fs = import('fs')
 
 json_sources = files('src/parser.c')
+json_needs_cpp = false
 if fs.exists('src/scanner.c')
   json_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  json_sources += files('src/scanner.cc')
+  json_needs_cpp = true
 endif
 json_include = include_directories('src')

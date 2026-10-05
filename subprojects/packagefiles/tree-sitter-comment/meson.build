@@ -4,7 +4,11 @@ project('tree-sitter-comment', 'c')
 fs = import('fs')
 
 comment_sources = files('src/parser.c')
+comment_needs_cpp = false
 if fs.exists('src/scanner.c')
   comment_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  comment_sources += files('src/scanner.cc')
+  comment_needs_cpp = true
 endif
 comment_include = include_directories('src')

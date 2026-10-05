@@ -4,13 +4,21 @@ project('tree-sitter-markdown', 'c')
 fs = import('fs')
 
 markdown_inline_sources = files('tree-sitter-markdown-inline/src/parser.c')
+markdown_inline_needs_cpp = false
 if fs.exists('tree-sitter-markdown-inline/src/scanner.c')
   markdown_inline_sources += files('tree-sitter-markdown-inline/src/scanner.c')
+elif fs.exists('tree-sitter-markdown-inline/src/scanner.cc')
+  markdown_inline_sources += files('tree-sitter-markdown-inline/src/scanner.cc')
+  markdown_inline_needs_cpp = true
 endif
 markdown_inline_include = include_directories('tree-sitter-markdown-inline/src')
 
 markdown_sources = files('tree-sitter-markdown/src/parser.c')
+markdown_needs_cpp = false
 if fs.exists('tree-sitter-markdown/src/scanner.c')
   markdown_sources += files('tree-sitter-markdown/src/scanner.c')
+elif fs.exists('tree-sitter-markdown/src/scanner.cc')
+  markdown_sources += files('tree-sitter-markdown/src/scanner.cc')
+  markdown_needs_cpp = true
 endif
 markdown_include = include_directories('tree-sitter-markdown/src')

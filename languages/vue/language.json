@@ -1,0 +1,11 @@
+{
+  "name": "vue",
+  "file-types": [
+    "vue"
+  ],
+  "injection-regex": "vue",
+  "grammar": {
+    "repository": "https://github.com/ikatyang/tree-sitter-vue",
+    "rev": "91fe2754796cd8fba5f229505a23fa08f3546c06"
+  }
+}

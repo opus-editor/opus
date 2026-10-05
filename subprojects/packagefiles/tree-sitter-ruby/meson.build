@@ -4,7 +4,11 @@ project('tree-sitter-ruby', 'c')
 fs = import('fs')
 
 ruby_sources = files('src/parser.c')
+ruby_needs_cpp = false
 if fs.exists('src/scanner.c')
   ruby_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  ruby_sources += files('src/scanner.cc')
+  ruby_needs_cpp = true
 endif
 ruby_include = include_directories('src')

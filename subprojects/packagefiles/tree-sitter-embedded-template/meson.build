@@ -4,7 +4,11 @@ project('tree-sitter-embedded-template', 'c')
 fs = import('fs')
 
 embedded_template_sources = files('src/parser.c')
+embedded_template_needs_cpp = false
 if fs.exists('src/scanner.c')
   embedded_template_sources += files('src/scanner.c')
+elif fs.exists('src/scanner.cc')
+  embedded_template_sources += files('src/scanner.cc')
+  embedded_template_needs_cpp = true
 endif
 embedded_template_include = include_directories('src')

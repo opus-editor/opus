@@ -1,0 +1,12 @@
+{
+  "name": "vala",
+  "file-types": [
+    "vala",
+    "vapi"
+  ],
+  "injection-regex": "vala",
+  "grammar": {
+    "repository": "https://github.com/vala-lang/tree-sitter-vala",
+    "rev": "97e6db3c8c73b15a9541a458d8e797a07f588ef4"
+  }
+}

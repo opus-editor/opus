@@ -7,129 +7,607 @@ opus_languages_install_dir = get_option('datadir') / 'opus' / 'languages'
 opus_grammars_build_dir = meson.current_build_dir()
 opus_grammar_modules = []
 
+tree_sitter_bash = subproject('tree-sitter-bash')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_bash.get_variable('bash_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'bash',
+  tree_sitter_bash.get_variable('bash_sources'),
+  include_directories: tree_sitter_bash.get_variable('bash_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_c = subproject('tree-sitter-c')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_c.get_variable('c_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'c',
+  tree_sitter_c.get_variable('c_sources'),
+  include_directories: tree_sitter_c.get_variable('c_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
 tree_sitter_comment = subproject('tree-sitter-comment')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_comment.get_variable('comment_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'comment',
   tree_sitter_comment.get_variable('comment_sources'),
   include_directories: tree_sitter_comment.get_variable('comment_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_cpp = subproject('tree-sitter-cpp')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_cpp.get_variable('cpp_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'cpp',
+  tree_sitter_cpp.get_variable('cpp_sources'),
+  include_directories: tree_sitter_cpp.get_variable('cpp_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_css = subproject('tree-sitter-css')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_css.get_variable('css_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'css',
   tree_sitter_css.get_variable('css_sources'),
   include_directories: tree_sitter_css.get_variable('css_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_diff = subproject('tree-sitter-diff')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_diff.get_variable('diff_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'diff',
+  tree_sitter_diff.get_variable('diff_sources'),
+  include_directories: tree_sitter_diff.get_variable('diff_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_dockerfile = subproject('tree-sitter-dockerfile')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_dockerfile.get_variable('dockerfile_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'dockerfile',
+  tree_sitter_dockerfile.get_variable('dockerfile_sources'),
+  include_directories: tree_sitter_dockerfile.get_variable('dockerfile_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_embedded_template = subproject('tree-sitter-embedded-template')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_embedded_template.get_variable('embedded_template_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'embedded-template',
   tree_sitter_embedded_template.get_variable('embedded_template_sources'),
   include_directories: tree_sitter_embedded_template.get_variable('embedded_template_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_gitcommit = subproject('tree-sitter-gitcommit')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_gitcommit.get_variable('gitcommit_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'gitcommit',
+  tree_sitter_gitcommit.get_variable('gitcommit_sources'),
+  include_directories: tree_sitter_gitcommit.get_variable('gitcommit_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_go = subproject('tree-sitter-go')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_go.get_variable('go_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'go',
+  tree_sitter_go.get_variable('go_sources'),
+  include_directories: tree_sitter_go.get_variable('go_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_html = subproject('tree-sitter-html')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_html.get_variable('html_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'html',
   tree_sitter_html.get_variable('html_sources'),
   include_directories: tree_sitter_html.get_variable('html_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_htmlx = subproject('tree-sitter-htmlx')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_htmlx.get_variable('svelte_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'svelte',
+  tree_sitter_htmlx.get_variable('svelte_sources'),
+  include_directories: tree_sitter_htmlx.get_variable('svelte_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_java = subproject('tree-sitter-java')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_java.get_variable('java_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'java',
+  tree_sitter_java.get_variable('java_sources'),
+  include_directories: tree_sitter_java.get_variable('java_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_javascript = subproject('tree-sitter-javascript')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_javascript.get_variable('javascript_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'javascript',
   tree_sitter_javascript.get_variable('javascript_sources'),
   include_directories: tree_sitter_javascript.get_variable('javascript_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_jsdoc = subproject('tree-sitter-jsdoc')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_jsdoc.get_variable('jsdoc_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'jsdoc',
+  tree_sitter_jsdoc.get_variable('jsdoc_sources'),
+  include_directories: tree_sitter_jsdoc.get_variable('jsdoc_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_json = subproject('tree-sitter-json')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_json.get_variable('json_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'json',
   tree_sitter_json.get_variable('json_sources'),
   include_directories: tree_sitter_json.get_variable('json_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_markdown = subproject('tree-sitter-markdown')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_markdown.get_variable('markdown_inline_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'markdown_inline',
   tree_sitter_markdown.get_variable('markdown_inline_sources'),
   include_directories: tree_sitter_markdown.get_variable('markdown_inline_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_markdown.get_variable('markdown_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'markdown',
   tree_sitter_markdown.get_variable('markdown_sources'),
   include_directories: tree_sitter_markdown.get_variable('markdown_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_meson = subproject('tree-sitter-meson')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_meson.get_variable('meson_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'meson',
+  tree_sitter_meson.get_variable('meson_sources'),
+  include_directories: tree_sitter_meson.get_variable('meson_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_php = subproject('tree-sitter-php')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_php.get_variable('php_only_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'php-only',
   tree_sitter_php.get_variable('php_only_sources'),
   include_directories: tree_sitter_php.get_variable('php_only_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_php.get_variable('php_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'php',
   tree_sitter_php.get_variable('php_sources'),
   include_directories: tree_sitter_php.get_variable('php_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_python = subproject('tree-sitter-python')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_python.get_variable('python_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'python',
+  tree_sitter_python.get_variable('python_sources'),
+  include_directories: tree_sitter_python.get_variable('python_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_regex = subproject('tree-sitter-regex')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_regex.get_variable('regex_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'regex',
+  tree_sitter_regex.get_variable('regex_sources'),
+  include_directories: tree_sitter_regex.get_variable('regex_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
 )
 
 tree_sitter_ruby = subproject('tree-sitter-ruby')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_ruby.get_variable('ruby_needs_cpp')
+  add_languages('cpp', native: false)
+endif
 opus_grammar_modules += shared_module(
   'ruby',
   tree_sitter_ruby.get_variable('ruby_sources'),
   include_directories: tree_sitter_ruby.get_variable('ruby_include'),
   # Generated parser tables and third-party scanners: not ours to fix.
   c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_rust = subproject('tree-sitter-rust')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_rust.get_variable('rust_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'rust',
+  tree_sitter_rust.get_variable('rust_sources'),
+  include_directories: tree_sitter_rust.get_variable('rust_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_scss = subproject('tree-sitter-scss')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_scss.get_variable('scss_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'scss',
+  tree_sitter_scss.get_variable('scss_sources'),
+  include_directories: tree_sitter_scss.get_variable('scss_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_sql = subproject('tree-sitter-sql')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_sql.get_variable('sql_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'sql',
+  tree_sitter_sql.get_variable('sql_sources'),
+  include_directories: tree_sitter_sql.get_variable('sql_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_toml = subproject('tree-sitter-toml')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_toml.get_variable('toml_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'toml',
+  tree_sitter_toml.get_variable('toml_sources'),
+  include_directories: tree_sitter_toml.get_variable('toml_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_typescript = subproject('tree-sitter-typescript')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_typescript.get_variable('tsx_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'tsx',
+  tree_sitter_typescript.get_variable('tsx_sources'),
+  include_directories: tree_sitter_typescript.get_variable('tsx_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_typescript.get_variable('typescript_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'typescript',
+  tree_sitter_typescript.get_variable('typescript_sources'),
+  include_directories: tree_sitter_typescript.get_variable('typescript_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_vala = subproject('tree-sitter-vala')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_vala.get_variable('vala_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'vala',
+  tree_sitter_vala.get_variable('vala_sources'),
+  include_directories: tree_sitter_vala.get_variable('vala_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_vue = subproject('tree-sitter-vue')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_vue.get_variable('vue_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'vue',
+  tree_sitter_vue.get_variable('vue_sources'),
+  include_directories: tree_sitter_vue.get_variable('vue_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_xml = subproject('tree-sitter-xml')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_xml.get_variable('xml_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'xml',
+  tree_sitter_xml.get_variable('xml_sources'),
+  include_directories: tree_sitter_xml.get_variable('xml_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
+  name_prefix: '',
+  install: true,
+  install_dir: opus_grammars_install_dir,
+)
+
+tree_sitter_yaml = subproject('tree-sitter-yaml')
+# A compiler belongs to the project that builds with it, so the
+# one for a C++ scanner is added here, not in the subproject.
+if tree_sitter_yaml.get_variable('yaml_needs_cpp')
+  add_languages('cpp', native: false)
+endif
+opus_grammar_modules += shared_module(
+  'yaml',
+  tree_sitter_yaml.get_variable('yaml_sources'),
+  include_directories: tree_sitter_yaml.get_variable('yaml_include'),
+  # Generated parser tables and third-party scanners: not ours to fix.
+  c_args: ['-w'],
+  cpp_args: ['-w'],
   name_prefix: '',
   install: true,
   install_dir: opus_grammars_install_dir,
@@ -137,17 +615,41 @@ opus_grammar_modules += shared_module(
 
 install_subdir('_javascript', install_dir: opus_languages_install_dir)
 install_subdir('_jsx', install_dir: opus_languages_install_dir)
+install_subdir('_typescript', install_dir: opus_languages_install_dir)
+install_subdir('bash', install_dir: opus_languages_install_dir)
+install_subdir('c', install_dir: opus_languages_install_dir)
 install_subdir('comment', install_dir: opus_languages_install_dir)
+install_subdir('cpp', install_dir: opus_languages_install_dir)
 install_subdir('css', install_dir: opus_languages_install_dir)
+install_subdir('diff', install_dir: opus_languages_install_dir)
+install_subdir('dockerfile', install_dir: opus_languages_install_dir)
 install_subdir('ecma', install_dir: opus_languages_install_dir)
 install_subdir('ejs', install_dir: opus_languages_install_dir)
 install_subdir('erb', install_dir: opus_languages_install_dir)
+install_subdir('git-commit', install_dir: opus_languages_install_dir)
+install_subdir('go', install_dir: opus_languages_install_dir)
 install_subdir('html', install_dir: opus_languages_install_dir)
+install_subdir('java', install_dir: opus_languages_install_dir)
 install_subdir('javascript', install_dir: opus_languages_install_dir)
+install_subdir('jsdoc', install_dir: opus_languages_install_dir)
 install_subdir('json', install_dir: opus_languages_install_dir)
 install_subdir('jsx', install_dir: opus_languages_install_dir)
 install_subdir('markdown.inline', install_dir: opus_languages_install_dir)
 install_subdir('markdown', install_dir: opus_languages_install_dir)
+install_subdir('meson', install_dir: opus_languages_install_dir)
 install_subdir('php-only', install_dir: opus_languages_install_dir)
 install_subdir('php', install_dir: opus_languages_install_dir)
+install_subdir('python', install_dir: opus_languages_install_dir)
+install_subdir('regex', install_dir: opus_languages_install_dir)
 install_subdir('ruby', install_dir: opus_languages_install_dir)
+install_subdir('rust', install_dir: opus_languages_install_dir)
+install_subdir('scss', install_dir: opus_languages_install_dir)
+install_subdir('sql', install_dir: opus_languages_install_dir)
+install_subdir('svelte', install_dir: opus_languages_install_dir)
+install_subdir('toml', install_dir: opus_languages_install_dir)
+install_subdir('tsx', install_dir: opus_languages_install_dir)
+install_subdir('typescript', install_dir: opus_languages_install_dir)
+install_subdir('vala', install_dir: opus_languages_install_dir)
+install_subdir('vue', install_dir: opus_languages_install_dir)
+install_subdir('xml', install_dir: opus_languages_install_dir)
+install_subdir('yaml', install_dir: opus_languages_install_dir)
