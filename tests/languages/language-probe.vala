@@ -1,7 +1,7 @@
 /**
  * What the per-language tests ask of a bundled language package: how
  * far Enter indents, whether a typed closer pulls its line out, what a
- * word is painted as. Each answers for the real package in languages/,
+ * word is painted as, which symbols a file lists. Each answers for the real package in languages/,
  * compiled grammar and all — OPUS_LANGUAGES_DIR and OPUS_GRAMMARS_DIR
  * are set by tests/meson.build.
  *
@@ -72,6 +72,21 @@ namespace LanguageProbe {
             }
         }
         error ("no line with text above the cursor");
+    }
+
+    /**
+     * What the `#` list would show for `text`, a line per symbol in
+     * the order of the file: `name: kind`, or `name: kind · container`
+     * for one defined inside another.
+     */
+    public string[] symbols (string file_name, string text) {
+        string[] lines = {};
+        foreach (var symbol in document (file_name, text).symbols ()) {
+            lines += symbol.container == ""
+                ? "%s: %s".printf (symbol.name, symbol.kind)
+                : "%s: %s · %s".printf (symbol.name, symbol.kind, symbol.container);
+        }
+        return lines;
     }
 
     /** The style `word` is painted with where it first appears in `text` — "" when it is left plain. */

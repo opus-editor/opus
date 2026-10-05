@@ -30,6 +30,12 @@ private void test_code_right_after_a_comment_is_code_again () {
     assert_cmpint (LanguageProbe.enter ("a.js", "if (x) { // a note<|>\n"), CompareOperator.EQ, 1);
 }
 
+private void test_functions_classes_and_methods_are_symbols () {
+    var symbols = LanguageProbe.symbols ("a.js", "function greet() {}\n\nclass Cart {\n  total() {}\n}\n");
+
+    assert_cmpstrv (symbols, { "greet: function", "Cart: class", "total: method · Cart" });
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/languages/javascript/an_open_brace_goes_one_level_in", test_an_open_brace_goes_one_level_in);
@@ -37,5 +43,6 @@ void main (string[] args) {
     Test.add_func ("/languages/javascript/a_closing_brace_typed_first_on_its_line_comes_one_level_out", test_a_closing_brace_typed_first_on_its_line_comes_one_level_out);
     Test.add_func ("/languages/javascript/text_inside_a_comment_or_a_template_string_opens_nothing_however_it_reads", test_text_inside_a_comment_or_a_template_string_opens_nothing_however_it_reads);
     Test.add_func ("/languages/javascript/code_right_after_a_comment_is_code_again", test_code_right_after_a_comment_is_code_again);
+    Test.add_func ("/languages/javascript/functions_classes_and_methods_are_symbols", test_functions_classes_and_methods_are_symbols);
     Test.run ();
 }

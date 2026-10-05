@@ -7,7 +7,7 @@ namespace Syntax {
    * useless to whoever is writing the package.
    */
   public class LanguageChecker : Object {
-    private const string[] QUERY_NAMES = { "highlights", "injections", "locals", "indents" };
+    private const string[] QUERY_NAMES = { "highlights", "injections", "locals", "indents", "tags" };
 
     private string[] language_directories;
     private GrammarLoader grammars;

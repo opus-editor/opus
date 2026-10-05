@@ -121,6 +121,24 @@ private void test_only_the_name_after_def_is_taken_for_a_method_name () {
     assert_cmpstr (LanguageProbe.style_of ("a.rb", "def foo(arg)\n\nbar", "bar"), CompareOperator.EQ, "variable");
 }
 
+private void test_classes_modules_and_methods_are_symbols_each_inside_the_one_holding_it () {
+    var symbols = LanguageProbe.symbols ("a.rb", "module Shop\n  class Cart\n    def total\n    end\n\n    def self.empty\n    end\n  end\nend\n");
+
+    assert_cmpstrv (symbols, { "Shop: module", "Cart: class · Shop", "total: method · Cart", "empty: method · Cart" });
+}
+
+private void test_a_method_outside_any_class_belongs_to_nothing () {
+    var symbols = LanguageProbe.symbols ("a.rb", "def greet\nend\n");
+
+    assert_cmpstrv (symbols, { "greet: method" });
+}
+
+private void test_a_call_is_not_a_symbol () {
+    var symbols = LanguageProbe.symbols ("a.rb", "def greet\n  puts name\nend\n\ngreet\n");
+
+    assert_cmpstrv (symbols, { "greet: method" });
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/languages/ruby/a_block_opener_goes_one_level_in", test_a_block_opener_goes_one_level_in);
@@ -139,5 +157,8 @@ void main (string[] args) {
     Test.add_func ("/languages/ruby/code_right_after_a_string_or_a_comment_is_code_again", test_code_right_after_a_string_or_a_comment_is_code_again);
     Test.add_func ("/languages/ruby/a_method_name_keeps_its_color_while_the_method_is_being_typed", test_a_method_name_keeps_its_color_while_the_method_is_being_typed);
     Test.add_func ("/languages/ruby/only_the_name_after_def_is_taken_for_a_method_name", test_only_the_name_after_def_is_taken_for_a_method_name);
+    Test.add_func ("/languages/ruby/classes_modules_and_methods_are_symbols_each_inside_the_one_holding_it", test_classes_modules_and_methods_are_symbols_each_inside_the_one_holding_it);
+    Test.add_func ("/languages/ruby/a_method_outside_any_class_belongs_to_nothing", test_a_method_outside_any_class_belongs_to_nothing);
+    Test.add_func ("/languages/ruby/a_call_is_not_a_symbol", test_a_call_is_not_a_symbol);
     Test.run ();
 }

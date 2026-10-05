@@ -25,8 +25,8 @@ import sys
 import tomllib
 
 # The queries Opus has a feature for. Helix ships more (textobjects,
-# tags, …); they come over when what reads them does.
-QUERIES = ["highlights", "injections", "locals", "indents"]
+# rainbows); they come over when what reads them does.
+QUERIES = ["highlights", "injections", "locals", "indents", "tags"]
 
 # How each language is written for a person to read: what a list of
 # languages shows. Helix has no such thing; a language missing here is

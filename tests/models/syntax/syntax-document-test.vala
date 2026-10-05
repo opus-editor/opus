@@ -631,6 +631,190 @@ private void test_replacing_the_whole_text_starts_over () {
     assert_cmpstrv (described (document.highlights (0, 0)), { "0:0-0:4 keyword" });
 }
 
+/** A JSON language whose symbols are what `tags_query` says — null for a language with no tags query at all. */
+private Syntax.SyntaxDocument json_tagged_by (string? tags_query) {
+    string languages = Path.build_filename (Environment.get_tmp_dir (), "opus-syntax-document-test-%u".printf (Random.next_int ()));
+    string queries = Path.build_filename (languages, "json", "queries");
+    DirUtils.create_with_parents (queries, 0700);
+    try {
+        FileUtils.set_contents (Path.build_filename (languages, "json", "language.json"), """{ "name": "json", "grammar": { "repository": "r", "rev": "abc" } }""");
+        FileUtils.set_contents (Path.build_filename (queries, "highlights.scm"), "(string) @string");
+        if (tags_query != null) {
+            FileUtils.set_contents (Path.build_filename (queries, "tags.scm"), tags_query);
+        }
+        var registry = new Syntax.LanguageRegistry ({ languages });
+        return new Syntax.SyntaxDocument (Syntax.LoadedLanguage.load (
+            registry.by_name ("json"),
+            new Syntax.GrammarLoader ({ Environment.get_variable ("OPUS_GRAMMARS_DIR") }),
+            new Syntax.QuerySource (registry),
+            new Syntax.CaptureStyles ({ "string" })
+        ));
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+}
+
+// Every pair is a symbol named by its key; one holding an object is a "section", any other a "field".
+private const string PAIRS_AS_SYMBOLS = "(pair key: (string (string_content) @name) value: (object)) @definition.section\n(pair key: (string (string_content) @name) value: [(string) (number) (array)]) @definition.field";
+
+private void test_a_definition_is_a_symbol_with_its_name_and_kind () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"port\": 80 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 1);
+    assert_cmpstr (symbols[0].name, CompareOperator.EQ, "port");
+    assert_cmpstr (symbols[0].kind, CompareOperator.EQ, "field");
+}
+
+private void test_a_symbol_is_where_its_name_is () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{\n  \"port\": 80\n}");
+
+    var symbol = document.symbols ()[0];
+
+    assert_cmpint (symbol.line, CompareOperator.EQ, 2);
+    assert_cmpint (symbol.column, CompareOperator.EQ, 3);
+}
+
+private void test_a_symbols_column_counts_characters_not_bytes () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"ação\": 1, \"port\": 80 }");
+
+    var symbol = document.symbols ()[1];
+
+    assert_cmpint (symbol.column, CompareOperator.EQ, 14);
+}
+
+private void test_a_symbol_spans_the_lines_of_its_whole_definition () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{\n  \"server\": {\n    \"port\": 80\n  }\n}");
+
+    var symbol = document.symbols ()[0];
+
+    assert_cmpint (symbol.first_line, CompareOperator.EQ, 2);
+    assert_cmpint (symbol.last_line, CompareOperator.EQ, 4);
+}
+
+private void test_symbols_come_in_the_order_of_the_text () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"host\": \"a\", \"server\": { \"port\": 80 }, \"debug\": 1 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 4);
+    assert_cmpstr (symbols[0].name, CompareOperator.EQ, "host");
+    assert_cmpstr (symbols[1].name, CompareOperator.EQ, "server");
+    assert_cmpstr (symbols[2].name, CompareOperator.EQ, "port");
+    assert_cmpstr (symbols[3].name, CompareOperator.EQ, "debug");
+}
+
+private void test_a_symbol_inside_another_names_it_as_its_container () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"server\": { \"port\": 80 } }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpstr (symbols[1].container, CompareOperator.EQ, "server");
+}
+
+private void test_a_symbol_at_the_top_has_no_container () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"server\": { \"port\": 80 } }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpstr (symbols[0].container, CompareOperator.EQ, "");
+}
+
+private void test_the_container_is_the_innermost_definition_around_a_symbol () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"server\": { \"tls\": { \"port\": 443 } } }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpstr (symbols[2].container, CompareOperator.EQ, "tls");
+}
+
+private void test_a_symbol_after_a_container_has_ended_is_not_inside_it () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"server\": { \"port\": 80 }, \"debug\": 1 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpstr (symbols[2].container, CompareOperator.EQ, "");
+}
+
+private void test_a_name_captured_by_two_patterns_is_one_symbol () {
+    var document = json_tagged_by ("(pair key: (string (string_content) @name)) @definition.field\n(pair key: (string (string_content) @name) value: (number)) @definition.constant");
+    document.set_text ("{ \"port\": 80 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 1);
+}
+
+private void test_a_match_that_defines_nothing_is_not_a_symbol () {
+    var document = json_tagged_by ("(pair key: (string (string_content) @name)) @reference.call");
+    document.set_text ("{ \"port\": 80 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 0);
+}
+
+private void test_a_predicate_decides_which_matches_are_symbols () {
+    var document = json_tagged_by ("((pair key: (string (string_content) @name)) @definition.field (#match? @name \"^p\"))");
+    document.set_text ("{ \"host\": \"a\", \"port\": 80 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 1);
+    assert_cmpstr (symbols[0].name, CompareOperator.EQ, "port");
+}
+
+private void test_the_directives_for_documentation_comments_are_accepted () {
+    var document = json_tagged_by ("((comment)* @doc . (pair key: (string (string_content) @name)) @definition.field (#strip! @doc \"^//\") (#select-adjacent! @doc @definition.field))");
+    document.set_text ("{ \"port\": 80 }");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 1);
+}
+
+private void test_a_text_with_no_definition_has_no_symbols () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("[1, 2, 3]");
+
+    var symbols = document.symbols ();
+
+    assert_cmpint (symbols.length, CompareOperator.EQ, 0);
+}
+
+private void test_a_language_with_a_tags_query_lists_symbols () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+
+    assert_true (document.lists_symbols);
+}
+
+private void test_a_language_with_no_tags_query_does_not_list_symbols () {
+    var document = json_tagged_by (null);
+    document.set_text ("{ \"port\": 80 }");
+
+    assert_false (document.lists_symbols);
+    assert_cmpint (document.symbols ().length, CompareOperator.EQ, 0);
+}
+
+private void test_symbols_follow_the_text_as_it_changes () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{ \"port\": 80 }");
+
+    document.set_text ("{ \"port\": 80, \"host\": \"a\" }");
+
+    assert_cmpint (document.symbols ().length, CompareOperator.EQ, 2);
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/syntax-document/a_document_without_text_has_no_highlights", test_a_document_without_text_has_no_highlights);
@@ -688,5 +872,22 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/a_closer_typed_first_on_its_line_comes_out_to_its_opener", test_a_closer_typed_first_on_its_line_comes_out_to_its_opener);
     Test.add_func ("/models/syntax/syntax-document/a_closer_that_is_not_first_on_its_line_closes_nothing", test_a_closer_that_is_not_first_on_its_line_closes_nothing);
     Test.add_func ("/models/syntax/syntax-document/a_closer_with_more_typed_after_it_closes_nothing", test_a_closer_with_more_typed_after_it_closes_nothing);
+    Test.add_func ("/models/syntax/syntax-document/a_definition_is_a_symbol_with_its_name_and_kind", test_a_definition_is_a_symbol_with_its_name_and_kind);
+    Test.add_func ("/models/syntax/syntax-document/a_symbol_is_where_its_name_is", test_a_symbol_is_where_its_name_is);
+    Test.add_func ("/models/syntax/syntax-document/a_symbols_column_counts_characters_not_bytes", test_a_symbols_column_counts_characters_not_bytes);
+    Test.add_func ("/models/syntax/syntax-document/a_symbol_spans_the_lines_of_its_whole_definition", test_a_symbol_spans_the_lines_of_its_whole_definition);
+    Test.add_func ("/models/syntax/syntax-document/symbols_come_in_the_order_of_the_text", test_symbols_come_in_the_order_of_the_text);
+    Test.add_func ("/models/syntax/syntax-document/a_symbol_inside_another_names_it_as_its_container", test_a_symbol_inside_another_names_it_as_its_container);
+    Test.add_func ("/models/syntax/syntax-document/a_symbol_at_the_top_has_no_container", test_a_symbol_at_the_top_has_no_container);
+    Test.add_func ("/models/syntax/syntax-document/the_container_is_the_innermost_definition_around_a_symbol", test_the_container_is_the_innermost_definition_around_a_symbol);
+    Test.add_func ("/models/syntax/syntax-document/a_symbol_after_a_container_has_ended_is_not_inside_it", test_a_symbol_after_a_container_has_ended_is_not_inside_it);
+    Test.add_func ("/models/syntax/syntax-document/a_name_captured_by_two_patterns_is_one_symbol", test_a_name_captured_by_two_patterns_is_one_symbol);
+    Test.add_func ("/models/syntax/syntax-document/a_match_that_defines_nothing_is_not_a_symbol", test_a_match_that_defines_nothing_is_not_a_symbol);
+    Test.add_func ("/models/syntax/syntax-document/a_predicate_decides_which_matches_are_symbols", test_a_predicate_decides_which_matches_are_symbols);
+    Test.add_func ("/models/syntax/syntax-document/the_directives_for_documentation_comments_are_accepted", test_the_directives_for_documentation_comments_are_accepted);
+    Test.add_func ("/models/syntax/syntax-document/a_text_with_no_definition_has_no_symbols", test_a_text_with_no_definition_has_no_symbols);
+    Test.add_func ("/models/syntax/syntax-document/a_language_with_a_tags_query_lists_symbols", test_a_language_with_a_tags_query_lists_symbols);
+    Test.add_func ("/models/syntax/syntax-document/a_language_with_no_tags_query_does_not_list_symbols", test_a_language_with_no_tags_query_does_not_list_symbols);
+    Test.add_func ("/models/syntax/syntax-document/symbols_follow_the_text_as_it_changes", test_symbols_follow_the_text_as_it_changes);
     Test.run ();
 }

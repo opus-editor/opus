@@ -3,7 +3,7 @@
 // grammar using only predicates Opus implements. OPUS_LANGUAGES_DIR
 // and OPUS_GRAMMARS_DIR are set by tests/meson.build.
 
-private const string[] QUERY_NAMES = { "highlights", "injections", "locals", "indents" };
+private const string[] QUERY_NAMES = { "highlights", "injections", "locals", "indents", "tags" };
 
 private GenericArray<Syntax.LanguagePackage> bundled_packages () {
     string languages = Environment.get_variable ("OPUS_LANGUAGES_DIR");

@@ -39,7 +39,9 @@ namespace Syntax {
    * The predicates (`#eq?`, `#match?`, `#any-of?` and their `not-`
    * forms, `#is? local` and `#is-not? local`, and the `#kind-eq?`,
    * `#same-line?` and `#one-line?` of indent queries with theirs) and
-   * `#set!` properties of one compiled query. tree-sitter
+   * `#set!` properties of one compiled query. `#strip!` and
+   * `#select-adjacent!`, which tags queries use on documentation
+   * comments, are accepted and do nothing. tree-sitter
    * itself only stores them: matching a pattern says nothing about
    * whether its predicates hold, so every match has to be put through
    * {@link accepts}.
@@ -189,6 +191,11 @@ namespace Syntax {
       var name = arguments[0].text;
       if (name == "set!") {
         read_property (arguments, properties);
+        return;
+      }
+      if (name == "strip!" || name == "select-adjacent!") {
+        // Both only shape the `@doc` of a tags query — the comment
+        // above a definition — which nothing here reads.
         return;
       }
       if (name == "is?" || name == "is-not?") {

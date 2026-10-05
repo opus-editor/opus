@@ -7,11 +7,13 @@ namespace Syntax {
 
   /**
    * A language package made ready to work with: its grammar loaded and
-   * its highlights, injections, locals and indents queries compiled. Building one is the expensive step
+   * its highlights, injections, locals, indents and tags queries
+   * compiled. Building one is the expensive step
    * — {@link Languages} does it once per language and shares it.
    */
   public class LoadedLanguage : Object {
     private const string LOCAL_DEFINITION_PREFIX = "local.definition.";
+    private const string TAG_DEFINITION_PREFIX = "definition.";
 
     public LanguagePackage package { get; private set; }
     public unowned TreeSitter.Language grammar { get; private set; }
@@ -50,6 +52,14 @@ namespace Syntax {
     // Indexed by pattern: whether it set `scope` to `header`.
     internal bool[] indent_header_patterns;
 
+    // Null for a language with no tags query: it has no list of symbols.
+    internal TreeSitter.Query? tags;
+    internal QueryPredicates? tag_predicates;
+    // The id of `@name` in `tags`; -1 when the query never uses it.
+    internal int64 tag_name_capture = -1;
+    // Indexed by the tags query's capture ids: for `@definition.<kind>`, the kind.
+    internal string?[] tag_kinds;
+
     private LoadedLanguage () {}
 
     /** Fails when `package` can't highlight: no grammar, no `highlights` query, or a query that doesn't compile. */
@@ -81,7 +91,31 @@ namespace Syntax {
       language.load_injections (queries.read (package.name, "injections"));
       language.load_locals (queries.read (package.name, "locals"));
       language.load_indents (queries.read (package.name, "indents"));
+      language.load_tags (queries.read (package.name, "tags"));
       return language;
+    }
+
+    private void load_tags (string? source) throws LanguageError {
+      if (source == null) {
+        return;
+      }
+      try {
+        tags = QuerySource.compile (grammar, source);
+        tag_predicates = new QueryPredicates (tags);
+      } catch (QueryError e) {
+        throw new LanguageError.UNUSABLE ("language \"%s\", tags query: %s", package.name, e.message);
+      }
+
+      tag_kinds = new string?[tags.capture_count ()];
+      for (uint32 id = 0; id < tag_kinds.length; id++) {
+        uint32 length;
+        unowned string name = tags.capture_name_for_id (id, out length);
+        if (name == "name") {
+          tag_name_capture = id;
+        } else if (name.has_prefix (TAG_DEFINITION_PREFIX)) {
+          tag_kinds[id] = name.substring (TAG_DEFINITION_PREFIX.length);
+        }
+      }
     }
 
     private void find_literal_captures () {

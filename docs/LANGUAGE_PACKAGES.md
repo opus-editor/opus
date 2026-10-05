@@ -13,6 +13,7 @@ kotlin/
     injections.scm
     locals.scm
     indents.scm
+    tags.scm
 ```
 
 Only `language.json` and `highlights.scm` are required.
@@ -194,6 +195,30 @@ Python's dedent after `return`) don't happen in Opus. What `@opaque`
 protects is covered another way: a line broken inside anything
 `highlights.scm` captures as `@string…` or `@comment…` just keeps its
 indentation.
+
+**`queries/tags.scm`** says what the file defines — what `#` in the
+Command Bar lists, to go to one by name:
+
+```scheme
+(function_declaration
+  (simple_identifier) @name) @definition.function
+
+(class_declaration
+  (type_identifier) @name) @definition.class
+```
+
+| Capture | Meaning |
+|---|---|
+| `@definition.<kind>` | The whole definition. `<kind>` is shown next to the name as written, so keep to the usual ones: `class`, `method`, `function`, `module`, `interface`, `struct`, `enum`, `constant`, `section`. |
+| `@name` | Its name: what is listed, and where the cursor goes. |
+
+A pattern needs both to list anything. A definition inside another is
+shown as belonging to it — that comes from the nesting of the nodes,
+not from the query. Without this file, a language has no symbol list.
+
+Other captures (`@reference.*`, `@doc`) are accepted and ignored, and
+so are the `#strip!` and `#select-adjacent!` that Helix's files apply
+to `@doc`. Symbols of embedded languages are not listed.
 
 Supported predicates: `#eq?`, `#match?`, `#any-of?` and their `#not-`
 forms; `#is? local` and `#is-not? local`; and, for indent queries,

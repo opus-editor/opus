@@ -206,6 +206,23 @@ namespace Syntax {
       return layer != null && SyntaxIndents.outdent_change (layer.language, layer.tree, text, node_text, position, byte_of (reference_offset), out levels);
     }
 
+    /** Whether the text's language can list symbols at all — false tells "no symbols here" from "no way to know". */
+    public bool lists_symbols {
+      get { return language.tags != null; }
+    }
+
+    /**
+     * The definitions in the text, in the order they appear — of the
+     * text's own language only, not of the ones embedded in it. Empty
+     * with no tags query, and while a parse is halted.
+     */
+    public Symbol[] symbols () {
+      if (language.tags == null || halted || layers.length == 0) {
+        return {};
+      }
+      return SyntaxSymbols.collect (language, layers[0].tree, text, node_text);
+    }
+
     private uint32 byte_of (int char_offset) {
       return (uint32) text.index_of_nth_char (char_offset);
     }
