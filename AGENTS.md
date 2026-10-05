@@ -29,6 +29,13 @@ meson test -C out/native
 One test binary per Model. Views are currently untested — see
 `src/views/AGENTS.md`.
 
+One test binary per bundled language too (`tests/languages/<name>-test.vala`):
+what that package's own queries make the editor do — colors, indentation,
+embedded languages — against its real grammar. A language's behaviour is
+tested there, never in a Model's test: `tests/models/syntax/` uses small
+made-up queries over the JSON grammar, so it only ever fails for the
+Model's own reasons.
+
 ## Logging
 
 - `Logger.warn`/`Logger.info` (`src/lib/logger.vala`) print to stderr,

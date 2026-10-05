@@ -166,303 +166,160 @@ private void test_locals_follow_an_edit () {
     assert_cmpuint (document.highlights (0, 0).length, CompareOperator.EQ, 0);
 }
 
-private Syntax.Languages? bundled_languages = null;
-
-/** A document in the bundled language that claims `file_name`, holding `text` — OPUS_LANGUAGES_DIR is set by tests/meson.build. */
-private Syntax.SyntaxDocument bundled (string file_name, string text) {
-    // One for the whole binary: reading forty packages again for every
-    // call made this file's tests take a quarter of a minute.
-    if (bundled_languages == null) {
-        bundled_languages = new Syntax.Languages ({ Environment.get_variable ("OPUS_LANGUAGES_DIR") }, { Environment.get_variable ("OPUS_GRAMMARS_DIR") }, { "function", "variable", "keyword" });
+/**
+ * A JSON language that indents by `indents_query`, with strings and
+ * comments marked as such by its highlights.
+ */
+private Syntax.SyntaxDocument json_indenting_by (string indents_query) {
+    string languages = Path.build_filename (Environment.get_tmp_dir (), "opus-syntax-document-test-%u".printf (Random.next_int ()));
+    string queries = Path.build_filename (languages, "json", "queries");
+    DirUtils.create_with_parents (queries, 0700);
+    try {
+        FileUtils.set_contents (Path.build_filename (languages, "json", "language.json"), """{ "name": "json", "grammar": { "repository": "r", "rev": "abc" } }""");
+        FileUtils.set_contents (Path.build_filename (queries, "highlights.scm"), "(string) @string\n(comment) @comment");
+        FileUtils.set_contents (Path.build_filename (queries, "indents.scm"), indents_query);
+        var registry = new Syntax.LanguageRegistry ({ languages });
+        return new Syntax.SyntaxDocument (Syntax.LoadedLanguage.load (
+            registry.by_name ("json"),
+            new Syntax.GrammarLoader ({ Environment.get_variable ("OPUS_GRAMMARS_DIR") }),
+            new Syntax.QuerySource (registry),
+            new Syntax.CaptureStyles ({ "string", "comment" })
+        ));
+    } catch (Error e) {
+        error ("%s", e.message);
     }
-    var languages = bundled_languages;
-    var document = new Syntax.SyntaxDocument (languages.detect (file_name), languages);
-    document.set_text (text);
-    return document;
 }
 
-private void test_a_line_broken_after_a_block_opener_goes_one_level_in () {
-    var document = bundled ("a.rb", "def foo(arg)");
+private const string BRACKETS_INDENT = "[(object) (array)] @indent\n[\"}\" \"]\"] @outdent";
 
-    int change = document.new_line_indent_change (12);
-
-    assert_cmpint (change, CompareOperator.EQ, 1);
+/** `document` given `marked` without its `<|>`, and how many levels a line broken there goes in. */
+private int levels_in_at (Syntax.SyntaxDocument document, string marked) {
+    int at = marked.index_of ("<|>");
+    document.set_text (marked.substring (0, at) + marked.substring (at + 3));
+    return document.new_line_indent_change (marked.substring (0, at).char_count ());
 }
 
-/** The style painted on `word`, where it first appears in `text`, in the bundled language claiming `file_name` — "" when it is left plain. */
-private string style_of (string file_name, string text, string word) {
-    int at = text.index_of (word);
-    uint32 row = 0;
-    uint32 column = 0;
-    for (int i = 0; i < at; i++) {
-        if (text[i] == '\n') {
-            row++;
-            column = 0;
-        } else {
-            column++;
-        }
-    }
-    // Held until the style is copied out: a span's style belongs to the document's language.
-    var document = bundled (file_name, text);
-    string style = "";
-    foreach (var span in document.highlights (row, row)) {
-        if (span.start_row == row && span.start_column <= column && column < span.end_column) {
-            style = span.style;
-        }
-    }
-    return style;
+/** `document` given `marked` without its `<|>`, and whether a closer was just typed there — measured from the first line. */
+private bool closes_at (Syntax.SyntaxDocument document, string marked, out int levels) {
+    int at = marked.index_of ("<|>");
+    document.set_text (marked.substring (0, at) + marked.substring (at + 3));
+    return document.outdent_change (marked.substring (0, at).char_count (), 0, out levels);
 }
 
-private void test_a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed () {
-    assert_cmpstr (style_of ("a.rb", "def foo", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo\n  ", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo\n  s", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n  still_typing", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n\nbar", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def self.foo\n  s", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "class Foo\n  def foo\n    s", "foo"), CompareOperator.EQ, "function");
-    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing\nend", "foo"), CompareOperator.EQ, "function");
+private void test_a_line_broken_inside_an_indent_scope_goes_one_level_in () {
+    var document = json_indenting_by (BRACKETS_INDENT);
+
+    int levels = levels_in_at (document, "{\"a\": 1,<|> \"b\": 2}");
+
+    assert_cmpint (levels, CompareOperator.EQ, 1);
 }
 
-private void test_only_the_name_after_def_is_taken_for_a_method_name () {
-    assert_cmpstr (style_of ("a.rb", "def foo\n  still_typing", "still_typing"), CompareOperator.EQ, "variable");
-    assert_cmpstr (style_of ("a.rb", "def foo(arg)\n\nbar", "bar"), CompareOperator.EQ, "variable");
+private void test_a_line_broken_within_the_same_scope_stays_level () {
+    var document = json_indenting_by (BRACKETS_INDENT);
+
+    int levels = levels_in_at (document, "{\n  \"a\": 1,<|>\n  \"b\": 2\n}");
+
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-/** How many levels Enter at the very end of `text` adds, in the bundled language claiming `file_name`. */
-private int change_at_the_end (string file_name, string text) {
-    return bundled (file_name, text).new_line_indent_change (text.char_count ());
+private void test_scopes_opening_on_one_line_count_once () {
+    var document = json_indenting_by (BRACKETS_INDENT);
+
+    int levels = levels_in_at (document, "[{\"a\": 1,<|> \"b\": 2}]");
+
+    assert_cmpint (levels, CompareOperator.EQ, 1);
 }
 
-private void test_ruby_block_openers_each_go_one_level_in () {
-    assert_cmpint (change_at_the_end ("a.rb", "def foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "def foo(arg)"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "def self.foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo < Bar"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "module Foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "if foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "unless foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "while foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "items.each do |item|"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "items.each do"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "begin"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "case foo"), CompareOperator.EQ, 1);
+private void test_always_scopes_opening_on_one_line_each_count () {
+    var document = json_indenting_by ("[(object) (array)] @indent.always");
+
+    int levels = levels_in_at (document, "[{\"a\": 1,<|> \"b\": 2}]");
+
+    assert_cmpint (levels, CompareOperator.EQ, 2);
 }
 
-private void test_ruby_block_openers_go_in_inside_a_class_too () {
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo\n  def foo"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo\n  def foo\n    if bar"), CompareOperator.EQ, 1);
+private void test_a_node_captured_as_both_indent_and_outdent_counts_as_neither () {
+    var document = json_indenting_by ("(object) @indent\n(object) @outdent");
+
+    int levels = levels_in_at (document, "{\"a\": 1,<|> \"b\": 2}");
+
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-/** How many levels Enter adds where `<|>` stands in `text`, the way it would be found in a real file: with code before and after it. */
-private int change_at_the_bar (string file_name, string text) {
-    int bar = text.index_of ("<|>");
-    var without_bar = text.substring (0, bar) + text.substring (bar + 3);
-    return bundled (file_name, without_bar).new_line_indent_change (text.substring (0, bar).char_count ());
+private void test_a_scope_the_parser_had_to_close_itself_still_counts () {
+    var document = json_indenting_by ("(array) @indent");
+
+    int levels = levels_in_at (document, "[1<|>");
+
+    assert_cmpint (levels, CompareOperator.EQ, 1);
 }
 
-private void test_ruby_openers_go_in_with_code_all_around_them () {
-    assert_cmpint (change_at_the_bar ("a.rb", "class Foo\n  def bar\n    1\n  end\n\n  def foo(arg)<|>\nend\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "class Foo\n  def bar\n    1\n  end\n\n  def foo<|>\nend\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "class Foo\n  def foo(arg)<|>\n\n  def bar\n    1\n  end\nend\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "def foo(arg)<|>\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "def foo(arg)<|>\n\ndef bar\n  1\nend\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "require \"x\"\n\ndef foo(arg)<|>\n\nputs 1\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "def foo\n  if bar<|>\n  baz\nend\n"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_bar ("a.rb", "def foo\n  items.each do |item|<|>\nend\n"), CompareOperator.EQ, 1);
-}
+private void test_a_line_ending_on_an_open_bracket_goes_one_level_in_whatever_the_query_says () {
+    var document = json_indenting_by ("(number) @indent");
 
-private void test_ruby_ordinary_lines_stay_level_with_code_all_around_them () {
-    assert_cmpint (change_at_the_bar ("a.rb", "class Foo\n  def bar\n    baz<|>\n  end\nend\n"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_bar ("a.rb", "class Foo\n  attr_reader :a<|>\n\n  def bar\n  end\nend\n"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_bar ("a.rb", "def foo\n  x = 1<|>\n  y = 2\nend\n"), CompareOperator.EQ, 0);
-}
+    int levels = levels_in_at (document, "{<|>");
 
-private void test_ruby_nested_openers_go_in_while_the_outer_block_is_still_open () {
-    assert_cmpint (change_at_the_end ("a.rb", "def foo\n  if bar"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo\n  def foo\n    items.each do |item|"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rb", "def foo\n  if bar\n    baz"), CompareOperator.EQ, 0);
-}
-
-private void test_an_inner_closer_comes_out_while_the_outer_block_is_still_open () {
-    //                                 01234567 890123 456789 01234567
-    var document = bundled ("a.rb", "def foo\n  if x\n    y\n    end");
-
-    int levels;
-    bool closes = document.outdent_change (28, 17, out levels);
-
-    assert_true (closes);
-    assert_cmpint (levels, CompareOperator.EQ, -1);
-}
-
-private void test_ruby_ordinary_lines_stay_level () {
-    assert_cmpint (change_at_the_end ("a.rb", "foo"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.rb", "foo = 1"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.rb", "puts \"x\""), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.rb", "def foo\n  bar"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.rb", "class Foo\n  attr_reader :bar"), CompareOperator.EQ, 0);
-}
-
-private void test_openers_in_other_languages_go_one_level_in () {
-    assert_cmpint (change_at_the_end ("a.js", "function f() {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.js", "if (x) {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.js", "const f = () => {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.js", "const o = {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.py", "def f():"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.py", "if x:"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.py", "class Foo:"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.go", "func main() {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.rs", "fn main() {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.c", "int main(void) {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.php", "<?php\nfunction f() {"), CompareOperator.EQ, 1);
-    assert_cmpint (change_at_the_end ("a.vala", "void main () {"), CompareOperator.EQ, 1);
-}
-
-private void test_ordinary_lines_in_other_languages_stay_level () {
-    assert_cmpint (change_at_the_end ("a.js", "foo();"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.js", "const a = 1;"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.py", "x = 1"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.go", "x := 1"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.rs", "let x = 1;"), CompareOperator.EQ, 0);
-    assert_cmpint (change_at_the_end ("a.c", "int x = 1;"), CompareOperator.EQ, 0);
-}
-
-private void test_a_line_broken_after_an_ordinary_statement_stays_level () {
-    var document = bundled ("a.rb", "def foo(arg)\n  puts arg\nend");
-
-    int change = document.new_line_indent_change (23);
-
-    assert_cmpint (change, CompareOperator.EQ, 0);
-}
-
-private void test_each_position_is_answered_by_its_own_context () {
-    //                                 0123456789012 3 4567
-    var document = bundled ("a.rb", "def foo(arg)\n\nbar");
-
-    int after_the_method_header = document.new_line_indent_change (12);
-    int after_the_plain_line = document.new_line_indent_change (17);
-
-    assert_cmpint (after_the_method_header, CompareOperator.EQ, 1);
-    assert_cmpint (after_the_plain_line, CompareOperator.LE, 0);
-}
-
-private void test_a_line_broken_inside_open_parentheses_goes_one_level_in () {
-    var document = bundled ("a.rb", "foo(");
-
-    int change = document.new_line_indent_change (4);
-
-    assert_cmpint (change, CompareOperator.EQ, 1);
-}
-
-private void test_a_line_broken_after_a_block_closer_stays_level () {
-    var document = bundled ("a.rb", "def foo\n  bar\nend");
-
-    int change = document.new_line_indent_change (17);
-
-    assert_cmpint (change, CompareOperator.EQ, 0);
+    assert_cmpint (levels, CompareOperator.EQ, 1);
 }
 
 private void test_a_line_broken_in_its_leading_whitespace_is_left_alone () {
-    var document = bundled ("a.rb", "def foo\n  bar\nend");
+    var document = json_indenting_by (BRACKETS_INDENT);
 
-    int change = document.new_line_indent_change (9);
+    int levels = levels_in_at (document, "{\n <|> \"a\": [\n1]\n}");
 
-    assert_cmpint (change, CompareOperator.EQ, 0);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-private void test_a_brace_opens_a_level_in_javascript () {
-    var document = bundled ("a.js", "function f() {");
+private void test_a_new_line_never_comes_out_by_itself () {
+    var document = json_indenting_by ("(array) @indent");
 
-    int change = document.new_line_indent_change (14);
+    int levels = levels_in_at (document, "[\n  1]<|>");
 
-    assert_cmpint (change, CompareOperator.EQ, 1);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-private void test_a_colon_opens_a_level_in_python () {
-    var document = bundled ("a.py", "def f():");
+private void test_a_line_broken_inside_a_comment_keeps_its_level_however_it_reads () {
+    var document = json_indenting_by (BRACKETS_INDENT);
 
-    int change = document.new_line_indent_change (8);
+    int levels = levels_in_at (document, "/*\n{<|>\n*/\n1");
 
-    assert_cmpint (change, CompareOperator.EQ, 1);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
 private void test_a_language_without_an_indents_query_has_nothing_to_say () {
-    var document = bundled ("a.sql", "SELECT (");
+    var document = new Syntax.SyntaxDocument (json_with ("(string) @string", { "string" }));
 
-    int change = document.new_line_indent_change (8);
+    int levels = levels_in_at (document, "{<|>");
 
-    assert_cmpint (change, CompareOperator.EQ, 0);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-private void test_a_block_closer_typed_first_on_its_line_comes_one_level_out () {
-    //                                 01234567 890123 456789
-    var document = bundled ("a.rb", "def foo\n  bar\n  end");
+private void test_a_closer_typed_first_on_its_line_comes_out_to_its_opener () {
+    var document = json_indenting_by (BRACKETS_INDENT);
 
     int levels;
-    bool closes = document.outdent_change (19, 10, out levels);
+    bool closes = closes_at (document, "{\n  \"a\": 1\n  }<|>", out levels);
 
     assert_true (closes);
-    assert_cmpint (levels, CompareOperator.EQ, -1);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
-private void test_a_closing_brace_comes_one_level_out_in_javascript () {
-    //                                 01234567890123 45678 9012
-    var document = bundled ("a.js", "function f() {\n  x;\n  }");
+private void test_a_closer_that_is_not_first_on_its_line_closes_nothing () {
+    var document = json_indenting_by (BRACKETS_INDENT);
 
     int levels;
-    bool closes = document.outdent_change (23, 17, out levels);
-
-    assert_true (closes);
-    assert_cmpint (levels, CompareOperator.EQ, -1);
-}
-
-private void test_the_same_word_later_on_a_line_closes_nothing () {
-    //                                 01234567 8901234567890123
-    var document = bundled ("a.rb", "def foo\n  puts \"the end\"");
-
-    int levels;
-    bool closes = document.outdent_change (23, 8, out levels);
+    bool closes = closes_at (document, "{\n  \"a\": 1 }<|>", out levels);
 
     assert_false (closes);
 }
 
-private void test_a_closer_with_more_typed_after_it_is_left_alone () {
-    var document = bundled ("a.rb", "def foo\n  bar\n  end.freeze");
+private void test_a_closer_with_more_typed_after_it_closes_nothing () {
+    var document = json_indenting_by (BRACKETS_INDENT);
 
     int levels;
-    bool closes = document.outdent_change (26, 10, out levels);
+    bool closes = closes_at (document, "[\n  [\n  ],<|>\n]", out levels);
 
     assert_false (closes);
-}
-
-private void test_a_class_opens_a_level_in_vala () {
-    var document = bundled ("a.vala", "public class Foo : Object {");
-
-    int change = document.new_line_indent_change (27);
-
-    assert_cmpint (change, CompareOperator.EQ, 1);
-}
-
-private void test_a_statement_inside_a_vala_method_stays_level () {
-    //                                   0123456789012345 67890123456789
-    var document = bundled ("a.vala", "void main () {\n  int x = 1;\n}");
-
-    int change = document.new_line_indent_change (27);
-
-    assert_cmpint (change, CompareOperator.EQ, 0);
-}
-
-private void test_a_closing_brace_comes_one_level_out_in_vala () {
-    //                                   01234567890123 4567890123456 789
-    var document = bundled ("a.vala", "void main () {\n  int x = 1;\n  }");
-
-    int levels;
-    bool closes = document.outdent_change (31, 15, out levels);
-
-    assert_true (closes);
-    assert_cmpint (levels, CompareOperator.EQ, -1);
 }
 
 /** JSON large enough that a parse of it is asked whether to go on many times over: one number per row. */
@@ -817,32 +674,19 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/a_reference_ahead_of_its_definition_is_not_resolved", test_a_reference_ahead_of_its_definition_is_not_resolved);
     Test.add_func ("/models/syntax/syntax-document/a_pattern_for_locals_only_applies_to_resolved_references", test_a_pattern_for_locals_only_applies_to_resolved_references);
     Test.add_func ("/models/syntax/syntax-document/locals_follow_an_edit", test_locals_follow_an_edit);
-    Test.add_func ("/models/syntax/syntax-document/a_line_broken_after_a_block_opener_goes_one_level_in", test_a_line_broken_after_a_block_opener_goes_one_level_in);
-    Test.add_func ("/models/syntax/syntax-document/a_line_broken_after_an_ordinary_statement_stays_level", test_a_line_broken_after_an_ordinary_statement_stays_level);
-    Test.add_func ("/models/syntax/syntax-document/each_position_is_answered_by_its_own_context", test_each_position_is_answered_by_its_own_context);
-    Test.add_func ("/models/syntax/syntax-document/a_line_broken_inside_open_parentheses_goes_one_level_in", test_a_line_broken_inside_open_parentheses_goes_one_level_in);
-    Test.add_func ("/models/syntax/syntax-document/a_line_broken_after_a_block_closer_stays_level", test_a_line_broken_after_a_block_closer_stays_level);
+    Test.add_func ("/models/syntax/syntax-document/a_line_broken_inside_an_indent_scope_goes_one_level_in", test_a_line_broken_inside_an_indent_scope_goes_one_level_in);
+    Test.add_func ("/models/syntax/syntax-document/a_line_broken_within_the_same_scope_stays_level", test_a_line_broken_within_the_same_scope_stays_level);
+    Test.add_func ("/models/syntax/syntax-document/scopes_opening_on_one_line_count_once", test_scopes_opening_on_one_line_count_once);
+    Test.add_func ("/models/syntax/syntax-document/always_scopes_opening_on_one_line_each_count", test_always_scopes_opening_on_one_line_each_count);
+    Test.add_func ("/models/syntax/syntax-document/a_node_captured_as_both_indent_and_outdent_counts_as_neither", test_a_node_captured_as_both_indent_and_outdent_counts_as_neither);
+    Test.add_func ("/models/syntax/syntax-document/a_scope_the_parser_had_to_close_itself_still_counts", test_a_scope_the_parser_had_to_close_itself_still_counts);
+    Test.add_func ("/models/syntax/syntax-document/a_line_ending_on_an_open_bracket_goes_one_level_in_whatever_the_query_says", test_a_line_ending_on_an_open_bracket_goes_one_level_in_whatever_the_query_says);
     Test.add_func ("/models/syntax/syntax-document/a_line_broken_in_its_leading_whitespace_is_left_alone", test_a_line_broken_in_its_leading_whitespace_is_left_alone);
-    Test.add_func ("/models/syntax/syntax-document/a_brace_opens_a_level_in_javascript", test_a_brace_opens_a_level_in_javascript);
-    Test.add_func ("/models/syntax/syntax-document/a_colon_opens_a_level_in_python", test_a_colon_opens_a_level_in_python);
+    Test.add_func ("/models/syntax/syntax-document/a_new_line_never_comes_out_by_itself", test_a_new_line_never_comes_out_by_itself);
+    Test.add_func ("/models/syntax/syntax-document/a_line_broken_inside_a_comment_keeps_its_level_however_it_reads", test_a_line_broken_inside_a_comment_keeps_its_level_however_it_reads);
     Test.add_func ("/models/syntax/syntax-document/a_language_without_an_indents_query_has_nothing_to_say", test_a_language_without_an_indents_query_has_nothing_to_say);
-    Test.add_func ("/models/syntax/syntax-document/a_block_closer_typed_first_on_its_line_comes_one_level_out", test_a_block_closer_typed_first_on_its_line_comes_one_level_out);
-    Test.add_func ("/models/syntax/syntax-document/a_closing_brace_comes_one_level_out_in_javascript", test_a_closing_brace_comes_one_level_out_in_javascript);
-    Test.add_func ("/models/syntax/syntax-document/the_same_word_later_on_a_line_closes_nothing", test_the_same_word_later_on_a_line_closes_nothing);
-    Test.add_func ("/models/syntax/syntax-document/a_closer_with_more_typed_after_it_is_left_alone", test_a_closer_with_more_typed_after_it_is_left_alone);
-    Test.add_func ("/models/syntax/syntax-document/a_class_opens_a_level_in_vala", test_a_class_opens_a_level_in_vala);
-    Test.add_func ("/models/syntax/syntax-document/a_statement_inside_a_vala_method_stays_level", test_a_statement_inside_a_vala_method_stays_level);
-    Test.add_func ("/models/syntax/syntax-document/a_closing_brace_comes_one_level_out_in_vala", test_a_closing_brace_comes_one_level_out_in_vala);
-    Test.add_func ("/models/syntax/syntax-document/ruby_block_openers_each_go_one_level_in", test_ruby_block_openers_each_go_one_level_in);
-    Test.add_func ("/models/syntax/syntax-document/ruby_block_openers_go_in_inside_a_class_too", test_ruby_block_openers_go_in_inside_a_class_too);
-    Test.add_func ("/models/syntax/syntax-document/ruby_ordinary_lines_stay_level", test_ruby_ordinary_lines_stay_level);
-    Test.add_func ("/models/syntax/syntax-document/openers_in_other_languages_go_one_level_in", test_openers_in_other_languages_go_one_level_in);
-    Test.add_func ("/models/syntax/syntax-document/ordinary_lines_in_other_languages_stay_level", test_ordinary_lines_in_other_languages_stay_level);
-    Test.add_func ("/models/syntax/syntax-document/ruby_openers_go_in_with_code_all_around_them", test_ruby_openers_go_in_with_code_all_around_them);
-    Test.add_func ("/models/syntax/syntax-document/ruby_ordinary_lines_stay_level_with_code_all_around_them", test_ruby_ordinary_lines_stay_level_with_code_all_around_them);
-    Test.add_func ("/models/syntax/syntax-document/ruby_nested_openers_go_in_while_the_outer_block_is_still_open", test_ruby_nested_openers_go_in_while_the_outer_block_is_still_open);
-    Test.add_func ("/models/syntax/syntax-document/an_inner_closer_comes_out_while_the_outer_block_is_still_open", test_an_inner_closer_comes_out_while_the_outer_block_is_still_open);
-    Test.add_func ("/models/syntax/syntax-document/a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed", test_a_ruby_method_name_keeps_its_color_while_the_method_is_being_typed);
-    Test.add_func ("/models/syntax/syntax-document/only_the_name_after_def_is_taken_for_a_method_name", test_only_the_name_after_def_is_taken_for_a_method_name);
+    Test.add_func ("/models/syntax/syntax-document/a_closer_typed_first_on_its_line_comes_out_to_its_opener", test_a_closer_typed_first_on_its_line_comes_out_to_its_opener);
+    Test.add_func ("/models/syntax/syntax-document/a_closer_that_is_not_first_on_its_line_closes_nothing", test_a_closer_that_is_not_first_on_its_line_closes_nothing);
+    Test.add_func ("/models/syntax/syntax-document/a_closer_with_more_typed_after_it_closes_nothing", test_a_closer_with_more_typed_after_it_closes_nothing);
     Test.run ();
 }

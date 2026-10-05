@@ -182,6 +182,24 @@ syntax_language_installer_test = executable(
 )
 test('syntax-language-installer', syntax_language_installer_test)
 
+# One test binary per bundled language: what each package's own queries
+# make the editor do, against its real grammar. A package Opus keeps
+# queries of its own for (see languages/ruby, languages/vala) has no
+# other guard against a change to them.
+foreach language : ['c', 'erb', 'go', 'html', 'javascript', 'markdown', 'php', 'python', 'ruby', 'rust', 'sql', 'vala']
+  language_test = executable(
+    'language-' + language + '-test',
+    ['languages' / language + '-test.vala', 'languages/language-probe.vala'],
+    dependencies: [opus_model_test_dep],
+  )
+  test(
+    'language-' + language,
+    language_test,
+    env: opus_syntax_test_env,
+    depends: opus_grammar_modules,
+  )
+endforeach
+
 bundled_languages_test = executable(
   'bundled-languages-test',
   ['languages/bundled-languages-test.vala'],
