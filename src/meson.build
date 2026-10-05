@@ -32,6 +32,7 @@ opus_model_sources = files(
   'models/find-in-files-replace-result.vala',
   'models/find-in-files-scope.vala',
   'models/git-file-list.vala',
+  'models/glob.vala',
   'models/git-scope/paths.vala',
   'models/git-scope/status-query.vala',
   'models/git-branch/i-provider.vala',
