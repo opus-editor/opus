@@ -61,6 +61,7 @@ opus_model_sources = files(
 # git-status/meson.build's own provider/diff-base-provider tests) need
 # Logger too — models call Logger.warn()/info() directly (UserSettings,
 # …) — but not the rest of opus_lib_sources, which needs Gtk
+  'models/theme.vala',
 # (GlobalCss, DevServer) those tests have no reason to link. Declared
 # before subdir('plugins') below (git-status/meson.build's own tests
 # reference it) rather than where opus_lib_sources itself is declared

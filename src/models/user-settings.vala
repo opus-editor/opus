@@ -17,6 +17,9 @@ public class UserSettings : Object {
   // installed at all — a headless/minimal system, not a real desktop.
   private const int FALLBACK_FONT_SIZE = 11;
 
+  public const string DEFAULT_THEME_LIGHT = "github-light";
+  public const string DEFAULT_THEME_DARK = "github-dark";
+
   private Json.Object root;
 
   /** settings.json's own path. */
@@ -89,6 +92,16 @@ public class UserSettings : Object {
     }
   }
 
+  /** The theme the editor wears while the app is light — a file name under a `themes` directory, without its `.json`. */
+  public string theme_light {
+    owned get { return read_string ("editor.theme_light") ?? DEFAULT_THEME_LIGHT; }
+  }
+
+  /** Its counterpart for while the app is dark. */
+  public string theme_dark {
+    owned get { return read_string ("editor.theme_dark") ?? DEFAULT_THEME_DARK; }
+  }
+
   /** Creates settings.json with default content if it isn't there — an existing file, and whatever the user already changed in it, is left untouched. */
   public void ensure_exists () throws Error {
     if (FileUtils.test (path, FileTest.EXISTS)) {
@@ -153,9 +166,11 @@ public class UserSettings : Object {
   "editor.font_ligatures": false,
   "editor.line_height": 1,
   "editor.letter_spacing": 0,
-  "editor.word_wrap": false
+  "editor.word_wrap": false,
+  "editor.theme_light": "%s",
+  "editor.theme_dark": "%s"
 }
-""".printf (system_monospace_font_size ());
+""".printf (system_monospace_font_size (), DEFAULT_THEME_LIGHT, DEFAULT_THEME_DARK);
   }
 
   private Json.Object? read_root () {

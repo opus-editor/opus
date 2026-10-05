@@ -43,6 +43,13 @@ command_bar_go_to_line_provider_test = executable(
 )
 test('command-bar-go-to-line-provider', command_bar_go_to_line_provider_test)
 
+theme_test = executable(
+  'theme-test',
+  ['models/theme-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('theme', theme_test)
+
 document_test = executable(
   'document-test',
   ['models/document-test.vala'],

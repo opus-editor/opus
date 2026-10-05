@@ -66,6 +66,40 @@ private void test_default_content_lists_restore_folder_first () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_the_themes_default_to_the_bundled_github_pair () {
+    string config_dir = make_temp_config_dir ();
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github-light");
+    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "github-dark");
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_the_themes_are_read_from_the_file () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"editor.theme_light\": \"paper\", \"editor.theme_dark\": \"ink\"}");
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "paper");
+    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "ink");
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_a_theme_of_the_wrong_type_falls_back_to_the_default () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"editor.theme_light\": 3}");
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github-light");
+
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_leaves_an_existing_file_untouched () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, "{\"editor.font_size\": 20}");
@@ -379,5 +413,8 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/reload_keeps_the_last_values_while_the_file_is_invalid", test_reload_keeps_the_last_values_while_the_file_is_invalid);
     Test.add_func ("/models/user-settings/reload_of_an_invalid_file_announces_nothing", test_reload_of_an_invalid_file_announces_nothing);
     Test.add_func ("/models/user-settings/reload_keeps_the_last_values_when_the_file_is_gone", test_reload_keeps_the_last_values_when_the_file_is_gone);
+    Test.add_func ("/models/user-settings/the_themes_default_to_the_bundled_github_pair", test_the_themes_default_to_the_bundled_github_pair);
+    Test.add_func ("/models/user-settings/the_themes_are_read_from_the_file", test_the_themes_are_read_from_the_file);
+    Test.add_func ("/models/user-settings/a_theme_of_the_wrong_type_falls_back_to_the_default", test_a_theme_of_the_wrong_type_falls_back_to_the_default);
     return Test.run ();
 }
