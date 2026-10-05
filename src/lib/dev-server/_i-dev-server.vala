@@ -107,7 +107,7 @@ namespace Opus.Dev {
     /** Find in Files for `text` across the linked folder, with FindInFilesBar's own toggles all off — opens (or refreshes) the "Find Results" tab, same as its Return key. The search itself is async; the tab appears once it finishes. */
     public abstract void find_in_files (string text) throws DBusError, IOError;
 
-    /** Ctrl+P — opens the Command Bar over the linked folder (a no-op with none linked, same as the real key). */
+    /** Ctrl+P — opens the Command Bar, folder linked or not. */
     public abstract void open_command_bar () throws DBusError, IOError;
 
     /** Opens the Command Bar on its `>` list of commands — same as Ctrl+Shift+P, and like it needs no folder. */
@@ -118,6 +118,15 @@ namespace Opus.Dev {
 
     /** Return in the Command Bar — accepts the row under the cursor. */
     public abstract void command_bar_accept () throws DBusError, IOError;
+
+    /** Escape in the Command Bar — closes it, accepting nothing. */
+    public abstract void command_bar_close () throws DBusError, IOError;
+
+    /** What the Command Bar says in place of rows when it has none — "" while it isn't open. */
+    public abstract string command_bar_empty_message () throws DBusError, IOError;
+
+    /** The 1-based line the editor is previewing for the Command Bar's `#` list, 0 when none. */
+    public abstract int get_previewed_line () throws DBusError, IOError;
 
     /** Every row the Command Bar currently shows, top to bottom, as what accepting each would resolve to (a file's path). Empty while it isn't open, or while its file walk hasn't answered yet — poll. */
     public abstract string[] command_bar_list_items () throws DBusError, IOError;

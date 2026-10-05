@@ -12,7 +12,7 @@ namespace CommandBar {
   public class Picker : Object {
     public string prefix { get; construct; }
     public string placeholder { get; set; default = ""; }
-    /** What the view shows in place of the rows while there are none — the provider's own wording ("Type to search files", "No matching files", …). */
+    /** What the view shows in place of the rows while there are none — the provider's own wording ("No matching files", "Open a file to go to a line", …). */
     public string empty_message { get; set; default = ""; }
     public bool busy { get; set; default = false; }
     public int active_index { get; private set; default = -1; }

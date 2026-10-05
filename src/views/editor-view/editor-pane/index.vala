@@ -232,6 +232,11 @@ namespace EditorView {
       return document_tab.caret_position (out line, out line_count);
     }
 
+    /** The Command Bar's own `#` list — see TabDocument.active_symbols(). */
+    public CommandBar.DocumentSymbols? active_symbols () {
+      return document_tab.active_symbols ();
+    }
+
     /** Find in Files — see TabFindResults.search(). The tab kind itself is created on the first search only. */
     public async void search_in_files (FindInFilesQuery query) {
       if (tab_find_results == null) {

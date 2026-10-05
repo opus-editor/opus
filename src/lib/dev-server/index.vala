@@ -206,6 +206,18 @@ namespace Opus.Dev {
       current_window ().command_bar_accept ();
     }
 
+    public void command_bar_close () throws DBusError, IOError {
+      current_window ().close_command_bar ();
+    }
+
+    public string command_bar_empty_message () throws DBusError, IOError {
+      return current_window ().command_bar_empty_message ();
+    }
+
+    public int get_previewed_line () throws DBusError, IOError {
+      return current_editor_pane ().code_editor.previewed_line;
+    }
+
     public string[] command_bar_list_items () throws DBusError, IOError {
       return current_window ().command_bar_item_ids ();
     }

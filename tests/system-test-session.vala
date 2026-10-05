@@ -271,6 +271,9 @@ public class SystemTestSession : Object {
     public void open_commands () throws Error { command_bar.open_commands (); }
     public void command_bar_type (string text) throws Error { command_bar.type (text); }
     public void command_bar_accept () throws Error { command_bar.accept (); }
+    public void command_bar_close () throws Error { command_bar.close (); }
+    public string command_bar_empty_message () throws Error { return command_bar.empty_message (); }
+    public int previewed_line () throws Error { return command_bar.previewed_line (); }
     public string[] command_bar_items () throws Error { return command_bar.items (); }
     public string[] wait_for_command_bar_items () throws Error { return command_bar.wait_for_items (); }
 }

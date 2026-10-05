@@ -187,7 +187,7 @@ namespace CommandBar {
       var filter = split_line_suffix (picker.filter, null);
       listed_filter = filter;
       if (filter == "") {
-        picker.empty_message = _("Type to search files");
+        picker.empty_message = PrefixHint.text (_("Search files"));
         picker.set_items (recent_items ());
         return;
       }

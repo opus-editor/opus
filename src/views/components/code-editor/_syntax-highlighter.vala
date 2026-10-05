@@ -88,6 +88,21 @@ public class CodeEditorSyntaxHighlighter : Object {
     return trees_are_current () && document.outdent_change (offset, reference_offset, out levels);
   }
 
+  /** Whether the text's language has a way to list symbols at all. */
+  public bool lists_symbols {
+    get { return document != null && document.lists_symbols; }
+  }
+
+  /** The definitions in the text as it is now. False while a huge file is still being read: they aren't known yet. */
+  public bool symbols (out Syntax.Symbol[] symbols) {
+    symbols = {};
+    if (!trees_are_current ()) {
+      return false;
+    }
+    symbols = document.symbols ();
+    return true;
+  }
+
   /** Brings the document up to the buffer's text if a slice is enough for that — an edit to anything but a huge file — and says whether it got there. */
   private bool trees_are_current () {
     if (document == null) {

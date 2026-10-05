@@ -43,6 +43,7 @@ public class CodeEditor : Object {
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
   private CodeEditorSyntaxHighlighter syntax_highlighter;
+  private CodeEditorLinePreview line_preview;
   /** What set_text() last showed — "" for none. Kept so the language can be worked out again when the packages change. */
   private string language_path = "";
   /** The language package named by hand for what is showing, over whatever `language_path` says — null for none. */
@@ -150,6 +151,7 @@ public class CodeEditor : Object {
     text_view.get_gutter (Gtk.TextWindowType.LEFT).insert (change_gutter, 0);
 
     syntax_highlighter = new CodeEditorSyntaxHighlighter (text_view, scrolled_window.vadjustment);
+    line_preview = new CodeEditorLinePreview (text_view, scrolled_window.vadjustment);
     Syntax.Languages.instance.changed.connect (apply_language);
     // The two don't know each other: this is what owns both.
     cursors.set_indentation (
@@ -414,6 +416,30 @@ public class CodeEditor : Object {
       text_view.reveal_settled (iter, RevealMode.CENTER_IF_OUTSIDE);
       return Source.REMOVE;
     });
+  }
+
+  /** Whether the shown text's language can list symbols — see CodeEditorSyntaxHighlighter. */
+  public bool lists_symbols {
+    get { return syntax_highlighter.lists_symbols; }
+  }
+
+  /** The definitions in the shown text; false while they aren't known yet — see CodeEditorSyntaxHighlighter.symbols(). */
+  public bool symbols (out Syntax.Symbol[] symbols) {
+    return syntax_highlighter.symbols (out symbols);
+  }
+
+  /** Shows the 1-based `line` without moving a cursor — see CodeEditorLinePreview. */
+  public void preview_line (int line) {
+    line_preview.show (line);
+  }
+
+  public void end_line_preview (bool restore_scroll) {
+    line_preview.end (restore_scroll);
+  }
+
+  /** The 1-based line under preview, 0 when none is — for Opus.Dev.DevServer. */
+  public int previewed_line {
+    get { return line_preview.line; }
   }
 
   /** Applies a Replace/Replace All result — not produced by any live cursor, so it goes through the cursors sub-component's own external-edit path rather than a cursor command. */

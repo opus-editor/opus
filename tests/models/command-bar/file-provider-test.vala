@@ -157,6 +157,21 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/command-bar/file-provider/empty-filter-with-nothing-recent-says-what-typing-and-each-prefix-do", () => {
+        Scenario? scenario = null;
+        try {
+            scenario = new Scenario ();
+
+            scenario.provide_and_wait ();
+
+            assert_cmpstr (scenario.picker.empty_message, CompareOperator.EQ, "Search files\n: Go to line\n# Go to symbol\n> Run commands");
+        } catch (Error e) {
+            assert_not_reached ();
+        } finally {
+            scenario?.close ();
+        }
+    });
+
     Test.add_func ("/command-bar/file-provider/recent-match-comes-first-and-is-not-repeated-in-files", () => {
         Scenario? scenario = null;
         try {

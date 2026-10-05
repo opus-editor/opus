@@ -57,6 +57,20 @@ command_bar_language_provider_test = executable(
 )
 test('command-bar-language-provider', command_bar_language_provider_test)
 
+command_bar_symbol_provider_test = executable(
+  'command-bar-symbol-provider-test',
+  ['models/command-bar/symbol-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-symbol-provider', command_bar_symbol_provider_test)
+
+command_bar_no_folder_provider_test = executable(
+  'command-bar-no-folder-provider-test',
+  ['models/command-bar/no-folder-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-no-folder-provider', command_bar_no_folder_provider_test)
+
 command_bar_go_to_line_provider_test = executable(
   'command-bar-go-to-line-provider-test',
   ['models/command-bar/go-to-line-provider-test.vala'],
@@ -895,6 +909,26 @@ command_bar_commands_test = executable(
 test(
   'command-bar-commands',
   command_bar_commands_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+command_bar_symbols_test = executable(
+  'command-bar-symbols-test',
+  ['system/command-bar/symbols-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'command-bar-symbols',
+  command_bar_symbols_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',

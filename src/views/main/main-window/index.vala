@@ -89,6 +89,10 @@ public class MainWindow : Object {
   private CommandBar.RecentFiles? recent_files = null;
   private CommandBar.FileProvider? file_provider = null;
   private CommandBar.GoToLineProvider go_to_line_provider;
+  private CommandBar.SymbolProvider symbol_provider;
+  private CommandBar.NoFolderProvider no_folder_provider = new CommandBar.NoFolderProvider ();
+  // The picker whose active row is being previewed in the editor — the `#` list's, while it is on duty.
+  private CommandBar.Picker? previewing_picker = null;
   private CommandBar.CommandProvider command_provider;
   private CommandBar.LanguageProvider language_provider;
   // Whatever held keyboard focus right before Ctrl+P — title_stack
@@ -203,6 +207,9 @@ public class MainWindow : Object {
     command_router.closed.connect (on_command_bar_closed);
     go_to_line_provider = new CommandBar.GoToLineProvider (editor_pane.caret_position);
     command_registry.add (go_to_line_provider);
+    symbol_provider = new CommandBar.SymbolProvider (editor_pane.active_symbols);
+    command_registry.add (symbol_provider);
+    command_registry.add (no_folder_provider);
     command_provider = new CommandBar.CommandProvider ({
       new CommandBar.Command (COMMAND_SET_LANGUAGE, _("File / Set language...")),
       new CommandBar.Command (COMMAND_TOGGLE_WORD_WRAP, _("Editor / Toggle word wrap")),
@@ -411,6 +418,7 @@ public class MainWindow : Object {
     recent_files = new CommandBar.RecentFiles ();
     file_provider = new CommandBar.FileProvider (new_workspace_context, recent_files);
     file_provider.activate ();
+    command_registry.remove (no_folder_provider);
     command_registry.add (file_provider);
     command_providers = new Opus.Plugins.WorkspaceExtensions (typeof (CommandBar.IProvider), new_workspace_context);
     command_providers.added.connect ((e) => command_registry.add ((CommandBar.IProvider) e));
@@ -467,6 +475,7 @@ public class MainWindow : Object {
     if (file_provider != null) {
       command_registry.remove (file_provider);
       file_provider.deactivate ();
+      command_registry.add (no_folder_provider);
     }
     file_provider = null;
     recent_files = null;
@@ -632,6 +641,15 @@ public class MainWindow : Object {
     command_bar.accept ();
   }
 
+  public void close_command_bar () {
+    command_router.close ();
+  }
+
+  /** What the bar says in place of rows — "" while it isn't open. */
+  public string command_bar_empty_message () {
+    return command_router.is_open ? command_router.picker.empty_message : "";
+  }
+
   public string[] command_bar_item_ids () {
     string[] ids = {};
     if (!command_router.is_open) {
@@ -645,8 +663,33 @@ public class MainWindow : Object {
   }
 
   private void on_command_bar_opened (CommandBar.Picker picker) {
+    if (command_router.provider == symbol_provider) {
+      preview_symbols_of (picker);
+    }
     command_bar.bind (picker);
     picker.accepted.connect (on_command_bar_item_accepted);
+  }
+
+  /** The editor shows the symbol under the list's cursor for as long as `picker` lives; giving the list up puts the view back. */
+  private void preview_symbols_of (CommandBar.Picker picker) {
+    previewing_picker = picker;
+    picker.active_changed.connect (preview_active_symbol);
+    picker.items_changed.connect (preview_active_symbol);
+    picker.closed.connect (() => {
+      editor_pane.code_editor.end_line_preview (true);
+      previewing_picker = null;
+    });
+  }
+
+  private void preview_active_symbol () {
+    var picker = previewing_picker;
+    if (picker == null || picker.active_index < 0 || picker.active_index >= picker.items.length) {
+      editor_pane.code_editor.end_line_preview (true);
+      return;
+    }
+    int line, column;
+    CommandBar.SymbolProvider.decode (picker.items[picker.active_index].id, out line, out column);
+    editor_pane.code_editor.preview_line (line);
   }
 
   private void on_command_accepted (string command_id) {
@@ -685,6 +728,8 @@ public class MainWindow : Object {
       show_language_list ();
       return;
     }
+    // A symbol accepted is a preview followed: the view stays where the preview took it.
+    editor_pane.code_editor.end_line_preview (false);
     command_router.close ();
     if (provider == command_provider) {
       on_command_accepted (item.id);
@@ -695,7 +740,7 @@ public class MainWindow : Object {
       int line;
       CommandBar.FileProvider.split_line_suffix (filter, out line);
       open_from_command_bar (item.id, line);
-    } else if (provider == go_to_line_provider) {
+    } else if (provider == go_to_line_provider || provider == symbol_provider) {
       int line, column;
       CommandBar.GoToLineProvider.decode (item.id, out line, out column);
       editor_pane.go_to_line (line, column);
@@ -1160,9 +1205,7 @@ public class MainWindow : Object {
           // No gate: commands don't need a folder, and the first of
           // them is for a file that isn't anywhere yet.
           open_commands ();
-        } else if (has_linked_folder) {
-          // Same gate as Ctrl+Shift+F: no folder linked means nothing
-          // to search.
+        } else {
           open_command_bar ();
         }
         return true;

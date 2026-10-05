@@ -29,6 +29,21 @@ public class SystemTestCommandBar : Object {
         call ("CommandBarAccept");
     }
 
+    /** Escape: closes the bar, accepting nothing. */
+    public void close () throws Error {
+        call ("CommandBarClose");
+    }
+
+    /** What the bar says in place of rows — "" while it isn't open. */
+    public string empty_message () throws Error {
+        return call ("CommandBarEmptyMessage").get_child_value (0).get_string ();
+    }
+
+    /** The 1-based line the editor is showing for the row under the bar's cursor, 0 when none. */
+    public int previewed_line () throws Error {
+        return call ("GetPreviewedLine").get_child_value (0).get_int32 ();
+    }
+
     /** Every row currently shown, top to bottom, as the paths they'd open. */
     public string[] items () throws Error {
         var array_variant = call ("CommandBarListItems").get_child_value (0);

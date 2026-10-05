@@ -203,6 +203,17 @@ namespace EditorView.EditorPane {
       return true;
     }
 
+    /** The Command Bar's own `#` list — what the active document defines, and the line its caret is on. Null while no readable Document tab is active. */
+    public CommandBar.DocumentSymbols? active_symbols () {
+      int line, line_count;
+      if (!caret_position (out line, out line_count)) {
+        return null;
+      }
+      Syntax.Symbol[] symbols;
+      bool ready = code_editor.symbols (out symbols);
+      return new CommandBar.DocumentSymbols (symbols, code_editor.lists_symbols, ready, line);
+    }
+
     private static int count_newlines (string text, int end_byte) {
       int count = 0;
       for (int i = 0; i < end_byte; i++) {
