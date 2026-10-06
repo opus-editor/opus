@@ -1,3 +1,5 @@
+; Written for Opus
+
 [(comment) (single_line_comment)] @comment
 
 [
@@ -99,7 +101,7 @@
 
 (integer_value) @constant.numeric.integer
 (float_value) @constant.numeric.float
-(unit) @type
+(unit) @constant.numeric.unit
 
 "#" @punctuation.delimiter
 "," @punctuation.delimiter

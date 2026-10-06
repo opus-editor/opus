@@ -1,3 +1,5 @@
+; Written for Opus
+
 (comment) @comment
 
 [
@@ -63,8 +65,9 @@
   (to)
   (keyword_query)
   (keyframes_name)
-  (unit)
 ] @keyword
+
+(unit) @constant.numeric.unit
 
 ; @apply something;
 (at_rule
