@@ -258,6 +258,32 @@ private void test_selectable_lists_a_language_whose_grammar_was_never_compiled (
     assert_cmpuint (selectable.length, CompareOperator.EQ, 1);
 }
 
+private void test_a_language_is_painted_with_the_styles_a_theme_gives_it_alone () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(number) @constant.numeric");
+    var languages = languages_over (directory);
+    languages.set_style_keys ({ "constant.numeric", Syntax.CaptureStyles.language_key ("json", "constant") });
+    var document = new Syntax.SyntaxDocument (languages.detect ("/project/a.json"));
+    document.set_text ("[1]");
+
+    var spans = document.highlights (0, 0);
+
+    assert_cmpstr (spans[0].style, CompareOperator.EQ, Syntax.CaptureStyles.language_key ("json", "constant"));
+}
+
+private void test_the_styles_of_another_language_do_not_reach_this_one () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(number) @constant.numeric");
+    var languages = languages_over (directory);
+    languages.set_style_keys ({ "constant.numeric", Syntax.CaptureStyles.language_key ("css", "constant") });
+    var document = new Syntax.SyntaxDocument (languages.detect ("/project/a.json"));
+    document.set_text ("[1]");
+
+    var spans = document.highlights (0, 0);
+
+    assert_cmpstr (spans[0].style, CompareOperator.EQ, "constant.numeric");
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/languages/a_claimed_file_gets_its_language_loaded", test_a_claimed_file_gets_its_language_loaded);
@@ -278,5 +304,7 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/languages/selectable_lists_the_languages_a_file_can_be_by_title", test_selectable_lists_the_languages_a_file_can_be_by_title);
     Test.add_func ("/models/syntax/languages/selectable_leaves_out_what_only_lives_inside_other_languages", test_selectable_leaves_out_what_only_lives_inside_other_languages);
     Test.add_func ("/models/syntax/languages/selectable_lists_a_language_whose_grammar_was_never_compiled", test_selectable_lists_a_language_whose_grammar_was_never_compiled);
+    Test.add_func ("/models/syntax/languages/a_language_is_painted_with_the_styles_a_theme_gives_it_alone", test_a_language_is_painted_with_the_styles_a_theme_gives_it_alone);
+    Test.add_func ("/models/syntax/languages/the_styles_of_another_language_do_not_reach_this_one", test_the_styles_of_another_language_do_not_reach_this_one);
     Test.run ();
 }

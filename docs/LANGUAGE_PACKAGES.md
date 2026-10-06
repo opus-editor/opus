@@ -115,7 +115,61 @@ with the conventions of the Helix editor — most of Helix's
 The names after `@` are what the theme colors. They are dotted and can
 be as specific as you like: a theme that defines `keyword` but not
 `keyword.control.return` paints the latter as `keyword`. The names
-bundled themes define are listed in `themes/github-light.json`.
+bundled themes define are listed in `themes/github/theme-light.json`.
+
+A theme can name its colors once, under `palette`, and use the names
+wherever a color goes:
+
+```json
+{
+  "palette": {
+    "blue": "#005cc5"
+  },
+  "syntax": {
+    "constant": { "foreground": "blue" },
+    "type.builtin": { "foreground": "blue" }
+  }
+}
+```
+
+Anything starting with `#` is a color; anything else has to be a name
+in the palette, and one that isn't there is an error. A palette entry
+is always a color, never another name.
+
+Two names need no palette: `editor.foreground` is the editor's own
+text color and `editor.background` its background, whatever the
+desktop theme makes them. A style using them still counts as a style —
+a capture painted with it outranks any other capture on the same text,
+which matters where a query marks one thing twice, like a JSON key
+that is both a `string` and a `variable.other.member`:
+
+```json
+"variable.other.member": { "foreground": "editor.foreground" }
+```
+
+A theme can also style a name for one language only, under
+`languages`, keyed by the package's `name`:
+
+```json
+{
+  "syntax": {
+    "constant": { "foreground": "#005cc5" }
+  },
+  "languages": {
+    "css": {
+      "constant": { "foreground": "#d73a49" }
+    }
+  }
+}
+```
+
+What a theme says for a language outranks what it says in general,
+even under a shorter name: with the theme above, a CSS
+`constant.numeric` is painted as `languages.css.constant` whatever
+`syntax` defines. Embedded code is painted as its own language — the
+CSS inside an HTML `<style>` follows `css`. A language that borrows
+another's queries (`tsx` from `javascript`) only follows its own
+section.
 
 When several patterns capture the same text, the innermost one wins,
 and between two patterns on the very same node, the one written

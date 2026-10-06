@@ -230,7 +230,7 @@ namespace Syntax {
       var resolved = new string?[highlights.capture_count ()];
       for (uint32 id = 0; id < resolved.length; id++) {
         uint32 length;
-        resolved[id] = styles.resolve (highlights.capture_name_for_id (id, out length));
+        resolved[id] = styles.resolve (highlights.capture_name_for_id (id, out length), package.name);
       }
       highlight_styles = resolved;
     }

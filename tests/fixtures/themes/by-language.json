@@ -1,0 +1,15 @@
+{
+  "syntax": {
+    "constant": { "foreground": "#005cc5" },
+    "constant.numeric": { "foreground": "#22863a" },
+    "tag": { "foreground": "#d73a49" }
+  },
+  "languages": {
+    "json": {
+      "constant": { "foreground": "#d73a49" }
+    },
+    "css": {
+      "constant": { "foreground": "#6f42c1" }
+    }
+  }
+}

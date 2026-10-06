@@ -250,6 +250,23 @@ test(
   depends: opus_grammar_modules,
 )
 
+# The themes the system tests run with: fixed ones, under the names the
+# editor wears by default, so that recoloring a bundled theme never
+# changes which style a test finds on a token. The bundled themes are
+# only held to loading at all, by bundled-themes below.
+opus_test_themes_dir = meson.current_source_dir() / 'fixtures' / 'themes'
+
+bundled_themes_test = executable(
+  'bundled-themes-test',
+  ['themes/bundled-themes-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'bundled-themes',
+  bundled_themes_test,
+  env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes'],
+)
+
 theme_test = executable(
   'theme-test',
   ['models/theme-test.vala'],
@@ -874,7 +891,7 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
     'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
     'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
-    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
   timeout: 60,
@@ -894,7 +911,27 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
     'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
     'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
-    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+syntax_theme_languages_test = executable(
+  'syntax-theme-languages-test',
+  ['system/syntax/theme-languages-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'syntax-theme-languages',
+  syntax_theme_languages_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
   timeout: 60,
@@ -914,7 +951,7 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
     'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
     'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
-    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
   timeout: 60,
@@ -934,7 +971,7 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
     'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
     'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
-    'OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes',
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
   timeout: 60,

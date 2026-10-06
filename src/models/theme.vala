@@ -20,13 +20,33 @@ public class ThemeStyle : Object {
  * theme's `keyword` when it defines nothing closer (see
  * Syntax.CaptureStyles).
  *
+ * Under `palette`, names for colors: wherever a style takes a color,
+ * it may name one of these instead of spelling it out. A name is told
+ * from a color by not starting with `#`. Two names need no palette:
+ * `editor.foreground` and `editor.background` stand for the editor's
+ * own text and background colors, whatever those are — a style using
+ * them exists (so its capture counts) and leaves that side alone.
+ *
+ * Under `languages`, the same again per language package: styles that
+ * hold in that language only. Each is kept under the key
+ * Syntax.CaptureStyles.language_key() gives it, next to the general
+ * ones, so whatever paints by key needs to know nothing about them.
+ *
  * Bundled themes and the user's own are the same file in two
- * directories; a theme is known by its file name.
+ * directories; a theme is known by its path inside one, without the
+ * `.json` — `github/theme-light` for the light one of the `github`
+ * folder.
  */
 public class Theme : Object {
+  private const string COLOR_PREFIX = "#";
+  private const string EDITOR_FOREGROUND = "editor.foreground";
+  private const string EDITOR_BACKGROUND = "editor.background";
+
   public string name { get; private set; }
 
   private HashTable<string, ThemeStyle> styles = new HashTable<string, ThemeStyle> (str_hash, str_equal);
+  // Only while the file is being read: styles end up holding the colors themselves.
+  private HashTable<string, string> palette = new HashTable<string, string> (str_hash, str_equal);
   private static Regex? color_regex;
 
   private Theme (string name) {
@@ -60,16 +80,19 @@ public class Theme : Object {
   public static Theme parse (string name, string json) throws ThemeError {
     var root = parse_root (json);
     var theme = new Theme (name);
+    theme.read_palette (object_member (root, "palette"));
     theme.read_syntax (object_member (root, "syntax"));
+    theme.read_languages (object_member (root, "languages"));
+    theme.palette.remove_all ();
     return theme;
   }
 
-  /** Null for a key the theme doesn't define. */
+  /** Null for a key the theme doesn't define. A style of one language is under its Syntax.CaptureStyles.language_key(). */
   public ThemeStyle? style (string key) {
     return styles[key];
   }
 
-  /** Every syntax key the theme defines — what capture names get resolved against. */
+  /** Every syntax key the theme defines, the ones of a single language included — what capture names get resolved against. */
   public string[] style_keys () {
     string[] keys = {};
     foreach (unowned string key in styles.get_keys ()) {
@@ -104,6 +127,22 @@ public class Theme : Object {
     return node.get_object ();
   }
 
+  private void read_palette (Json.Object? named) throws ThemeError {
+    if (named == null) {
+      return;
+    }
+    foreach (unowned string name in named.get_members ()) {
+      if (name == "" || name.has_prefix (COLOR_PREFIX)) {
+        throw new ThemeError.INVALID ("palette: \"%s\" can't be a color's name", name);
+      }
+      var node = named.get_member (name);
+      if (node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (string) || !is_color (node.get_string ())) {
+        throw new ThemeError.INVALID ("palette.%s must be a color written #rrggbb or #rrggbbaa", name);
+      }
+      palette[name] = node.get_string ();
+    }
+  }
+
   private void read_syntax (Json.Object? syntax) throws ThemeError {
     if (syntax == null) {
       return;
@@ -117,13 +156,40 @@ public class Theme : Object {
     }
   }
 
-  private static ThemeStyle style_of (Json.Object object, string where) throws ThemeError {
+  // A language the theme names needn't exist: its package may be one this machine doesn't have.
+  private void read_languages (Json.Object? languages) throws ThemeError {
+    if (languages == null) {
+      return;
+    }
+    foreach (unowned string language in languages.get_members ()) {
+      if (!Syntax.CaptureStyles.can_have_styles (language)) {
+        throw new ThemeError.INVALID ("languages: \"%s\" can't be a language's name", language);
+      }
+      var node = languages.get_member (language);
+      if (node.get_node_type () != Json.NodeType.OBJECT) {
+        throw new ThemeError.INVALID ("languages.%s must be an object", language);
+      }
+      read_language (language, node.get_object ());
+    }
+  }
+
+  private void read_language (string language, Json.Object own) throws ThemeError {
+    foreach (unowned string key in own.get_members ()) {
+      var node = own.get_member (key);
+      if (node.get_node_type () != Json.NodeType.OBJECT) {
+        throw new ThemeError.INVALID ("languages.%s.%s must be an object", language, key);
+      }
+      styles[Syntax.CaptureStyles.language_key (language, key)] = style_of (node.get_object (), "languages.%s.%s".printf (language, key));
+    }
+  }
+
+  private ThemeStyle style_of (Json.Object object, string where) throws ThemeError {
     var style = new ThemeStyle ();
     if (object.has_member ("foreground")) {
-      style.foreground = color_of (object, "foreground", where + ".foreground");
+      style.foreground = color_of (object, "foreground", EDITOR_FOREGROUND, where + ".foreground");
     }
     if (object.has_member ("background")) {
-      style.background = color_of (object, "background", where + ".background");
+      style.background = color_of (object, "background", EDITOR_BACKGROUND, where + ".background");
     }
     style.bold = flag_of (object, "bold", where);
     style.italic = flag_of (object, "italic", where);
@@ -132,12 +198,29 @@ public class Theme : Object {
     return style;
   }
 
-  private static string color_of (Json.Object object, string key, string where) throws ThemeError {
+  /** Null for `editors_own`, the editor's color for this side — unless the palette gives that name a color of its own. */
+  private string? color_of (Json.Object object, string key, string editors_own, string where) throws ThemeError {
     var node = object.get_member (key);
-    if (node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (string) || !is_color (node.get_string ())) {
-      throw new ThemeError.INVALID ("%s must be a color written #rrggbb or #rrggbbaa", where);
+    if (node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (string)) {
+      throw new ThemeError.INVALID ("%s must be a color written #rrggbb or #rrggbbaa, or the name of one in the palette", where);
     }
-    return node.get_string ();
+    var written = node.get_string ();
+    if (written.has_prefix (COLOR_PREFIX)) {
+      if (!is_color (written)) {
+        throw new ThemeError.INVALID ("%s must be a color written #rrggbb or #rrggbbaa", where);
+      }
+      return written;
+    }
+    if (palette.contains (written)) {
+      return palette[written];
+    }
+    if (written == editors_own) {
+      return null;
+    }
+    if (written == EDITOR_FOREGROUND || written == EDITOR_BACKGROUND) {
+      throw new ThemeError.INVALID ("%s: \"%s\" is the editor's own %s, which can't be a %s", where, written, written == EDITOR_FOREGROUND ? "text color" : "background", key);
+    }
+    throw new ThemeError.INVALID ("%s: the palette has no color named \"%s\"", where, written);
   }
 
   private static bool flag_of (Json.Object object, string key, string where) throws ThemeError {
