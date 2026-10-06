@@ -18,6 +18,7 @@ native with GTK4 and Libadwaita, in Vala.
 ## Features
 
 - Syntax highlighting
+- Auto indent
 - Multiple cursors
 - `.editorconfig` support
 - Find and Replace, in the file or across the folder
