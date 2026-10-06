@@ -17,8 +17,10 @@ public class CodeEditorClipboard : Object {
 
   // Ties a same-session Paste's per-cursor pieces to whether the
   // clipboard's content still matches what was last copied from here.
-  private string? last_clipboard_text = null;
-  private string[]? last_clipboard_pieces = null;
+  // Static: the clipboard is one, and a copy in one tab's editor is
+  // pasted in another's.
+  private static string? last_clipboard_text = null;
+  private static string[]? last_clipboard_pieces = null;
 
   public CodeEditorClipboard (CodeEditorSourceView text_view, CodeEditorCursors cursors) {
     this.text_view = text_view;
@@ -53,7 +55,7 @@ public class CodeEditorClipboard : Object {
     return true;
   }
 
-  /** `target` is whichever cursor set was bound when Paste was pressed — a tab switch during the async clipboard read rebinds, and the paste must then land nowhere rather than in the newly-shown tab. */
+  /** `target` is whichever cursor set was bound when Paste was pressed — if a rebind happens during the async clipboard read, the paste must land nowhere rather than in a cursor set it wasn't meant for. */
   private async void paste_async (CursorCollection target) {
     string? text = null;
     try {

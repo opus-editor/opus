@@ -28,8 +28,15 @@ public class CodeEditorLinePreview : Object {
     text_view.buffer.tag_table.add (tag);
 
     var style_manager = Adw.StyleManager.get_default ();
-    style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
+    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
     apply_theme_colors (style_manager.dark);
+  }
+
+  private ulong dark_handler;
+
+  /** See CodeEditor.close(). */
+  public void close () {
+    Adw.StyleManager.get_default ().disconnect (dark_handler);
   }
 
   private void apply_theme_colors (bool dark) {

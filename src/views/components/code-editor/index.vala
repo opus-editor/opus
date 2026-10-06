@@ -123,9 +123,15 @@ public class CodeEditor : Object {
   /** Re-emitted from the input sub-component — a Ctrl+click or a plain double-click released on the line it was pressed on, on any view (see CodeEditorInput's own on_pressed() comment). This component knows nothing about what that should *do*; that's entirely up to whoever's listening (Find Results' own filename/line hyperlinks). */
   public signal void link_click (int offset);
 
-  public CodeEditor (UserSettings settings) {
+  // The handlers on things that outlive this editor, for close() to undo.
+  private ulong settings_handler;
+  private ulong languages_handler;
+  private ulong theme_handler;
+
+  /** `search_settings`, when given, is shared with other editors: one Find query for every tab of a pane. */
+  public CodeEditor (UserSettings settings, GtkSource.SearchSettings? search_settings = null) {
     this.settings = settings;
-    settings.changed.connect (apply_settings);
+    settings_handler = settings.changed.connect (apply_settings);
     text_view = new CodeEditorSourceView () {
       monospace = true,
       top_margin = 8,
@@ -150,7 +156,7 @@ public class CodeEditor : Object {
     input = new CodeEditorInput (text_view, cursors, clipboard);
     input.link_click.connect ((offset) => link_click (offset));
 
-    search = new CodeEditorSearch (text_view);
+    search = new CodeEditorSearch (text_view, search_settings);
     search.search_position_changed.connect ((position, count) => search_position_changed (position, count));
 
     change_gutter = new CodeEditorChangeGutter ();
@@ -158,7 +164,7 @@ public class CodeEditor : Object {
 
     syntax_highlighter = new CodeEditorSyntaxHighlighter (text_view, scrolled_window.vadjustment);
     line_preview = new CodeEditorLinePreview (text_view, scrolled_window.vadjustment);
-    Syntax.Languages.instance.changed.connect (apply_language);
+    languages_handler = Syntax.Languages.instance.changed.connect (apply_language);
     // The two don't know each other: this is what owns both.
     cursors.set_indentation (
       (offset) => syntax_highlighter.new_line_indent_change (offset),
@@ -171,8 +177,34 @@ public class CodeEditor : Object {
     // GtkSource.Buffer paints with a StyleScheme's own fixed colors
     // instead of following the app's GTK theme, so it stays put through
     // a light/dark switch unless told otherwise.
-    EditorTheme.instance.changed.connect (apply_style_scheme);
+    theme_handler = EditorTheme.instance.changed.connect (apply_style_scheme);
     apply_style_scheme ();
+  }
+
+  /**
+   * Takes this editor out of the app for good: off every singleton it
+   * listens to, every pending idle and timer gone. An editor lives as
+   * long as its tab; without this, a closed tab would keep repainting
+   * on every theme or settings change, unseen.
+   */
+  public void close () {
+    settings.disconnect (settings_handler);
+    Syntax.Languages.instance.disconnect (languages_handler);
+    EditorTheme.instance.disconnect (theme_handler);
+    if (pending_scroll_id != 0) {
+      Source.remove (pending_scroll_id);
+      pending_scroll_id = 0;
+    }
+    if (pending_reveal_id != 0) {
+      Source.remove (pending_reveal_id);
+      pending_reveal_id = 0;
+    }
+    cursors.close ();
+    search.close ();
+    syntax_highlighter.close ();
+    line_preview.close ();
+    change_gutter.close ();
+    text_view.close ();
   }
 
   /** Rules themselves live in styles/code-editor.css, not here — see GlobalCss.install_from_resource()'s own doc comment for why. */
@@ -199,6 +231,7 @@ public class CodeEditor : Object {
 
   /** Static for the same reason zoom_level is: the provider it holds is display-wide, so with several CodeEditors alive at once (the file editor plus Find Results) the previous one has to be uninstalled no matter which instance reloads. */
   private static Gtk.CssProvider? font_provider = null;
+  private static string? installed_font_css = null;
 
   /** Ctrl+Plus — same "+1" semantics as font_css()'s own `settings.font_size`, not VS Code's real 10%-per-level multiplier (checked fontInfo.ts): this app's own editor.font_size is already a plain point size, so a flat step matches it more directly than a percentage would. */
   public void zoom_in () {
@@ -242,10 +275,15 @@ public class CodeEditor : Object {
    * back to a mid-word break only when a single word can't fit at all.
    */
   private void apply_settings () {
-    if (font_provider != null) {
-      GlobalCss.uninstall (font_provider);
+    var css = font_css ();
+    // Every live editor runs this on the same change; the display-wide provider only needs one of them to.
+    if (css != installed_font_css) {
+      if (font_provider != null) {
+        GlobalCss.uninstall (font_provider);
+      }
+      font_provider = GlobalCss.install_from_string (css);
+      installed_font_css = css;
     }
-    font_provider = GlobalCss.install_from_string (font_css ());
     text_view.wrap_mode = settings.word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
   }
 
@@ -351,7 +389,7 @@ public class CodeEditor : Object {
     return input.key_pressed (keyval, (Gdk.ModifierType) modifier_state);
   }
 
-  /** The cursor set and undo stack this editor works on from now on — EditorView.EditorPane.TabDocument hands over each tab's own pair (Document.cursors/history) on a tab switch; a consumer with nothing per-tab to keep (Find Results) never calls this and stays on the pair the constructor made. */
+  /** The cursor set and undo stack this editor works on from now on — EditorView.EditorPane.TabDocument hands over its Document's own pair (Document.cursors/history) once, when it builds its editor; a consumer with nothing to keep (Find Results) never calls this and stays on the pair the constructor made. */
   public void bind (CursorCollection cursor_collection, EditHistory history) {
     cursors.bind (cursor_collection, history);
   }
@@ -441,6 +479,7 @@ public class CodeEditor : Object {
       for (int pass = 0; pass < SCROLL_SETTLE_PASSES; pass++) {
         int y, height;
         text_view.get_line_yrange (iter, out y, out height);
+        // get_line_yrange() leaves the top margin out; the visible rect doesn't.
         double wanted = y + text_view.top_margin;
         double target = wanted.clamp (vadjustment.lower, double.max (vadjustment.lower, vadjustment.upper - vadjustment.page_size));
         if (vadjustment.value == target) {
@@ -487,6 +526,11 @@ public class CodeEditor : Object {
   /** The 1-based line under preview, 0 when none is — for Opus.Dev.DevServer. */
   public int previewed_line {
     get { return line_preview.line; }
+  }
+
+  /** Re-announces search_position_changed as things stand — see CodeEditorSearch.announce_position(). */
+  public void announce_search_position () {
+    search.announce_position ();
   }
 
   /** Applies a Replace/Replace All result — not produced by any live cursor, so it goes through the cursors sub-component's own external-edit path rather than a cursor command. */

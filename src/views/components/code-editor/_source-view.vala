@@ -99,6 +99,8 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
       if (has_focus) {
         reset_blink (); // solid immediately, not mid-blink from whenever focus happened to return
       } else {
+        // The caret isn't painted without focus: no point ticking for it.
+        stop_blinking ();
         queue_draw ();
       }
     });
@@ -106,7 +108,26 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     // The block-vs-bar shape depends on this session-wide flag —
     // reset_blink() both redraws and makes the caret solid right on
     // toggle, instead of possibly landing mid-blink-off.
-    Session.get_default ().notify["insert-mode"].connect (() => reset_blink ());
+    insert_mode_handler = Session.get_default ().notify["insert-mode"].connect (() => reset_blink ());
+  }
+
+  private ulong insert_mode_handler;
+
+  /** See CodeEditor.close(). */
+  public void close () {
+    Session.get_default ().disconnect (insert_mode_handler);
+    stop_blinking ();
+    if (overscroll_idle_id != 0) {
+      Source.remove (overscroll_idle_id);
+      overscroll_idle_id = 0;
+    }
+    selections.close ();
+  }
+
+  /** A view in a hidden tab has nothing to blink for. */
+  public override void unmap () {
+    stop_blinking ();
+    base.unmap ();
   }
 
   /** The codepoint offsets to paint a caret at on the next draw — one per cursor, primary included. Call whenever the cursor set changes, then `reset_blink()`. */

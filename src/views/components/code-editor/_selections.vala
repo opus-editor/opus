@@ -66,8 +66,15 @@ public class CodeEditorSelections : Object {
     // the app's theme for the one color it paints with, no separate
     // "theme" object reaching in from outside.
     var style_manager = Adw.StyleManager.get_default ();
-    style_manager.notify["dark"].connect (() => apply_theme_colors ());
+    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors ());
     apply_theme_colors ();
+  }
+
+  private ulong dark_handler;
+
+  /** See CodeEditor.close(). */
+  public void close () {
+    Adw.StyleManager.get_default ().disconnect (dark_handler);
   }
 
   /** The live cursor set, straight from `CodeEditorCursors.render_cursors()` — empty (`is_empty`) ones included, skipped here rather than pre-filtered by the caller. Call whenever the cursor set changes. */

@@ -55,7 +55,10 @@ public class CodeEditorSearch : Object {
   /** The live Find search's current match moved. `position` is 1-based, `count` the total live occurrence count; both 0 once nothing matches. */
   public signal void search_position_changed (int position, int count);
 
-  public CodeEditorSearch (CodeEditorSourceView text_view) {
+  private ulong dark_handler;
+
+  /** `shared_settings`, when given, is the query this search follows along with others — the pane's one Find for every tab. */
+  public CodeEditorSearch (CodeEditorSourceView text_view, GtkSource.SearchSettings? shared_settings = null) {
     this.text_view = text_view;
 
     // GtkSourceSearchContext's own real doc comment is explicit: "the
@@ -63,7 +66,7 @@ public class CodeEditorSearch : Object {
     // for every occurrence, no second color for the current one. Its own
     // highlighting is left off entirely (set_highlight (false)) and both
     // colors are painted by hand instead, through two tags of our own.
-    search_settings = new GtkSource.SearchSettings ();
+    search_settings = shared_settings ?? new GtkSource.SearchSettings ();
     search_settings.set_wrap_around (true);
     search_context = new GtkSource.SearchContext (source_buffer, search_settings);
     search_context.set_highlight (false);
@@ -84,8 +87,37 @@ public class CodeEditorSearch : Object {
     // the app's theme for its own two tags' colors, no separate "theme"
     // object reaching in from outside.
     var style_manager = Adw.StyleManager.get_default ();
-    style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
+    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
     apply_theme_colors (style_manager.dark);
+  }
+
+  /** See CodeEditor.close(). */
+  public void close () {
+    Adw.StyleManager.get_default ().disconnect (dark_handler);
+  }
+
+  /**
+   * Says where this search stands, without moving anything — for an
+   * editor that just came back on screen: the shared query may have
+   * changed while it was hidden, and whoever shows "N of M" only ever
+   * hears from the editor in front. A count still being scanned reads as
+   * 0 until the scan's own notify announces it.
+   */
+  public void announce_position () {
+    int count = int.max (0, search_context.get_occurrences_count ());
+    if (search_settings.get_search_text () == null) {
+      search_position_changed (0, 0);
+      return;
+    }
+    Gtk.TextIter start;
+    Gtk.TextIter end;
+    // A current match from before the query changed is no match now; get_occurrence_position says so with 0, or -1 mid-scan.
+    int position = get_current_match (out start, out end) ? search_context.get_occurrence_position (start, end) : 0;
+    if (position <= 0) {
+      clear_current_match ();
+      position = 0;
+    }
+    search_position_changed (position, count);
   }
 
   /**

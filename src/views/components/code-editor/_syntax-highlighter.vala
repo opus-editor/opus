@@ -58,6 +58,15 @@ public class CodeEditorSyntaxHighlighter : Object {
     vadjustment.changed.connect (schedule_refresh);
   }
 
+  /** See CodeEditor.close(). */
+  public void close () {
+    tags.close ();
+    if (refresh_id != 0) {
+      Source.remove (refresh_id);
+      refresh_id = 0;
+    }
+  }
+
   /** What the buffer's text is written in — null for none, which leaves it unpainted. Takes effect on the text the buffer holds once this main-loop turn is over, so it can be called right before loading a new one. */
   public void set_language (Syntax.LoadedLanguage? language) {
     document = language == null ? null : new Syntax.SyntaxDocument (language, Syntax.Languages.instance);

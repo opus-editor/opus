@@ -51,7 +51,14 @@ public class CodeEditorChangeGutter : GtkSource.GutterRenderer {
     // (white) — confirmed live. begin () is only ever called once
     // this renderer is actually attached and being asked to paint, so
     // colors are (re)resolved there instead, on every redraw pass.
-    Adw.StyleManager.get_default ().notify["dark"].connect (() => queue_draw ());
+    dark_handler = Adw.StyleManager.get_default ().notify["dark"].connect (() => queue_draw ());
+  }
+
+  private ulong dark_handler;
+
+  /** See CodeEditor.close(). */
+  public void close () {
+    Adw.StyleManager.get_default ().disconnect (dark_handler);
   }
 
   public override void begin (GtkSource.GutterLines lines) {

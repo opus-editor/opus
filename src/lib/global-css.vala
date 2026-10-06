@@ -33,7 +33,16 @@ namespace GlobalCss {
    * rules stay out of the .vala "ViewModel" the same way layout already
    * does.
    */
+  // Installed once per resource, however many instances of a View ask: a provider is display-wide.
+  private GenericSet<string>? installed_resources = null;
+
   public void install_from_resource (string resource_path) {
+    if (installed_resources == null) {
+      installed_resources = new GenericSet<string> (str_hash, str_equal);
+    }
+    if (!installed_resources.add (resource_path)) {
+      return;
+    }
     var provider = new Gtk.CssProvider ();
     provider.load_from_resource (resource_path);
     add_provider_for_display_raw (Gdk.Display.get_default (), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);

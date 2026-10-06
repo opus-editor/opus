@@ -12,13 +12,20 @@ public class SyntaxTags : Object {
   /** Every tag handed out before is gone from the buffer, and what it painted with it. */
   public signal void restyled ();
 
+  private ulong theme_handler;
+
   public SyntaxTags (Gtk.TextBuffer buffer) {
     this.buffer = buffer;
-    EditorTheme.instance.changed.connect (() => {
+    theme_handler = EditorTheme.instance.changed.connect (() => {
       rebuild ();
       restyled ();
     });
     rebuild ();
+  }
+
+  /** Stops following the theme — for a buffer on its way out. */
+  public void close () {
+    EditorTheme.instance.disconnect (theme_handler);
   }
 
   /** Null for a style the current theme doesn't define. */

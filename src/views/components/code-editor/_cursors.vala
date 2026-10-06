@@ -67,6 +67,14 @@ public class CodeEditorCursors : Object {
   /** reveal_cursors()'s deferred follow-up pass, already queued and not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
 
+  /** See CodeEditor.close(). */
+  public void close () {
+    if (pending_reveal_id != 0) {
+      Source.remove (pending_reveal_id);
+      pending_reveal_id = 0;
+    }
+  }
+
   /** The buffer's full content just changed via apply_edits() — bubbles up through CodeEditor so whoever owns the document can mark it dirty. */
   public signal void text_changed (string new_text);
 
@@ -91,7 +99,7 @@ public class CodeEditorCursors : Object {
     source_buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
   }
 
-  /** Swaps in the cursor set and undo stack this editor works on — EditorView.EditorPane.TabDocument calls this per tab switch with the Document's own pair, so each tab keeps its cursors and history across switches. Renders `cursors` right away. Cancels any still-pending reveal_cursors(): a tab switched away from before its idle fired must never scroll the *new* buffer to the *old* cursor. */
+  /** Swaps in the cursor set and undo stack this editor works on — EditorView.EditorPane.TabDocument hands over its Document's own pair once, when it builds its editor. Renders `cursors` right away. Cancels any still-pending reveal_cursors(), which would otherwise scroll the buffer to a cursor of the pair just replaced. */
   public void bind (CursorCollection cursors, EditHistory history) {
     cancel_pending_reveal ();
     this.cursors = cursors;
@@ -628,9 +636,8 @@ public class CodeEditorCursors : Object {
    * (apply_cursor_command()/execute_edit()/apply_history_step()), the
    * exact three sites VS Code's own `_executeEdit`/`_runCursorMove`
    * reveal from (cursor.ts/coreCommands.ts). Never from render() itself:
-   * that's also reached by bind() (a tab switch, which deliberately does
-   * not reveal — restoring per-tab scroll position is a separate,
-   * unrelated improvement, not in scope here) and by
+   * that's also reached by bind() (binding a document, which deliberately
+   * does not reveal — the tab's own scroll is restored separately) and by
    * resync_from_native() (a native GTK action — double-click, Ctrl+A,
    * drag-select — already scrolled for itself before this would run; see
    * CodeEditorSourceView's own doc comment for exactly which bindings
