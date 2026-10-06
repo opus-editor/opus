@@ -173,3 +173,15 @@ window.dark {
 window:not(.dark) {
   --dim-ignored: 0.633;
 }
+
+/* The editor's plain text — whatever no syntax style paints. Set here
+ * rather than left to the GtkSourceView scheme, whose own text color
+ * this outranks. On the view itself: a color on its `text` node is
+ * ignored. Split by the window's class for the same reason as
+ * --dim-ignored above. */
+window:not(.dark) textview.code-editor {
+  color: #212121;
+}
+window.dark textview.code-editor {
+  color: #e2e2e2;
+}
