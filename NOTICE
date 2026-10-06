@@ -61,7 +61,7 @@ https://www.mozilla.org/en-US/MPL/2.0/
 GitHub VS Code theme — https://github.com/primer/github-vscode-theme
 MIT License. Copyright (c) 2020 Primer.
 
-The colors of themes/github-light.json and themes/github-dark.json are
+The colors of themes/github/theme-light.json and themes/github/theme-dark.json are
 its "GitHub Light" and "GitHub Dark" themes, converted by
 tools/port-vscode-theme.py. Under the same permission notice reproduced
 above for Visual Studio Code.

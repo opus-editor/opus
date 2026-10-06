@@ -17,8 +17,8 @@ public class UserSettings : Object {
   // installed at all — a headless/minimal system, not a real desktop.
   private const int FALLBACK_FONT_SIZE = 11;
 
-  public const string DEFAULT_THEME_LIGHT = "github-light";
-  public const string DEFAULT_THEME_DARK = "github-dark";
+  public const string DEFAULT_THEME_LIGHT = "github/theme-light";
+  public const string DEFAULT_THEME_DARK = "github/theme-dark";
 
   private Json.Object root;
 
@@ -92,7 +92,7 @@ public class UserSettings : Object {
     }
   }
 
-  /** The theme the editor wears while the app is light — a file name under a `themes` directory, without its `.json`. */
+  /** The theme the editor wears while the app is light — a file under a `themes` directory, as its path from there without the `.json` (`github/theme-light`). */
   public string theme_light {
     owned get { return read_string ("editor.theme_light") ?? DEFAULT_THEME_LIGHT; }
   }

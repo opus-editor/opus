@@ -71,8 +71,8 @@ private void test_the_themes_default_to_the_bundled_github_pair () {
 
     var settings = new UserSettings (config_dir);
 
-    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github-light");
-    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "github-dark");
+    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github/theme-light");
+    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "github/theme-dark");
 
     remove_temp_config_dir (config_dir);
 }
@@ -95,7 +95,7 @@ private void test_a_theme_of_the_wrong_type_falls_back_to_the_default () {
 
     var settings = new UserSettings (config_dir);
 
-    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github-light");
+    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github/theme-light");
 
     remove_temp_config_dir (config_dir);
 }
