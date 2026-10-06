@@ -17,7 +17,7 @@
     "attribute": { "foreground": "purple" },
     "comment": { "foreground": "gray" },
     "constant": { "foreground": "blue" },
-    "constant.builtin.boolean": { "foreground": "orange" },
+    "constant.builtin": { "foreground": "orange" },
     "constant.numeric": { "foreground": "orange" },
     "constructor": { "foreground": "purple" },
     "diff.delta": { "foreground": "orange", "background": "orange-wash" },
@@ -57,11 +57,17 @@
     "markdown": {
       "label": { "foreground": "blue-dark" }
     },
+    "json": {
+      "variable.other.member": { "foreground": "purple" }
+    },
     "toml": {
       "punctuation.bracket": { "foreground": "purple" }
     },
     "ruby": {
       "string.special.symbol": { "foreground": "orange" }
+    },
+    "bash": {
+      "string": { "foreground": "editor.foreground" }
     }
   }
 }

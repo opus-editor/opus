@@ -183,5 +183,5 @@ window:not(.dark) textview.code-editor {
   color: #212121;
 }
 window.dark textview.code-editor {
-  color: #e2e2e2;
+  color: #cccccc;
 }
