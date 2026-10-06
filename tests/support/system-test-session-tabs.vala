@@ -11,6 +11,11 @@ public class SystemTestTabs : Object {
     }
 
     /** Opens `path` as a permanent tab — same as "Open File…" or a sidebar double-click. */
+    /** Ctrl+Shift+T. */
+    public void reopen_closed_tab () throws Error {
+        call ("ReopenClosedTab");
+    }
+
     public void open_tab (string path) throws Error {
         call ("OpenTab", new Variant ("(s)", path));
     }

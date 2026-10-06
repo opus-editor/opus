@@ -91,6 +91,7 @@ public class MainWindow : Object {
   private CommandBar.GoToLineProvider go_to_line_provider;
   private CommandBar.SymbolProvider symbol_provider;
   private CommandBar.NoFolderProvider no_folder_provider = new CommandBar.NoFolderProvider ();
+  private ClosedTabs closed_tabs = new ClosedTabs ();
   // The picker whose active row is being previewed in the editor — the `#` list's, while it is on duty.
   private CommandBar.Picker? previewing_picker = null;
   private CommandBar.CommandProvider command_provider;
@@ -189,6 +190,7 @@ public class MainWindow : Object {
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
     editor_pane.tab_opened.connect (on_settings_tab_opened);
     editor_pane.tab_closed.connect (on_settings_tab_closed);
+    editor_pane.file_tab_closed.connect (closed_tabs.record);
     // active_document_path, not the signal's own `path`: that one is the
     // tab's URI, and only a real on-disk file belongs in recent files.
     editor_pane.active_state_changed.connect (() => {
@@ -604,6 +606,30 @@ public class MainWindow : Object {
     });
   }
 
+  /**
+   * Ctrl+Shift+T — the latest closed file tab comes back, cursor where
+   * it was, as a browser's would. One already open again, or gone from
+   * disk, is passed over for the one closed before it. Public for
+   * Opus.Dev.DevServer's own ReopenClosedTab.
+   */
+  public void reopen_closed_tab () {
+    ClosedTab? tab;
+    while ((tab = closed_tabs.take ()) != null) {
+      if (editor_pane.has_tab_for (tab.path) || !FileUtils.test (tab.path, FileTest.IS_REGULAR)) {
+        continue;
+      }
+      try {
+        editor_pane.open (tab.path, true);
+      } catch (Error e) {
+        show_error (_("Couldn’t open “%s”: %s").printf (tab.path, e.message));
+        return;
+      }
+      editor_pane.go_to_line (tab.line, tab.column);
+      editor_pane.code_editor.grab_focus ();
+      return;
+    }
+  }
+
   /** Ctrl+P — or, while the bar is already open, "next result" (VS Code's own Ctrl+P-again). Public for Opus.Dev.DevServer's own OpenCommandBar, same as the ones below. */
   public void open_command_bar () {
     if (command_router.is_open) {
@@ -787,6 +813,7 @@ public class MainWindow : Object {
     pane.delete_entry (path);
     editor_pane.discard_tab (path);
     recent_files?.remove (path);
+    closed_tabs.forget (path);
   }
 
   /** "Reveal in Sidebar" — a pure View<->View navigation, no Model involved. A no-op with no folder linked (explorer_pane null). */
@@ -1181,6 +1208,11 @@ public class MainWindow : Object {
           editor_pane.save_as_active.begin ();
         } else {
           editor_pane.save_active.begin ();
+        }
+        return true;
+      case Gdk.Key.t:
+        if (shift) {
+          reopen_closed_tab ();
         }
         return true;
       case Gdk.Key.n:

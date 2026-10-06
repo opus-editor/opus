@@ -107,6 +107,9 @@ namespace Opus.Dev {
     /** Find in Files for `text` across the linked folder, with FindInFilesBar's own toggles all off — opens (or refreshes) the "Find Results" tab, same as its Return key. The search itself is async; the tab appears once it finishes. */
     public abstract void find_in_files (string text) throws DBusError, IOError;
 
+    /** Ctrl+Shift+T — reopens the latest closed file tab, cursor where it was. */
+    public abstract void reopen_closed_tab () throws DBusError, IOError;
+
     /** Ctrl+P — opens the Command Bar, folder linked or not. */
     public abstract void open_command_bar () throws DBusError, IOError;
 

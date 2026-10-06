@@ -190,6 +190,10 @@ namespace Opus.Dev {
       current_editor_pane ().search_in_files.begin (query);
     }
 
+    public void reopen_closed_tab () throws DBusError, IOError {
+      current_window ().reopen_closed_tab ();
+    }
+
     public void open_command_bar () throws DBusError, IOError {
       current_window ().open_command_bar ();
     }

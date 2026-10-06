@@ -172,6 +172,13 @@ test(
   depends: opus_grammar_modules,
 )
 
+closed_tabs_test = executable(
+  'closed-tabs-test',
+  ['models/closed-tabs-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('closed-tabs', closed_tabs_test)
+
 syntax_syntax_document_test = executable(
   'syntax-syntax-document-test',
   ['models/syntax/syntax-document-test.vala'],
@@ -625,6 +632,22 @@ test(
     # io.github.opus_editor.Opus's own schema — see data/meson.build's own
     # gnome.compile_schemas() (what actually produces gschemas.compiled
     # here) and the justfile's identical env var for `just run`.
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 60,
+  is_parallel: false,
+)
+
+reopen_closed_tab_test = executable(
+  'reopen-closed-tab-test',
+  ['system/tabs/reopen-closed-tab-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'reopen-closed-tab',
+  reopen_closed_tab_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
   timeout: 60,

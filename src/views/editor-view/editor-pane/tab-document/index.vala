@@ -679,6 +679,9 @@ namespace EditorView.EditorPane {
       }
     }
 
+    /** A tab with a file behind it closed, and where its cursor was — what Ctrl+Shift+T brings back. `line` is 1-based, `column` 0-based, as open_at() takes them. */
+    public signal void file_tab_closed (string path, int line, int column);
+
     private void finish_close (string uri) {
       var document = documents[uri];
       if (document == null) {
@@ -689,6 +692,19 @@ namespace EditorView.EditorPane {
       }
       documents.remove (uri);
       tab_removed (uri);
+      if (document.pathname != null) {
+        int line, column;
+        primary_cursor_position (document, out line, out column);
+        file_tab_closed (document.pathname, line, column);
+      }
+    }
+
+    /** The primary cursor's 1-based line and 0-based column, counted in characters. */
+    private static void primary_cursor_position (Document document, out int line, out int column) {
+      int caret = document.content.index_of_nth_char (document.cursors.primary.position_offset);
+      line = 1 + count_newlines (document.content, caret);
+      int line_start = document.content.substring (0, caret).last_index_of_char ('\n') + 1;
+      column = document.content.substring (line_start, caret - line_start).char_count ();
     }
 
     /**

@@ -79,6 +79,8 @@ namespace EditorView {
 
     /** A tab for `path` just stopped existing (closed, discarded, or evicted as an old preview) — see tab_opened()'s own doc comment. */
     public signal void tab_closed (string path);
+    /** A file tab closed, with where its cursor was — see TabDocument.file_tab_closed. */
+    public signal void file_tab_closed (string path, int line, int column);
 
     /** Re-emitted from the active tab's own search — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
     public signal void search_position_changed (int position, int count);
@@ -93,6 +95,7 @@ namespace EditorView {
       tab_bar = new EditorPane.TabBar ();
       document_tab = new EditorPane.TabDocument (root_path, user_settings);
       wire_kind (document_tab);
+      document_tab.file_tab_closed.connect ((path, line, column) => file_tab_closed (path, line, column));
 
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       content.append (tab_bar.widget);
@@ -220,6 +223,11 @@ namespace EditorView {
 
     public void new_untitled () {
       document_tab.new_untitled ();
+    }
+
+    /** Whether a tab is open on `path` right now. */
+    public bool has_tab_for (string path) {
+      return path in open_paths ();
     }
 
     /** The Command Bar's own `:30` — see TabDocument.go_to_line(). */

@@ -18,6 +18,7 @@ opus_model_sources = files(
   'models/command-bar/go-to-line-provider.vala',
   'models/cursor.vala',
   'models/cursor-collection.vala',
+  'models/closed-tabs.vala',
   'models/document.vala',
   'models/editor-config.vala',
   'models/edit-history.vala',
