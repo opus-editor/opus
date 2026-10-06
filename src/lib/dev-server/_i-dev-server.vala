@@ -110,6 +110,12 @@ namespace Opus.Dev {
     /** The 1-based first line showing in the editor. */
     public abstract int get_top_line () throws DBusError, IOError;
 
+    /** A single click in the explorer — opens `path` as a preview tab, the one that the next preview replaces. */
+    public abstract void open_preview_tab (string path) throws DBusError, IOError;
+
+    /** How many document tabs exist in memory, open or not yet taken apart — a closed tab that lingers shows here. */
+    public abstract int get_live_tabs () throws DBusError, IOError;
+
     /** Closes the window the way its close button does — the session is saved, and the process ends with its last window. */
     public abstract void close_window () throws DBusError, IOError;
 

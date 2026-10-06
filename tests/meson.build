@@ -677,6 +677,26 @@ test(
   is_parallel: false,
 )
 
+switch_tab_test = executable(
+  'switch-tab-test',
+  ['system/tabs/switch-tab-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'switch-tab',
+  switch_tab_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 90,
+  is_parallel: false,
+)
+
 close_tab_test = executable(
   'close-tab-test',
   ['system/tabs/close-tab-test.vala'],

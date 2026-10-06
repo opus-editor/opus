@@ -254,6 +254,8 @@ public class SystemTestSession : Object {
     public string[] open_tabs () throws Error { return tabs.open_tabs (); }
     public void close_tab (string path) throws Error { tabs.close_tab (path); }
     public void reopen_closed_tab () throws Error { tabs.reopen_closed_tab (); }
+    public void open_preview_tab (string path) throws Error { tabs.open_preview_tab (path); }
+    public int live_tabs () throws Error { return tabs.live_tabs (); }
     public string active_tab () throws Error { return tabs.active_tab (); }
     public void assert_active_tab (string expected) throws Error { tabs.assert_active_tab (expected); }
     public void wait_for_active_tab (string expected) throws Error { tabs.wait_for_active_tab (expected); }

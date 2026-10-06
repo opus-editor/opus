@@ -1,8 +1,7 @@
 /**
- * Per-TabDocument, not per-document: EditorView.EditorPane.TabDocument owns exactly one shared
- * GtkSource.Buffer, fully reloaded on every tab switch — only the
- * currently active document's hunks are ever rendered, so there's no
- * per-document cache/map here, just whichever document is "current" now.
+ * One per open document tab (EditorView.EditorPane.TabDocument owns
+ * one for its own file): tracks the hunks of that one document against
+ * its git bases, recomputing as its text changes.
  */
 namespace GitDiff {
   public class DocumentTracker : Object {

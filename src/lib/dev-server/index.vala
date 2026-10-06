@@ -17,11 +17,10 @@ namespace Opus.Dev {
    * EditorView.EditorPaneWidget's own already-public surface. The Document-
    * only entry points (active_content, set_active_content(), the cursor
    * pair, save_path()) exist only because this needed to reach them from
-   * outside, not because the real UI needed them — so they live on
-   * EditorView.EditorPane.TabDocument, reached through the pane's own
-   * public `document_tab` rather than wrapped in one forwarding method
-   * each; key_press()/select_all() and the search_* methods reach the
-   * real CodeEditor the same way (`code_editor`/`search_editor`). Nothing
+   * outside, not because the real UI needed them — the pane forwards each
+   * to the active document tab; key_press()/select_all() and the search_*
+   * methods reach the real CodeEditor the same way (`code_editor`/
+   * `search_editor`). Nothing
    * here holds business logic of its own, and nothing outside this file/
    * DEBUG-gated call site knows this class exists — deleting it wouldn't
    * change anything else in the app.
@@ -111,35 +110,35 @@ namespace Opus.Dev {
     }
 
     public void save_tab (string path) throws DBusError, IOError {
-      current_editor_pane ().document_tab.save_path.begin (path);
+      current_editor_pane ().save_path.begin (path);
     }
 
     public void set_active_text (string text) throws DBusError, IOError {
-      current_editor_pane ().document_tab.set_active_content (text);
+      current_editor_pane ().set_active_content (text);
     }
 
     public void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError {
-      current_editor_pane ().document_tab.set_active_cursors (anchors, positions);
+      current_editor_pane ().set_active_cursors (anchors, positions);
     }
 
     public string syntax_style_at (int offset) throws DBusError, IOError {
-      return current_editor_pane ().code_editor.syntax_style_at (offset);
+      return active_editor ().syntax_style_at (offset);
     }
 
     public string get_active_text () throws DBusError, IOError {
-      return current_editor_pane ().document_tab.active_content;
+      return current_editor_pane ().active_content;
     }
 
     public void get_active_cursors (out int[] anchors, out int[] positions) throws DBusError, IOError {
-      current_editor_pane ().document_tab.get_active_cursors (out anchors, out positions);
+      current_editor_pane ().get_active_cursors (out anchors, out positions);
     }
 
     public bool key_press (uint keyval, uint modifiers) throws DBusError, IOError {
-      return current_editor_pane ().code_editor.key_pressed (keyval, modifiers);
+      return active_editor ().key_pressed (keyval, modifiers);
     }
 
     public void select_all () throws DBusError, IOError {
-      current_editor_pane ().code_editor.select_all ();
+      active_editor ().select_all ();
     }
 
     public string[] list_open_tabs () throws DBusError, IOError {
@@ -155,6 +154,15 @@ namespace Opus.Dev {
     }
 
     /** The active tab's own text search — throws rather than silently doing nothing on a tab that has none (Find Results), so a test driving search there by mistake fails loudly, same as every other method here with no window to act on. */
+    /** The active document tab's editor — none while no document tab is active (Find Results is, or nothing). */
+    private CodeEditor active_editor () throws DBusError {
+      var editor = current_editor_pane ().code_editor;
+      if (editor == null) {
+        throw new DBusError.FAILED ("No document tab is active");
+      }
+      return editor;
+    }
+
     private CodeEditor search_editor () throws DBusError {
       var editor = current_editor_pane ().search_editor;
       if (editor == null) {
@@ -191,7 +199,19 @@ namespace Opus.Dev {
     }
 
     public int get_top_line () throws DBusError, IOError {
-      return current_editor_pane ().code_editor.top_line;
+      return active_editor ().top_line;
+    }
+
+    public void open_preview_tab (string path) throws DBusError, IOError {
+      try {
+        current_editor_pane ().open (path, false);
+      } catch (Error e) {
+        throw new IOError.FAILED (e.message);
+      }
+    }
+
+    public int get_live_tabs () throws DBusError, IOError {
+      return current_editor_pane ().live_document_tabs;
     }
 
     public void close_window () throws DBusError, IOError {
@@ -227,7 +247,7 @@ namespace Opus.Dev {
     }
 
     public int get_previewed_line () throws DBusError, IOError {
-      return current_editor_pane ().code_editor.previewed_line;
+      return active_editor ().previewed_line;
     }
 
     public string[] command_bar_list_items () throws DBusError, IOError {

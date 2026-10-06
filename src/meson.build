@@ -192,7 +192,7 @@ opus_gtk_view_sources = files(
   'views/editor-view/editor-pane/tab-bar/_ghost.vala',
   'views/editor-view/editor-pane/tab-bar/_pill.vala',
   'views/editor-view/editor-pane/tab-bar/index.vala',
-  'views/editor-view/editor-pane/_i-tab-kind.vala',
+  'views/editor-view/editor-pane/_i-tab.vala',
   'views/editor-view/editor-pane/tab-document/_change-banner.vala',
   'views/editor-view/editor-pane/tab-document/_file-watcher.vala',
   'views/editor-view/editor-pane/tab-document/index.vala',

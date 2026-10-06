@@ -1,18 +1,22 @@
 /**
- * The Document tab kind: every real file (and Untitled-N) open in the
- * pane, rendered one at a time in one shared CodeEditor — the same
- * widget reused across every Document tab, rebound on each switch,
- * rather than one editor per tab (CodeEditor's own zoom/font state is
- * display-wide, and diff_tracker below only ever tracks the one
- * showing). Owns the Document list, loading/saving/Save As, the
- * .editorconfig lookup, the git-diff gutter feed, and the on-disk change
- * handling (TabDocumentFileWatcher + TabDocumentChangeBanner).
+ * One Document tab: a real file, or an Untitled-N. Owns its Document,
+ * its own CodeEditor (built the first time the tab is shown, and kept —
+ * what makes coming back to the tab instant: the laid-out text, its
+ * colors and its scroll are all still there), the "changed on disk"
+ * banner, the watch on its own file and the git-diff feed for it.
+ * Loading/saving/Save As and the on-disk change handling live here too;
+ * which tabs exist, which is active, and the one-preview rule are the
+ * pane's.
  *
- * Talks to the pane only through ITabKind's own signals — it never
- * touches TabBar, a sibling it doesn't own.
+ * The pane hands over what is the folder's rather than the file's — the
+ * .editorconfig, the git decorations registry, the diff base provider —
+ * and this tab asks each for its own file.
+ *
+ * Talks to the pane only through ITab's own signals — it never touches
+ * TabBar, a sibling it doesn't own.
  */
 namespace EditorView.EditorPane {
-  public class TabDocument : Object, ITabKind {
+  public class TabDocument : Object, ITab {
     // No `.editorconfig`, or none of its sections match a given file —
     // VS Code's own default `tabSize`, and a reasonable one on its own.
     private const int DEFAULT_INDENT_SIZE = 4;
@@ -20,373 +24,274 @@ namespace EditorView.EditorPane {
     // spaces once a file's own .editorconfig explicitly says so.
     private const bool DEFAULT_INSERT_SPACES = false;
 
+    // How many of these exist right now — Opus.Dev.DevServer's own way to
+    // see a closed tab that was never taken apart.
+    public static int live_count = 0;
+
+    public Document document { get; private set; }
+
+    private UserSettings user_settings;
+    private GtkSource.SearchSettings? search_settings;
     private Gtk.Box root;
     private TabDocumentChangeBanner change_banner;
-    private TabDocumentFileWatcher file_watcher;
-    private string root_path;
-    private EditorConfig? editor_config;
-
-    private HashTable<string, Document> documents = new HashTable<string, Document> (str_hash, str_equal);
-    // The Document currently bound into code_editor, or null while
-    // another kind's tab (or none) is active — set by show(), cleared by
-    // hide().
-    private string? active_uri = null;
-    private int untitled_counter = 0;
-
-    // Owned by MainWindow (outlives a single linked folder — see
-    // GIT_STATUS_PLUGIN_PLAN.md's own "Host wiring" section), handed here
-    // via set_decorations() so every open tab, not just the active one,
-    // can be tinted — null with no folder linked.
-    private FileDecoration.Registry? decorations = null;
-
-    // Same "owned by MainWindow, handed in via a setter" shape as
-    // `decorations` above, but unlike it, only the active document's
-    // hunks are ever rendered (one shared CodeEditorSourceView buffer,
-    // not one per tab) — so `diff_tracker` is a single instance, reset on
-    // every tab switch, not a per-document map.
+    private TabDocumentFileWatcher file_watcher = new TabDocumentFileWatcher ();
     private GitDiff.DocumentTracker diff_tracker = new GitDiff.DocumentTracker ();
     private GitDiff.IBaseProvider? diff_base_provider = null;
+    // The provider changed while this tab was hidden: recompute when it shows again.
+    private bool hunks_stale = false;
+    private string root_path;
+    private EditorConfig? editor_config = null;
+    private FileDecoration.Registry? decorations = null;
 
+    // Null until first shown — a session restores many tabs and shows one.
+    private CodeEditor? editor = null;
+    private bool is_shown = false;
+
+    public string uri { owned get { return document.uri; } }
+    public string title { owned get { return document.title; } }
+    public string name { owned get { return document.name; } }
+    public string folder_name { owned get { return document.pathname == null ? "" : folder_name_of (document.pathname); } }
+    public bool has_pathname { get { return document.pathname != null; } }
+    public bool is_preview { get { return document.is_preview; } }
+    public bool is_dirty { get { return document.dirty; } }
     public Gtk.Widget widget { get { return root; } }
     public TabCapability capabilities { get { return TabCapability.TEXT_SEARCH; } }
     public CodeEditor? search_editor { get { return code_editor; } }
 
-    /** The real CodeEditor itself, not just its widget — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly. */
-    public CodeEditor code_editor { get; private set; }
+    /** The real CodeEditor, once the tab has been shown — Opus.Dev.DevServer's own way to reach test-only entry points (e.g. select_all()) directly. */
+    public CodeEditor? code_editor { get { return editor; } }
 
-    public TabDocument (string root_path, UserSettings user_settings) {
+    /** This tab closed with a file behind it, and where its cursor was — what Ctrl+Shift+T brings back. `line` is 1-based, `column` 0-based, as go_to_line() takes them. */
+    public signal void file_tab_closed (string path, int line, int column);
+
+    /** `search_settings` is the pane's one Find query, shared by every tab's editor. */
+    public TabDocument (Document document, UserSettings user_settings, GtkSource.SearchSettings? search_settings, string root_path) {
+      this.document = document;
+      this.user_settings = user_settings;
+      this.search_settings = search_settings;
       this.root_path = root_path;
-      editor_config = EditorConfig.load (root_path);
+      live_count++;
 
-      code_editor = new CodeEditor (user_settings);
       change_banner = new TabDocumentChangeBanner ();
-      file_watcher = new TabDocumentFileWatcher ();
-
       root = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       root.append (change_banner.widget);
-      code_editor.widget.vexpand = true;
-      root.append (code_editor.widget);
 
-      code_editor.text_changed.connect (on_text_changed);
-      code_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
-      change_banner.discard_clicked.connect (on_reload_requested);
+      change_banner.discard_clicked.connect (reload_document);
       file_watcher.file_changed.connect (on_file_changed);
-      diff_tracker.hunks_changed.connect (() => code_editor.set_hunks (diff_tracker.hunks ()));
+      diff_tracker.hunks_changed.connect (() => editor?.set_hunks (diff_tracker.hunks ()));
+      if (document.pathname != null) {
+        file_watcher.watch (document.pathname);
+      }
     }
 
-    /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future .editorconfig lookups resolve against the new root. */
-    public void set_root_path (string root_path) {
+    /** The folder's .editorconfig, for this file's indentation; takes effect the next time the editor is built. `root_path` is where Save As starts for an untitled document. */
+    public void set_editor_config (EditorConfig? config, string root_path) {
+      editor_config = config;
       this.root_path = root_path;
-      editor_config = EditorConfig.load (root_path);
     }
 
-    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), clearing every open tab's own tint the same way it applied one. */
-    public void set_decorations (FileDecoration.Registry? new_decorations) {
-      if (decorations != null) {
-        decorations.changed.disconnect (refresh_tab_decorations);
-      }
-      decorations = new_decorations;
-      if (decorations != null) {
-        decorations.changed.connect (refresh_tab_decorations);
-      }
-      refresh_tab_decorations ();
+    /** The folder's git decorations, null with no folder — stamps this tab's own tint right away, and again on restamp_decoration(). */
+    public void set_decorations (FileDecoration.Registry? registry) {
+      decorations = registry;
+      restamp_decoration ();
     }
 
-    /** MainWindow calls this in lockstep with linking/unlinking a folder — null on "Close Folder" (or a window that never had one), or if the plugin providing it goes away. Unlike set_decorations(), only the active tab's hunks need recomputing — there's no per-tab map to refresh. */
-    public void set_diff_base_provider (GitDiff.IBaseProvider? new_provider) {
-      diff_base_provider = new_provider;
-      var document = active_document ();
-      if (document != null) {
-        diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
-      }
-    }
-
-    /** Re-stamps every open tab (not just the active one — a background tab whose file changes elsewhere still needs its own tint to update) from the current `decorations` snapshot. */
-    private void refresh_tab_decorations () {
-      foreach (var document in documents.get_values ()) {
-        stamp_tab_decoration (document);
-      }
-    }
-
-    /** An Untitled tab (no real `pathname`) never has anything to decorate. `decorations == null` (no folder linked) explicitly clears rather than skipping, so a tab tinted before "Close Folder" doesn't keep showing a stale tint afterward. */
-    private void stamp_tab_decoration (Document document) {
+    /** The registry changed: this file's tint may have. An Untitled tab (no real `pathname`) never has anything to decorate. `decorations == null` explicitly clears rather than skipping, so a tab tinted before "Close Folder" doesn't keep a stale tint. */
+    public void restamp_decoration () {
       if (document.pathname == null) {
         return;
       }
-      tab_decoration_changed (document.uri, decorations == null ? null : decorations.decoration_for (document.pathname, false));
+      decoration_changed (decorations == null ? null : decorations.decoration_for (document.pathname, false));
     }
 
-    /**
-     * Opens `path`, as a preview tab or a permanent one, reusing an
-     * existing tab if already open. A permanent open also moves
-     * keyboard focus into the editor.
-     */
-    public void open (string path, bool as_permanent) throws Error {
-      var existing = find_by_title (path);
-      if (existing != null) {
-        if (as_permanent) {
-          promote_document (existing);
-        }
-        activate_requested (existing.uri);
-      } else if (as_permanent) {
-        open_permanent (path);
+    /** The folder's diff base provider, null with no folder or no plugin for it — hunks recompute now if the tab is showing, else when it next does. */
+    public void set_diff_base_provider (GitDiff.IBaseProvider? provider) {
+      diff_base_provider = provider;
+      if (editor != null && is_shown) {
+        recompute_hunks ();
       } else {
-        open_preview (path);
-      }
-
-      if (as_permanent) {
-        code_editor.grab_focus ();
+        hunks_stale = true;
       }
     }
 
+    public void shown () {
+      is_shown = true;
+      ensure_editor ();
+      if (hunks_stale) {
+        recompute_hunks ();
+      }
+      // The pane only relays the active editor's search position: this one's is news now.
+      editor.announce_search_position ();
+    }
+
+    public void hidden () {
+      is_shown = false;
+    }
+
+    /** Moves keyboard focus into this tab's editor. */
+    public void grab_focus () {
+      ensure_editor ();
+      editor.grab_focus ();
+    }
+
     /**
-     * Find Results' own Ctrl+click-to-navigate — opens `path` as a preview
-     * tab (same weight as a single click in the explorer) and, if `line`
-     * is not -1 (the skipped-mtime list's own "just open it" case — see
-     * TabFindResults.NavTarget's own doc comment), places a collapsed cursor
-     * at that (1-based line, 0-based column) and scrolls it into view.
-     * Swallows a failed open the same way open_from_explorer() (MainWindow)
-     * does — nothing else here is in a position to surface the error.
+     * Builds the editor and binds the document into it, once: the text,
+     * its language, the indentation, the cursors, where it is scrolled
+     * to — set here, then simply living in the widget.
      */
-    public void open_at (string path, int line, int column) {
-      try {
-        open (path, false);
-      } catch (Error e) {
-        warning ("failed to open %s: %s", path, e.message);
+    private void ensure_editor () {
+      if (editor != null) {
         return;
       }
+      editor = new CodeEditor (user_settings, search_settings);
+      editor.widget.vexpand = true;
+      root.append (editor.widget);
 
-      // open()'s own grab_focus() only runs for as_permanent — a preview
-      // open here (already-open tabs included) would otherwise sometimes
-      // leave focus behind in Find Results' own code_editor instead of
-      // following the jump.
-      code_editor.grab_focus ();
-
-      if (line >= 0) {
-        go_to_line (line, column);
+      load_into_editor ();
+      editor.set_indent (
+        editor_config?.indent_size_for (relative_path (display_path ())) ?? DEFAULT_INDENT_SIZE,
+        editor_config?.insert_spaces_for (relative_path (display_path ())) ?? DEFAULT_INSERT_SPACES
+      );
+      editor.bind (document.cursors, document.history);
+      // A fresh editor already shows the top; scrolling there would only nudge the margin away.
+      if (document.top_line > 1) {
+        editor.scroll_to_top_line (document.top_line);
       }
+      change_banner.set_visible (document.is_externally_modified);
+
+      editor.text_changed.connect (on_text_changed);
+      editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
+      recompute_hunks ();
+    }
+
+    /** The document's content into the editor. An unreadable file shows a placeholder message instead, read-only and with no language (a "" path guesses none). */
+    private void load_into_editor () {
+      editor.read_only = !document.readable;
+      editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
+                       document.readable ? display_path () : "",
+                       document.readable ? document.language_override : null);
+    }
+
+    private void recompute_hunks () {
+      hunks_stale = false;
+      diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
+    }
+
+    /** An Untitled tab has no real path for language detection to key off of — its uri (no extension either way) stands in, never a raw file:// one for a real file. */
+    private string display_path () {
+      return document.pathname ?? document.uri;
     }
 
     /**
-     * Places a collapsed cursor at (1-based `line`, 0-based `column`) in
-     * the active document and scrolls it into view — the Command Bar's
-     * own `:30`. Both clamped to the content as it is now (see
-     * char_offset_of_line_column). A no-op while no Document tab is
-     * active, or with an unreadable one (not valid UTF-8 — see
-     * Document.readable): that shows a placeholder, not the file, so
-     * nothing in it corresponds to the line.
+     * Places a collapsed cursor at (1-based `line`, 0-based `column`)
+     * and scrolls it into view — the Command Bar's own `:30`. Both
+     * clamped to the content as it is now (see
+     * char_offset_of_line_column). A no-op with an unreadable document
+     * (not valid UTF-8 — see Document.readable): that shows a
+     * placeholder, not the file, so nothing in it corresponds to the line.
      */
     public void go_to_line (int line, int column) {
-      var document = active_document ();
-      if (document == null || !document.readable) {
+      if (!document.readable) {
         return;
       }
-
+      ensure_editor ();
       int target_offset = char_offset_of_line_column (document.content, line, column);
       document.cursors.set_cursors ({ new Cursor (target_offset) });
-      code_editor.render_cursors (document.cursors.snapshot ());
-      code_editor.reveal_offset (target_offset);
+      editor.render_cursors (document.cursors.snapshot ());
+      editor.reveal_offset (target_offset);
     }
 
-    /** The primary cursor's 1-based line and the active document's line count — the Command Bar's own `:` hint. False while no readable Document tab is active. */
+    /** The primary cursor's 1-based line and the document's line count — the Command Bar's own `:` hint. False for an unreadable document. */
     public bool caret_position (out int line, out int line_count) {
       line = 0;
       line_count = 0;
-      var document = active_document ();
-      if (document == null || !document.readable) {
+      if (!document.readable) {
         return false;
       }
-
       int caret = document.content.index_of_nth_char (document.cursors.primary.position_offset);
       line = 1 + count_newlines (document.content, caret);
       line_count = 1 + count_newlines (document.content, document.content.length);
       return true;
     }
 
-    /** The Command Bar's own `#` list — what the active document defines, and the line its caret is on. Null while no readable Document tab is active. */
-    public CommandBar.DocumentSymbols? active_symbols () {
+    /** The Command Bar's own `#` list — what the document defines, and the line its caret is on. Null for an unreadable document. */
+    public CommandBar.DocumentSymbols? symbols () {
       int line, line_count;
       if (!caret_position (out line, out line_count)) {
         return null;
       }
-      Syntax.Symbol[] symbols;
-      bool ready = code_editor.symbols (out symbols);
-      return new CommandBar.DocumentSymbols (symbols, code_editor.lists_symbols, ready, line);
+      ensure_editor ();
+      Syntax.Symbol[] found;
+      bool ready = editor.symbols (out found);
+      return new CommandBar.DocumentSymbols (found, editor.lists_symbols, ready, line);
     }
 
-    private static int count_newlines (string text, int end_byte) {
-      int count = 0;
-      for (int i = 0; i < end_byte; i++) {
-        if (text[i] == '\n') {
-          count++;
-        }
-      }
-      return count;
-    }
-
-    /**
-     * `line` is 1-based, `column` a 0-based char offset into that line —
-     * same convention FindInFilesMatch's own fields use, so its data
-     * plugs straight in with no translation at the call site. Both are
-     * clamped to the content as it is *now*: a result can be older than
-     * the buffer (the file edited since the search, or its tab already
-     * open and dirty), and a line past the end or a column past the
-     * line must land at the nearest real position, never spill into the
-     * next line or past the buffer.
-     */
-    private int char_offset_of_line_column (string content, int line, int column) {
-      var lines = content.split ("\n");
-      int line_index = (line - 1).clamp (0, lines.length - 1);
-      int offset = 0;
-      for (int i = 0; i < line_index; i++) {
-        offset += lines[i].char_count () + 1;
-      }
-      return offset + column.clamp (0, lines[line_index].char_count ());
-    }
-
-    /** Opens a brand-new, not-yet-saved-anywhere tab named "Untitled-N" — a permanent tab, focused immediately. Saving it goes through the Save As flow regardless of "Save" or "Save as…", since there's nowhere on disk yet for a plain Save to write to. */
-    public void new_untitled () {
-      untitled_counter++;
-      var name = "Untitled-%d".printf (untitled_counter);
-
-      var document = Document.untitled (untitled_counter.to_string (), name);
-      register (document, "", false);
-      activate_requested (document.uri);
-      code_editor.grab_focus ();
-    }
-
-    /**
-     * Brings a saved session's tab back: the file opens as a tab in the
-     * bar, cursor and scroll where they were, without being shown — a
-     * session has many tabs and one active, and only that one is worth
-     * the editor's work. Fails like open() for a file that can't be read.
-     */
-    public void restore (SessionTab tab) throws Error {
-      var document = Document.load (tab.path);
-      document.is_preview = tab.preview;
-      document.cursors.set_cursors ({ new Cursor (char_offset_of_line_column (document.content, tab.line, tab.column)) });
-      document.top_line = tab.top_line;
-      register (document, folder_name_of (tab.path), tab.preview);
-    }
-
-    /** How the file tab `uri` would be saved in a session, or null for a tab with no file behind it. */
-    public SessionTab? session_tab (string uri) {
-      var document = documents[uri];
-      if (document == null || document.pathname == null) {
+    /** How this tab would be saved in a session, or null for a tab with no file behind it. */
+    public SessionTab? session_tab () {
+      if (document.pathname == null) {
         return null;
       }
       int line, column;
-      primary_cursor_position (document, out line, out column);
-      int top_line = uri == active_uri && document.readable ? code_editor.top_line : document.top_line;
+      primary_cursor_position (out line, out column);
+      int top_line = editor != null && document.readable ? editor.top_line : document.top_line;
       return new SessionTab (document.pathname, line, column, top_line, document.is_preview);
     }
 
-    /** Whether `path` is currently open as a tab with unsaved changes — by title, the way Opus.Dev.DevServer and MainWindow's own delete flow address a tab (see find_by_title()). */
-    public bool is_path_dirty (string path) {
-      var document = find_by_title (path);
-      return document != null && document.dirty;
-    }
-
-    public bool is_dirty (string uri) {
-      return documents[uri]?.dirty ?? false;
-    }
-
-    /** The active document's current buffer content, or "" if none — Opus.Dev.DevServer's own GetActiveText, the reverse of set_active_content(). */
-    public string active_content {
-      owned get { return active_document ()?.content ?? ""; }
+    /** The document's current content — Opus.Dev.DevServer's own GetActiveText, the reverse of set_content(). */
+    public string content {
+      owned get { return document.content; }
     }
 
     /**
-     * Replaces the active document's content wholesale, as if the user
-     * had retyped the whole buffer — Opus.Dev.DevServer's own
-     * SetActiveText, no UI caller today (a person editing for real goes
-     * through on_text_changed() instead). Unlike that path, this also
-     * has to push the new text into the real buffer itself: the UI path
-     * runs the other way around (buffer changes first, content follows),
-     * so nothing else does that half of the job here.
+     * Replaces the content wholesale, as if the user had retyped the
+     * whole buffer — Opus.Dev.DevServer's own SetActiveText, no UI caller
+     * today (a person editing for real goes through on_text_changed()
+     * instead). Unlike that path, this also has to push the new text
+     * into the real buffer itself.
      */
-    public void set_active_content (string text) {
-      var document = active_document ();
-      if (document == null) {
-        return;
-      }
-
+    public void set_content (string text) {
+      ensure_editor ();
       document.content = text;
-      if (document.is_preview) {
-        promote_document (document);
-      }
-      code_editor.read_only = false;
-      code_editor.set_text (text, document.pathname ?? document.uri, document.language_override);
-      emit_marks (document);
+      promote ();
+      editor.read_only = false;
+      editor.set_text (text, display_path (), document.language_override);
+      emit_marks ();
     }
 
-    /**
-     * Replaces the active document's cursor set and renders it — Opus.Dev.DevServer's
-     * own SetActiveCursors, still handy for the system-test DSL to seed a
-     * multi-cursor starting state without typing/clicking it into place
-     * first. `anchors[i]`/`positions[i]` pair up into one cursor each; a
-     * collapsed cursor has `anchors[i] == positions[i]`. A no-op if the
-     * two arrays don't have the same length, or if there's no active
-     * document.
-     */
-    /** Whether a document tab is the one showing. */
-    public bool has_active {
-      get { return active_document () != null; }
+    /** Whether the language was picked by hand. */
+    public bool has_language_override {
+      get { return document.language_override != null; }
     }
 
-    /** Whether the active tab's language was picked by hand — false with no tab active. */
-    public bool active_has_language_override {
-      get {
-        var document = active_document ();
-        return document != null && document.language_override != null;
-      }
-    }
-
-    /**
-     * Sets the active tab's language by hand: a language package's
-     * name, or null to go back to what the file's own name says. Kept
-     * on the Document, so it stays with the tab through switching away
-     * and back, and through a "Save As". A no-op with no tab active.
-     */
-    public void set_active_language (string? language_name) {
-      var document = active_document ();
-      if (document == null) {
-        return;
-      }
+    /** Sets the language by hand: a language package's name, or null to go back to what the file's own name says. Kept on the Document, so it survives a "Save As". */
+    public void set_language (string? language_name) {
       document.language_override = language_name;
-      code_editor.set_language_override (language_name);
+      editor?.set_language_override (language_name);
     }
 
-    public void set_active_cursors (int[] anchors, int[] positions) {
-      var document = active_document ();
-      if (document == null || anchors.length != positions.length) {
+    /**
+     * Replaces the cursor set and renders it — Opus.Dev.DevServer's own
+     * SetActiveCursors. `anchors[i]`/`positions[i]` pair up into one
+     * cursor each; a collapsed cursor has `anchors[i] == positions[i]`.
+     * A no-op if the two arrays don't have the same length.
+     */
+    public void set_cursors (int[] anchors, int[] positions) {
+      if (anchors.length != positions.length) {
         return;
       }
-
+      ensure_editor ();
       var cursor_set = new Cursor[anchors.length];
       for (int i = 0; i < anchors.length; i++) {
         var cursor = new Cursor (anchors[i]);
         cursor.position_offset = positions[i];
         cursor_set[i] = cursor;
       }
-
       document.cursors.set_cursors (cursor_set);
-      code_editor.render_cursors (document.cursors.snapshot ());
+      editor.render_cursors (document.cursors.snapshot ());
     }
 
-    /**
-     * The active document's current cursor set — Opus.Dev.DevServer's own
-     * GetActiveCursors, the reverse of set_active_cursors(). Each `out`
-     * array is empty when there's no active document.
-     */
-    public void get_active_cursors (out int[] anchors, out int[] positions) {
-      var document = active_document ();
-      if (document == null) {
-        anchors = {};
-        positions = {};
-        return;
-      }
-
+    /** The current cursor set — Opus.Dev.DevServer's own GetActiveCursors, the reverse of set_cursors(). */
+    public void get_cursors (out int[] anchors, out int[] positions) {
       var cursor_set = document.cursors.snapshot ();
       anchors = new int[cursor_set.length];
       positions = new int[cursor_set.length];
@@ -396,111 +301,18 @@ namespace EditorView.EditorPane {
       }
     }
 
-    /**
-     * `old_path` moved to `new_path` on disk (a sidebar Rename, or a
-     * Cut+Paste actually moving rather than copying). Only ever matches a
-     * path that was directly opened as its own tab — both arguments are
-     * always real OS paths.
-     */
-    public void file_moved (string old_path, string new_path) {
-      var old_uri = Document.uri_for_path (old_path);
-      var document = documents[old_uri];
-      if (document == null) {
-        return;
-      }
-
-      file_watcher.stop_watching (old_path);
+    /** The file moved to `new_path` on disk (a sidebar Rename, or a Cut+Paste actually moving) — the tab follows it. */
+    public void move_to (string new_path) {
+      var old_uri = document.uri;
       document.move_to (new_path);
-      file_watcher.start_watching (new_path);
-      rekey (old_uri, document, folder_name_of (new_path));
-      stamp_tab_decoration (document);
+      file_watcher.watch (new_path);
+      renamed (old_uri);
+      restamp_decoration ();
     }
 
-    /** Re-keys `document` (already moved/saved to its new uri) from `old_uri` in every map here and announces the rename — the pane re-keys its own registry and TabBar off the signal. */
-    private void rekey (string old_uri, Document document, string folder_name) {
-      var new_uri = document.uri;
-      documents.remove (old_uri);
-      documents[new_uri] = document;
-      if (active_uri == old_uri) {
-        active_uri = new_uri;
-      }
-      tab_renamed (old_uri, new_uri, document.name, folder_name, document.title, true);
-    }
-
-    public void close () {
-      file_watcher.close ();
-    }
-
-    public bool owns (string uri) {
-      return documents.contains (uri);
-    }
-
-    /** Binds `uri`'s Document into the shared CodeEditor, and brings its scroll back to where it was; the document leaving keeps where it was for the same reason. */
-    public void show (string uri) {
-      var document = documents[uri];
-      if (document == null) {
-        return;
-      }
-      remember_top_line ();
-      active_uri = uri;
-
-      // document.pathname ?? uri: an Untitled tab has no real path for
-      // GtkSource's own language-guessing to key off of — falling back to
-      // its uri (no extension either way) rather than ever handing it a
-      // raw file:// one for a real file.
-      var display_path = document.pathname ?? uri;
-      // An unreadable file shows a placeholder message instead of
-      // content, read-only and with no language (a "" path guesses
-      // none) — without that, the message would still highlight as the
-      // previous file's own language.
-      code_editor.read_only = !document.readable;
-      code_editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
-                            document.readable ? display_path : "",
-                            document.readable ? document.language_override : null);
-      change_banner.set_visible (document.is_externally_modified);
-
-      var indent_size = editor_config?.indent_size_for (relative_path (display_path)) ?? DEFAULT_INDENT_SIZE;
-      var insert_spaces = editor_config?.insert_spaces_for (relative_path (display_path)) ?? DEFAULT_INSERT_SPACES;
-      code_editor.set_indent (indent_size, insert_spaces);
-
-      code_editor.bind (document.cursors, document.history);
-      code_editor.scroll_to_top_line (document.top_line);
-      diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
-    }
-
-    /** The active document takes note of where it is scrolled to, for when it comes back. */
-    private void remember_top_line () {
-      var document = active_document ();
-      if (document != null && document.readable) {
-        document.top_line = code_editor.top_line;
-      }
-    }
-
-    /**
-     * Resets the shared CodeEditor's own buffer/cursor state rather than
-     * leaving it showing whatever Document was open before — otherwise a
-     * keystroke that still reaches the hidden editor (Opus.Dev.DevServer's
-     * own KeyPress) could turn into a text_changed() that lands in a
-     * Document that isn't showing. Read-only too, for the same reason.
-     */
-    public void hide () {
-      remember_top_line ();
-      active_uri = null;
-      code_editor.read_only = true;
-      code_editor.set_text ("", "");
-      code_editor.unbind ();
-      change_banner.set_visible (false);
-      diff_tracker.set_document.begin (null, "", null);
-    }
-
-    public async void close_tab (string uri) {
-      var document = documents[uri];
-      if (document == null) {
-        return;
-      }
-
+    public async void close () {
       if (!document.dirty) {
-        finish_close (uri);
+        finish_close ();
         return;
       }
 
@@ -508,130 +320,106 @@ namespace EditorView.EditorPane {
       switch (choice) {
         case DiscardChoice.SAVE:
           // An untitled document has nowhere to plain-save() to —
-          // save_as_uri() prompts for one and, on success, re-keys it
-          // to the new uri it renamed the tab to, which is what
-          // actually needs closing now, not the old key.
+          // save_as() prompts for one.
           if (document.is_untitled) {
-            var new_uri = yield save_as_uri (uri);
-            if (new_uri != null) {
-              finish_close (new_uri);
+            if (yield save_as ()) {
+              finish_close ();
             }
-          } else if (save_document (document)) {
-            finish_close (uri);
+          } else if (save_document ()) {
+            finish_close ();
           }
           break;
         case DiscardChoice.DISCARD:
-          finish_close (uri);
+          finish_close ();
           break;
         case DiscardChoice.CANCEL:
           break;
       }
     }
 
-    /** Closes `uri` outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. */
-    public void discard_tab (string uri) {
-      if (documents.contains (uri)) {
-        finish_close (uri);
-      }
+    /** Closes outright, no unsaved-changes prompt — for when the file itself is already gone (deleted from the sidebar) and there's nothing left to save it to. */
+    public void discard () {
+      finish_close ();
+    }
+
+    public void dispose_tab () {
+      file_watcher.close ();
+      diff_tracker.set_document.begin (null, "", null);
+      editor?.close ();
+      editor = null;
+      live_count--;
     }
 
     public void zoom_in () {
-      code_editor.zoom_in ();
+      editor?.zoom_in ();
     }
 
     public void zoom_out () {
-      code_editor.zoom_out ();
+      editor?.zoom_out ();
     }
 
     public void reset_zoom () {
-      code_editor.reset_zoom ();
+      editor?.reset_zoom ();
     }
 
-    public void promote (string uri) {
-      var document = documents[uri];
-      if (document != null && document.is_preview) {
-        promote_document (document);
-      }
-    }
-
-    /**
-     * A plain Save on `path` specifically, not necessarily the active tab
-     * — except for an untitled document, which has nowhere to write to
-     * yet and goes through the Save As flow instead. Opus.Dev.DevServer's
-     * own SaveTab, which addresses a tab the same way it addresses
-     * CloseTab/IsDirty (see find_by_title()) — the UI itself only ever
-     * reaches this through save_uri()/save_as_uri(), always on whichever
-     * tab is active.
-     */
-    public async void save_path (string path) {
-      var document = find_by_title (path);
-      if (document != null) {
-        yield save_uri (document.uri);
-      }
-    }
-
-    /** Saves `uri`'s Document, if dirty — the Save As flow instead for an untitled one. A no-op for a uri that isn't one of this kind's. */
-    public async void save_uri (string uri) {
-      var document = documents[uri];
-      if (document == null) {
+    public void promote () {
+      if (!document.is_preview) {
         return;
       }
+      document.is_preview = false;
+      preview_changed (false);
+    }
 
+    /** Saves, if dirty — the Save As flow instead for an untitled document. */
+    public async void save () {
       if (document.is_untitled) {
-        yield save_as_uri (uri);
+        yield save_as ();
       } else {
-        save_document (document);
+        save_document ();
       }
     }
 
     /**
-     * Save As: asks for a destination via the system's own
-     * file chooser (an untitled document defaults to the workspace
-     * root), writes the document there, and re-keys both the document
-     * and its tab to the new uri. Also promotes a preview tab.
-     * Returns the document's new uri on success, or null if cancelled or
-     * the write itself failed.
+     * Save As: asks for a destination via the system's own file chooser
+     * (an untitled document defaults to the workspace root), writes the
+     * document there, and renames the tab to the new uri. Also promotes a
+     * preview tab. Returns whether it saved — false if cancelled or the
+     * write itself failed.
      */
-    public async string? save_as_uri (string uri) {
-      var document = documents[uri];
-      if (document == null) {
-        return null;
-      }
-
+    public async bool save_as () {
       // Only a real, already-loaded file has a pathname to default
-      // against — an untitled document has nowhere on disk yet, hence
-      // root_path instead.
-      var old_pathname = document.pathname;
-      var initial_folder = document.is_untitled ? root_path : Path.get_dirname (old_pathname);
+      // against — an untitled document has nowhere on disk yet.
+      var initial_folder = document.is_untitled ? root_path : Path.get_dirname (document.pathname);
       var new_path = yield choose_save_as_path (document.name, initial_folder);
       if (new_path == null) {
-        return null;
+        return false;
       }
 
-      file_watcher.mark_own_write (new_path);
+      var old_uri = document.uri;
+      var old_pathname = document.pathname;
+      // Watching the new path before the write: its own event is the one to swallow.
+      file_watcher.watch (new_path);
+      file_watcher.mark_own_write ();
       try {
         document.save_as (new_path);
       } catch (Error e) {
-        file_watcher.discard_own_write (new_path); // never wrote, so no event will ever come consume it
+        file_watcher.discard_own_write (); // never wrote, so no event will ever come consume it
+        if (old_pathname != null) {
+          file_watcher.watch (old_pathname);
+        } else {
+          file_watcher.unwatch ();
+        }
         warning ("failed to save %s: %s", new_path, e.message);
-        return null;
+        return false;
       }
 
-      if (old_pathname != null) {
-        file_watcher.stop_watching (old_pathname);
-      }
-      file_watcher.start_watching (new_path);
-      rekey (uri, document, folder_name_of (new_path));
+      renamed (old_uri);
       // save_as() already reset every flag emit_marks() reads.
-      emit_marks (document);
-      stamp_tab_decoration (document);
-      if (document.uri == active_uri) {
-        change_banner.set_visible (false);
-      }
-      if (document.is_preview) {
-        promote_document (document);
-      }
-      return document.uri;
+      emit_marks ();
+      restamp_decoration ();
+      change_banner.set_visible (false);
+      promote ();
+      return true;
     }
 
     /** Shows the system's own Save-As file chooser, pre-filled with `suggested_name` in `current_folder`. Returns the chosen path, or null if cancelled or the dialog/portal itself failed. */
@@ -649,95 +437,45 @@ namespace EditorView.EditorPane {
     }
 
     /**
-     * A clean, synchronized document has nothing to write — but
-     * "clean" alone isn't enough to skip this: a document can be
-     * clean and still unsynchronized at once (e.g. Ctrl+Z undoing
-     * back to a clean state while the "File Has Changed on Disk"
-     * banner is still up). Save is one of the two ways that's meant
-     * to resolve — writing this tab's own content back to disk either
-     * way — so it has to actually run even then. Returns whether the
-     * document is clean afterwards (i.e. the save, if attempted,
-     * succeeded).
+     * A clean, synchronized document has nothing to write — but "clean"
+     * alone isn't enough to skip this: a document can be clean and still
+     * unsynchronized at once (e.g. Ctrl+Z undoing back to a clean state
+     * while the "File Has Changed on Disk" banner is still up). Save is
+     * one of the two ways that's meant to resolve — writing this tab's
+     * own content back to disk either way — so it has to actually run
+     * even then. Returns whether the document is clean afterwards.
      */
-    private bool save_document (Document document) {
+    private bool save_document () {
       if (!document.dirty && !document.is_externally_modified) {
         return true;
       }
 
-      file_watcher.mark_own_write (document.pathname);
+      file_watcher.mark_own_write ();
       try {
         document.save ();
       } catch (Error e) {
-        file_watcher.discard_own_write (document.pathname); // never wrote, so no event will ever come consume it
+        file_watcher.discard_own_write (); // never wrote, so no event will ever come consume it
         warning ("failed to save %s: %s", document.pathname, e.message);
         return false;
       }
 
       // save() already reset is_deleted/is_externally_modified too.
-      emit_marks (document);
-      if (document.uri == active_uri) {
-        change_banner.set_visible (false);
-      }
+      emit_marks ();
+      change_banner.set_visible (false);
       return true;
     }
 
-    /**
-     * Loads first, evicts the previous preview tab second: the other way
-     * round, a failed load would lose the old preview for nothing, and
-     * tab_removed for a still-active tab would make the pane fall back
-     * to some unrelated tab for an instant before the new one lands.
-     */
-    private void open_preview (string path) throws Error {
-      var document = Document.load (path);
-      document.is_preview = true;
-      var previous_preview = find_preview ();
-      register (document, folder_name_of (path), true);
-      activate_requested (document.uri);
-
-      if (previous_preview != null) {
-        finish_close (previous_preview.uri);
-      }
-    }
-
-    private void open_permanent (string path) throws Error {
-      var document = Document.load (path);
-      document.is_preview = false;
-      register (document, folder_name_of (path), false);
-      activate_requested (document.uri);
-    }
-
-    /** The one place a new Document enters this kind: its map entry, its tab chrome (tab_added first — the decoration that follows needs the pill to exist), and its disk watch. */
-    private void register (Document document, string folder_name, bool preview) {
-      documents[document.uri] = document;
-      tab_added (document.uri, document.name, folder_name, preview, document.title, document.pathname != null);
-      stamp_tab_decoration (document);
-      if (document.pathname != null) {
-        file_watcher.start_watching (document.pathname);
-      }
-    }
-
-    /** A tab with a file behind it closed, and where its cursor was — what Ctrl+Shift+T brings back. `line` is 1-based, `column` 0-based, as open_at() takes them. */
-    public signal void file_tab_closed (string path, int line, int column);
-
-    private void finish_close (string uri) {
-      var document = documents[uri];
-      if (document == null) {
-        return;
-      }
-      if (document.pathname != null) {
-        file_watcher.stop_watching (document.pathname);
-      }
-      documents.remove (uri);
-      tab_removed (uri);
+    private void finish_close () {
+      closed ();
       if (document.pathname != null) {
         int line, column;
-        primary_cursor_position (document, out line, out column);
+        primary_cursor_position (out line, out column);
         file_tab_closed (document.pathname, line, column);
       }
     }
 
     /** The primary cursor's 1-based line and 0-based column, counted in characters. */
-    private static void primary_cursor_position (Document document, out int line, out int column) {
+    private void primary_cursor_position (out int line, out int column) {
       int caret = document.content.index_of_nth_char (document.cursors.primary.position_offset);
       line = 1 + count_newlines (document.content, caret);
       int line_start = document.content.substring (0, caret).last_index_of_char ('\n') + 1;
@@ -745,38 +483,33 @@ namespace EditorView.EditorPane {
     }
 
     /**
-     * `path` itself was deleted, or came back, or changed content —
-     * reading the raw event from file_watcher.file_changed. The
-     * RENAMED-onto-`path` ambiguity (a plain resave looks identical at
-     * the GIO level to a delete-then-recreate) is resolved by whether
-     * this document was already known deleted.
+     * The file was deleted, or came back, or changed content — reading
+     * the raw event from file_watcher.file_changed. The RENAMED-onto-
+     * itself ambiguity (a plain resave looks identical at the GIO level
+     * to a delete-then-recreate) is resolved by whether the document was
+     * already known deleted.
      */
-    private void on_file_changed (string path, FileMonitorEvent event_type, string? other_file_path) {
-      var document = documents[Document.uri_for_path (path)];
-      if (document == null) {
-        return;
-      }
-
+    private void on_file_changed (FileMonitorEvent event_type, string? other_file_path) {
       switch (event_type) {
         case FileMonitorEvent.DELETED:
         case FileMonitorEvent.MOVED_OUT:
-          mark_file_deleted (document, true);
+          mark_file_deleted (true);
           break;
         case FileMonitorEvent.CREATED:
-          mark_file_deleted (document, false);
+          mark_file_deleted (false);
           break;
         case FileMonitorEvent.RENAMED:
-          if (other_file_path == null || other_file_path != path) {
+          if (other_file_path == null || other_file_path != document.pathname) {
             break;
           }
           if (document.is_deleted) {
-            mark_file_deleted (document, false);
+            mark_file_deleted (false);
           } else {
-            mark_externally_modified (document);
+            mark_externally_modified ();
           }
           break;
         case FileMonitorEvent.CHANGED:
-          mark_externally_modified (document);
+          mark_externally_modified ();
           break;
         default:
           break;
@@ -784,128 +517,99 @@ namespace EditorView.EditorPane {
     }
 
     /**
-     * `document`'s content changed on disk. is_externally_modified is a
-     * sticky "unsynchronized" state: once set, `document` stays
-     * unsynchronized through any number of further external changes,
-     * only resolved by an explicit choice (Discard and Reload, or a
-     * Save that overwrites disk with this tab's own content).
+     * The content changed on disk. is_externally_modified is a sticky
+     * "unsynchronized" state: once set, the document stays unsynchronized
+     * through any number of further external changes, only resolved by
+     * an explicit choice (Discard and Reload, or a Save that overwrites
+     * disk with this tab's own content).
      *
-     * Only on the *first* transition into this state does dirty
-     * actually matter: a clean tab has nothing of its own at stake, so
-     * it's just silently reloaded instead of ever becoming
-     * unsynchronized at all; a dirty one shows the banner (if `document`
-     * is the active tab).
+     * Only on the *first* transition into this state does dirty actually
+     * matter: a clean tab has nothing of its own at stake, so it's just
+     * silently reloaded instead of ever becoming unsynchronized at all; a
+     * dirty one shows the banner.
      */
-    private void mark_externally_modified (Document document) {
+    private void mark_externally_modified () {
       if (document.is_externally_modified) {
         return;
       }
-
       if (!document.dirty) {
-        reload_document (document);
+        reload_document ();
         return;
       }
-
       document.is_externally_modified = true;
-      emit_marks (document);
-      if (document.uri == active_uri) {
-        change_banner.set_visible (true);
-      }
+      emit_marks ();
+      change_banner.set_visible (true);
     }
 
-    /** "Discard Changes and Reload" — always wins over in-memory content, dirty or not; the banner itself is already the user's confirmation. */
-    private void on_reload_requested () {
-      var document = active_document ();
-      if (document != null) {
-        reload_document (document);
-      }
-    }
-
-    /** Discards `document`'s in-memory content in favor of what's on disk right now. Only touches the editor buffer itself if it's the active tab; the tab pill's own state updates either way. */
-    private void reload_document (Document document) {
+    /** Discards the in-memory content in favor of what's on disk right now — "Discard Changes and Reload" always wins over in-memory content, dirty or not; the banner itself is already the user's confirmation. */
+    private void reload_document () {
       try {
         document.reload ();
       } catch (Error e) {
         warning ("failed to reload %s: %s", document.pathname, e.message);
         return;
       }
-
-      if (document.uri == active_uri) {
-        show (document.uri);
+      if (editor != null) {
+        load_into_editor ();
+        editor.render_cursors (document.cursors.snapshot ());
+        recompute_hunks ();
       }
-      emit_marks (document);
+      change_banner.set_visible (false);
+      emit_marks ();
     }
 
-    private void mark_file_deleted (Document document, bool deleted) {
+    private void mark_file_deleted (bool deleted) {
       if (document.is_deleted == deleted) {
         return;
       }
-
       document.is_deleted = deleted;
-      emit_marks (document);
+      emit_marks ();
     }
 
-    /** `document`'s pill state, straight off its own flags — the pane also derives the active tab's dirty state from this. */
-    private void emit_marks (Document document) {
-      tab_marks_changed (document.uri, document.dirty, document.is_deleted, document.is_externally_modified);
-    }
-
-    private void promote_document (Document document) {
-      document.is_preview = false;
-      tab_preview_changed (document.uri, false);
+    /** The pill state, straight off the document's own flags — the pane also derives the active tab's dirty state from this. */
+    private void emit_marks () {
+      marks_changed (document.dirty, document.is_deleted, document.is_externally_modified);
     }
 
     private void on_text_changed (string new_text) {
-      var document = active_document ();
-      if (document == null) {
-        return;
-      }
-
       document.content = new_text;
       diff_tracker.notify_text_changed (new_text);
-      if (document.is_preview) {
-        promote_document (document);
-      }
-      emit_marks (document);
+      promote ();
+      emit_marks ();
     }
 
-    private Document? active_document () {
-      return active_uri == null ? null : documents[active_uri];
-    }
-
-    /** The tab-bar label's folder suffix: the file's immediate parent directory name, or "" if it has none. */
-    private string folder_name_of (string path) {
-      var folder_name = Path.get_basename (Path.get_dirname (path));
-      return folder_name == "." || folder_name == Path.DIR_SEPARATOR_S ? "" : folder_name;
-    }
-
-    private Document? find_preview () {
-      foreach (var document in documents.get_values ()) {
-        if (document.is_preview) {
-          return document;
+    private static int count_newlines (string text, int end_byte) {
+      int count = 0;
+      for (int i = 0; i < end_byte; i++) {
+        if (text[i] == '\n') {
+          count++;
         }
       }
-      return null;
+      return count;
     }
 
     /**
-     * Finds the open document whose own external-facing identity — a
-     * real file's `pathname`, or an untitled one's plain name, e.g.
-     * "Untitled-1" — is exactly `title`. The one lookup behind every
-     * path-taking public method here that's also reachable from
-     * Opus.Dev.DevServer (`open`, `is_path_dirty`, `save_path`): the
-     * system-test DSL addresses a tab by the very same string the pane's
-     * open_paths()/active_document_path hand back to it, synthetic or
-     * not — never by this class's own internal `uri` key, which it has
-     * no reason to know about.
+     * `line` is 1-based, `column` a 0-based char offset into that line —
+     * same convention FindInFilesMatch's own fields use. Both are clamped
+     * to the content as it is *now*: a result can be older than the
+     * buffer, and a line past the end or a column past the line must land
+     * at the nearest real position, never spill into the next line or
+     * past the buffer.
      */
-    private Document? find_by_title (string title) {
-      foreach (var document in documents.get_values ()) {
-        if (document.title == title) {
-          return document;
-        }
+    public static int char_offset_of_line_column (string content, int line, int column) {
+      var lines = content.split ("\n");
+      int line_index = (line - 1).clamp (0, lines.length - 1);
+      int offset = 0;
+      for (int i = 0; i < line_index; i++) {
+        offset += lines[i].char_count () + 1;
       }
-      return null;
+      return offset + column.clamp (0, lines[line_index].char_count ());
+    }
+
+    /** The tab-bar label's folder suffix: the file's immediate parent directory name, or "" if it has none. */
+    private static string folder_name_of (string path) {
+      var folder_name = Path.get_basename (Path.get_dirname (path));
+      return folder_name == "." || folder_name == Path.DIR_SEPARATOR_S ? "" : folder_name;
     }
 
     /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */

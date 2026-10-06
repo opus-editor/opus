@@ -11,6 +11,16 @@ public class SystemTestTabs : Object {
     }
 
     /** Opens `path` as a permanent tab — same as "Open File…" or a sidebar double-click. */
+    /** A single click in the explorer: a preview tab. */
+    public void open_preview_tab (string path) throws Error {
+        call ("OpenPreviewTab", new Variant ("(s)", path));
+    }
+
+    /** How many document tabs exist in memory. */
+    public int live_tabs () throws Error {
+        return call ("GetLiveTabs").get_child_value (0).get_int32 ();
+    }
+
     /** Ctrl+Shift+T. */
     public void reopen_closed_tab () throws Error {
         call ("ReopenClosedTab");

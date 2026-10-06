@@ -656,7 +656,7 @@ public class MainWindow : Object {
         return;
       }
       editor_pane.go_to_line (tab.line, tab.column);
-      editor_pane.code_editor.grab_focus ();
+      editor_pane.code_editor?.grab_focus ();
       return;
     }
   }
@@ -733,7 +733,7 @@ public class MainWindow : Object {
     picker.active_changed.connect (preview_active_symbol);
     picker.items_changed.connect (preview_active_symbol);
     picker.closed.connect (() => {
-      editor_pane.code_editor.end_line_preview (true);
+      editor_pane.code_editor?.end_line_preview (true);
       previewing_picker = null;
     });
   }
@@ -741,12 +741,12 @@ public class MainWindow : Object {
   private void preview_active_symbol () {
     var picker = previewing_picker;
     if (picker == null || picker.active_index < 0 || picker.active_index >= picker.items.length) {
-      editor_pane.code_editor.end_line_preview (true);
+      editor_pane.code_editor?.end_line_preview (true);
       return;
     }
     int line, column;
     CommandBar.SymbolProvider.decode (picker.items[picker.active_index].id, out line, out column);
-    editor_pane.code_editor.preview_line (line);
+    editor_pane.code_editor?.preview_line (line);
   }
 
   private void on_command_accepted (string command_id) {
@@ -759,8 +759,8 @@ public class MainWindow : Object {
 
   /** The languages the active tab can be set to, in place of the commands: the bar stays open, only what it lists changes. */
   private void show_language_list () {
-    language_provider.has_document = editor_pane.document_tab.has_active;
-    language_provider.offers_auto_detect = editor_pane.document_tab.active_has_language_override;
+    language_provider.has_document = editor_pane.has_active_document;
+    language_provider.offers_auto_detect = editor_pane.active_has_language_override;
     command_router.open_with (language_provider);
   }
 
@@ -771,7 +771,7 @@ public class MainWindow : Object {
     if (focus_before_command_bar != null && focus_before_command_bar.get_mapped ()) {
       focus_before_command_bar.grab_focus ();
     } else if (editor_pane.active_document_path != null) {
-      editor_pane.code_editor.grab_focus ();
+      editor_pane.code_editor?.grab_focus ();
     }
     focus_before_command_bar = null;
   }
@@ -786,13 +786,13 @@ public class MainWindow : Object {
       return;
     }
     // A symbol accepted is a preview followed: the view stays where the preview took it.
-    editor_pane.code_editor.end_line_preview (false);
+    editor_pane.code_editor?.end_line_preview (false);
     command_router.close ();
     if (provider == command_provider) {
       on_command_accepted (item.id);
     } else if (provider == language_provider) {
-      editor_pane.document_tab.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
-      editor_pane.code_editor.grab_focus ();
+      editor_pane.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
+      editor_pane.code_editor?.grab_focus ();
     } else if (provider == file_provider) {
       int line;
       CommandBar.FileProvider.split_line_suffix (filter, out line);
@@ -801,7 +801,7 @@ public class MainWindow : Object {
       int line, column;
       CommandBar.GoToLineProvider.decode (item.id, out line, out column);
       editor_pane.go_to_line (line, column);
-      editor_pane.code_editor.grab_focus ();
+      editor_pane.code_editor?.grab_focus ();
     }
   }
 
