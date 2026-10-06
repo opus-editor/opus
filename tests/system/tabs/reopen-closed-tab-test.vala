@@ -15,11 +15,13 @@ private string make_folder () throws Error {
 }
 
 
-/** The open tabs, sorted: the listing has no order of its own. */
-private string[] sorted_tabs (SystemTestSession opus) throws Error {
+/** The open tabs are exactly `expected`, in any order: the listing has no order of its own. */
+private void assert_tabs (SystemTestSession opus, string[] expected) throws Error {
     var tabs = opus.open_tabs ();
-    GLib.qsort_with_data<string> (tabs, sizeof (string), (a, b) => strcmp (a, b));
-    return tabs;
+    assert_cmpint (tabs.length, CompareOperator.EQ, expected.length);
+    foreach (unowned string path in expected) {
+        assert_true (path in tabs);
+    }
 }
 
 int main (string[] args) {
@@ -59,7 +61,7 @@ int main (string[] args) {
             opus.reopen_closed_tab ();
 
             opus.wait_for_active_tab (a);
-            assert_cmpstrv (sorted_tabs (opus), { a, b });
+            assert_tabs (opus, { a, b });
 
             opus.close ();
         } catch (Error e) {
@@ -119,7 +121,7 @@ int main (string[] args) {
             opus.reopen_closed_tab ();
 
             opus.wait_for_active_tab (a);
-            assert_cmpstrv (sorted_tabs (opus), { a, b });
+            assert_tabs (opus, { a, b });
 
             opus.close ();
         } catch (Error e) {

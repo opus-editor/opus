@@ -190,6 +190,14 @@ namespace Opus.Dev {
       current_editor_pane ().search_in_files.begin (query);
     }
 
+    public int get_top_line () throws DBusError, IOError {
+      return current_editor_pane ().code_editor.top_line;
+    }
+
+    public void close_window () throws DBusError, IOError {
+      current_window ().close ();
+    }
+
     public void reopen_closed_tab () throws DBusError, IOError {
       current_window ().reopen_closed_tab ();
     }

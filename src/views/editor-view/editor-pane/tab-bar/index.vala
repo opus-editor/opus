@@ -48,6 +48,9 @@ namespace EditorView.EditorPane {
     /** Double-click on the tab bar's own empty area (not on any pill) — same as "New File" (Ctrl+N / the primary menu's own item). */
     public signal void new_file_requested ();
 
+    /** A tab was dragged to another place in the row. */
+    public signal void reordered ();
+
     public TabBar () {
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-bar/index.ui");
       overlay = (Gtk.Overlay) builder.get_object ("overlay");
@@ -179,6 +182,19 @@ namespace EditorView.EditorPane {
         }
       }
       return null;
+    }
+
+    /** Every tab's path, left to right — the row's own order, drag-reordering included. */
+    public string[] paths_in_order () {
+      string[] paths = {};
+      for (var child = box.get_first_child (); child != null; child = child.get_next_sibling ()) {
+        foreach (var path in pills.get_keys ()) {
+          if (pills[path].widget == child) {
+            paths += path;
+          }
+        }
+      }
+      return paths;
     }
 
     public void set_active (string path) {
@@ -460,6 +476,7 @@ namespace EditorView.EditorPane {
 
       box.reorder_child_after (dragged_pill.widget, sibling);
       enforce_preview_is_last ();
+      reordered ();
     }
 
     /** Demotes the preview tab to permanent if it's no longer the last one in the row. */

@@ -49,6 +49,12 @@ public class CodeEditor : Object {
   /** The language package named by hand for what is showing, over whatever `language_path` says — null for none. */
   private string? language_override = null;
 
+  // How many passes scroll_to_top_line() gives the layout to settle — see reveal_settled().
+  private const int SCROLL_SETTLE_PASSES = 3;
+
+  /** A scroll_to_top_line() already queued, not yet run — same reasoning as pending_reveal_id. 0 means none pending. */
+  private uint pending_scroll_id = 0;
+
   /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
 
@@ -405,6 +411,47 @@ public class CodeEditor : Object {
    * (a visible glide, a spurious horizontal scroll, and this exact
    * re-parent race landing on an unvalidated zero-height view).
    */
+  /** The first line showing, 1-based. */
+  public int top_line {
+    get {
+      Gdk.Rectangle visible;
+      text_view.get_visible_rect (out visible);
+      Gtk.TextIter top;
+      int top_y;
+      text_view.get_line_at_y (out top, visible.y, out top_y);
+      return top.get_line () + 1;
+    }
+  }
+
+  /**
+   * Puts the 1-based `line` at the top of the view, with no animation,
+   * once the view has settled — the same deferral as reveal_offset(),
+   * and the same settling passes as CodeEditorSourceView.reveal_settled():
+   * a line's y is only right once the lines above it are laid out.
+   */
+  public void scroll_to_top_line (int line) {
+    if (pending_scroll_id != 0) {
+      Source.remove (pending_scroll_id);
+    }
+    pending_scroll_id = Idle.add (() => {
+      pending_scroll_id = 0;
+      Gtk.TextIter iter;
+      source_buffer.get_iter_at_line (out iter, line - 1);
+      var vadjustment = scrolled_window.vadjustment;
+      for (int pass = 0; pass < SCROLL_SETTLE_PASSES; pass++) {
+        int y, height;
+        text_view.get_line_yrange (iter, out y, out height);
+        double wanted = y + text_view.top_margin;
+        double target = wanted.clamp (vadjustment.lower, double.max (vadjustment.lower, vadjustment.upper - vadjustment.page_size));
+        if (vadjustment.value == target) {
+          break;
+        }
+        vadjustment.value = target;
+      }
+      return Source.REMOVE;
+    });
+  }
+
   public void reveal_offset (int offset) {
     if (pending_reveal_id != 0) {
       Source.remove (pending_reveal_id);

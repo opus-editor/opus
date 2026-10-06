@@ -22,7 +22,9 @@ public class MainWindow : Object {
   private GLib.Settings settings;
   // Both app-wide, shared by every window — App owns them.
   private UserSettings user_settings;
-  private LastFolder last_folder;
+  private SessionStore session_store;
+  // Set once the window is on its way out: its tabs going away then must not be saved as the session.
+  private bool closing = false;
 
   private EditorView.FindBar find_bar;
   private EditorView.FindInFilesBar find_in_files_bar;
@@ -162,10 +164,10 @@ public class MainWindow : Object {
   /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window. */
   public signal void closed ();
 
-  public MainWindow (Gtk.Application app, GLib.Settings settings, UserSettings user_settings, LastFolder last_folder, string root_path) {
+  public MainWindow (Gtk.Application app, GLib.Settings settings, UserSettings user_settings, SessionStore session_store, string root_path) {
     this.settings = settings;
     this.user_settings = user_settings;
-    this.last_folder = last_folder;
+    this.session_store = session_store;
 
     var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/main-window/index.ui");
     window = (Adw.ApplicationWindow) builder.get_object ("window");
@@ -191,6 +193,7 @@ public class MainWindow : Object {
     editor_pane.tab_opened.connect (on_settings_tab_opened);
     editor_pane.tab_closed.connect (on_settings_tab_closed);
     editor_pane.file_tab_closed.connect (closed_tabs.record);
+    editor_pane.tabs_changed.connect (save_session);
     // active_document_path, not the signal's own `path`: that one is the
     // tab's URI, and only a real on-disk file belongs in recent files.
     editor_pane.active_state_changed.connect (() => {
@@ -263,6 +266,8 @@ public class MainWindow : Object {
       settings.set_int ("window-width", window.get_width ());
       settings.set_int ("window-height", window.get_height ());
       settings.set_int ("sidebar-width", (int) sidebar_width);
+      save_session_now ();
+      closing = true;
       return false;
     });
 
@@ -436,7 +441,33 @@ public class MainWindow : Object {
     has_linked_folder = true;
     split_view.show_sidebar = true;
     update_folder_dependent_ui ();
-    last_folder.record (path);
+    save_session ();
+  }
+
+  /** The session as this window has it right now, or null with no folder linked: a lone file is never a session. */
+  private SavedSession? current_session () {
+    return has_linked_folder ? editor_pane.session (editor_pane.linked_folder_path) : null;
+  }
+
+  /** Hands the store this window's session — nothing while closing, when the tabs going away would be taken for the session shrinking. */
+  private void save_session () {
+    if (closing) {
+      return;
+    }
+    var session = current_session ();
+    if (session != null) {
+      session_store.record (session);
+    }
+  }
+
+  private void save_session_now () {
+    save_session ();
+    session_store.flush ();
+  }
+
+  /** A saved session's tabs come back into this window, whose folder is already linked — see EditorPane.restore_session(). */
+  public void restore_session (SavedSession session) {
+    editor_pane.restore_session (session);
   }
 
   /** "Close Folder" — the opposite of link_folder(): the sidebar goes back to not existing at all, same as a window that never had one linked. Open tabs stay exactly as they are; only the sidebar (and what "Copy Relative Path" resolves against) are affected. */
@@ -453,7 +484,7 @@ public class MainWindow : Object {
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     update_folder_dependent_ui ();
-    last_folder.clear ();
+    session_store.clear ();
   }
 
   /** Coming back to this window is when a change made elsewhere is expected to show — the one moment worth paying for a re-read in case its event never arrived. */
@@ -571,10 +602,10 @@ public class MainWindow : Object {
     }
   }
 
-  /** This window is where the setting was edited, so its own linked folder is the one `window.restore_folder` picks up when turned on. */
+  /** This window is where the setting was edited, so its own session is the one `window.save_session` picks up when turned on. */
   private void on_settings_file_changed () {
     user_settings.reload ();
-    last_folder.apply_setting (user_settings.restore_folder, has_linked_folder ? editor_pane.linked_folder_path : null);
+    session_store.apply_setting (user_settings.save_session, current_session ());
   }
 
   private void on_settings_tab_closed (string uri) {
@@ -1499,6 +1530,11 @@ public class MainWindow : Object {
   }
 
   /** Shows the window. */
+  /** Closes the window the way its close button does, close_request included — for Opus.Dev.DevServer. */
+  public void close () {
+    window.close ();
+  }
+
   public void present () {
     window.present ();
   }

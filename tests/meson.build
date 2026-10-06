@@ -316,12 +316,19 @@ workspace_test = executable(
 )
 test('workspace', workspace_test)
 
-last_folder_test = executable(
-  'last-folder-test',
-  ['models/last-folder-test.vala'],
+saved_session_test = executable(
+  'saved-session-test',
+  ['models/saved-session-test.vala'],
   dependencies: [opus_model_test_dep],
 )
-test('last-folder', last_folder_test)
+test('saved-session', saved_session_test)
+
+session_store_test = executable(
+  'session-store-test',
+  ['models/session-store-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('session-store', session_store_test)
 
 workspace_watcher_test = executable(
   'workspace-watcher-test',
@@ -651,6 +658,22 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
   timeout: 60,
+  is_parallel: false,
+)
+
+save_session_test = executable(
+  'save-session-test',
+  ['system/session/save-session-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'save-session',
+  save_session_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+  ],
+  timeout: 120,
   is_parallel: false,
 )
 

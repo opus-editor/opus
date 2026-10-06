@@ -74,8 +74,13 @@ public class SystemTestSession : Object {
      * settings.json before Opus starts — for a scenario that needs a
      * non-default `editor.*` value (word wrap, say) in effect from the
      * first paint. Null leaves UserSettings to create its defaults.
+     *
+     * The data directory (`~/.local/share/opus`, where the saved session
+     * lives) is isolated the same way, and wiped before Opus starts
+     * unless `keep_data` — for a scenario that is the second run after
+     * one that saved its session.
      */
-    public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null, string? settings_json = null) throws Error {
+    public SystemTestSession (string opus_binary_path, uint broadway_display_num, string? folder_path = null, string? settings_json = null, bool keep_data = false) throws Error {
         var broadway_launcher = new SubprocessLauncher (SubprocessFlags.NONE);
         // See the identical spawnv() argv warning/explanation below.
         string[] broadway_argv = { "gtk4-broadwayd", ":%u".printf (broadway_display_num) };
@@ -104,6 +109,11 @@ public class SystemTestSession : Object {
         var config_home = Path.build_filename (Environment.get_tmp_dir (), "opus-test-config-%u".printf (broadway_display_num));
         launcher.setenv ("XDG_CONFIG_HOME", config_home, true);
         reset_settings_json (config_home, settings_json);
+        var data_home = Path.build_filename (Environment.get_tmp_dir (), "opus-test-data-%u".printf (broadway_display_num));
+        launcher.setenv ("XDG_DATA_HOME", data_home, true);
+        if (!keep_data) {
+            FileUtils.remove (Path.build_filename (data_home, "opus", "session.json"));
+        }
         // spawnv() takes a `const gchar * const *`; valac always marshals
         // a string[] as a plain, non-const `gchar**` — see the identical
         // warning/explanation at file-tree-controller.vala's own spawnv()
@@ -166,6 +176,14 @@ public class SystemTestSession : Object {
      * would otherwise race broadwayd's own port release and
      * occasionally fail to bind it.
      */
+    /** Closes the window the way its close button does and waits for Opus to exit — what makes a saved session reach disk. */
+    public void quit () throws Error {
+        proxy.call_sync ("CloseWindow", null, DBusCallFlags.NONE, -1, null);
+        process.wait ();
+        process = null;
+        close ();
+    }
+
     public void close () {
         if (process != null) {
             process.force_exit ();
@@ -250,6 +268,7 @@ public class SystemTestSession : Object {
     public void assert_editor_text (string expected) throws Error { editor_text.assert_editor_text (expected); }
     public string syntax_style_at (int offset) throws Error { return editor_text.syntax_style_at (offset); }
     public void wait_for_syntax_style (int offset, string expected) throws Error { editor_text.wait_for_syntax_style (offset, expected); }
+    public int top_line () throws Error { return editor_text.top_line (); }
 
     // --- SystemTestCursors ---
     public void set_cursors (int[,] pairs) throws Error { cursors.set_cursors (pairs); }

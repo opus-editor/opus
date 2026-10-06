@@ -47,9 +47,9 @@ public class UserSettings : Object {
     root = read_root () ?? new Json.Object ();
   }
 
-  /** See LastFolder. */
-  public bool restore_folder {
-    get { return read_bool ("window.restore_folder", false); }
+  /** See SessionStore. */
+  public bool save_session {
+    get { return read_bool ("window.save_session", false); }
   }
 
   public string? font_family {
@@ -159,7 +159,7 @@ public class UserSettings : Object {
 
   private static string default_content () {
     return """{
-  "window.restore_folder": false,
+  "window.save_session": false,
   "editor.font_family": null,
   "editor.font_size": %d,
   "editor.font_weight": "normal",

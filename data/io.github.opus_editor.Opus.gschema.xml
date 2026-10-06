@@ -16,11 +16,6 @@
       <summary>Sidebar width</summary>
       <description>The width of the sidebar, in pixels, restored the next time Opus is opened.</description>
     </key>
-    <key name="last-folder" type="s">
-      <default>''</default>
-      <summary>Last folder</summary>
-      <description>The folder reopened the next time Opus is opened with no argument, recorded only while the window.restore_folder setting is on. Empty when there is none.</description>
-    </key>
     <key name="style-variant" type="s">
       <choices>
         <choice value="follow"/>

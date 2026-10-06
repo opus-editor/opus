@@ -255,6 +255,32 @@ namespace EditorView.EditorPane {
       code_editor.grab_focus ();
     }
 
+    /**
+     * Brings a saved session's tab back: the file opens as a tab in the
+     * bar, cursor and scroll where they were, without being shown — a
+     * session has many tabs and one active, and only that one is worth
+     * the editor's work. Fails like open() for a file that can't be read.
+     */
+    public void restore (SessionTab tab) throws Error {
+      var document = Document.load (tab.path);
+      document.is_preview = tab.preview;
+      document.cursors.set_cursors ({ new Cursor (char_offset_of_line_column (document.content, tab.line, tab.column)) });
+      document.top_line = tab.top_line;
+      register (document, folder_name_of (tab.path), tab.preview);
+    }
+
+    /** How the file tab `uri` would be saved in a session, or null for a tab with no file behind it. */
+    public SessionTab? session_tab (string uri) {
+      var document = documents[uri];
+      if (document == null || document.pathname == null) {
+        return null;
+      }
+      int line, column;
+      primary_cursor_position (document, out line, out column);
+      int top_line = uri == active_uri && document.readable ? code_editor.top_line : document.top_line;
+      return new SessionTab (document.pathname, line, column, top_line, document.is_preview);
+    }
+
     /** Whether `path` is currently open as a tab with unsaved changes — by title, the way Opus.Dev.DevServer and MainWindow's own delete flow address a tab (see find_by_title()). */
     public bool is_path_dirty (string path) {
       var document = find_by_title (path);
@@ -409,12 +435,13 @@ namespace EditorView.EditorPane {
       return documents.contains (uri);
     }
 
-    /** Binds `uri`'s Document into the shared CodeEditor. */
+    /** Binds `uri`'s Document into the shared CodeEditor, and brings its scroll back to where it was; the document leaving keeps where it was for the same reason. */
     public void show (string uri) {
       var document = documents[uri];
       if (document == null) {
         return;
       }
+      remember_top_line ();
       active_uri = uri;
 
       // document.pathname ?? uri: an Untitled tab has no real path for
@@ -437,7 +464,16 @@ namespace EditorView.EditorPane {
       code_editor.set_indent (indent_size, insert_spaces);
 
       code_editor.bind (document.cursors, document.history);
+      code_editor.scroll_to_top_line (document.top_line);
       diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
+    }
+
+    /** The active document takes note of where it is scrolled to, for when it comes back. */
+    private void remember_top_line () {
+      var document = active_document ();
+      if (document != null && document.readable) {
+        document.top_line = code_editor.top_line;
+      }
     }
 
     /**
@@ -448,6 +484,7 @@ namespace EditorView.EditorPane {
      * Document that isn't showing. Read-only too, for the same reason.
      */
     public void hide () {
+      remember_top_line ();
       active_uri = null;
       code_editor.read_only = true;
       code_editor.set_text ("", "");

@@ -33,6 +33,8 @@ public class Document : Object {
    */
   public string? language_override { get; set; default = null; }
   public bool is_preview { get; set; default = false; }
+  /** The first line showing while this document was last on screen, 1-based — where the editor scrolls back to when it comes back. */
+  public int top_line { get; set; default = 1; }
   public bool readable { get; private set; default = true; }
   public bool is_untitled { get; private set; default = false; }
 

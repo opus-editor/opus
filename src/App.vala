@@ -17,7 +17,7 @@ public class App : Adw.Application {
   private GenericArray<MainWindow> windows = new GenericArray<MainWindow> ();
   private Opus.Plugins.Engine plugins_engine;
   private UserSettings user_settings;
-  private LastFolder last_folder;
+  private SessionStore session_store;
 
   #if DEBUG
   // See src/lib/AGENTS.md's own note on why Opus.Dev.DevServer lives
@@ -91,7 +91,6 @@ public class App : Adw.Application {
     apply_color_scheme ();
     settings.changed["style-variant"].connect (() => apply_color_scheme ());
 
-    var saved_pathname = settings.get_string ("last-folder");
     user_settings = new UserSettings (Environment.get_user_config_dir ());
 
     // The bundled themes, then the user's own, which win a shared name.
@@ -102,9 +101,7 @@ public class App : Adw.Application {
         Path.build_filename (Environment.get_user_data_dir (), "opus", "themes"),
       }
     );
-    last_folder = new LastFolder (user_settings.restore_folder, saved_pathname == "" ? null : saved_pathname);
-    save_last_folder ();
-    last_folder.notify["recorded-pathname"].connect (save_last_folder);
+    session_store = new SessionStore (user_settings.save_session, Path.build_filename (Environment.get_user_data_dir (), "opus", "session.json"));
 
     // GtkText/GtkEntry (and friends) call gtk_widget_error_bell() — an
     // audible system beep — on actions that can't do anything (Backspace
@@ -123,16 +120,14 @@ public class App : Adw.Application {
     #endif
   }
 
-  private void save_last_folder () {
-    settings.set_string ("last-folder", last_folder.recorded_pathname ?? "");
-  }
-
   /**
    * `opus` (no argument) opens blank — no folder linked, no sidebar, no
-   * tab — or, with `window.restore_folder` on, on the folder LastFolder
-   * recorded. `opus <file>` opens that file, still with no folder linked.
-   * `opus <dir>` links it as the workspace root, sidebar shown, no tab
-   * open yet (browse it via the tree).
+   * tab — or, with `window.save_session` on, on the session SessionStore
+   * kept: its folder, its tabs, its active tab. `opus <file>` opens
+   * that file, still with no folder linked.
+   * `opus <dir>` links it as the workspace root, sidebar shown, with the
+   * saved session's tabs back when it is that same folder and none
+   * otherwise (browse it via the tree).
    *
    * HANDLES_COMMAND_LINE, not the default GApplication argv handling:
    * without it, a bare positional argument is treated as a file to open
@@ -263,9 +258,13 @@ public class App : Adw.Application {
     } else if (file_path != null) {
       open_window (file_path);
     } else {
-      open_window (null, last_folder.get_pathname ());
+      open_window (null, session_store.load ());
     }
     return 0;
+  }
+
+  private static bool same_folder (string a, string b) {
+    return File.new_for_path (a).equal (File.new_for_path (b));
   }
 
   /**
@@ -275,17 +274,18 @@ public class App : Adw.Application {
    * genuinely blank window) until "Open Folder…" gives it a real project
    * root (MainWindow.link_folder(), from its own primary menu/Ctrl+Shift+O).
    */
-  public void open_window (string? initial_file, string? restored_folder = null) {
+  public void open_window (string? initial_file, SavedSession? session = null) {
     var root_path = initial_file != null ? Path.get_dirname (initial_file) : Environment.get_current_dir ();
     var window = create_window (root_path);
 
     window.new_window_requested.connect (() => open_window (initial_file));
 
-    if (restored_folder != null) {
+    if (session != null) {
       try {
-        window.link_folder (restored_folder);
+        window.link_folder (session.folder);
+        window.restore_session (session);
       } catch (Error e) {
-        Logger.warn ("couldn't restore %s: %s".printf (restored_folder, e.message));
+        Logger.warn ("couldn't restore %s: %s".printf (session.folder, e.message));
       }
     }
 
@@ -296,7 +296,15 @@ public class App : Adw.Application {
     window.present ();
   }
 
-  /** A window that links `root_path` as its workspace root from the start. Reopens the same folder in a second window — a window here is fundamentally "one workspace root," not something that gets re-pointed at another one later on. */
+  /**
+   * A window that links `root_path` as its workspace root from the
+   * start. Reopens the same folder in a second window — a window here
+   * is fundamentally "one workspace root," not something that gets
+   * re-pointed at another one later on. The saved session's tabs come
+   * back when it is this very folder: `opus .` in the project is how
+   * most launches happen, and linking the folder alone would save an
+   * empty session over the one kept.
+   */
   public void open_workspace (string root_path) {
     var window = create_window (root_path);
 
@@ -306,6 +314,11 @@ public class App : Adw.Application {
       error ("failed to open %s: %s", root_path, e.message);
     }
 
+    var session = session_store.load ();
+    if (session != null && same_folder (session.folder, root_path)) {
+      window.restore_session (session);
+    }
+
     window.new_window_requested.connect (() => open_workspace (root_path));
 
     window.present ();
@@ -313,7 +326,7 @@ public class App : Adw.Application {
 
   /** Builds a window and registers it with everything app-wide that needs to know about it — the one bit both open_window()/open_workspace() actually share, now that MainWindow itself owns everything else a window needs wired in. */
   private MainWindow create_window (string root_path) {
-    var window = new MainWindow (this, settings, user_settings, last_folder, root_path);
+    var window = new MainWindow (this, settings, user_settings, session_store, root_path);
     windows.add (window);
 
     #if DEBUG

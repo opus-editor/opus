@@ -56,12 +56,12 @@ private void test_creates_the_file_with_default_content () {
     remove_temp_config_dir (config_dir);
 }
 
-private void test_default_content_lists_restore_folder_first () {
+private void test_default_content_lists_save_session_first () {
     string config_dir = make_temp_config_dir ();
 
     new UserSettings (config_dir);
 
-    assert_true (read_settings (config_dir).has_prefix ("{\n  \"window.restore_folder\": false,\n"));
+    assert_true (read_settings (config_dir).has_prefix ("{\n  \"window.save_session\": false,\n"));
 
     remove_temp_config_dir (config_dir);
 }
@@ -132,7 +132,7 @@ private void test_reads_defaults_from_a_freshly_created_file () {
 
     var settings = new UserSettings (config_dir);
 
-    assert_false (settings.restore_folder);
+    assert_false (settings.save_session);
     assert_null (settings.font_family);
     assert_cmpint (settings.font_size, CompareOperator.EQ, UserSettings.system_monospace_font_size ());
     assert_true (settings.font_weight == "normal");
@@ -169,35 +169,35 @@ private void test_reads_custom_editor_values () {
     remove_temp_config_dir (config_dir);
 }
 
-private void test_reads_restore_folder () {
+private void test_reads_save_session () {
     string config_dir = make_temp_config_dir ();
-    write_settings (config_dir, "{\"window.restore_folder\": true}");
+    write_settings (config_dir, "{\"window.save_session\": true}");
 
     var settings = new UserSettings (config_dir);
 
-    assert_true (settings.restore_folder);
+    assert_true (settings.save_session);
 
     remove_temp_config_dir (config_dir);
 }
 
-private void test_restore_folder_is_off_when_null () {
+private void test_save_session_is_off_when_null () {
     string config_dir = make_temp_config_dir ();
-    write_settings (config_dir, "{\"window.restore_folder\": null}");
+    write_settings (config_dir, "{\"window.save_session\": null}");
 
     var settings = new UserSettings (config_dir);
 
-    assert_false (settings.restore_folder);
+    assert_false (settings.save_session);
 
     remove_temp_config_dir (config_dir);
 }
 
-private void test_restore_folder_is_off_when_absent () {
+private void test_save_session_is_off_when_absent () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, "{\"editor.font_size\": 20}");
 
     var settings = new UserSettings (config_dir);
 
-    assert_false (settings.restore_folder);
+    assert_false (settings.save_session);
 
     remove_temp_config_dir (config_dir);
 }
@@ -392,14 +392,14 @@ int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/user-settings/path_is_settings_json_under_an_opus_subdirectory", test_path_is_settings_json_under_an_opus_subdirectory);
     Test.add_func ("/models/user-settings/creates_the_file_with_default_content", test_creates_the_file_with_default_content);
-    Test.add_func ("/models/user-settings/default_content_lists_restore_folder_first", test_default_content_lists_restore_folder_first);
+    Test.add_func ("/models/user-settings/default_content_lists_save_session_first", test_default_content_lists_save_session_first);
     Test.add_func ("/models/user-settings/leaves_an_existing_file_untouched", test_leaves_an_existing_file_untouched);
     Test.add_func ("/models/user-settings/ensure_exists_recreates_a_deleted_file", test_ensure_exists_recreates_a_deleted_file);
     Test.add_func ("/models/user-settings/reads_defaults_from_a_freshly_created_file", test_reads_defaults_from_a_freshly_created_file);
     Test.add_func ("/models/user-settings/reads_custom_editor_values", test_reads_custom_editor_values);
-    Test.add_func ("/models/user-settings/reads_restore_folder", test_reads_restore_folder);
-    Test.add_func ("/models/user-settings/restore_folder_is_off_when_null", test_restore_folder_is_off_when_null);
-    Test.add_func ("/models/user-settings/restore_folder_is_off_when_absent", test_restore_folder_is_off_when_absent);
+    Test.add_func ("/models/user-settings/reads_save_session", test_reads_save_session);
+    Test.add_func ("/models/user-settings/save_session_is_off_when_null", test_save_session_is_off_when_null);
+    Test.add_func ("/models/user-settings/save_session_is_off_when_absent", test_save_session_is_off_when_absent);
     Test.add_func ("/models/user-settings/falls_back_to_defaults_on_invalid_json", test_falls_back_to_defaults_on_invalid_json);
     Test.add_func ("/models/user-settings/falls_back_per_key_when_a_value_has_the_wrong_type", test_falls_back_per_key_when_a_value_has_the_wrong_type);
     Test.add_func ("/models/user-settings/setting_word_wrap_reads_back_right_away", test_setting_word_wrap_reads_back_right_away);

@@ -81,6 +81,8 @@ namespace EditorView {
     public signal void tab_closed (string path);
     /** A file tab closed, with where its cursor was — see TabDocument.file_tab_closed. */
     public signal void file_tab_closed (string path, int line, int column);
+    /** Anything a saved session would record changed: a tab opened, closed, renamed, reordered, promoted, or made active. */
+    public signal void tabs_changed ();
 
     /** Re-emitted from the active tab's own search — see FindBar's own "N of M" counter, wired to this wherever both are composed (MainWindow). */
     public signal void search_position_changed (int position, int count);
@@ -131,6 +133,7 @@ namespace EditorView {
       tab_bar.copy_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (title_of (uri)));
       tab_bar.copy_relative_path_requested.connect ((uri) => tab_bar.copy_to_clipboard (relative_path (title_of (uri))));
       tab_bar.new_file_requested.connect (new_untitled);
+      tab_bar.reordered.connect (() => tabs_changed ());
       tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (title_of (uri)));
     }
 
@@ -149,12 +152,14 @@ namespace EditorView {
         if (tabs.size () == 1) {
           has_open_tabs_changed (true);
         }
+        tabs_changed ();
       });
       kind.tab_removed.connect ((uri) => {
         tab_bar.remove_tab (uri);
         tabs.remove (uri);
         tab_closed (uri);
         on_tab_gone (uri);
+        tabs_changed ();
       });
       kind.tab_renamed.connect ((old_uri, new_uri, name, folder_name, title, has_pathname) => {
         tabs.remove (old_uri);
@@ -164,6 +169,7 @@ namespace EditorView {
           active_path = new_uri;
         }
         notify_active_state ();
+        tabs_changed ();
       });
       kind.tab_marks_changed.connect ((uri, modified, deleted, unsynchronized) => {
         tab_bar.mark_modified (uri, modified);
@@ -173,7 +179,10 @@ namespace EditorView {
           active_state_changed (uri, modified);
         }
       });
-      kind.tab_preview_changed.connect ((uri, preview) => tab_bar.mark_preview (uri, preview));
+      kind.tab_preview_changed.connect ((uri, preview) => {
+        tab_bar.mark_preview (uri, preview);
+        tabs_changed ();
+      });
       kind.tab_decoration_changed.connect ((uri, decoration) => tab_bar.mark_decoration (uri, decoration));
       kind.activate_requested.connect (activate);
       kind.search_position_changed.connect ((position, count) => {
@@ -223,6 +232,48 @@ namespace EditorView {
 
     public void new_untitled () {
       document_tab.new_untitled ();
+    }
+
+    /**
+     * This pane's tabs as a session would keep them: the file tabs in
+     * the bar's order, and which of them is active. `folder` is the
+     * session's; the pane doesn't know what is linked.
+     */
+    public SavedSession session (string folder) {
+      var tabs = new GenericArray<SessionTab> ();
+      string? active = null;
+      foreach (unowned string uri in tab_bar.paths_in_order ()) {
+        var tab = document_tab.session_tab (uri);
+        if (tab == null) {
+          continue;
+        }
+        tabs.add (tab);
+        if (uri == active_path) {
+          active = tab.path;
+        }
+      }
+      return new SavedSession (folder, tabs, active);
+    }
+
+    /**
+     * Brings a session's tabs back, in its order, and shows the active
+     * one — only that one, once: the rest are tabs in the bar until
+     * clicked. A tab whose file can't be read is left out.
+     */
+    public void restore_session (SavedSession session) {
+      foreach (var tab in session.tabs) {
+        try {
+          document_tab.restore (tab);
+        } catch (Error e) {
+          Logger.warn ("session: %s not restored: %s".printf (tab.path, e.message));
+        }
+      }
+      var last = tab_bar.last_tab_path ();
+      var active = session.active ?? (last != null ? title_of (last) : null);
+      if (active != null && has_tab_for (active)) {
+        activate (Document.uri_for_path (active));
+        code_editor.grab_focus ();
+      }
     }
 
     /** Whether a tab is open on `path` right now. */
@@ -368,6 +419,7 @@ namespace EditorView {
       editor_area_bin.child = kind.widget;
       kind.show (uri);
       notify_active_state ();
+      tabs_changed ();
     }
 
     /** Recomputes and re-emits active_state_changed from the current active tab — safe to call defensively any time it could have changed, even if it turns out it didn't. */
