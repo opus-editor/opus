@@ -179,6 +179,7 @@ opus_gtk_view_sources = files(
   'views/components/code-editor/_drag-selection.vala',
   'views/components/code-editor/_input.vala',
   'views/components/code-editor/_line-preview.vala',
+  'views/components/code-editor/_native-edits.vala',
   'views/components/code-editor/_search.vala',
   'views/components/code-editor/_selections.vala',
   'views/components/code-editor/_source-view.vala',

@@ -52,8 +52,8 @@ public class CodeEditorCursors : Object {
   private IndentChangeFunc? indent_change;
   private OutdentChangeFunc? outdent_change;
 
-  /** Suppresses on_insert_text_native/on_delete_range_native/on_mark_set while apply_edits() is itself mutating the buffer — otherwise our own edits would be misread as untracked native ones. */
-  private bool updating_programmatically = false;
+  /** Tracks edits GtkSourceView itself makes to the buffer unclaimed by this class (block-indent/outdent over a selection) — see its own doc comment. Also where updating_programmatically actually lives now: the one flag both this class and that one need, toggled here around every buffer write this class makes itself. */
+  private CodeEditorNativeEdits native_edits;
 
   /** Suppresses on_mark_set while render_cursors()'s own select_range() call is moving the marks — otherwise that would resync straight back from what render_cursors() was just asked to show. */
   private bool setting_cursors_programmatically = false;
@@ -80,6 +80,8 @@ public class CodeEditorCursors : Object {
 
   public CodeEditorCursors (CodeEditorSourceView text_view) {
     this.text_view = text_view;
+    native_edits = new CodeEditorNativeEdits (text_view);
+    native_edits.text_changed.connect ((text) => text_changed (text));
     unbind ();
 
     // Off in favor of the EditHistory-backed pipeline below — the
@@ -87,14 +89,10 @@ public class CodeEditorCursors : Object {
     source_buffer.enable_undo = false;
 
     source_buffer.mark_set.connect (on_mark_set);
-    // Plain .connect() (not _after) runs before the mutation actually
-    // lands, so pos/start/end still describe what's *about to*
-    // happen — see on_insert_text_native/on_delete_range_native.
-    source_buffer.insert_text.connect (on_insert_text_native);
-    source_buffer.delete_range.connect (on_delete_range_native);
-    // _after counterparts purely to resync the tracked cursor once
-    // the mutation has actually landed — see
-    // resync_native_cursor_after_native_edit()'s own doc comment.
+    // _after: runs once the mutation has actually landed, to resync the
+    // tracked cursor — see resync_native_cursor_after_native_edit()'s
+    // own doc comment. native_edits connects its own plain (pre-mutation)
+    // handlers to these same two signals independently.
     source_buffer.insert_text.connect_after ((ref pos, new_text, len) => resync_native_cursor_after_native_edit ());
     source_buffer.delete_range.connect_after ((start, end) => resync_native_cursor_after_native_edit ());
   }
@@ -104,6 +102,7 @@ public class CodeEditorCursors : Object {
     cancel_pending_reveal ();
     this.cursors = cursors;
     this.history = history;
+    native_edits.bind (cursors, history);
     render ();
   }
 
@@ -114,18 +113,17 @@ public class CodeEditorCursors : Object {
 
   /**
    * Replaces the buffer's whole content — CodeEditor's own set_text()
-   * calls this instead of writing text_view.buffer directly, since only
-   * this class holds updating_programmatically: without it,
-   * on_insert_text_native()/on_delete_range_native() would misread
-   * loading a brand-new document as an untracked user edit and push it
-   * onto EditHistory. Deliberately not an edit: it's how a read-only
-   * editor gets its content too.
+   * calls this instead of writing text_view.buffer directly: without
+   * suppressing native_edits, it would misread loading a brand-new
+   * document as an untracked user edit and push it onto EditHistory.
+   * Deliberately not an edit: it's how a read-only editor gets its
+   * content too.
    */
   public void load_text (string text) {
     cancel_pending_reveal ();
-    updating_programmatically = true;
+    native_edits.updating_programmatically = true;
     text_view.buffer.text = text;
-    updating_programmatically = false;
+    native_edits.updating_programmatically = false;
   }
 
   private void cancel_pending_reveal () {
@@ -474,7 +472,7 @@ public class CodeEditorCursors : Object {
     stable_sort_edits_descending (sorted);
 
     source_buffer.begin_user_action ();
-    updating_programmatically = true;
+    native_edits.updating_programmatically = true;
     foreach (var edit in sorted) {
       Gtk.TextIter start_iter;
       Gtk.TextIter end_iter;
@@ -483,7 +481,7 @@ public class CodeEditorCursors : Object {
       source_buffer.delete (ref start_iter, ref end_iter);
       source_buffer.insert (ref start_iter, edit.new_text, -1);
     }
-    updating_programmatically = false;
+    native_edits.updating_programmatically = false;
     source_buffer.end_user_action ();
 
     text_changed (get_text ());
@@ -545,41 +543,14 @@ public class CodeEditorCursors : Object {
     }
   }
 
-  private void on_insert_text_native (ref Gtk.TextIter pos, string new_text, int new_text_length) {
-    if (updating_programmatically || new_text == "") {
-      return;
-    }
-
-    int offset = pos.get_offset ();
-    history.push (
-      { new TextEdit () { start_offset = offset, end_offset = offset, old_text = "", new_text = new_text } },
-      cursors.snapshot (), cursors.snapshot (), EditKind.OTHER
-    );
-  }
-
-  private void on_delete_range_native (Gtk.TextIter start, Gtk.TextIter end) {
-    if (updating_programmatically) {
-      return;
-    }
-
-    history.push (
-      { new TextEdit () {
-        start_offset = start.get_offset (), end_offset = end.get_offset (),
-        old_text = source_buffer.get_text (start, end, false), new_text = ""
-      } },
-      cursors.snapshot (), cursors.snapshot (), EditKind.OTHER
-    );
-  }
-
-  /** Re-syncs from *after* an untracked native edit has actually landed — mark-set doesn't reliably fire for this case. Always normalized: a native edit (e.g. GtkSourceView's own Tab-indent) has no click-drag direction to preserve. Also re-emits text_changed: apply_edits() is the only other emitter, and a native edit never goes through it. */
+  /** Re-syncs from *after* an untracked native edit has actually landed — mark-set doesn't reliably fire for this case. Always normalized: a native edit (e.g. GtkSourceView's own Tab-indent) has no click-drag direction to preserve. */
   private void resync_native_cursor_after_native_edit () {
-    if (updating_programmatically) {
+    if (native_edits.updating_programmatically) {
       return;
     }
     int anchor = get_anchor_offset ();
     int position = get_position_offset ();
     resync_from_native (int.min (anchor, position), int.max (anchor, position));
-    text_changed (get_text ());
   }
 
   /** Sets the Model's primary cursor to exactly `anchor`/`position` (no normalizing — callers decide that) and repaints. */
