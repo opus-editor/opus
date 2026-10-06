@@ -12,12 +12,12 @@ namespace Workspace {
    * it relative too (FileTree just concatenates paths, it doesn't
    * resolve them), which then surfaced as far as a tab's own tooltip
    * showing something relative instead of a real absolute path.
-   * `Gio.File.new_for_path().get_path()` already does exactly this
-   * (confirmed directly, not assumed: it resolves a relative argument
-   * against the process's own cwd) — simpler than reimplementing path
-   * resolution by hand.
+   *
+   * A relative argument is taken from `cwd`, the directory the command
+   * was typed in — not this process's own: with an Opus already open,
+   * the command runs over here, wherever this process was started.
    */
-  public static void resolve (string[] args, out string? folder_path, out string? file_path) {
+  public static void resolve (string[] args, string cwd, out string? folder_path, out string? file_path) {
     folder_path = null;
     file_path = null;
 
@@ -26,10 +26,9 @@ namespace Workspace {
     }
 
     // get_path() is nullable in general (a File isn't always backed by
-    // a local path), but always non-null for one built via
-    // new_for_path() specifically — the fallback is just to satisfy
-    // null-safety, not because this is expected to matter in practice.
-    var path = File.new_for_path (args[1]).get_path () ?? args[1];
+    // a local path), but always non-null for one built from a path — the
+    // fallback is just to satisfy null-safety.
+    var path = File.new_for_path (cwd).resolve_relative_path (args[1]).get_path () ?? args[1];
     if (FileUtils.test (path, FileTest.IS_DIR)) {
       folder_path = path;
     } else {

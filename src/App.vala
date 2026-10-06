@@ -257,7 +257,7 @@ public class App : Adw.Application {
 
     string? folder_path;
     string? file_path;
-    Workspace.resolve (remaining, out folder_path, out file_path);
+    Workspace.resolve (remaining, command_line.get_cwd () ?? Environment.get_current_dir (), out folder_path, out file_path);
     if (folder_path != null) {
       open_workspace (folder_path);
     } else if (file_path != null) {

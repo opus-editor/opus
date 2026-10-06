@@ -8,7 +8,7 @@ int main (string[] args) {
 
             string? folder_path;
             string? file_path;
-            Workspace.resolve ({ "opus", dir_path }, out folder_path, out file_path);
+            Workspace.resolve ({ "opus", dir_path }, Environment.get_current_dir (), out folder_path, out file_path);
 
             assert_cmpstr (folder_path, CompareOperator.EQ, dir_path);
             assert_null (file_path);
@@ -27,7 +27,7 @@ int main (string[] args) {
 
             string? folder_path;
             string? resolved_file_path;
-            Workspace.resolve ({ "opus", file_path }, out folder_path, out resolved_file_path);
+            Workspace.resolve ({ "opus", file_path }, Environment.get_current_dir (), out folder_path, out resolved_file_path);
 
             assert_null (folder_path);
             assert_cmpstr (resolved_file_path, CompareOperator.EQ, file_path);
@@ -38,41 +38,71 @@ int main (string[] args) {
         }
     });
 
-    Test.add_func ("/models/workspace/resolve/relative_argument_is_resolved_to_an_absolute_path", () => {
-        // `opus .` (or any relative argument) must not leave folder_path/
-        // file_path relative — every FileNode built from it downstream
-        // would inherit that (FileTree just concatenates paths, it
-        // doesn't resolve them), surfacing as far as a tab's own tooltip
-        // showing something relative instead of a real absolute path.
-        var original_cwd = Environment.get_current_dir ();
+    Test.add_func ("/models/workspace/resolve/a_relative_argument_is_taken_from_the_directory_the_command_was_typed_in", () => {
         string dir_path = "";
         try {
             dir_path = DirUtils.make_tmp ("opus-workspace-test-XXXXXX");
-            Environment.set_current_dir (dir_path);
 
             string? folder_path;
             string? file_path;
-            Workspace.resolve ({ "opus", "." }, out folder_path, out file_path);
+            Workspace.resolve ({ "opus", "." }, dir_path, out folder_path, out file_path);
 
-            assert_true (Path.is_absolute (folder_path));
-            // Not a plain string-equals against dir_path itself: if the
-            // system's own tmp dir happens to be a symlink, GFile's own
-            // resolution could legitimately differ from the raw string —
-            // normalizing both sides the same way keeps this robust
-            // either way, rather than assuming this machine's specifics.
+            // Normalized the same way on both sides: the system's tmp dir may be a symlink.
             assert_cmpstr (folder_path, CompareOperator.EQ, File.new_for_path (dir_path).get_path ());
+            assert_true (Path.is_absolute (folder_path));
         } catch (Error e) {
             error ("failed to create fixture directory: %s", e.message);
         } finally {
-            Environment.set_current_dir (original_cwd);
             DirUtils.remove (dir_path);
+        }
+    });
+
+    Test.add_func ("/models/workspace/resolve/a_relative_file_is_taken_from_the_same_directory", () => {
+        string dir_path = "";
+        string file_path = "";
+        try {
+            dir_path = DirUtils.make_tmp ("opus-workspace-test-XXXXXX");
+            file_path = Path.build_filename (dir_path, "notes.md");
+            FileUtils.set_contents (file_path, "");
+
+            string? folder_path;
+            string? resolved_file_path;
+            Workspace.resolve ({ "opus", "notes.md" }, dir_path, out folder_path, out resolved_file_path);
+
+            assert_null (folder_path);
+            assert_cmpstr (resolved_file_path, CompareOperator.EQ, File.new_for_path (file_path).get_path ());
+        } catch (Error e) {
+            error ("failed to create fixture: %s", e.message);
+        } finally {
+            FileUtils.remove (file_path);
+            DirUtils.remove (dir_path);
+        }
+    });
+
+    Test.add_func ("/models/workspace/resolve/the_processs_own_directory_plays_no_part", () => {
+        // With an Opus already open, the command runs in that process,
+        // started wherever: only the directory it was typed in counts.
+        string typed_in = "";
+        try {
+            typed_in = DirUtils.make_tmp ("opus-workspace-test-XXXXXX");
+
+            string? folder_path;
+            string? file_path;
+            Workspace.resolve ({ "opus", "." }, typed_in, out folder_path, out file_path);
+
+            assert_cmpstr (folder_path, CompareOperator.NE, File.new_for_path (Environment.get_current_dir ()).get_path ());
+            assert_cmpstr (folder_path, CompareOperator.EQ, File.new_for_path (typed_in).get_path ());
+        } catch (Error e) {
+            error ("failed to create fixture directory: %s", e.message);
+        } finally {
+            DirUtils.remove (typed_in);
         }
     });
 
     Test.add_func ("/models/workspace/resolve/no_argument_is_blank", () => {
         string? folder_path;
         string? file_path;
-        Workspace.resolve ({ "opus" }, out folder_path, out file_path);
+        Workspace.resolve ({ "opus" }, Environment.get_current_dir (), out folder_path, out file_path);
 
         assert_null (folder_path);
         assert_null (file_path);
