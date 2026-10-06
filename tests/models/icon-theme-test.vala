@@ -38,6 +38,16 @@ int main (string[] args) {
         assert_cmpstr (path, CompareOperator.EQ, "/io/github/opus_editor/Opus/icons/symbols/files/ts.svg");
     });
 
+    Test.add_func ("/models/icon-theme/file/a_vala_source_or_binding_has_the_vala_icon", () => {
+        var theme = new IconTheme.symbols ();
+
+        var source = theme.icon_path_for_file ("App.vala");
+        var binding = theme.icon_path_for_file ("tree-sitter.vapi");
+
+        assert_true (source.has_suffix ("/files/vala.svg"));
+        assert_true (binding.has_suffix ("/files/vala.svg"));
+    });
+
     Test.add_func ("/models/icon-theme/file/exact_name_beats_extension", () => {
         // "Dockerfile" has no extension of its own to match anyway, but
         // this also confirms the fileNames tier is actually consulted
