@@ -571,7 +571,7 @@ public class CodeEditorCursors : Object {
     );
   }
 
-  /** Re-syncs from *after* an untracked native edit has actually landed — mark-set doesn't reliably fire for this case. Always normalized: a native edit (e.g. GtkSourceView's own Tab-indent) has no click-drag direction to preserve. */
+  /** Re-syncs from *after* an untracked native edit has actually landed — mark-set doesn't reliably fire for this case. Always normalized: a native edit (e.g. GtkSourceView's own Tab-indent) has no click-drag direction to preserve. Also re-emits text_changed: apply_edits() is the only other emitter, and a native edit never goes through it. */
   private void resync_native_cursor_after_native_edit () {
     if (updating_programmatically) {
       return;
@@ -579,6 +579,7 @@ public class CodeEditorCursors : Object {
     int anchor = get_anchor_offset ();
     int position = get_position_offset ();
     resync_from_native (int.min (anchor, position), int.max (anchor, position));
+    text_changed (get_text ());
   }
 
   /** Sets the Model's primary cursor to exactly `anchor`/`position` (no normalizing — callers decide that) and repaints. */
