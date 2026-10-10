@@ -16,6 +16,8 @@ public class MainWindow : Object {
   private Adw.ApplicationWindow window;
   private Adw.OverlaySplitView split_view;
   private Adw.Bin sidebar_bin;
+  private Sidebar sidebar = new Sidebar ();
+  private Adw.ViewStack view_stack;
   private Gtk.Box sidebar_resize_handle;
   private Adw.Bin content_bin;
   private Adw.Bin search_bar_bin;
@@ -173,6 +175,10 @@ public class MainWindow : Object {
     window = (Adw.ApplicationWindow) builder.get_object ("window");
     split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
     sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
+    sidebar_bin.child = sidebar.widget;
+    view_stack = (Adw.ViewStack) builder.get_object ("view_stack");
+    sidebar.show (view_stack.visible_child_name);
+    view_stack.notify["visible-child-name"].connect (() => sidebar.show (view_stack.visible_child_name));
     sidebar_resize_handle = (Gtk.Box) builder.get_object ("sidebar_resize_handle");
     content_bin = (Adw.Bin) builder.get_object ("content_bin");
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
@@ -437,7 +443,7 @@ public class MainWindow : Object {
     explorer_pane = new_explorer_pane;
     editor_pane.set_root_path (path);
 
-    sidebar_bin.child = explorer_pane.widget;
+    sidebar.set_editor_pane (explorer_pane);
     has_linked_folder = true;
     split_view.show_sidebar = true;
     update_folder_dependent_ui ();
@@ -479,7 +485,7 @@ public class MainWindow : Object {
     explorer_pane.close ();
     explorer_pane = null;
     teardown_workspace_extensions ();
-    sidebar_bin.child = null;
+    sidebar.set_editor_pane (null);
     has_linked_folder = false;
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());

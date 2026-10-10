@@ -13,7 +13,7 @@ namespace EditorView {
    * v1 (main.vala), not on FileTreeController itself, so there's nothing
    * of that sort to absorb here.
    */
-  public class ExplorerPane : Object {
+  public class ExplorerPane : Object, ISidebarPane {
     private Gtk.Box root_box;
     private Gtk.Box root_header_box;
     private Gtk.Label root_label;
