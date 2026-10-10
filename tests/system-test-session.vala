@@ -24,7 +24,7 @@
  * closing both down again) plus one forwarder per DSL method, each
  * delegating to whichever composed module actually implements it
  * (SystemTestTabs/SystemTestEditorText/SystemTestCursors/
- * SystemTestSearch, each in its own file) — the same split CodeEditor
+ * SystemTestSearch/SystemTestCommandBar/SystemTestGit, each in its own file) — the same split CodeEditor
  * itself uses for CodeEditorCursors/CodeEditorSearch, applied here so
  * this file doesn't keep growing with every new area of the app a
  * system test needs to drive. Forwarders stay undocumented on purpose:
@@ -44,6 +44,7 @@ public class SystemTestSession : Object {
     private SystemTestCursors cursors;
     private SystemTestSearch search;
     private SystemTestCommandBar command_bar;
+    private SystemTestGit git;
 
     /**
      * Launches a headless Broadway display server plus a fresh Opus
@@ -166,6 +167,7 @@ public class SystemTestSession : Object {
         cursors = new SystemTestCursors (proxy, editor_text);
         search = new SystemTestSearch (proxy);
         command_bar = new SystemTestCommandBar (proxy);
+        git = new SystemTestGit (proxy);
     }
 
     /**
@@ -298,4 +300,28 @@ public class SystemTestSession : Object {
     public int previewed_line () throws Error { return command_bar.previewed_line (); }
     public string[] command_bar_items () throws Error { return command_bar.items (); }
     public string[] wait_for_command_bar_items () throws Error { return command_bar.wait_for_items (); }
+
+    public void show_git () throws Error { git.show (); }
+    public string[] git_changes (string section) throws Error { return git.changes (section); }
+    public void wait_for_git_changes (string section, string[] expected) throws Error { git.wait_for_changes (section, expected); }
+    public void git_stage_all () throws Error { git.stage_all (); }
+    public void git_unstage_all () throws Error { git.unstage_all (); }
+    public void git_discard_all () throws Error { git.discard_all (); }
+    public void git_activate (string section, string path) throws Error { git.activate (section, path); }
+    public void git_accept_current (string path) throws Error { git.accept_current (path); }
+    public void git_accept_incoming (string path) throws Error { git.accept_incoming (path); }
+    public string git_commit_label () throws Error { return git.commit_label (); }
+    public string git_operation () throws Error { return git.operation (); }
+    public void wait_for_git_operation (string expected) throws Error { git.wait_for_operation (expected); }
+    public bool git_commit_enabled () throws Error { return git.commit_enabled (); }
+    public void wait_for_git_commit_enabled (bool expected) throws Error { git.wait_for_commit_enabled (expected); }
+    public void git_set_commit_message (string text) throws Error { git.set_commit_message (text); }
+    public string git_commit_message () throws Error { return git.commit_message (); }
+    public void git_commit () throws Error { git.commit (); }
+    public void git_abort () throws Error { git.abort (); }
+    public string git_last_failure () throws Error { return git.last_failure (); }
+    public string wait_for_git_failure () throws Error { return git.wait_for_failure (); }
+    public string wait_for_dialog () throws Error { return git.wait_for_dialog (); }
+    public string dialog_heading () throws Error { return git.dialog_heading (); }
+    public void respond_to_dialog (string response_id) throws Error { git.respond (response_id); }
 }

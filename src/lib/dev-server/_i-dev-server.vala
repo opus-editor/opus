@@ -145,5 +145,52 @@ namespace Opus.Dev {
 
     /** Every row the Command Bar currently shows, top to bottom, as what accepting each would resolve to (a file's path). Empty while it isn't open, or while its file walk hasn't answered yet — poll. */
     public abstract string[] command_bar_list_items () throws DBusError, IOError;
+
+    /** The header switcher's "Git" page — GitView.StagingPane in the sidebar. */
+    public abstract void show_git_view () throws DBusError, IOError;
+
+    /** StagingPane's rows in `section` ("conflicts"/"unstaged"/"staged"), each "<code> <relative path>". */
+    public abstract string[] git_list_changes (string section) throws DBusError, IOError;
+
+    public abstract void git_stage_all () throws DBusError, IOError;
+
+    public abstract void git_unstage_all () throws DBusError, IOError;
+
+    /** Unstaged's own "Discard all changes" — opens its confirmation, see respond_to_dialog(). */
+    public abstract void git_discard_all () throws DBusError, IOError;
+
+    /** A double-click on `path`'s row in `section` — stage, unstage, or (conflicts) stage with its questions. */
+    public abstract void git_activate_row (string section, string path) throws DBusError, IOError;
+
+    public abstract void git_accept_current (string path) throws DBusError, IOError;
+
+    public abstract void git_accept_incoming (string path) throws DBusError, IOError;
+
+    /** The commit button's own text — "Commit to main", "Merge", "Continue". */
+    public abstract string git_commit_label () throws DBusError, IOError;
+
+    /** "none", or the parked operation: "merge", "rebase", "cherry-pick", "revert". */
+    public abstract string git_operation () throws DBusError, IOError;
+
+    public abstract bool git_commit_enabled () throws DBusError, IOError;
+
+    public abstract void git_set_commit_message (string text) throws DBusError, IOError;
+
+    public abstract string git_commit_message () throws DBusError, IOError;
+
+    /** The commit button — a commit, the merge commit, or the parked operation's own continue. */
+    public abstract void git_commit () throws DBusError, IOError;
+
+    /** The Abort button — opens its confirmation, see respond_to_dialog(). */
+    public abstract void git_abort () throws DBusError, IOError;
+
+    /** The last failure toast's own summary, "" until one happened. */
+    public abstract string git_last_failure () throws DBusError, IOError;
+
+    /** The heading of whichever Dialogs dialog is showing, "" with none. */
+    public abstract string dialog_heading () throws DBusError, IOError;
+
+    /** Clicks the showing dialog's `response_id` button ("cancel"/"confirm"/"first"/"second"/"ok"). */
+    public abstract void respond_to_dialog (string response_id) throws DBusError, IOError;
   }
 }

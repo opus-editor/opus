@@ -253,5 +253,97 @@ namespace Opus.Dev {
     public string[] command_bar_list_items () throws DBusError, IOError {
       return current_window ().command_bar_item_ids ();
     }
+
+    private GitView.StagingPane git_pane () throws DBusError {
+      return current_window ().git_pane;
+    }
+
+    public void show_git_view () throws DBusError, IOError {
+      current_window ().show_git_view ();
+    }
+
+    public string[] git_list_changes (string section) throws DBusError, IOError {
+      return git_pane ().list_changes (section);
+    }
+
+    public void git_stage_all () throws DBusError, IOError {
+      git_pane ().stage_all ();
+    }
+
+    public void git_unstage_all () throws DBusError, IOError {
+      git_pane ().unstage_all ();
+    }
+
+    public void git_discard_all () throws DBusError, IOError {
+      git_pane ().discard_all ();
+    }
+
+    public void git_activate_row (string section, string path) throws DBusError, IOError {
+      try {
+        git_pane ().activate_row (section, path);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public void git_accept_current (string path) throws DBusError, IOError {
+      try {
+        git_pane ().accept_current (path);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public void git_accept_incoming (string path) throws DBusError, IOError {
+      try {
+        git_pane ().accept_incoming (path);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public string git_commit_label () throws DBusError, IOError {
+      return git_pane ().commit_label_text;
+    }
+
+    public string git_operation () throws DBusError, IOError {
+      return git_pane ().operation_name;
+    }
+
+    public bool git_commit_enabled () throws DBusError, IOError {
+      return git_pane ().commit_enabled;
+    }
+
+    public void git_set_commit_message (string text) throws DBusError, IOError {
+      git_pane ().commit_message = text;
+    }
+
+    public string git_commit_message () throws DBusError, IOError {
+      return git_pane ().commit_message;
+    }
+
+    public void git_commit () throws DBusError, IOError {
+      git_pane ().request_commit ();
+    }
+
+    public void git_abort () throws DBusError, IOError {
+      git_pane ().request_abort ();
+    }
+
+    public string git_last_failure () throws DBusError, IOError {
+      return git_pane ().last_failure;
+    }
+
+    public string dialog_heading () throws DBusError, IOError {
+      current_window ();
+      return Dialogs.current_heading ();
+    }
+
+    public void respond_to_dialog (string response_id) throws DBusError, IOError {
+      current_window ();
+      if (!Dialogs.respond (response_id)) {
+        throw new DBusError.FAILED ("No dialog is showing with a “%s” response".printf (response_id));
+      }
+    }
   }
 }
