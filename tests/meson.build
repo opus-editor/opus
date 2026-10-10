@@ -442,6 +442,34 @@ git_scope_discard_test = executable(
 )
 test('git-scope-discard', git_scope_discard_test)
 
+git_tree_ref_test = executable(
+  'git-tree-ref-test',
+  ['models/git-tree/ref-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-tree-ref', git_tree_ref_test)
+
+git_tree_log_test = executable(
+  'git-tree-log-test',
+  ['models/git-tree/log-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-tree-log', git_tree_log_test)
+
+git_tree_graph_test = executable(
+  'git-tree-graph-test',
+  ['models/git-tree/graph-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-tree-graph', git_tree_graph_test)
+
+git_tree_working_row_test = executable(
+  'git-tree-working-row-test',
+  ['models/git-tree/working-row-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-tree-working-row', git_tree_working_row_test)
+
 find_in_files_search_test = executable(
   'find-in-files-search-test',
   ['models/find-in-files-search-test.vala'],
