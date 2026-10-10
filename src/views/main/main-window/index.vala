@@ -39,6 +39,7 @@ public class MainWindow : Object {
   // set_workspace_context() instead. Its close() still runs once, with
   // the window's own destroy.
   public GitView.StagingPane git_pane { get; private set; }
+  public GitView.TreePane tree_pane { get; private set; }
 
   // The plugin-decoration plumbing for whichever folder is currently
   // linked — owned here, not by ExplorerPane, since it must outlive a
@@ -186,6 +187,9 @@ public class MainWindow : Object {
     sidebar_bin.child = sidebar.widget;
     git_pane = new GitView.StagingPane (user_settings);
     git_pane.operation_failed.connect (show_failure_toast);
+    tree_pane = new GitView.TreePane ();
+    git_pane.repository_changed.connect (tree_pane.refresh);
+    ((Adw.Bin) builder.get_object ("tree_bin")).child = tree_pane.widget;
     sidebar.set_git_pane (git_pane);
     toast_overlay = (Adw.ToastOverlay) builder.get_object ("toast_overlay");
     view_stack = (Adw.ViewStack) builder.get_object ("view_stack");
@@ -301,6 +305,7 @@ public class MainWindow : Object {
         explorer_pane.close ();
       }
       git_pane.close ();
+      tree_pane.close ();
       teardown_workspace_extensions ();
       command_bar.destroy ();
       editor_pane.close ();
@@ -463,6 +468,8 @@ public class MainWindow : Object {
     editor_pane.set_root_path (path);
     git_pane.set_root_path (path);
     git_pane.set_workspace_context (new_workspace_context);
+    tree_pane.set_root_path (path);
+    tree_pane.set_workspace_context (new_workspace_context);
 
     sidebar.set_editor_pane (explorer_pane);
     has_linked_folder = true;
@@ -511,6 +518,7 @@ public class MainWindow : Object {
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
     git_pane.set_root_path (null);
+    tree_pane.set_root_path (null);
     update_folder_dependent_ui ();
     session_store.clear ();
   }
@@ -566,6 +574,7 @@ public class MainWindow : Object {
     editor_pane.set_decorations (null);
     editor_pane.set_diff_base_provider (null);
     git_pane.set_workspace_context (null);
+    tree_pane.set_workspace_context (null);
   }
 
   /** Opens `path` as a permanent tab right at startup (`opus <file>`) — failures are reported through this same window's own show_error() rather than left for main.vala to handle, since main.vala no longer holds a reference to anything that could report one itself. */

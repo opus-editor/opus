@@ -31,12 +31,12 @@ views/
                     ("editor"/"git") — see its own doc comment
     log-dialog/     the "View Log" modal behind MainWindow's error toasts
   editor-view/      explorer-pane/ editor-pane/ find-bar/
-  git-view/         staging-pane/
+  git-view/         staging-pane/ tree-pane/
 ```
 
 `main-window/index.blp`'s header `view_switcher` already drives a
-content-area `view_stack` ("editor" shows `content_bin`, "git" a
-placeholder today) — `main/sidebar/`'s own `Sidebar` listens for that
+content-area `view_stack` ("editor" shows `content_bin`, "git" the
+`GitView.TreePane` in `tree_bin`) — `main/sidebar/`'s own `Sidebar` listens for that
 same `view_stack` to change and mounts the matching pane
 (`ExplorerPane`/`GitView.StagingPane`, both implementing
 `ISidebarPane`, `main/_i-sidebar-pane.vala`) into the sidebar, rather

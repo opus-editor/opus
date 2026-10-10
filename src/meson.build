@@ -226,6 +226,12 @@ opus_gtk_view_sources = files(
   'views/git-view/staging-pane/_change-row.vala',
   'views/git-view/staging-pane/_change-list.vala',
   'views/git-view/staging-pane/index.vala',
+  'views/git-view/tree-pane/_item.vala',
+  'views/git-view/tree-pane/_palette.vala',
+  'views/git-view/tree-pane/_graph-cell.vala',
+  'views/git-view/tree-pane/_ref-cell.vala',
+  'views/git-view/tree-pane/_message-cell.vala',
+  'views/git-view/tree-pane/index.vala',
 )
 
 # No opus_controller_sources here — the whole point of this tree: every

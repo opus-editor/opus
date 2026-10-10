@@ -119,6 +119,9 @@ namespace GitView {
     /** git refused (or isn't there) for something the user just asked for — `summary` is the one-line verdict, `log` git's own words, null when the summary already is the whole story (no git to run at all). A signal, not a toast of its own: a toast belongs to the window, so MainWindow shows it (and its "View Log"). */
     public signal void operation_failed (string summary, string? log);
 
+    /** Something here just changed the repository — a stage, discard, resolution, commit or abort went through (or failed after touching it). The history view can't learn of a commit from the file watcher, which never looks inside `.git`, so MainWindow relays this to it. */
+    public signal void repository_changed ();
+
     public StagingPane (UserSettings user_settings) {
       this.user_settings = user_settings;
 
@@ -320,6 +323,7 @@ namespace GitView {
         report_failure (_("Couldn’t stage the changes"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /** `changes` dropped back out of the index — same three callers, same no-op condition, as stage(). */
@@ -334,6 +338,7 @@ namespace GitView {
         report_failure (_("Couldn’t unstage the changes"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /** The commit button: a plain commit (the merge commit too — git closes a parked merge by itself), or the parked rebase/cherry-pick/revert's own `--continue` with the box's text as the stopped commit's message. */
@@ -356,6 +361,7 @@ namespace GitView {
         report_failure (plain ? _("Couldn’t commit the changes") : _("Couldn’t continue the %s").printf (operation.subcommand ()), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     private async void confirm_and_abort () {
@@ -379,6 +385,7 @@ namespace GitView {
         report_failure (_("Couldn’t abort the %s").printf (kind.subcommand ()), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /** conflicts_more_button's own "…" menu — whole-side resolution for every text conflict at once; files one side deleted have no "side" to take and are left to Stage All's own questions. */
@@ -428,6 +435,7 @@ namespace GitView {
         report_failure (_("Couldn’t resolve the conflicts"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     private async void keep_or_remove (GenericArray<GitScope.Change> changes, bool keep) {
@@ -445,6 +453,7 @@ namespace GitView {
         report_failure (_("Couldn’t resolve the conflicts"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /**
@@ -498,6 +507,7 @@ namespace GitView {
         report_failure (_("Couldn’t stage the changes"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /** 0 to keep the file as it is on disk, 1 to delete it, -1 for Cancel. */
@@ -571,6 +581,7 @@ namespace GitView {
         report_failure (_("Couldn’t discard the changes"), e);
       }
       yield refresh_working_tree ();
+      repository_changed ();
     }
 
     /** NOT_AVAILABLE's own message is already the one line a user needs, so it goes out as the summary itself, with no log behind it. */

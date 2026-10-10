@@ -162,9 +162,10 @@ Adw.ApplicationWindow window {
               title: _("Git");
               icon-name: "git-symbolic";
 
-              child: Adw.StatusPage {
-                title: _("Git integration coming soon");
-              };
+              // Filled in code with GitView.TreePane's widget — see
+              // src/views/AGENTS.md for why a custom type never appears
+              // here by name directly.
+              child: Adw.Bin tree_bin {};
             }
           }
         };

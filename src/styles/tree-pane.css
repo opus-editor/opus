@@ -1,0 +1,87 @@
+/* The lane palette the graph cells read back through TreePanePalette —
+ * eight hues, distinct enough side by side, in a light and a dark set
+ * (split by the window's own class, see main-window.css: GTK's CSS has
+ * no light-dark()). */
+window:not(.dark) {
+  --graph-lane-0: #1c71d8;
+  --graph-lane-1: #26a269;
+  --graph-lane-2: #e66100;
+  --graph-lane-3: #9141ac;
+  --graph-lane-4: #c01c28;
+  --graph-lane-5: #0f8a8a;
+  --graph-lane-6: #a26a00;
+  --graph-lane-7: #5e5c64;
+}
+window.dark {
+  --graph-lane-0: #62a0ea;
+  --graph-lane-1: #57e389;
+  --graph-lane-2: #ffa348;
+  --graph-lane-3: #dc8add;
+  --graph-lane-4: #f66151;
+  --graph-lane-5: #5bc8af;
+  --graph-lane-6: #f8e45c;
+  --graph-lane-7: #9a9996;
+}
+.graph-lane-0 { color: var(--graph-lane-0); }
+.graph-lane-1 { color: var(--graph-lane-1); }
+.graph-lane-2 { color: var(--graph-lane-2); }
+.graph-lane-3 { color: var(--graph-lane-3); }
+.graph-lane-4 { color: var(--graph-lane-4); }
+.graph-lane-5 { color: var(--graph-lane-5); }
+.graph-lane-6 { color: var(--graph-lane-6); }
+.graph-lane-7 { color: var(--graph-lane-7); }
+/* Read back as a color, so the swatch's `color` is the view background. */
+.graph-background { color: var(--view-bg-color); }
+
+/* Rows butt against each other with no padding at all: the graph cell
+ * draws edge to edge, and any gap would cut every lane line. libadwaita's
+ * own `columnview > listview > row > cell` gives cells 8px/6px, and
+ * `.data-table` 2px top/bottom (base.css) — both zeroed here. */
+columnview.tree-pane > listview > row {
+  padding: 0;
+  min-height: 30px;
+}
+columnview.tree-pane > listview > row > cell,
+columnview.tree-pane.data-table > listview > row > cell {
+  padding: 0;
+  min-height: 30px;
+}
+columnview.tree-pane > header > button {
+  padding: 4px 8px;
+  font-size: 80%;
+  font-weight: bold;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* A ref pill: a small rounded chip tinted by its kind. */
+.ref-pill {
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 90%;
+  background-color: color-mix(in srgb, var(--accent-bg-color) 18%, transparent);
+  color: color-mix(in srgb, var(--accent-color) 85%, currentColor);
+}
+.ref-pill.remote {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  color: currentColor;
+}
+.ref-pill.tag {
+  background-color: color-mix(in srgb, var(--warning-color) 18%, transparent);
+  color: color-mix(in srgb, var(--warning-color) 85%, currentColor);
+}
+.ref-pill.current {
+  background-color: var(--accent-bg-color);
+  color: var(--accent-fg-color);
+}
+.ref-pill.overflow {
+  opacity: 0.7;
+}
+.ref-pill image {
+  -gtk-icon-size: 12px;
+}
+
+.wip-count {
+  color: var(--git-added-color);
+  font-weight: bold;
+}
