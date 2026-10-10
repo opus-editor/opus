@@ -54,6 +54,7 @@ opus_model_sources = files(
   'models/git-tree/graph.vala',
   'models/git-tree/working-row.vala',
   'models/git-tree/stash.vala',
+  'models/git-tree/commit-files.vala',
   'models/git-branch/i-provider.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
@@ -232,6 +233,7 @@ opus_gtk_view_sources = files(
   'views/git-view/tree-pane/_ref-cell.vala',
   'views/git-view/tree-pane/_message-cell.vala',
   'views/git-view/tree-pane/index.vala',
+  'views/git-view/history-pane/index.vala',
 )
 
 # No opus_controller_sources here — the whole point of this tree: every

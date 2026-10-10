@@ -52,8 +52,15 @@ namespace GitView {
 
     public Gtk.Widget widget { get { return root_box; } }
 
+    /** The selected row changed — a commit or stash row, or null for nothing/the WIP row. MainWindow swaps the sidebar on it. */
+    public signal void row_selected (GitTree.Row? row);
+
     public TreePane () {
       selection = new Gtk.SingleSelection (store) { autoselect = false, can_unselect = true };
+      selection.notify["selected-item"].connect (() => {
+        var item = selection.selected_item as TreePaneItem;
+        row_selected (item != null ? item.row : null);
+      });
       column_view = new Gtk.ColumnView (selection) { show_row_separators = false, show_column_separators = false };
       column_view.add_css_class ("data-table");
       column_view.add_css_class ("tree-pane");
@@ -256,6 +263,20 @@ namespace GitView {
     }
 
     public int loaded_commit_count { get { return loaded_commits; } }
+
+    /** Back to no selection — HistoryPane's own close button. */
+    public void clear_selection () {
+      selection.selected = Gtk.INVALID_LIST_POSITION;
+    }
+
+    /** Selects the WIP row; throws when there is none. */
+    public void select_working_row () throws Error {
+      var first = store.get_item (0) as TreePaneItem;
+      if (first == null || first.working == null) {
+        throw new IOError.NOT_FOUND ("No WIP row in the tree");
+      }
+      selection.selected = 0;
+    }
 
     /** What scrolling to the bottom does. */
     public void load_more_now () {

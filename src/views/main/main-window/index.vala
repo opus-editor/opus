@@ -40,6 +40,9 @@ public class MainWindow : Object {
   // the window's own destroy.
   public GitView.StagingPane git_pane { get; private set; }
   public GitView.TreePane tree_pane { get; private set; }
+  public GitView.HistoryPane history_pane { get; private set; }
+  /** Which pane the Git sidebar shows: "staging" for the working tree, "history" for a selected commit — the debug D-Bus surface reads it. */
+  public string git_sidebar_name { get; private set; default = "staging"; }
 
   // The plugin-decoration plumbing for whichever folder is currently
   // linked — owned here, not by ExplorerPane, since it must outlive a
@@ -189,6 +192,9 @@ public class MainWindow : Object {
     git_pane.operation_failed.connect (show_failure_toast);
     tree_pane = new GitView.TreePane ();
     git_pane.repository_changed.connect (tree_pane.refresh);
+    history_pane = new GitView.HistoryPane (user_settings);
+    history_pane.back_requested.connect (tree_pane.clear_selection);
+    tree_pane.row_selected.connect (on_tree_row_selected);
     ((Adw.Bin) builder.get_object ("tree_bin")).child = tree_pane.widget;
     sidebar.set_git_pane (git_pane);
     toast_overlay = (Adw.ToastOverlay) builder.get_object ("toast_overlay");
@@ -306,6 +312,7 @@ public class MainWindow : Object {
       }
       git_pane.close ();
       tree_pane.close ();
+      history_pane.close ();
       teardown_workspace_extensions ();
       command_bar.destroy ();
       editor_pane.close ();
@@ -1249,6 +1256,18 @@ public class MainWindow : Object {
   /** The header switcher's "Git" — the debug D-Bus surface's way there. */
   public void show_git_view () {
     view_stack.visible_child_name = "git";
+  }
+
+  /** A commit or stash selected in the tree puts HistoryPane in the sidebar; the WIP row, or no selection, puts StagingPane back. */
+  private void on_tree_row_selected (GitTree.Row? row) {
+    if (row == null || workspace_context == null) {
+      git_sidebar_name = "staging";
+      sidebar.set_git_pane (git_pane);
+      return;
+    }
+    history_pane.show_row (workspace_context.root_path, row);
+    git_sidebar_name = "history";
+    sidebar.set_git_pane (history_pane);
   }
 
   /** An error toast for an action the user just took that git refused — unlike show_error()'s modal, it doesn't interrupt: the list is simply still as it was, and "View Log" opens git's own words in a LogDialog. With no `log` the summary is the whole message, so no button. No timeout either way: an error can't be allowed to vanish before it's read. */

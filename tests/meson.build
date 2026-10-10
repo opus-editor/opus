@@ -463,6 +463,13 @@ git_tree_graph_test = executable(
 )
 test('git-tree-graph', git_tree_graph_test)
 
+git_tree_commit_files_test = executable(
+  'git-tree-commit-files-test',
+  ['models/git-tree/commit-files-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-tree-commit-files', git_tree_commit_files_test)
+
 git_tree_working_row_test = executable(
   'git-tree-working-row-test',
   ['models/git-tree/working-row-test.vala'],

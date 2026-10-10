@@ -358,6 +358,30 @@ namespace Opus.Dev {
       current_window ().tree_pane.load_more_now ();
     }
 
+    public void git_tree_select_wip () throws DBusError, IOError {
+      try {
+        current_window ().tree_pane.select_working_row ();
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public string git_sidebar_pane () throws DBusError, IOError {
+      return current_window ().git_sidebar_name;
+    }
+
+    public string git_history_header () throws DBusError, IOError {
+      return current_window ().history_pane.header_text;
+    }
+
+    public string[] git_history_files () throws DBusError, IOError {
+      return current_window ().history_pane.list_files ();
+    }
+
+    public void git_history_back () throws DBusError, IOError {
+      current_window ().history_pane.back_requested ();
+    }
+
     public string dialog_heading () throws DBusError, IOError {
       current_window ();
       return Dialogs.current_heading ();

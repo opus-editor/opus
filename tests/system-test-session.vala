@@ -335,4 +335,10 @@ public class SystemTestSession : Object {
     public string tree_selected () throws Error { return tree.selected (); }
     public int tree_loaded () throws Error { return tree.loaded (); }
     public void tree_load_more () throws Error { tree.load_more (); }
+    public void tree_select_wip () throws Error { tree.select_wip (); }
+    public string git_sidebar_pane () throws Error { return tree.sidebar_pane (); }
+    public void wait_for_git_sidebar_pane (string expected) throws Error { tree.wait_for_sidebar_pane (expected); }
+    public string history_header () throws Error { return tree.history_header (); }
+    public void wait_for_history_files (string[] expected) throws Error { tree.wait_for_history_files (expected); }
+    public void history_back () throws Error { tree.history_back (); }
 }

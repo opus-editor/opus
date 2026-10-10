@@ -54,6 +54,40 @@ public class SystemTestTree : Object {
         call ("GitTreeLoadMore");
     }
 
+    public void select_wip () throws Error {
+        call ("GitTreeSelectWip");
+    }
+
+    /** "staging" or "history". */
+    public string sidebar_pane () throws Error {
+        return call ("GitSidebarPane").get_child_value (0).get_string ();
+    }
+
+    public void wait_for_sidebar_pane (string expected) throws Error {
+        wait (() => sidebar_pane () == expected, "the %s pane in the sidebar".printf (expected));
+    }
+
+    public string history_header () throws Error {
+        return call ("GitHistoryHeader").get_child_value (0).get_string ();
+    }
+
+    public string[] history_files () throws Error {
+        var array = call ("GitHistoryFiles").get_child_value (0);
+        var result = new string[array.n_children ()];
+        for (size_t i = 0; i < array.n_children (); i++) {
+            result[i] = array.get_child_value (i).get_string ();
+        }
+        return result;
+    }
+
+    public void wait_for_history_files (string[] expected) throws Error {
+        wait (() => same (history_files (), expected), "history files [%s], last saw [%s]".printf (string.joinv (", ", expected), string.joinv (", ", history_files ())));
+    }
+
+    public void history_back () throws Error {
+        call ("GitHistoryBack");
+    }
+
     private delegate bool Condition () throws Error;
 
     private void wait (Condition condition, string what) throws Error {

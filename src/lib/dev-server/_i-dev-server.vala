@@ -200,6 +200,20 @@ namespace Opus.Dev {
     /** What scrolling the tree to its bottom does: the next page. */
     public abstract void git_tree_load_more () throws DBusError, IOError;
 
+    public abstract void git_tree_select_wip () throws DBusError, IOError;
+
+    /** Which pane the Git sidebar shows: "staging" or "history". */
+    public abstract string git_sidebar_pane () throws DBusError, IOError;
+
+    /** HistoryPane's header line, e.g. "Commit: 1a2b3c4". */
+    public abstract string git_history_header () throws DBusError, IOError;
+
+    /** HistoryPane's files, each "<code> <relative path>". */
+    public abstract string[] git_history_files () throws DBusError, IOError;
+
+    /** HistoryPane's close button. */
+    public abstract void git_history_back () throws DBusError, IOError;
+
     /** The heading of whichever Dialogs dialog is showing, "" with none. */
     public abstract string dialog_heading () throws DBusError, IOError;
 

@@ -138,7 +138,7 @@ namespace GitTree {
       var refs = Ref.parse (decorations);
       bool is_head = decorations == "HEAD" || decorations.has_prefix ("HEAD -> ") || decorations.has_prefix ("HEAD, ") || decorations.contains (", HEAD");
       var body = fields.length == 8 ? fields[7] : "";
-      return new Commit (fields[0], parents, fields[2], fields[3], int64.parse (fields[4]), fields[6], first_line (body), refs, is_head);
+      return new Commit (fields[0], parents, fields[2], fields[3], int64.parse (fields[4]), fields[6], first_line (body), refs, is_head, body.strip ());
     }
 
     private static string first_line (string body) {

@@ -23,7 +23,7 @@ public class Sidebar : Object {
     update ();
   }
 
-  /** `git_pane` — set once, at construction, unlike editor_pane: GitView.StagingPane itself doesn't need tearing down between folders (see its own doc comment). */
+  /** `git_pane` — GitView.StagingPane by default, GitView.HistoryPane while a commit is selected in the tree; MainWindow swaps them on the tree's own selection. */
   public void set_git_pane (ISidebarPane? git_pane) {
     this.git_pane = git_pane;
     update ();

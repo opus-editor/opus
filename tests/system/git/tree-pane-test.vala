@@ -173,5 +173,39 @@ int main (string[] args) {
         assert_true (opus.tree_rows_without_hash ()[519] == "COMMIT|0||c0");
     }));
 
+    Test.add_func ("/system/tree/selecting_a_commit_swaps_the_sidebar_for_its_history", () => run ((root) => {
+        commit_file (root, "a.txt", "1\n", "one");
+        FileUtils.set_contents (Path.build_filename (root, "a.txt"), "2\n");
+        FileUtils.set_contents (Path.build_filename (root, "b.txt"), "b\n");
+        git (root, { "add", "-A" });
+        git (root, { "commit", "-q", "-m", "two" });
+    }, (root, opus) => {
+        opus.wait_for_tree_row_count (2);
+        assert_cmpstr (opus.git_sidebar_pane (), CompareOperator.EQ, "staging");
+        var two = git_read (root, { "rev-parse", "--short", "HEAD" });
+
+        opus.tree_select (two);
+
+        opus.wait_for_git_sidebar_pane ("history");
+        assert_cmpstr (opus.history_header (), CompareOperator.EQ, "Commit: " + two);
+        opus.wait_for_history_files ({ "M a.txt", "A b.txt" });
+
+        opus.history_back ();
+        opus.wait_for_git_sidebar_pane ("staging");
+    }));
+
+    Test.add_func ("/system/tree/selecting_the_wip_row_brings_the_staging_sidebar_back", () => run (linear, (root, opus) => {
+        opus.wait_for_tree_row_count (3);
+        var head = git_read (root, { "rev-parse", "--short", "HEAD" });
+        opus.tree_select (head);
+        opus.wait_for_git_sidebar_pane ("history");
+        FileUtils.set_contents (Path.build_filename (root, "a.txt"), "edited\n");
+        opus.wait_for_tree_row_count (4);
+
+        opus.tree_select_wip ();
+
+        opus.wait_for_git_sidebar_pane ("staging");
+    }));
+
     return Test.run ();
 }

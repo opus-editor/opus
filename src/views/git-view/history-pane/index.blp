@@ -1,0 +1,87 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Same header shape as StagingPane's own (git-view/staging-pane/index.blp),
+// reusing its file-tree-root-label/file-tree-branch-label classes — the
+// "..." slot holds a close button here instead.
+Gtk.Box root_box {
+  orientation: vertical;
+
+  Gtk.Box root_header_box {
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 12;
+      margin-bottom: 6;
+
+      Gtk.Label commit_label {
+        styles ["file-tree-root-label"]
+        label: "";
+        halign: start;
+        ellipsize: end;
+      }
+
+      Gtk.Label author_label {
+        styles ["file-tree-branch-label", "dim-label"]
+        label: "";
+        halign: start;
+        ellipsize: end;
+      }
+    }
+
+    Gtk.Button close_button {
+      styles ["root-header-more-button", "flat"]
+      icon-name: "close-symbolic";
+      tooltip-text: _("Back to WIP");
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 0;
+      margin-bottom: 6;
+    }
+  }
+
+  // The commit's message, read-only, in the same box StagingPane types a
+  // new one into (same class, same margins — see staging-pane.css), taller:
+  // a real message has a body.
+  Gtk.ScrolledWindow {
+    height-request: 160;
+    hscrollbar-policy: never;
+    margin-top: 6;
+    margin-start: 6;
+    margin-end: 6;
+
+    Gtk.TextView message_view {
+      styles ["commit-message-view"]
+      editable: false;
+      cursor-visible: false;
+      wrap-mode: word_char;
+      top-margin: 8;
+      bottom-margin: 8;
+      left-margin: 8;
+      right-margin: 8;
+    }
+  }
+
+  Gtk.Box {
+    orientation: horizontal;
+    margin-top: 16;
+    margin-bottom: 8;
+
+    Gtk.Label {
+      styles ["heading"]
+      label: _("Files");
+      halign: start;
+      hexpand: true;
+      margin-top: 6;
+      margin-bottom: 6;
+      margin-start: 12;
+      margin-end: 6;
+    }
+  }
+
+  Gtk.ScrolledWindow files_scrolled {
+    vexpand: true;
+  }
+}
