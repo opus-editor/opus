@@ -400,6 +400,48 @@ git_scope_status_query_test = executable(
 )
 test('git-scope-status-query', git_scope_status_query_test)
 
+git_scope_command_test = executable(
+  'git-scope-command-test',
+  ['models/git-scope/command-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-command', git_scope_command_test)
+
+git_scope_working_tree_test = executable(
+  'git-scope-working-tree-test',
+  ['models/git-scope/working-tree-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-working-tree', git_scope_working_tree_test)
+
+git_scope_stage_test = executable(
+  'git-scope-stage-test',
+  ['models/git-scope/stage-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-stage', git_scope_stage_test)
+
+git_scope_operation_test = executable(
+  'git-scope-operation-test',
+  ['models/git-scope/operation-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-operation', git_scope_operation_test)
+
+git_scope_resolve_test = executable(
+  'git-scope-resolve-test',
+  ['models/git-scope/resolve-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-resolve', git_scope_resolve_test)
+
+git_scope_discard_test = executable(
+  'git-scope-discard-test',
+  ['models/git-scope/discard-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-scope-discard', git_scope_discard_test)
+
 find_in_files_search_test = executable(
   'find-in-files-search-test',
   ['models/find-in-files-search-test.vala'],
