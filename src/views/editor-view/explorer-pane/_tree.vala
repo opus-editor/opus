@@ -500,7 +500,7 @@ namespace EditorView {
       var node = (FileNode) list_row.item;
 
       if (node.is_directory) {
-        set_expanded (list_row, node, !list_row.expanded);
+        expand_on_idle (list_row, node);
         return;
       }
 
@@ -513,11 +513,32 @@ namespace EditorView {
       var node = (FileNode) list_row.item;
 
       if (node.is_directory) {
-        set_expanded (list_row, node, !list_row.expanded);
+        expand_on_idle (list_row, node);
         return;
       }
 
       file_activated (node.path, true);
+    }
+
+    /**
+     * set_expanded(), deferred one main-loop idle instead of called
+     * straight from on_selection_changed()/on_activate() — toggling a
+     * row's own `expanded` synchronously inside the selection/activate
+     * signal handler that's *currently firing because of that same row*
+     * desyncs GtkListItemManager's internal tile-tracking RB-tree from
+     * the real GListModel (no main-loop iteration runs in between to
+     * let it catch up), eventually segfaulting on a later click. Not
+     * our bug — a real one, confirmed with a minimal reproduction with
+     * zero Opus code involved:
+     * https://gitlab.gnome.org/GNOME/gtk/-/work_items/8453.
+     * Idle.add() just moves the mutation to right after this handler
+     * returns, once GTK's own bookkeeping has settled.
+     */
+    private void expand_on_idle (Gtk.TreeListRow row, FileNode node) {
+      Idle.add (() => {
+        set_expanded (row, node, !row.expanded);
+        return Source.REMOVE;
+      });
     }
 
     private void on_setup (Object item) {
