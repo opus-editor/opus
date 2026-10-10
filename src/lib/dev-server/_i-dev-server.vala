@@ -187,6 +187,19 @@ namespace Opus.Dev {
     /** The last failure toast's own summary, "" until one happened. */
     public abstract string git_last_failure () throws DBusError, IOError;
 
+    /** GitView.TreePane's rows, top to bottom, each "<kind>|<lane>|<refs>|<text>|<hash>" (see TreePane.describe_rows()). */
+    public abstract string[] git_tree_rows () throws DBusError, IOError;
+
+    public abstract void git_tree_select (string hash_prefix) throws DBusError, IOError;
+
+    /** The selected commit's short hash, "" with none. */
+    public abstract string git_tree_selected () throws DBusError, IOError;
+
+    public abstract int git_tree_loaded () throws DBusError, IOError;
+
+    /** What scrolling the tree to its bottom does: the next page. */
+    public abstract void git_tree_load_more () throws DBusError, IOError;
+
     /** The heading of whichever Dialogs dialog is showing, "" with none. */
     public abstract string dialog_heading () throws DBusError, IOError;
 

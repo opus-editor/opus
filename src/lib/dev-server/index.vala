@@ -334,6 +334,30 @@ namespace Opus.Dev {
       return git_pane ().last_failure;
     }
 
+    public string[] git_tree_rows () throws DBusError, IOError {
+      return current_window ().tree_pane.describe_rows ();
+    }
+
+    public void git_tree_select (string hash_prefix) throws DBusError, IOError {
+      try {
+        current_window ().tree_pane.select_commit (hash_prefix);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public string git_tree_selected () throws DBusError, IOError {
+      return current_window ().tree_pane.selected_hash;
+    }
+
+    public int git_tree_loaded () throws DBusError, IOError {
+      return current_window ().tree_pane.loaded_commit_count;
+    }
+
+    public void git_tree_load_more () throws DBusError, IOError {
+      current_window ().tree_pane.load_more_now ();
+    }
+
     public string dialog_heading () throws DBusError, IOError {
       current_window ();
       return Dialogs.current_heading ();

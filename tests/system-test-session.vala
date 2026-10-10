@@ -24,7 +24,7 @@
  * closing both down again) plus one forwarder per DSL method, each
  * delegating to whichever composed module actually implements it
  * (SystemTestTabs/SystemTestEditorText/SystemTestCursors/
- * SystemTestSearch/SystemTestCommandBar/SystemTestGit, each in its own file) — the same split CodeEditor
+ * SystemTestSearch/SystemTestCommandBar/SystemTestGit/SystemTestTree, each in its own file) — the same split CodeEditor
  * itself uses for CodeEditorCursors/CodeEditorSearch, applied here so
  * this file doesn't keep growing with every new area of the app a
  * system test needs to drive. Forwarders stay undocumented on purpose:
@@ -45,6 +45,7 @@ public class SystemTestSession : Object {
     private SystemTestSearch search;
     private SystemTestCommandBar command_bar;
     private SystemTestGit git;
+    private SystemTestTree tree;
 
     /**
      * Launches a headless Broadway display server plus a fresh Opus
@@ -168,6 +169,7 @@ public class SystemTestSession : Object {
         search = new SystemTestSearch (proxy);
         command_bar = new SystemTestCommandBar (proxy);
         git = new SystemTestGit (proxy);
+        tree = new SystemTestTree (proxy);
     }
 
     /**
@@ -324,4 +326,13 @@ public class SystemTestSession : Object {
     public string wait_for_dialog () throws Error { return git.wait_for_dialog (); }
     public string dialog_heading () throws Error { return git.dialog_heading (); }
     public void respond_to_dialog (string response_id) throws Error { git.respond (response_id); }
+
+    public string[] tree_rows () throws Error { return tree.rows (); }
+    public string[] tree_rows_without_hash () throws Error { return tree.rows_without_hash (); }
+    public void wait_for_tree_rows (string[] expected) throws Error { tree.wait_for_rows (expected); }
+    public void wait_for_tree_row_count (int expected) throws Error { tree.wait_for_row_count (expected); }
+    public void tree_select (string hash_prefix) throws Error { tree.select (hash_prefix); }
+    public string tree_selected () throws Error { return tree.selected (); }
+    public int tree_loaded () throws Error { return tree.loaded (); }
+    public void tree_load_more () throws Error { tree.load_more (); }
 }
