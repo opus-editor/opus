@@ -126,6 +126,13 @@ namespace EditorView {
       // Built-in dense/treeview-like row style (less vertical padding per
       // row than the list's default).
       list_view.add_css_class ("data-table");
+      // This tree's own extra bottom padding (explorer-pane.css's own
+      // listview.navigation-sidebar-explorer) and Gtk.MultiSelection
+      // scoping fix (explorer-pane.css's own file-tree-list selector) —
+      // GitView.ChangeList shares navigation-sidebar/data-table but
+      // needs neither.
+      list_view.add_css_class ("navigation-sidebar-explorer");
+      list_view.add_css_class ("file-tree-list");
 
       // selection-changed drives preview (fires reliably on every single
       // click); `activate`, GTK's own native, battle-tested double-click

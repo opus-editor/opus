@@ -26,10 +26,13 @@ listview.data-table row {
  * 6px padding above the first row and below the last — on the listview
  * itself, not the row, so the row-level reset above never touched it.
  * Left in, the first row sat 6px below root_header_box with nothing
- * visibly explaining the gap (confirmed live: the listview's own CSS
- * node is where it actually is). */
+ * visibly explaining the gap. */
 listview.navigation-sidebar {
   padding-top: 0;
+  padding-bottom: 0;
+}
+
+listview.navigation-sidebar-explorer {
   padding-bottom: 24px;
 }
 /* The transition lives on this separate, briefly-toggled class
@@ -109,8 +112,18 @@ listview.data-table row:focus {
  * showed a hover background again once focus left it. Excluding
  * `:hover` here just stops this rule from matching during a real
  * hover, letting the cascade fall through to libadwaita's own rule
- * instead of racing it. */
-listview.data-table row:selected:not(:focus):not(:hover) {
+ * instead of racing it.
+ *
+ * `.file-tree-list` scopes this to ExplorerPaneTree's own list_view
+ * specifically, not every `listview.data-table` (GitView.ChangeList is
+ * the other one, see its own doc comment) — this rule only reads right
+ * for Gtk.SingleSelection, where exactly one row is ever `:selected` at
+ * all. With Gtk.MultiSelection, Ctrl/Shift-clicking a second row moves
+ * keyboard focus onto *that* row, leaving every previously selected row
+ * `:selected` but not `:focus` — this rule would then hide all of their
+ * backgrounds, reading as "only one row selected" even though the
+ * selection model still has every one of them. */
+listview.data-table.file-tree-list row:selected:not(:focus):not(:hover) {
   background-color: transparent;
 }
 .file-tree-root-label {
@@ -124,8 +137,7 @@ listview.data-table row:selected:not(:focus):not(:hover) {
  * rule (`button.image-button { min-width: 24px; padding-left/right: 5px;
  * }`) stacks with the plain `button` rule's own 24px min-height and 5px
  * top/bottom padding — a ~34x34px button for one 16px symbolic icon.
- * Shrunk back down to the icon's own size, same reasoning as the
- * sidebar's own .root-header-button before it got reverted. */
+ * Shrunk back down to the icon's own size. */
 .root-header-more-button {
   min-width: 28px;
   min-height: 16px;
@@ -139,12 +151,10 @@ listview.data-table row:selected:not(:focus):not(:hover) {
  * hue tokens common.css defines once for every git-status surface (also
  * the editor gutter, also the tab label tint) — 50% with transparent,
  * this surface's own recipe: a flat row background, so blending toward
- * transparent reads as "a softer version of that background" (tried
- * mixing with black first, which read badly in light mode — turned
- * muddy rather than just duller).
+ * transparent reads as "a softer version of that background"; mixing
+ * with black turns muddy in light mode.
  * margin-right, not margin-inline-end: GTK4's CSS box model is
- * physical-only, no logical margin properties (confirmed live — "No
- * property named margin-inline-end"). */
+ * physical-only, no logical margin properties. */
 .decoration-dot {
   min-width: 8px;
   min-height: 8px;

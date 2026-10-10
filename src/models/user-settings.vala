@@ -102,6 +102,11 @@ public class UserSettings : Object {
     owned get { return read_string ("editor.theme_dark") ?? DEFAULT_THEME_DARK; }
   }
 
+  /** VS Code's own `scm.defaultViewSortKey` ("name"/"path"/"status") — GitView.ChangeList's own sort order for the Unstaged/Staged lists. An unrecognized value (a typo, same as any other key here) falls back to "path", same as VS Code's own default. */
+  public string changes_sort {
+    owned get { return read_string ("git.changes_sort") ?? "path"; }
+  }
+
   /** Creates settings.json with default content if it isn't there — an existing file, and whatever the user already changed in it, is left untouched. */
   public void ensure_exists () throws Error {
     if (FileUtils.test (path, FileTest.EXISTS)) {
@@ -168,7 +173,8 @@ public class UserSettings : Object {
   "editor.letter_spacing": 0,
   "editor.word_wrap": false,
   "editor.theme_light": "%s",
-  "editor.theme_dark": "%s"
+  "editor.theme_dark": "%s",
+  "git.changes_sort": "path"
 }
 """.printf (system_monospace_font_size (), DEFAULT_THEME_LIGHT, DEFAULT_THEME_DARK);
   }

@@ -1,0 +1,75 @@
+/* libadwaita's own `button { font-weight: bold; }` applies
+ * unconditionally — without this, commit_button's own base text was
+ * already bold before commit_label's own `<b>` markup span around the
+ * branch name ever got a chance to mean anything, since there was
+ * nothing left to contrast it against. */
+.commit-button {
+  font-weight: normal;
+}
+
+.subsection-more-button {
+  min-width: 23px;
+  min-height: 23px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.subsection-button {
+  min-width: 23px;
+  min-height: 23px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+/* Different fix than .commit-button's own, and a separate rule: libadwaita's
+ * `buttoncontent > box > label { font-weight: bold; }` (_buttons.scss) sets
+ * this directly on Adw.ButtonContent's own internal label, not inherited
+ * from the button — a plain `.subsection-button { font-weight: normal; }`
+ * on the button itself never reaches it, since an element's own explicit
+ * rule always wins over whatever it would otherwise inherit, regardless
+ * of which stylesheet (ours at APPLICATION priority, libadwaita's own at
+ * THEME priority) that explicit rule came from. Has to target the label
+ * itself instead. */
+.subsection-button label {
+  font-weight: normal;
+}
+
+/* ChangeRow's own status letter (A/M/D/…) — bold so it reads as a badge,
+ * not body text; the color is the one part that actually carries the
+ * status, the same four tokens common.css already defines once for
+ * every git-status surface (also the tree's own decoration dot, also
+ * the tab label tint), just as a text color here instead of a dot's
+ * background. font-family is left to the "monospace" class already on
+ * the label in the Blueprint — this rule only overrides it when
+ * StagingPane's own apply_decoration_font() finds a real
+ * editor.font_family set (see its own doc comment). */
+.change-decoration-letter {
+  font-weight: bold;
+  margin-right: 2px;
+}
+.change-decoration-letter.git-added {
+  color: var(--git-added-color);
+}
+.change-decoration-letter.git-modified {
+  color: var(--git-modified-color);
+}
+.change-decoration-letter.git-conflict {
+  color: var(--git-conflict-color);
+}
+.change-decoration-letter.git-removed {
+  color: var(--git-removed-color);
+}
+
+/* A plain Gtk.TextView, no css-name override: renaming it to "entry"
+ * to borrow Gtk.Entry's stylesheet would stack its real padding on top
+ * of commit_message_view's own margins instead of replacing them, and
+ * its background wouldn't carry over. --input-bg-color
+ * (main-window.css) is a real entry node's own background: a
+ * translucent overlay, not a flat color. Only on this node itself, not
+ * its own `text` child too — both paint, so stacking the same
+ * translucent value on both double-counts it. */
+.commit-message-view {
+  /* Same --control-radius (common.css) every other real Gtk.Entry/
+   * Gtk.Button already carries. */
+  border-radius: var(--control-radius);
+  background-color: var(--input-bg-color);
+}

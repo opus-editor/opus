@@ -100,6 +100,38 @@ private void test_a_theme_of_the_wrong_type_falls_back_to_the_default () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_changes_sort_defaults_to_path () {
+    string config_dir = make_temp_config_dir ();
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.changes_sort, CompareOperator.EQ, "path");
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_changes_sort_is_read_from_the_file () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"git.changes_sort\": \"status\"}");
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.changes_sort, CompareOperator.EQ, "status");
+
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_changes_sort_of_the_wrong_type_falls_back_to_path () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{\"git.changes_sort\": 3}");
+
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstr (settings.changes_sort, CompareOperator.EQ, "path");
+
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_leaves_an_existing_file_untouched () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, "{\"editor.font_size\": 20}");
@@ -416,5 +448,8 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/the_themes_default_to_the_bundled_github_pair", test_the_themes_default_to_the_bundled_github_pair);
     Test.add_func ("/models/user-settings/the_themes_are_read_from_the_file", test_the_themes_are_read_from_the_file);
     Test.add_func ("/models/user-settings/a_theme_of_the_wrong_type_falls_back_to_the_default", test_a_theme_of_the_wrong_type_falls_back_to_the_default);
+    Test.add_func ("/models/user-settings/changes_sort_defaults_to_path", test_changes_sort_defaults_to_path);
+    Test.add_func ("/models/user-settings/changes_sort_is_read_from_the_file", test_changes_sort_is_read_from_the_file);
+    Test.add_func ("/models/user-settings/changes_sort_of_the_wrong_type_falls_back_to_path", test_changes_sort_of_the_wrong_type_falls_back_to_path);
     return Test.run ();
 }

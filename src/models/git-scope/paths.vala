@@ -1,8 +1,10 @@
 /**
- * `GitScope`: asking git about one part of a workspace instead of all of
- * it. A scope is the single path a batch of changes is narrowed down to —
- * a directory, or one file — and the only part of what was known before
- * that the answer replaces.
+ * `GitScope`: the editor's own dealings with a repository through git
+ * itself. Reading — `StatusQuery` narrowed to one path, the scope a
+ * batch of changes is local to (a directory, or one file), and
+ * `WorkingTree` over the whole repository at once — and writing:
+ * `Stage`, `Discard`, `Resolve`, `Operation`, every spawn through
+ * `Command`. `Paths` is the scope arithmetic the readers share.
  */
 namespace GitScope {
   public class Paths : Object {

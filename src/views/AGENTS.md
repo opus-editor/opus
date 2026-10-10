@@ -26,9 +26,21 @@ views/
                     index.vala + _sub.vala convention as a view
   main/             window chrome: header, global menu, sidebar toggle
     main-window/
+    sidebar/        mounts whichever of ExplorerPane/GitView.StagingPane
+                    matches main-window/index.blp's own view_stack
+                    ("editor"/"git") — see its own doc comment
+    log-dialog/     the "View Log" modal behind MainWindow's error toasts
   editor-view/      explorer-pane/ editor-pane/ find-bar/
-  git-view/         future, not created yet
+  git-view/         staging-pane/
 ```
+
+`main-window/index.blp`'s header `view_switcher` already drives a
+content-area `view_stack` ("editor" shows `content_bin`, "git" a
+placeholder today) — `main/sidebar/`'s own `Sidebar` listens for that
+same `view_stack` to change and mounts the matching pane
+(`ExplorerPane`/`GitView.StagingPane`, both implementing
+`ISidebarPane`, `main/_i-sidebar-pane.vala`) into the sidebar, rather
+than owning a second, independent switcher of its own.
 
 Each view gets its own `<domain>/<name>/`: `index.vala` (the facade
 class) and `index.blp` (its Blueprint template, if any — some views are
@@ -49,7 +61,10 @@ built entirely in code and have none). Load a template via
 - A view's class name never repeats "View" or its own directory name —
   the path under `views/<domain>/<name>/` already says that.
 - A domain with several sibling views gets a real `namespace` instead:
-  `EditorView.ExplorerPane`/`EditorPaneWidget`/`FindBar`.
+  `EditorView.ExplorerPane`/`EditorPaneWidget`/`FindBar`. A domain with
+  only one view so far can still get one up front, if more of its own
+  siblings are expected soon — `GitView.StagingPane`, since more of VS
+  Code's SCM viewlet (its Changes/Graph panes) joins it later.
 - A sub-widget/sub-component's suffix names its *owning view*: `ExplorerPaneTree`, not the bare `Tree` (collides with the `FileTree` Model).
 - A view nested under another one keeps its own name unchanged (`TabBar`,
   not `EditorPaneTabBar`) and moves into a namespace named plainly after

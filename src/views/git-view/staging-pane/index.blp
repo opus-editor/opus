@@ -1,0 +1,296 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Same header shape as ExplorerPane's own (editor-view/explorer-pane/
+// index.blp) — folder name, branch, a "..." menu button — reusing its
+// file-tree-root-label/file-tree-branch-label/root-header-more-button
+// CSS classes (explorer-pane.css) rather than duplicating the rules.
+Gtk.Box root_box {
+  orientation: vertical;
+
+  Gtk.Box root_header_box {
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 12;
+      margin-bottom: 6;
+
+      Gtk.Label root_label {
+        styles ["file-tree-root-label"]
+        label: "";
+        halign: start;
+        ellipsize: end;
+      }
+
+      Gtk.Label branch_label {
+        styles ["file-tree-branch-label", "dim-label"]
+        label: "";
+        halign: start;
+        ellipsize: end;
+      }
+    }
+
+    // No click behavior wired yet — see index.vala's own doc comment.
+    Gtk.Button more_button {
+      styles ["root-header-more-button", "flat"]
+      icon-name: "open-menu-symbolic";
+      margin-top: 6;
+      margin-end: 6;
+      margin-start: 0;
+      margin-bottom: 6;
+    }
+  }
+
+  // Conflicts (only while there are any) / Unstaged / Staged split the
+  // remaining space evenly — homogeneous counts visible children only,
+  // so a hidden conflicts_box costs the other two nothing.
+  Gtk.Box {
+    orientation: vertical;
+    vexpand: true;
+    homogeneous: true;
+
+    // VS Code's own "Merge Changes" group: unmerged paths, with their
+    // own actions (index.vala's show_conflicts_menu()/
+    // show_conflict_row_menu()) in place of stage/discard. Shown/hidden
+    // in code from GitScope.WorkingTree.conflicts.
+    Gtk.Box conflicts_box {
+      orientation: vertical;
+      visible: false;
+
+      Gtk.Box {
+        orientation: horizontal;
+        margin-bottom: 8;
+
+        Gtk.Label {
+          styles ["heading"]
+          label: _("Conflicts");
+          halign: start;
+          hexpand: true;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 12;
+          margin-end: 6;
+        }
+
+        Gtk.Button conflicts_more_button {
+          styles ["subsection-more-button"]
+          valign: center;
+          margin-top: 2;
+          margin-bottom: 2;
+          margin-end: 6;
+
+          child: Adw.ButtonContent {
+            icon-name: "open-menu-symbolic";
+          };
+        }
+
+        // TODO: stays insensitive until GitDiffTab exists — "Solve All"
+        // walks the user through every conflict in a diff tab, which
+        // this pane can't open yet. Staging a conflict as it is already
+        // works per row (double-click/Enter, see index.vala's own
+        // stage_conflicts()).
+        Gtk.Button conflicts_solve_button {
+          styles ["subsection-button"]
+          valign: center;
+          sensitive: false;
+          margin-top: 2;
+          margin-bottom: 2;
+          margin-end: 6;
+
+          child: Adw.ButtonContent {
+            icon-name: "stage-symbolic";
+            label: _("Solve All");
+          };
+        }
+      }
+
+      Gtk.ScrolledWindow conflicts_scrolled {
+        vexpand: true;
+      }
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+
+      Gtk.Box {
+        orientation: horizontal;
+        margin-bottom: 8;
+
+        Gtk.Label {
+          styles ["heading"]
+          label: _("Unstaged");
+          halign: start;
+          hexpand: true;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 12;
+          margin-end: 6;
+        }
+        
+        // Always sensitive, even with Unstaged Changes empty — the menu
+        // it opens still has something to show then (both items just
+        // disabled), which is more discoverable than hiding the "..."
+        // entirely until there's something to discard.
+        Gtk.Button stage_more_button {
+          styles ["subsection-more-button"]
+          valign: center;
+          margin-top: 2;
+          margin-bottom: 2;
+          margin-end: 6;
+
+          child: Adw.ButtonContent {
+            icon-name: "open-menu-symbolic";
+          };
+        }
+
+        // clicked/sensitive are both wired in code — see index.vala's own doc comment.
+        // sensitive: false until unstaged_scrolled holds anything at all.
+        Gtk.Button stage_button {
+          styles ["subsection-button"]
+          valign: center;
+          sensitive: false;
+          margin-top: 2;
+          margin-bottom: 2;
+          margin-end: 6;
+
+          child: Adw.ButtonContent {
+            icon-name: "stage-symbolic";
+            label: _("Stage All");
+          };
+        }
+      }
+
+      Gtk.ScrolledWindow unstaged_scrolled {
+        vexpand: true;
+      }
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+
+      Gtk.Box {
+        orientation: horizontal;
+        margin-top: 16;
+        margin-bottom: 8;
+
+        Gtk.Label {
+          styles ["heading"]
+          label: _("Staged");
+          halign: start;
+          hexpand: true;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 12;
+          margin-end: 6;
+        }
+
+        // clicked/sensitive are both wired in code — see index.vala's own doc comment.
+        // sensitive: false until staged_scrolled holds anything at all.
+        Gtk.Button unstage_button {
+          styles ["subsection-button"]
+          valign: center;
+          sensitive: false;
+          margin-top: 2;
+          margin-bottom: 2;
+          margin-end: 6;
+
+          child: Adw.ButtonContent {
+            icon-name: "unstage-symbolic";
+            label: _("Unstage All");
+          };
+        }
+      }
+
+      Gtk.ScrolledWindow staged_scrolled {
+        vexpand: true;
+      }
+    }
+  }
+
+  // Gtk.TextView has no built-in placeholder support (unlike Gtk.Text/
+  // Gtk.Entry's own placeholder-text) — commit_message_placeholder is
+  // a plain overlaid Gtk.Label instead, shown/hidden in code
+  // (index.vala's own update_commit_message_placeholder()) based on
+  // whether the buffer is empty. can-target: false so it never steals
+  // a click meant for the text view underneath it. No Gtk.Frame (no
+  // border) and no divider above it — just the ScrolledWindow directly.
+  // commit_message_view's own margins (8px, every side) must match
+  // commit_message_placeholder's own margin-top/margin-start exactly —
+  // otherwise the empty-buffer cursor and the placeholder's own first
+  // letter land in different spots. No css-name "entry" override here:
+  // Gtk.Entry's own real padding would stack on top of these margins
+  // instead of replacing them, and Gtk.TextView's background doesn't
+  // follow that rename anyway — see staging-pane.css's own comment on
+  // .commit-message-view.
+  Gtk.Overlay {
+    margin-top: 6;
+    margin-start: 6;
+    margin-end: 6;
+
+    Gtk.ScrolledWindow {
+      height-request: 72;
+      hscrollbar-policy: never;
+
+      Gtk.TextView commit_message_view {
+        styles ["commit-message-view"]
+        wrap-mode: word_char;
+        top-margin: 8;
+        bottom-margin: 8;
+        left-margin: 8;
+        right-margin: 8;
+      }
+    }
+
+    [overlay]
+    Gtk.Label commit_message_placeholder {
+      styles ["dim-label"]
+      label: _("Commit message");
+      halign: start;
+      valign: start;
+      can-target: false;
+      margin-top: 8;
+      margin-start: 8;
+    }
+  }
+
+  // commit_label's own markup is set in code (index.vala's own
+  // update_branch_ui()) — the branch name is bold, "Commit to" isn't,
+  // and neither is known at Blueprint-build time; while a merge/rebase/
+  // cherry-pick/revert is parked it reads "Merge"/"Continue" instead.
+  // A custom `child` label rather than Button's own `label:` property,
+  // same reason TabBar.Pill's title_label is: that one only ever
+  // renders plain text, with no way to bold part of it (same idiom —
+  // use-markup + Markup.escape_text() on the dynamic part — as its own
+  // title_label).
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 6;
+    margin-top: 6;
+    margin-bottom: 6;
+    margin-start: 6;
+    margin-end: 6;
+
+    // Only while an operation is parked (index.vala's own
+    // apply_operation()) — plain, not destructive-styled: the
+    // confirmation dialog it opens is where the red lives.
+    Gtk.Button abort_button {
+      label: _("Abort");
+      visible: false;
+    }
+
+    Gtk.Button commit_button {
+      styles ["commit-button", "suggested-action"]
+      hexpand: true;
+      // sensitive wired in code (index.vala's own
+      // update_commit_button_sensitivity()) — false until there's
+      // something staged, a commit message typed, and no conflict left.
+      sensitive: false;
+
+      child: Gtk.Label commit_label {
+        use-markup: true;
+      };
+    }
+  }
+}

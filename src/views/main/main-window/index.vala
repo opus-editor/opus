@@ -18,6 +18,7 @@ public class MainWindow : Object {
   private Adw.Bin sidebar_bin;
   private Sidebar sidebar = new Sidebar ();
   private Adw.ViewStack view_stack;
+  private Adw.ToastOverlay toast_overlay;
   private Gtk.Box sidebar_resize_handle;
   private Adw.Bin content_bin;
   private Adw.Bin search_bar_bin;
@@ -31,6 +32,13 @@ public class MainWindow : Object {
   private EditorView.FindBar find_bar;
   private EditorView.FindInFilesBar find_in_files_bar;
   private EditorView.ExplorerPane? explorer_pane = null;
+  // Nothing here needs tearing down between folders (see its own doc
+  // comment), so it's built once rather than torn down/rebuilt with
+  // the folder the way explorer_pane is — link_folder()/unlink_folder()
+  // just call its set_root_path()/set_branch_provider()/
+  // set_workspace_context() instead. Its close() still runs once, with
+  // the window's own destroy.
+  public GitView.StagingPane git_pane { get; private set; }
 
   // The plugin-decoration plumbing for whichever folder is currently
   // linked — owned here, not by ExplorerPane, since it must outlive a
@@ -176,6 +184,10 @@ public class MainWindow : Object {
     split_view = (Adw.OverlaySplitView) builder.get_object ("split_view");
     sidebar_bin = (Adw.Bin) builder.get_object ("sidebar_bin");
     sidebar_bin.child = sidebar.widget;
+    git_pane = new GitView.StagingPane (user_settings);
+    git_pane.operation_failed.connect (show_failure_toast);
+    sidebar.set_git_pane (git_pane);
+    toast_overlay = (Adw.ToastOverlay) builder.get_object ("toast_overlay");
     view_stack = (Adw.ViewStack) builder.get_object ("view_stack");
     sidebar.show (view_stack.visible_child_name);
     view_stack.notify["visible-child-name"].connect (() => sidebar.show (view_stack.visible_child_name));
@@ -288,6 +300,7 @@ public class MainWindow : Object {
       if (explorer_pane != null) {
         explorer_pane.close ();
       }
+      git_pane.close ();
       teardown_workspace_extensions ();
       command_bar.destroy ();
       editor_pane.close ();
@@ -416,8 +429,14 @@ public class MainWindow : Object {
     wire_explorer_pane (new_explorer_pane);
 
     var new_branch_providers = new Opus.Plugins.WorkspaceExtensions (typeof (GitBranch.IProvider), new_workspace_context);
-    new_branch_providers.added.connect ((e) => new_explorer_pane.set_branch_provider ((GitBranch.IProvider) e));
-    new_branch_providers.removed.connect ((e) => new_explorer_pane.set_branch_provider (null));
+    new_branch_providers.added.connect ((e) => {
+      new_explorer_pane.set_branch_provider ((GitBranch.IProvider) e);
+      git_pane.set_branch_provider ((GitBranch.IProvider) e);
+    });
+    new_branch_providers.removed.connect ((e) => {
+      new_explorer_pane.set_branch_provider (null);
+      git_pane.set_branch_provider (null);
+    });
 
     teardown_workspace_extensions ();
     workspace_context = new_workspace_context;
@@ -442,6 +461,8 @@ public class MainWindow : Object {
     }
     explorer_pane = new_explorer_pane;
     editor_pane.set_root_path (path);
+    git_pane.set_root_path (path);
+    git_pane.set_workspace_context (new_workspace_context);
 
     sidebar.set_editor_pane (explorer_pane);
     has_linked_folder = true;
@@ -489,6 +510,7 @@ public class MainWindow : Object {
     has_linked_folder = false;
     split_view.show_sidebar = false;
     editor_pane.set_root_path (Environment.get_current_dir ());
+    git_pane.set_root_path (null);
     update_folder_dependent_ui ();
     session_store.clear ();
   }
@@ -543,6 +565,7 @@ public class MainWindow : Object {
     workspace_watcher = null;
     editor_pane.set_decorations (null);
     editor_pane.set_diff_base_provider (null);
+    git_pane.set_workspace_context (null);
   }
 
   /** Opens `path` as a permanent tab right at startup (`opus <file>`) — failures are reported through this same window's own show_error() rather than left for main.vala to handle, since main.vala no longer holds a reference to anything that could report one itself. */
@@ -1212,6 +1235,24 @@ public class MainWindow : Object {
 
   public void show_error (string message) {
     Dialogs.show_error (window, message);
+  }
+
+  /** The header switcher's "Git" — the debug D-Bus surface's way there. */
+  public void show_git_view () {
+    view_stack.visible_child_name = "git";
+  }
+
+  /** An error toast for an action the user just took that git refused — unlike show_error()'s modal, it doesn't interrupt: the list is simply still as it was, and "View Log" opens git's own words in a LogDialog. With no `log` the summary is the whole message, so no button. No timeout either way: an error can't be allowed to vanish before it's read. */
+  private void show_failure_toast (string summary, string? log) {
+    var toast = new Adw.Toast (summary) {
+      timeout = 0,
+      priority = Adw.ToastPriority.HIGH,
+    };
+    if (log != null) {
+      toast.button_label = _("View Log");
+      toast.button_clicked.connect (() => LogDialog.show (window, user_settings, summary, log));
+    }
+    toast_overlay.add_toast (toast);
   }
 
   private bool on_key_pressed (uint keyval, uint keycode, Gdk.ModifierType state) {

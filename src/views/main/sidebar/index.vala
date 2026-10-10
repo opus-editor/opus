@@ -7,14 +7,12 @@
  * name it changed to, so both halves of the window always agree on
  * which activity is active.
  *
- * Built entirely in code (a plain Adw.Bin, nothing to template) — only
- * set_editor_pane() exists so far; set_git_pane() and the "git" branch
- * of show() land in a later pass, once GitView.StagingPane itself is
- * rebuilt on this structure.
+ * Built entirely in code (a plain Adw.Bin, nothing to template).
  */
 public class Sidebar : Object {
   private Adw.Bin bin = new Adw.Bin ();
   private ISidebarPane? editor_pane = null;
+  private ISidebarPane? git_pane = null;
   private string active_name = "editor";
 
   public Gtk.Widget widget { get { return bin; } }
@@ -25,6 +23,12 @@ public class Sidebar : Object {
     update ();
   }
 
+  /** `git_pane` — set once, at construction, unlike editor_pane: GitView.StagingPane itself doesn't need tearing down between folders (see its own doc comment). */
+  public void set_git_pane (ISidebarPane? git_pane) {
+    this.git_pane = git_pane;
+    update ();
+  }
+
   /** `name` is one of view_stack's own page names ("editor", "git") — MainWindow calls this once at construction (the stack's initial page) and again on every `notify::visible-child-name`. */
   public void show (string name) {
     active_name = name;
@@ -32,6 +36,6 @@ public class Sidebar : Object {
   }
 
   private void update () {
-    bin.child = active_name == "editor" ? editor_pane?.widget : null;
+    bin.child = active_name == "editor" ? editor_pane?.widget : git_pane?.widget;
   }
 }

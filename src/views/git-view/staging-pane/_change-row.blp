@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+// Same shape as ExplorerPaneTreeRow's own row (editor-view/explorer-pane/
+// _tree-row.blp), minus the Gtk.TreeExpander (this list is flat, no
+// folders to expand) and the inline-rename Gtk.Text (nothing here is
+// ever renamed in place).
+Gtk.Box row {
+  orientation: horizontal;
+  spacing: 6;
+  margin-start: 8;
+  margin-end: 8;
+
+  Gtk.Image icon {
+    pixel-size: 16;
+  }
+
+  // use-markup: true — the dimmed directory part after the file name is
+  // a Pango span set in code (ChangeRow.bind()), same idiom as TabBar.Pill's
+  // own title_label.
+  Gtk.Label label {
+    use-markup: true;
+    xalign: 0;
+    ellipsize: end;
+    hexpand: true;
+    opacity: 0.75;
+  }
+
+  // The status letters (A/M/D/R/C/T/U, or git's own two-letter code for
+  // a conflict — UU, DU, … — each letter in its own color) instead of
+  // ExplorerPaneTreeRow's own colored dot. "monospace" is GTK's own
+  // built-in class (resolves fontconfig's "monospace" alias, same
+  // fallback CodeEditor's own font_css() leans on); "change-decoration-letter"
+  // is where StagingPane's own apply_decoration_font() overrides that
+  // with the user's real editor.font_family when they've set one (see
+  // staging-pane.css). The second letter is only shown for a conflict.
+  Gtk.Box {
+    orientation: horizontal;
+    valign: center;
+
+    Gtk.Label decoration_letter {
+      styles ["change-decoration-letter", "monospace"]
+      width-chars: 1;
+      xalign: 0.5;
+    }
+
+    Gtk.Label decoration_letter_2 {
+      styles ["change-decoration-letter", "monospace"]
+      width-chars: 1;
+      xalign: 0.5;
+      visible: false;
+    }
+  }
+}

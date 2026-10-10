@@ -1,0 +1,8 @@
+/* The whole sheet, header included, in the editor's own background:
+ * Adwaita/Adwaita-dark's `text` style (what the CodeEditor paints) is
+ * #ffffff/#1d1d20, the same values main-window.css gives
+ * --view-bg-color, so overriding libadwaita's own sheet variable here
+ * makes the flat header and the text below it one surface. */
+.log-dialog {
+  --dialog-bg-color: var(--view-bg-color);
+}

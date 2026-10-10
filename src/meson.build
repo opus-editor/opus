@@ -42,6 +42,12 @@ opus_model_sources = files(
   'models/glob.vala',
   'models/git-scope/paths.vala',
   'models/git-scope/status-query.vala',
+  'models/git-scope/command.vala',
+  'models/git-scope/working-tree.vala',
+  'models/git-scope/stage.vala',
+  'models/git-scope/discard.vala',
+  'models/git-scope/operation.vala',
+  'models/git-scope/resolve.vala',
   'models/git-branch/i-provider.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
@@ -189,6 +195,7 @@ opus_gtk_view_sources = files(
   'views/main/_i-sidebar-pane.vala',
   'views/main/sidebar/index.vala',
   'views/main/main-window/index.vala',
+  'views/main/log-dialog/index.vala',
   'views/main/command-bar/_section-model.vala',
   'views/main/command-bar/_row.vala',
   'views/main/command-bar/index.vala',
@@ -210,6 +217,9 @@ opus_gtk_view_sources = files(
   'views/editor-view/explorer-pane/index.vala',
   'views/editor-view/find-bar/index.vala',
   'views/editor-view/find-in-files-bar/index.vala',
+  'views/git-view/staging-pane/_change-row.vala',
+  'views/git-view/staging-pane/_change-list.vala',
+  'views/git-view/staging-pane/index.vala',
 )
 
 # No opus_controller_sources here — the whole point of this tree: every

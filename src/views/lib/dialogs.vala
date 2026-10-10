@@ -175,6 +175,40 @@ public class Dialogs : Object {
 
   private Dialogs () {}
 
+  // The dialog on screen right now, for the debug D-Bus surface to read
+  // and answer (DevServer.respond_to_dialog) — a system test can't click
+  // a real button. One at a time: this app never stacks dialogs.
+  private static Adw.Dialog? presented = null;
+  private static string presented_heading = "";
+
+  /** The heading of the dialog currently showing, "" with none. */
+  public static string current_heading () {
+    return presented != null ? presented_heading : "";
+  }
+
+  /** Clicks the current dialog's button whose response id is `response_id` ("cancel"/"confirm"/"first"/"second"/"ok") — false if there is no such dialog or button. */
+  public static bool respond (string response_id) {
+    if (presented == null) {
+      return false;
+    }
+    var button = presented.get_data<Gtk.Button?> ("response-" + response_id);
+    if (button == null) {
+      return false;
+    }
+    button.clicked ();
+    return true;
+  }
+
+  private static void track (Adw.Dialog dialog, string heading) {
+    presented = dialog;
+    presented_heading = heading;
+    dialog.closed.connect (() => {
+      if (presented == dialog) {
+        presented = null;
+      }
+    });
+  }
+
   /** The "unsaved changes" dialog shown before closing a tab — Save, Don't Save, or Cancel. `parent` is the widget to present it on. */
   public static async DiscardChoice confirm_discard (Gtk.Widget parent, string filename) {
     Gtk.Box response_area;
@@ -227,6 +261,22 @@ public class Dialogs : Object {
     return response == "confirm";
   }
 
+  /** A three-way question — Cancel, `first_label`, `second_label` (that one styled `second_style_class`, e.g. "destructive-action"), defaulting to Cancel. Returns 0 for the first, 1 for the second, -1 for Cancel/Escape. `parent` is the widget to present it on. */
+  public static async int choose (Gtk.Widget parent, string heading, string body, string first_label, string second_label, string? second_style_class) {
+    Gtk.Box response_area;
+    var dialog = build (heading, body, out response_area);
+
+    int choice = -1;
+    var cancel_button = add_response (response_area, dialog, _("Cancel"), null, "cancel", (id) => {});
+    add_response (response_area, dialog, first_label, null, "first", (id) => choice = 0);
+    add_response (response_area, dialog, second_label, second_style_class, "second", (id) => choice = 1);
+    dialog.default_widget = cancel_button;
+    dialog.focus_widget = cancel_button;
+
+    yield present_and_wait (dialog, parent);
+    return choice;
+  }
+
   /** A plain OK-only error dialog. `parent` is the widget to present it on. */
   public static void show_error (Gtk.Widget parent, string message) {
     Gtk.Box response_area;
@@ -234,6 +284,7 @@ public class Dialogs : Object {
     var ok_button = add_response (response_area, dialog, _("OK"), null, "ok", (id) => {});
     dialog.default_widget = ok_button;
     dialog.focus_widget = ok_button;
+    track (dialog, _("Error"));
     dialog.present (parent);
   }
 
@@ -296,6 +347,7 @@ public class Dialogs : Object {
     };
     dialog.add_css_class ("alert");
     dialog.add_css_class ("opus-dialog");
+    dialog.set_data ("heading", heading);
 
     return dialog;
   }
@@ -317,6 +369,7 @@ public class Dialogs : Object {
       on_activated (response_id);
       dialog.close ();
     });
+    dialog.set_data ("response-" + response_id, button);
     response_area.append (button);
     return button;
   }
@@ -324,6 +377,7 @@ public class Dialogs : Object {
   /** Shows `dialog` on `parent` and suspends the caller until it closes (a button response, Escape, or the window closing). */
   private static async void present_and_wait (Adw.Dialog dialog, Gtk.Widget parent) {
     dialog.closed.connect (() => present_and_wait.callback ());
+    track (dialog, dialog.get_data<string> ("heading"));
     dialog.present (parent);
     yield;
   }

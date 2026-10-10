@@ -38,12 +38,19 @@ window.dark {
   --sidebar-bg-color: #262629;
   --view-bg-color: #1d1d20;
   --window-bg-color: #1d1d20;
+  /* A real entry node's own background: a translucent white overlay
+   * over whatever sits behind it
+   * (here, --view-bg-color), not a flat opaque color — same rgb(0 0 6)
+   * base this file's own tooltip.background rule already uses in its
+   * light-mode form below, just a different alpha and polarity. */
+  --input-bg-color: rgb(255 255 255 / 10%);
 }
 window:not(.dark) {
   --headerbar-bg-color: #ffffff;
   --sidebar-bg-color: #f5f5f6;
   --view-bg-color: #ffffff;
   --window-bg-color: #ffffff;
+  --input-bg-color: rgb(0 0 6 / 8%);
 }
 .opus-header {
   background-color: var(--headerbar-bg-color);
