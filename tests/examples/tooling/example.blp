@@ -1,0 +1,45 @@
+using Gtk 4.0;
+using Adw 1;
+
+// The locale picker: a list of locales with the current one checked.
+template $LocalePicker : Adw.Bin {
+  child: Gtk.Box {
+    orientation: vertical;
+    spacing: 6;
+    margin-start: 12;
+    margin-end: 12;
+
+    Gtk.Label title {
+      styles ["heading"]
+      label: _("Choose a language");
+      halign: start;
+    }
+
+    Gtk.ScrolledWindow {
+      vexpand: true;
+      hscrollbar-policy: never;
+
+      Gtk.ListView locale_list {
+        styles ["navigation-sidebar"]
+        single-click-activate: true;
+        activate => $on_locale_activated();
+      }
+    }
+
+    Gtk.Button add_button {
+      styles ["suggested-action"]
+      label: _("Add locale…");
+      sensitive: bind template.can-add;
+      clicked => $on_add_clicked() swapped;
+    }
+  };
+}
+
+menu picker_menu {
+  section {
+    item {
+      label: _("Reset to default");
+      action: "picker.reset";
+    }
+  }
+}

@@ -1,0 +1,22 @@
+<%!-- The locale picker: one row per locale, the current one marked. --%>
+<section class="locales" id={"locales-#{@scope}"}>
+  <h2><%= gettext("Choose a language") %></h2>
+
+  <ul :for={locale <- @locales} class={["locale", locale.code == @current && "current"]}>
+    <li>
+      <.link navigate={~p"/locales/#{locale.code}"} phx-click="pick" phx-value-code={locale.code}>
+        <%= locale.name %>
+        <span :if={locale.code == @current} class="badge">✓</span>
+      </.link>
+    </li>
+  </ul>
+
+  <p :if={@locales == []} class="empty">
+    <%= gettext("No locales yet.") %>
+  </p>
+
+  <.form for={@form} phx-submit="add">
+    <.input field={@form[:code]} placeholder="pt-BR" />
+    <button type="submit" disabled={!@form.source.valid?}>Add</button>
+  </.form>
+</section>

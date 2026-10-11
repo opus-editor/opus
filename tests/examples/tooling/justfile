@@ -1,0 +1,38 @@
+# Build and run the locales tool. `just` alone lists the recipes.
+
+set shell := ["bash", "-cu"]
+set dotenv-load
+
+build_dir := "out/native"
+version := `git describe --tags --always`
+
+# Set up (or reconfigure) the Meson build directory.
+setup:
+    @[ -d {{build_dir}} ] && meson setup --reconfigure {{build_dir}} || meson setup {{build_dir}}
+
+# Build, setting up first if needed.
+build: setup
+    ninja -C {{build_dir}}
+
+# Run the test suite.
+test: build
+    meson test -C {{build_dir}}
+
+# Run against a folder: `just run ~/project`.
+run *ARGS: build
+    LOCALES_DIR=locales ./{{build_dir}}/src/locales {{ARGS}}
+
+# Tag a release — refuses a dirty tree.
+release tag:
+    #!/usr/bin/env bash
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "commit first" >&2
+        exit 1
+    fi
+    git tag -a "{{tag}}" -m "release {{tag}} ({{version}})"
+
+alias t := test
+
+[private]
+clean:
+    rm -rf {{build_dir}}
