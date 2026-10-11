@@ -5,10 +5,11 @@ of https://github.com/miguelsolorio/symbols.
 
 Usage: generate-default-icon-theme.py <path-to-symbols-clone>
 
-Copies every SVG the theme's own JSON references, copies that JSON
-itself verbatim (src/models/icon-theme.vala parses it at runtime via
-json-glib — nothing here pre-processes its contents), and regenerates
-the matching <gresource> file list in data/io.github.opus_editor.Opus.gresource.xml.
+Copies every SVG the theme's own JSON references, writes that JSON
+with data/icons/symbols/opus-icons.json laid over it (Opus's own icons
+for languages the theme lacks — src/models/icon-theme.vala parses the
+result at runtime via json-glib), and regenerates the matching
+<gresource> file list in data/io.github.opus_editor.Opus.gresource.xml.
 """
 import json
 import os
@@ -40,10 +41,22 @@ for icon_id, defn in sorted(theme["iconDefinitions"].items()):
 
 print(f"Copied {len(id_to_rel)} SVGs into {ICONS_DEST}")
 
-# 2. Copy the theme's own JSON verbatim — parsed at runtime, not by this
-#    script; see src/models/icon-theme.vala.
-shutil.copyfile(theme_path, os.path.join(ICONS_DEST, "symbol-icon-theme.json"))
-print("Copied symbol-icon-theme.json")
+# 2. The theme's own JSON, with Opus's additions (opus-icons.json: the
+#    same three sections, for languages the upstream theme has no icon
+#    for — their SVGs are drawn here and never come from the clone)
+#    laid over it. Parsed at runtime, not by this script; see
+#    src/models/icon-theme.vala.
+additions_path = os.path.join(ICONS_DEST, "opus-icons.json")
+additions = json.load(open(additions_path)) if os.path.exists(additions_path) else {}
+for section, entries in additions.items():
+    theme.setdefault(section, {}).update(entries)
+for icon_id, defn in additions.get("iconDefinitions", {}).items():
+    rel = os.path.relpath(os.path.normpath(defn["iconPath"].lstrip("./")), "icons")
+    id_to_rel[icon_id] = rel.replace(os.sep, "/")
+with open(os.path.join(ICONS_DEST, "symbol-icon-theme.json"), "w", encoding="utf-8") as out:
+    json.dump(theme, out, indent=2)
+    out.write("\n")
+print("Wrote symbol-icon-theme.json")
 
 # 3. Copy the upstream LICENSE for attribution.
 shutil.copyfile(os.path.join(SRC, "LICENSE"), os.path.join(ICONS_DEST, "LICENSE"))

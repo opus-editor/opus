@@ -173,6 +173,7 @@
     <file alias="symbols/files/markdown.svg" compressed="true">icons/symbols/files/markdown.svg</file>
     <file alias="symbols/files/maven.svg" compressed="true">icons/symbols/files/maven.svg</file>
     <file alias="symbols/files/mdx.svg" compressed="true">icons/symbols/files/mdx.svg</file>
+    <file alias="symbols/files/meson.svg" compressed="true">icons/symbols/files/meson.svg</file>
     <file alias="symbols/files/minecraft.svg" compressed="true">icons/symbols/files/minecraft.svg</file>
     <file alias="symbols/files/mongo.svg" compressed="true">icons/symbols/files/mongo.svg</file>
     <file alias="symbols/files/moon.svg" compressed="true">icons/symbols/files/moon.svg</file>
@@ -263,6 +264,7 @@
     <file alias="symbols/files/tauri.svg" compressed="true">icons/symbols/files/tauri.svg</file>
     <file alias="symbols/files/terraform.svg" compressed="true">icons/symbols/files/terraform.svg</file>
     <file alias="symbols/files/tex.svg" compressed="true">icons/symbols/files/tex.svg</file>
+    <file alias="symbols/files/text-nested.svg" compressed="true">icons/symbols/files/text-nested.svg</file>
     <file alias="symbols/files/text.svg" compressed="true">icons/symbols/files/text.svg</file>
     <file alias="symbols/files/ts-test.svg" compressed="true">icons/symbols/files/ts-test.svg</file>
     <file alias="symbols/files/ts-types.svg" compressed="true">icons/symbols/files/ts-types.svg</file>
