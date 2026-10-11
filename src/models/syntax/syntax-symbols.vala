@@ -113,7 +113,7 @@ namespace Syntax {
     private int character_column (string text, TreeSitter.Node node) {
       uint32 start = node.start_byte ();
       uint32 line_start = start - node.start_point ().column;
-      return text.substring (line_start, start - line_start).char_count ();
+      return SyntaxDocument.slice (text, line_start, start).char_count ();
     }
 
     /** A sweep in document order, keeping the definitions still open: the innermost of them contains the one just reached. */

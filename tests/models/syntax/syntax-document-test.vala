@@ -687,6 +687,16 @@ private void test_a_symbols_column_counts_characters_not_bytes () {
     assert_cmpint (symbol.column, CompareOperator.EQ, 14);
 }
 
+private void test_a_symbols_column_is_measured_from_its_own_line_after_multibyte_lines () {
+    var document = json_tagged_by (PAIRS_AS_SYMBOLS);
+    document.set_text ("{\n  \"ação\": 1,\n  \"port\": 80\n}");
+
+    var symbol = document.symbols ()[1];
+
+    assert_cmpint (symbol.line, CompareOperator.EQ, 3);
+    assert_cmpint (symbol.column, CompareOperator.EQ, 3);
+}
+
 private void test_a_symbol_spans_the_lines_of_its_whole_definition () {
     var document = json_tagged_by (PAIRS_AS_SYMBOLS);
     document.set_text ("{\n  \"server\": {\n    \"port\": 80\n  }\n}");
@@ -875,6 +885,7 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/a_definition_is_a_symbol_with_its_name_and_kind", test_a_definition_is_a_symbol_with_its_name_and_kind);
     Test.add_func ("/models/syntax/syntax-document/a_symbol_is_where_its_name_is", test_a_symbol_is_where_its_name_is);
     Test.add_func ("/models/syntax/syntax-document/a_symbols_column_counts_characters_not_bytes", test_a_symbols_column_counts_characters_not_bytes);
+    Test.add_func ("/models/syntax/syntax-document/a_symbols_column_is_measured_from_its_own_line_after_multibyte_lines", test_a_symbols_column_is_measured_from_its_own_line_after_multibyte_lines);
     Test.add_func ("/models/syntax/syntax-document/a_symbol_spans_the_lines_of_its_whole_definition", test_a_symbol_spans_the_lines_of_its_whole_definition);
     Test.add_func ("/models/syntax/syntax-document/symbols_come_in_the_order_of_the_text", test_symbols_come_in_the_order_of_the_text);
     Test.add_func ("/models/syntax/syntax-document/a_symbol_inside_another_names_it_as_its_container", test_a_symbol_inside_another_names_it_as_its_container);

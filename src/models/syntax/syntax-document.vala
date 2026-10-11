@@ -372,7 +372,17 @@ namespace Syntax {
     }
 
     private string node_text (TreeSitter.Node node) {
-      return text.substring (node.start_byte (), node.end_byte () - node.start_byte ());
+      return slice (text, node.start_byte (), node.end_byte ());
+    }
+
+    /**
+     * `text`'s bytes `start` to `end`. Not `text.substring (start, len)`:
+     * that runs `strnlen` over the whole stretch before `start`, so a
+     * node near the end of a large file would cost the length of the
+     * file to read. Node bytes always fall on character boundaries.
+     */
+    internal static string slice (string text, uint32 start, uint32 end) {
+      return ((string) ((char*) text + start)).substring (0, end - start);
     }
 
     private static TreeSitter.InputEdit edit_between (string old_text, string new_text) {
