@@ -42,7 +42,7 @@
     {
       "name": "opus",
       "buildsystem": "meson",
-      "config-opts": ["--buildtype=release"],
+      "config-opts": ["--buildtype=release", "-Db_lto=true"],
       "sources": [
         {
           "type": "dir",
