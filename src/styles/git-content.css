@@ -22,6 +22,12 @@
   opacity: 1;
 }
 
+.git-breadcrumb button.crumb-action {
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0 4px;
+}
+
 .git-breadcrumb .crumb-separator {
   opacity: 0.4;
   -gtk-icon-size: 12px;

@@ -420,6 +420,7 @@
     <file alias="scalable/actions/unstage-symbolic.svg" compressed="true">icons/scalable/actions/unstage-symbolic.svg</file>
     <file alias="scalable/actions/close-symbolic.svg" compressed="true">icons/scalable/actions/close-symbolic.svg</file>
     <file alias="scalable/actions/notes-symbolic.svg" compressed="true">icons/scalable/actions/notes-symbolic.svg</file>
+    <file alias="scalable/actions/file-open-symbolic.svg" compressed="true">icons/scalable/actions/file-open-symbolic.svg</file>
   </gresource>
   <gresource prefix="/io/github/opus_editor/Opus/plugins">
     <file alias="git-status/git-status.plugin">plugins/git-status/git-status.plugin</file>

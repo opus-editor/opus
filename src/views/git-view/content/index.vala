@@ -3,8 +3,10 @@
  * the history tree (GitView.TreePane's widget, owned by MainWindow) or a
  * file's diff (GitView.DiffPane, owned here). "History" alone while the
  * tree shows; "History / <commit or WIP> / <file>" while a diff does,
- * "History" being the way back, chevrons between the crumbs. MainWindow decides what to show and when
- * a live diff must be re-read; this only lays it out.
+ * "History" being the way back, chevrons between the crumbs, and at
+ * the right end an "Open File" button for the file as it is on disk.
+ * MainWindow decides what to show and when a live diff must be
+ * re-read; this only lays it out.
  */
 namespace GitView {
   public class Content : Object {
@@ -14,6 +16,10 @@ namespace GitView {
     private DiffPane diff_pane;
     private string middle_crumb = "";
     private string file_crumb = "";
+    private string shown_path = "";
+
+    /** The "Open File" button: the diff's file (absolute, the right-hand name), to open in the editor. */
+    public signal void open_file_requested (string path);
 
     public Content (Gtk.Widget tree_widget, UserSettings user_settings) {
       diff_pane = new DiffPane (user_settings);
@@ -45,6 +51,7 @@ namespace GitView {
     public void show_diff (GitDiff.Request request, string middle) {
       middle_crumb = middle;
       file_crumb = request.relative_path;
+      shown_path = request.path;
       diff_pane.show (request);
       stack.visible_child_name = "diff";
       rebuild_breadcrumb ();
@@ -92,6 +99,17 @@ namespace GitView {
       breadcrumb.append (crumb_label (middle_crumb, false));
       breadcrumb.append (separator ());
       breadcrumb.append (crumb_label (file_crumb, true));
+      breadcrumb.append (open_button ());
+    }
+
+    /** Flat, pushed to the right end; insensitive when the file is not on disk (deleted, or only in a commit). */
+    private Gtk.Widget open_button () {
+      var button = new Gtk.Button.from_icon_name ("file-open-symbolic") { has_frame = false, halign = Gtk.Align.END, hexpand = true, valign = Gtk.Align.CENTER };
+      button.add_css_class ("crumb-action");
+      button.tooltip_text = _("Open File");
+      button.sensitive = FileUtils.test (shown_path, FileTest.IS_REGULAR);
+      button.clicked.connect (() => open_file_requested (shown_path));
+      return button;
     }
 
     private static Gtk.Widget crumb_label (string text, bool current) {

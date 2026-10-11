@@ -198,7 +198,8 @@ public class MainWindow : Object {
     tree_pane.row_selected.connect (on_tree_row_selected);
     git_content = new GitView.Content (tree_pane.widget, user_settings);
     git_pane.open_diff_requested.connect ((request) => git_content.show_diff (request, "WIP"));
-    git_pane.open_file_requested.connect (open_conflicted_file);
+    git_pane.open_file_requested.connect (open_file_in_editor);
+    git_content.open_file_requested.connect (open_file_in_editor);
     history_pane.open_diff_requested.connect ((request) => git_content.show_diff (request, request.right.label));
     git_pane.repository_changed.connect (git_content.reload_live_diff);
     ((Adw.Bin) builder.get_object ("tree_bin")).child = git_content.widget;
@@ -858,7 +859,7 @@ public class MainWindow : Object {
     }
   }
 
-  /** `line` is 1-based; 0 leaves the caret wherever the tab already has it. */
+  /** `line` is 1-based; 0 leaves the caret wherever the tab already has it. The tab lives in the editor view, so that is where the window goes. */
   private void open_from_command_bar (string path, int line) {
     try {
       editor_pane.open (path, true);
@@ -866,6 +867,7 @@ public class MainWindow : Object {
       show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
       return;
     }
+    view_stack.visible_child_name = "editor";
     if (line > 0) {
       editor_pane.go_to_line (line, 0);
     }
@@ -960,6 +962,7 @@ public class MainWindow : Object {
       where_text = find_in_files_bar.where_text,
     };
     editor_pane.search_in_files.begin (query);
+    view_stack.visible_child_name = "editor"; // the Find Results tab is in the editor view
     // Unlike plain Find (FindBar stays open to step through live
     // matches), Find in Files has nothing left for the bar itself to do
     // once a search is launched — the Find Results tab is where the
@@ -1271,8 +1274,8 @@ public class MainWindow : Object {
     owned get { return view_stack.visible_child_name; }
   }
 
-  /** A file in conflict, from the Conflicts list: the file itself, in the editor, to resolve by hand. */
-  private void open_conflicted_file (string path) {
+  /** The file itself, in the editor view — a conflict to resolve by hand from the Conflicts list, or the diff's "Open File". */
+  private void open_file_in_editor (string path) {
     try {
       editor_pane.open (path, true);
       view_stack.visible_child_name = "editor";
@@ -1429,6 +1432,7 @@ public class MainWindow : Object {
 
     try {
       editor_pane.open (path, true);
+      view_stack.visible_child_name = "editor";
     } catch (Error e) {
       show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
     }
