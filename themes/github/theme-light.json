@@ -33,7 +33,7 @@
     "keyword.storage.type": { "foreground": "red" },
     "label": { "foreground": "purple" },
     "markup.bold": { "bold": true },
-    "markup.heading": { "foreground": "purple", "bold": true },
+    "markup.heading": { "foreground": "blue", "bold": true },
     "markup.italic": { "italic": true },
     "markup.link.label": { "foreground": "blue-dark", "underline": true },
     "markup.link.text": { "foreground": "blue-dark", "underline": true },
