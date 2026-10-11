@@ -382,5 +382,11 @@
     "type": "file",
     "path": "../subprojects/packagefiles/tree-sitter/meson.build",
     "dest": "subprojects/tree-sitter"
+  },
+  {
+    "type": "patch",
+    "path": "../subprojects/packagefiles/tree-sitter-lexer-goto.diff",
+    "dest": "subprojects/tree-sitter",
+    "strip-components": 1
   }
 ]

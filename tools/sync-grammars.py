@@ -176,6 +176,16 @@ def flatpak_sources():
                     "path": os.path.relpath(os.path.join(root, name), os.path.join(REPO_ROOT, "build")),
                     "dest": os.path.normpath(os.path.join(dest, relative_dir)),
                 })
+        # The wrap's diff_files, which Meson applies with -p1 from the
+        # subproject's root — flatpak-builder has to do the same, since
+        # it lays the checkout down itself.
+        for diff in filter(None, (d.strip() for d in git.get("diff_files", "").split(","))):
+            sources.append({
+                "type": "patch",
+                "path": os.path.relpath(os.path.join(PACKAGEFILES, diff), os.path.join(REPO_ROOT, "build")),
+                "dest": dest,
+                "strip-components": 1,
+            })
     return json.dumps(sources, indent=2) + "\n"
 
 

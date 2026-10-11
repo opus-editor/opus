@@ -1,0 +1,25 @@
+--- a/lib/src/lexer.c
++++ b/lib/src/lexer.c
+@@ -150,8 +150,21 @@
+   self->current_position = position;
+ 
+   // Move to the first valid position at or after the given position.
++  // The ranges are sorted and disjoint, so a binary search finds the
++  // first one ending past the position; the scan below only has to
++  // step over empty ranges from there.
++  unsigned low = 0;
++  unsigned high = self->included_range_count;
++  while (low < high) {
++    unsigned middle = low + (high - low) / 2;
++    if (self->included_ranges[middle].end_byte > self->current_position.bytes) {
++      high = middle;
++    } else {
++      low = middle + 1;
++    }
++  }
+   bool found_included_range = false;
+-  for (unsigned i = 0; i < self->included_range_count; i++) {
++  for (unsigned i = low; i < self->included_range_count; i++) {
+     TSRange *included_range = &self->included_ranges[i];
+     if (
+       included_range->end_byte > self->current_position.bytes &&

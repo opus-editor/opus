@@ -3,6 +3,11 @@ url = https://github.com/tree-sitter/tree-sitter.git
 revision = v0.27.0
 depth = 1
 patch_directory = tree-sitter
+# ts_lexer_goto finds the included range by binary search instead of a
+# linear scan — a file with thousands of injection ranges reparsed in
+# a fraction of the time. Upstream still scans linearly (checked at
+# v0.27 and master); drop once a release does this itself.
+diff_files = tree-sitter-lexer-goto.diff
 
 [provide]
 tree-sitter = tree_sitter_dep
