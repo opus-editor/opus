@@ -386,6 +386,34 @@ git_file_list_test = executable(
 )
 test('git-file-list', git_file_list_test)
 
+git_diff_file_diff_test = executable(
+  'git-diff-file-diff-test',
+  ['models/git-diff/file-diff-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-diff-file-diff', git_diff_file_diff_test)
+
+git_diff_blob_test = executable(
+  'git-diff-blob-test',
+  ['models/git-diff/blob-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-diff-blob', git_diff_blob_test)
+
+git_diff_sides_test = executable(
+  'git-diff-sides-test',
+  ['models/git-diff/sides-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-diff-sides', git_diff_sides_test)
+
+git_diff_conflict_parser_test = executable(
+  'git-diff-conflict-parser-test',
+  ['models/git-diff/conflict-parser-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-diff-conflict-parser', git_diff_conflict_parser_test)
+
 git_scope_paths_test = executable(
   'git-scope-paths-test',
   ['models/git-scope/paths-test.vala'],
