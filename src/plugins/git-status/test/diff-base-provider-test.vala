@@ -123,6 +123,39 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/diff-base-provider/conflicted-file-returns-null-bases", () => {
+        string root_path = "";
+        try {
+            root_path = make_tmp_dir ();
+            init_repo (root_path);
+            var path = Path.build_filename (root_path, "a.txt");
+            FileUtils.set_contents (path, "base\n");
+            run_git (root_path, { "add", "a.txt" });
+            run_git (root_path, { "commit", "-q", "-m", "base" });
+            run_git (root_path, { "checkout", "-q", "-b", "side" });
+            FileUtils.set_contents (path, "theirs\n");
+            run_git (root_path, { "commit", "-q", "-am", "side" });
+            run_git (root_path, { "checkout", "-q", "main" });
+            FileUtils.set_contents (path, "ours\n");
+            run_git (root_path, { "commit", "-q", "-am", "main" });
+            run_git (root_path, { "merge", "side" });
+
+            var context = new WorkspaceContext (root_path);
+            var provider = new Opus.Plugins.GitStatus.DiffBaseProvider (context);
+            provider.activate ();
+
+            var bases = wait_for_bases (provider, path);
+            assert (bases.head_text == null); // HEAD exists, but a conflict gets no gutter marks at all
+            assert (bases.index_text == null);
+
+            provider.deactivate ();
+        } catch (Error e) {
+            error (e.message);
+        } finally {
+            remove_recursive (root_path);
+        }
+    });
+
     Test.add_func ("/diff-base-provider/staged-file-has-a-newer-index-than-head", () => {
         string root_path = "";
         try {

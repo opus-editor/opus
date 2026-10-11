@@ -58,9 +58,47 @@ namespace Opus.Plugins.GitStatus {
       // every path breaks the moment the linked workspace is a
       // subdirectory of the real repo root, not the repo root itself.
       var relative = path.substring (prefix.length);
+      // A path mid-conflict has no gutter marks at all — VS Code's own
+      // quick-diff provider skips anything in the merge group
+      // (quickDiffProvider.ts): the markers would read as one big change
+      // against HEAD, which tells the user nothing about the conflict.
+      if (yield unmerged_async (relative)) {
+        return new GitDiff.Bases (null, null);
+      }
       var head_text = yield show_async ("HEAD:./%s".printf (relative));
       var index_text = yield show_async (":./%s".printf (relative));
       return new GitDiff.Bases (head_text, index_text);
+    }
+
+    /** `git ls-files -u` lists only unmerged entries: any output means the path is in conflict. */
+    private async bool unmerged_async (string relative) {
+      SourceFunc callback = unmerged_async.callback;
+      bool result = false;
+      var root_path = context.root_path;
+
+      new Thread<void> ("git-ls-files-u", () => {
+        result = unmerged_sync (root_path, relative);
+        Idle.add ((owned) callback);
+      });
+
+      yield;
+      return result;
+    }
+
+    private static bool unmerged_sync (string root_path, string relative) {
+      if (!HostCommand.has_program ("git")) {
+        return false;
+      }
+      var launcher = new SubprocessLauncher (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
+      string[] argv = HostCommand.argv ({ "git", "--no-optional-locks", "-C", root_path, "ls-files", "-u", "--", relative });
+      try {
+        var process = launcher.spawnv (argv);
+        string? stdout_buf;
+        process.communicate_utf8 (null, null, out stdout_buf, null);
+        return process.get_successful () && stdout_buf != null && stdout_buf.strip () != "";
+      } catch (Error e) {
+        return false;
+      }
     }
 
     private void schedule_bases_changed () {
