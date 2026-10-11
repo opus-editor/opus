@@ -104,6 +104,7 @@ Gtk.Box root_box {
       }
 
       Gtk.ScrolledWindow conflicts_scrolled {
+        styles ["undershoot-top", "undershoot-bottom"]
         vexpand: true;
       }
     }
@@ -125,7 +126,7 @@ Gtk.Box root_box {
           margin-start: 12;
           margin-end: 6;
         }
-        
+
         // Always sensitive, even with Unstaged Changes empty — the menu
         // it opens still has something to show then (both items just
         // disabled), which is more discoverable than hiding the "..."
@@ -159,7 +160,10 @@ Gtk.Box root_box {
         }
       }
 
+      // libadwaita's own opt-in edge shades: drawn only while there is
+      // more to scroll past that edge.
       Gtk.ScrolledWindow unstaged_scrolled {
+        styles ["undershoot-top", "undershoot-bottom"]
         vexpand: true;
       }
     }
@@ -201,6 +205,7 @@ Gtk.Box root_box {
       }
 
       Gtk.ScrolledWindow staged_scrolled {
+        styles ["undershoot-top", "undershoot-bottom"]
         vexpand: true;
       }
     }

@@ -42,25 +42,23 @@ Gtk.Box root_box {
     }
   }
 
-  // The commit's message, read-only, in the same box StagingPane types a
-  // new one into (same class, same margins — see staging-pane.css), taller:
-  // a real message has a body.
+  // The commit's message, read-only — not styled as an input like the
+  // box StagingPane types into: a plain block of text edge to edge,
+  // using the whole sidebar width (see staging-pane.css's own
+  // .history-message-view), with a hairline above and below.
   Gtk.ScrolledWindow {
     height-request: 160;
     hscrollbar-policy: never;
-    margin-top: 6;
-    margin-start: 6;
-    margin-end: 6;
 
     Gtk.TextView message_view {
-      styles ["commit-message-view"]
+      styles ["history-message-view"]
       editable: false;
       cursor-visible: false;
       wrap-mode: word_char;
-      top-margin: 8;
-      bottom-margin: 8;
-      left-margin: 8;
-      right-margin: 8;
+      top-margin: 10;
+      bottom-margin: 10;
+      left-margin: 12;
+      right-margin: 12;
     }
   }
 
@@ -82,6 +80,7 @@ Gtk.Box root_box {
   }
 
   Gtk.ScrolledWindow files_scrolled {
+    styles ["undershoot-top", "undershoot-bottom"]
     vexpand: true;
   }
 }

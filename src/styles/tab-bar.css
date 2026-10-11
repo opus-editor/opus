@@ -1,10 +1,5 @@
-/* A row with zero tabs has no content to size itself against, so it
- * collapses to 0px and the content-divider below it rides up next to
- * the header. 31px is a real tab pill's own natural height (measured
- * from a live render, not guessed) — pinning the row to it keeps the
- * divider in place whether there are any tabs or not. */
 .tab-bar {
-  min-height: 31px;
+  min-height: 32px;
 }
 
 .tab-bar-fade {

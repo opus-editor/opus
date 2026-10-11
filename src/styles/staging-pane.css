@@ -73,3 +73,10 @@
   border-radius: var(--control-radius);
   background-color: var(--input-bg-color);
 }
+
+/* HistoryPane's own read-only message: plain text on the sidebar's own
+ * background, edge to edge, no input chrome — framed only by a hairline
+ * above and below. Both nodes paint, so only the view itself is styled. */
+.history-message-view {
+  background-color: color-mix(in srgb, var(--input-bg-color) 50%, transparent);
+}
