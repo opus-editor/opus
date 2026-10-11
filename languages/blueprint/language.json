@@ -1,0 +1,12 @@
+{
+  "name": "blueprint",
+  "title": "Blueprint",
+  "file-types": [
+    "blp"
+  ],
+  "injection-regex": "blueprint",
+  "grammar": {
+    "repository": "https://gitlab.com/gabmus/tree-sitter-blueprint",
+    "rev": "355ef84ef8a958ac822117b652cf4d49bac16c79"
+  }
+}

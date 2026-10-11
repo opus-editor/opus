@@ -1,0 +1,16 @@
+{
+  "name": "just",
+  "title": "Just",
+  "file-types": [
+    "just",
+    { "glob": "justfile" },
+    { "glob": "Justfile" },
+    { "glob": ".justfile" },
+    { "glob": ".Justfile" }
+  ],
+  "injection-regex": "just",
+  "grammar": {
+    "repository": "https://github.com/poliorcetics/tree-sitter-just",
+    "rev": "00859eebfb774d371af174ea1e582d46e697b469"
+  }
+}

@@ -13,6 +13,18 @@
   },
   {
     "type": "git",
+    "url": "https://gitlab.com/gabmus/tree-sitter-blueprint",
+    "commit": "355ef84ef8a958ac822117b652cf4d49bac16c79",
+    "dest": "subprojects/tree-sitter-blueprint",
+    "disable-submodules": true
+  },
+  {
+    "type": "file",
+    "path": "../subprojects/packagefiles/tree-sitter-blueprint/meson.build",
+    "dest": "subprojects/tree-sitter-blueprint"
+  },
+  {
+    "type": "git",
     "url": "https://github.com/tree-sitter/tree-sitter-c",
     "commit": "b780e47fc780ddc8da13afa35a3f4ed5c157823d",
     "dest": "subprojects/tree-sitter-c",
@@ -85,6 +97,18 @@
   },
   {
     "type": "git",
+    "url": "https://github.com/elixir-lang/tree-sitter-elixir",
+    "commit": "7937d3b4d65fa574163cfa59394515d3c1cf16f4",
+    "dest": "subprojects/tree-sitter-elixir",
+    "disable-submodules": true
+  },
+  {
+    "type": "file",
+    "path": "../subprojects/packagefiles/tree-sitter-elixir/meson.build",
+    "dest": "subprojects/tree-sitter-elixir"
+  },
+  {
+    "type": "git",
     "url": "https://github.com/tree-sitter/tree-sitter-embedded-template",
     "commit": "5bce9d580d3b78f48e13e331f69dfa0abd4ff68b",
     "dest": "subprojects/tree-sitter-embedded-template",
@@ -118,6 +142,18 @@
     "type": "file",
     "path": "../subprojects/packagefiles/tree-sitter-go/meson.build",
     "dest": "subprojects/tree-sitter-go"
+  },
+  {
+    "type": "git",
+    "url": "https://github.com/phoenixframework/tree-sitter-heex",
+    "commit": "f6b83f305a755cd49cf5f6a66b2b789be93dc7b9",
+    "dest": "subprojects/tree-sitter-heex",
+    "disable-submodules": true
+  },
+  {
+    "type": "file",
+    "path": "../subprojects/packagefiles/tree-sitter-heex/meson.build",
+    "dest": "subprojects/tree-sitter-heex"
   },
   {
     "type": "git",
@@ -190,6 +226,30 @@
     "type": "file",
     "path": "../subprojects/packagefiles/tree-sitter-json/meson.build",
     "dest": "subprojects/tree-sitter-json"
+  },
+  {
+    "type": "git",
+    "url": "https://github.com/poliorcetics/tree-sitter-just",
+    "commit": "00859eebfb774d371af174ea1e582d46e697b469",
+    "dest": "subprojects/tree-sitter-just",
+    "disable-submodules": true
+  },
+  {
+    "type": "file",
+    "path": "../subprojects/packagefiles/tree-sitter-just/meson.build",
+    "dest": "subprojects/tree-sitter-just"
+  },
+  {
+    "type": "git",
+    "url": "https://github.com/tree-sitter-grammars/tree-sitter-lua",
+    "commit": "10fe0054734eec83049514ea2e718b2a56acd0c9",
+    "dest": "subprojects/tree-sitter-lua",
+    "disable-submodules": true
+  },
+  {
+    "type": "file",
+    "path": "../subprojects/packagefiles/tree-sitter-lua/meson.build",
+    "dest": "subprojects/tree-sitter-lua"
   },
   {
     "type": "git",

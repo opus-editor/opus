@@ -32,10 +32,11 @@ Highlighted out of the box:
 
 - **Web:** HTML, CSS, SCSS, JavaScript, TypeScript, JSX, TSX, Vue,
   Svelte, Markdown
-- **Backend:** Ruby, ERB, PHP, Java, Python, Go
+- **Backend:** Ruby, ERB, PHP, Java, Python, Go, Elixir, HEEx, Lua
 - **Low level:** C, C++, Rust, Vala
 - **Data:** JSON, YAML, TOML, XML, SQL
-- **Tooling:** Bash, Dockerfile, Diff, Git commit messages, Meson
+- **Tooling:** Bash, Dockerfile, Diff, Git commit messages, Meson, Just,
+  Blueprint
 
 ## Install
 

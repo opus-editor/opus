@@ -1,0 +1,17 @@
+{
+  "name": "elixir",
+  "title": "Elixir",
+  "file-types": [
+    "ex",
+    "exs",
+    { "glob": "mix.lock" }
+  ],
+  "shebangs": [
+    "elixir"
+  ],
+  "injection-regex": "(elixir|ex)",
+  "grammar": {
+    "repository": "https://github.com/elixir-lang/tree-sitter-elixir",
+    "rev": "7937d3b4d65fa574163cfa59394515d3c1cf16f4"
+  }
+}

@@ -228,7 +228,7 @@ test('syntax-language-installer', syntax_language_installer_test)
 # make the editor do, against its real grammar. A package Opus keeps
 # queries of its own for (see languages/ruby, languages/vala) has no
 # other guard against a change to them.
-foreach language : ['c', 'erb', 'go', 'html', 'javascript', 'markdown', 'php', 'python', 'ruby', 'rust', 'sql', 'vala']
+foreach language : ['blueprint', 'c', 'elixir', 'erb', 'go', 'heex', 'html', 'javascript', 'just', 'lua', 'markdown', 'php', 'python', 'ruby', 'rust', 'sql', 'vala']
   language_test = executable(
     'language-' + language + '-test',
     ['languages' / language + '-test.vala', 'languages/language-probe.vala'],
