@@ -1,7 +1,11 @@
 {
   "iconDefinitions": {
-    "meson": { "iconPath": "./icons/files/meson.svg" },
-    "text-nested": { "iconPath": "./icons/files/text-nested.svg" }
+    "meson": {
+      "iconPath": "./icons/files/meson.svg"
+    },
+    "text-nested": {
+      "iconPath": "./icons/files/text-nested.svg"
+    }
   },
   "fileExtensions": {
     "blp": "brackets-blue",
@@ -13,6 +17,6 @@
     "meson_options.txt": "meson",
     "justfile": "text-nested",
     ".justfile": "text-nested",
-    "NOTICE.md": "text"
+    "NOTICE": "text"
   }
 }

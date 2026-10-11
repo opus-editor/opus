@@ -2363,7 +2363,7 @@
     "meson_options.txt": "meson",
     "justfile": "text-nested",
     ".justfile": "text-nested",
-    "NOTICE.md": "text"
+    "NOTICE": "text"
   },
   "languageIds": {
     "pdf": "pdf",
