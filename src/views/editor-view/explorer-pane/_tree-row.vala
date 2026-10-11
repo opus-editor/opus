@@ -20,6 +20,7 @@ namespace EditorView {
     private Gtk.Label label;
     private Gtk.Text edit_entry;
     private Gtk.Widget decoration_dot;
+    private Gtk.Widget conflict_mark;
     private IconTheme icon_theme;
 
     /** Whether the current bind()'s edit has already fired edit_committed/edit_cancelled — a focus-leave following either must not re-fire it. */
@@ -49,6 +50,7 @@ namespace EditorView {
       label = (Gtk.Label) builder.get_object ("label");
       edit_entry = (Gtk.Text) builder.get_object ("edit_entry");
       decoration_dot = (Gtk.Widget) builder.get_object ("decoration_dot");
+      conflict_mark = (Gtk.Widget) builder.get_object ("conflict_mark");
 
       // Connected once here, not per bind(): edit_entry is the same
       // recycled widget instance across every bind()/unbind() this row
@@ -126,14 +128,16 @@ namespace EditorView {
       bound_node = null;
     }
 
-    /** Toggles the dot's visibility and swaps its tone CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). SUCCESS/WARNING/ALERT/ERROR map to the shared `git-*` classes common.css defines once for every git-status surface (also the tab label tint, also the editor gutter) — ACCENT has no git-status meaning, so it keeps its own `tone-accent` class. MUTED shows no dot at all: it fades the name instead. No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
+    /** Toggles the dot's visibility and swaps its tone CSS class — a plain `switch`, so no CSS vocabulary leaks into a Model (FileDecoration.Tone). SUCCESS/WARNING/ALERT/ERROR map to the shared `git-*` classes common.css defines once for every git-status surface (also the tab label tint, also the editor gutter) — ACCENT has no git-status meaning, so it keeps its own `tone-accent` class. ALERT hides the dot and shows conflict_mark, a "!", instead. MUTED shows no dot at all: it fades the name instead. No `unbind()` counterpart needed: a fresh bind() always fully re-sets this, same as icon/label. */
     private void update_decoration (FileDecoration.State? decoration) {
-      decoration_dot.visible = decoration != null && decoration.tone != FileDecoration.Tone.MUTED;
+      bool conflict = decoration != null && decoration.tone == FileDecoration.Tone.ALERT;
+      conflict_mark.visible = conflict;
+      conflict_mark.tooltip_text = decoration?.tooltip ?? "";
+      decoration_dot.visible = decoration != null && decoration.tone != FileDecoration.Tone.MUTED && !conflict;
       label.remove_css_class ("git-ignored");
       decoration_dot.remove_css_class ("tone-accent");
       decoration_dot.remove_css_class ("git-added");
       decoration_dot.remove_css_class ("git-modified");
-      decoration_dot.remove_css_class ("git-conflict");
       decoration_dot.remove_css_class ("git-removed");
       decoration_dot.tooltip_text = decoration?.tooltip ?? "";
 
@@ -155,8 +159,7 @@ namespace EditorView {
           decoration_dot.add_css_class ("git-modified");
           break;
         case FileDecoration.Tone.ALERT:
-          decoration_dot.add_css_class ("git-conflict");
-          break;
+          break; // conflict_mark, shown above, is the whole decoration
         case FileDecoration.Tone.ERROR:
           decoration_dot.add_css_class ("git-removed");
           break;

@@ -171,8 +171,11 @@ listview.data-table.file-tree-list row:selected:not(:focus):not(:hover) {
 .decoration-dot.git-modified {
   background-color: color-mix(in srgb, var(--git-modified-color) 50%, transparent);
 }
-.decoration-dot.git-conflict {
-  background-color: color-mix(in srgb, var(--git-conflict-color) 50%, transparent);
+/* A conflict is a bold "!" in its hue where the dot would be. */
+.decoration-mark {
+  color: var(--git-conflict-color);
+  font-weight: bold;
+  margin-right: 4px;
 }
 .decoration-dot.git-removed {
   background-color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);

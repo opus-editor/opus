@@ -48,6 +48,15 @@ Gtk.Box row {
 
         styles ["decoration-dot"]
       }
+
+      // What a conflict shows in the dot's place: a mark, not a color.
+      Gtk.Label conflict_mark {
+        valign: center;
+        visible: false;
+        label: "!";
+
+        styles ["decoration-mark"]
+      }
     };
   }
 }
