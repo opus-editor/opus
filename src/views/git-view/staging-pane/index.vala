@@ -22,8 +22,8 @@
  * incoming), a right-click menu per row by its kind (GitScope.Resolve's
  * actions), and staging per row — a double-click, Enter — that asks
  * first about files still carrying markers or deleted on one side
- * (stage_conflicts()). Its "Solve All" button waits on GitDiffTab (see
- * the Blueprint's own TODO). While a merge/rebase/cherry-pick/revert is
+ * (stage_conflicts()). "Solve All" opens every conflicted file in the
+ * editor, where CodeEditorConflicts offers each block its Accept buttons. While a merge/rebase/cherry-pick/revert is
  * parked (WorkingTree.operation) the commit box is prefilled with
  * git's own prepared message, the commit button reads "Merge" or
  * "Continue" (GitScope.Operation.commit()/resume()), and an Abort
@@ -80,6 +80,7 @@ namespace GitView {
     private Gtk.ScrolledWindow conflicts_scrolled;
     private Gtk.ScrolledWindow unstaged_scrolled;
     private Gtk.ScrolledWindow staged_scrolled;
+    private Gtk.Button conflicts_solve_button;
     private ChangeList conflicts_list = new ChangeList ();
     private ChangeList unstaged_list = new ChangeList ();
     private ChangeList staged_list = new ChangeList ();
@@ -119,6 +120,12 @@ namespace GitView {
     /** git refused (or isn't there) for something the user just asked for — `summary` is the one-line verdict, `log` git's own words, null when the summary already is the whole story (no git to run at all). A signal, not a toast of its own: a toast belongs to the window, so MainWindow shows it (and its "View Log"). */
     public signal void operation_failed (string summary, string? log);
 
+    /** Exactly one row got selected in Unstaged or Staged: its diff, as a preview tab — MainWindow opens it. */
+    public signal void open_diff_requested (GitDiff.Request request);
+
+    /** Exactly one row got selected in Conflicts: the file itself, to resolve by hand — MainWindow opens it. */
+    public signal void open_file_requested (string path);
+
     /** Something here just changed the repository — a stage, discard, resolution, commit or abort went through (or failed after touching it). The history view can't learn of a commit from the file watcher, which never looks inside `.git`, so MainWindow relays this to it. */
     public signal void repository_changed ();
 
@@ -146,6 +153,8 @@ namespace GitView {
       conflicts_box = (Gtk.Box) builder.get_object ("conflicts_box");
       conflicts_more_button = (Gtk.Button) builder.get_object ("conflicts_more_button");
       conflicts_more_button.clicked.connect (() => show_conflicts_menu ());
+      conflicts_solve_button = (Gtk.Button) builder.get_object ("conflicts_solve_button");
+      conflicts_solve_button.clicked.connect (solve_all);
       conflicts_scrolled = (Gtk.ScrolledWindow) builder.get_object ("conflicts_scrolled");
       conflicts_scrolled.child = conflicts_list.widget;
       conflicts_list.context_menu_requested.connect (show_conflict_row_menu);
@@ -183,6 +192,14 @@ namespace GitView {
       staged_list.item_activated.connect ((change) => unstage.begin (single (change)));
       unstaged_list.selection_activated.connect (() => stage.begin (unstaged_list.selected_changes ()));
       staged_list.selection_activated.connect (() => unstage.begin (staged_list.selected_changes ()));
+      unstaged_list.selection_changed.connect (() => request_diff (unstaged_list, "unstaged"));
+      staged_list.selection_changed.connect (() => request_diff (staged_list, "staged"));
+      conflicts_list.selection_changed.connect (() => {
+        var selected = conflicts_list.selected_changes ();
+        if (selected.length == 1) {
+          open_file_requested (selected[0].path);
+        }
+      });
 
       GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/staging-pane.css");
     }
@@ -543,6 +560,15 @@ namespace GitView {
       return result;
     }
 
+    /** One selected row opens its diff as a preview; several, or none, open nothing. */
+    private void request_diff (ChangeList list, string section) {
+      var selected = list.selected_changes ();
+      if (root_path == null || selected.length != 1) {
+        return;
+      }
+      open_diff_requested (GitDiff.Request.for_working_change (root_path, selected[0], section));
+    }
+
     private static GenericArray<GitScope.Change> single (GitScope.Change change) {
       var changes = new GenericArray<GitScope.Change> ();
       changes.add (change);
@@ -644,6 +670,21 @@ namespace GitView {
       accept_side.begin (single (find_change ("conflicts", path)), false);
     }
 
+    /** The Conflicts list's "Solve All": every conflicted file opened in the editor, to resolve block by block. */
+    public void solve_all () {
+      var changes = conflicts_list.all_changes ();
+      for (uint i = 0; i < changes.length; i++) {
+        open_file_requested (changes[i].path);
+      }
+    }
+
+    /** A single click on `path`'s row in `section` — selects it alone, which opens its diff (or the file, for a conflict). */
+    public void select_row (string section, string path) throws Error {
+      if (!list_for (section).select_path (Path.build_filename (root_path, path))) {
+        throw new IOError.NOT_FOUND ("No “%s” row in %s".printf (path, section));
+      }
+    }
+
     public void request_commit () {
       commit.begin ();
     }
@@ -732,6 +773,7 @@ namespace GitView {
 
     /** Stage All/Unstage All stay insensitive with nothing in their own list at all — they act on the whole list, so selection doesn't factor in. */
     private void update_list_button_sensitivity () {
+      conflicts_solve_button.sensitive = conflicts_list.has_items;
       stage_button.sensitive = unstaged_list.has_items;
       unstage_button.sensitive = staged_list.has_items;
     }

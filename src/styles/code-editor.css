@@ -44,3 +44,60 @@ textview.code-editor > text > selection {
 .change-gutter.git-removed {
   color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
 }
+
+/* CodeEditorDiffGutter's own columns and row tints (CodeEditor.show_diff()).
+ * The marker column toggles git-* on itself to read a color back, like
+ * .change-gutter above; the two *-line classes sit on zero-sized swatch
+ * overlays, read back as the paragraph background of added/removed rows
+ * — a light wash of the same tokens over the view background. */
+.diff-gutter {
+  opacity: 0.75;
+}
+.diff-gutter.git-added {
+  color: var(--git-added-color);
+  opacity: 1;
+}
+.diff-gutter.git-removed {
+  color: var(--git-removed-color);
+  opacity: 1;
+}
+.diff-added-line {
+  color: color-mix(in srgb, var(--git-added-color) 18%, transparent);
+}
+.diff-removed-line {
+  color: color-mix(in srgb, var(--git-removed-color) 18%, transparent);
+}
+
+/* CodeEditorConflicts' own tints, read off zero-sized swatch overlays the
+ * same way the diff rows above are: the HEAD side in the accent, the
+ * incoming side in the added green, the diff3 base neutral; the
+ * `<<<<<<<`/`>>>>>>>` lines take their block's tone, stronger. */
+.conflict-current-line {
+  color: color-mix(in srgb, var(--accent-bg-color) 18%, transparent);
+}
+.conflict-incoming-line {
+  color: color-mix(in srgb, var(--git-added-color) 18%, transparent);
+}
+.conflict-base-line {
+  color: color-mix(in srgb, currentColor 10%, transparent);
+}
+.conflict-current-marker {
+  color: color-mix(in srgb, var(--accent-bg-color) 40%, transparent);
+}
+.conflict-incoming-marker {
+  color: color-mix(in srgb, var(--git-added-color) 40%, transparent);
+}
+/* CodeEditorConflicts' floating toolbar at the bottom of the editor —
+ * a rounded, shadowed pill over the text, Figma-style, with the three
+ * actions as plain buttons. */
+.conflict-toolbar {
+  padding: 6px;
+  border-radius: 12px;
+  background-color: var(--popover-bg-color);
+  color: var(--popover-fg-color);
+  box-shadow: 0 2px 12px rgb(0 0 6 / 30%), 0 0 0 1px color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+/* libadwaita bolds every button label by default; these read as plain actions. */
+.conflict-toolbar button label {
+  font-weight: normal;
+}

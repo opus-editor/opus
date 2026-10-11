@@ -31,7 +31,8 @@ views/
                     ("editor"/"git") — see its own doc comment
     log-dialog/     the "View Log" modal behind MainWindow's error toasts
   editor-view/      explorer-pane/ editor-pane/ find-bar/
-  git-view/         staging-pane/ history-pane/ tree-pane/
+  git-view/         content/ (breadcrumb + tree-pane/ or diff-pane/)
+                    staging-pane/ history-pane/
 ```
 
 `main-window/index.blp`'s header `view_switcher` already drives a

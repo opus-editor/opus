@@ -191,6 +191,8 @@ opus_gtk_view_sources = files(
   'views/components/context-menu.vala',
   'views/components/search-input.vala',
   'views/components/code-editor/_change-gutter.vala',
+  'views/components/code-editor/_diff-gutter.vala',
+  'views/components/code-editor/_conflicts.vala',
   'views/components/code-editor/_clipboard.vala',
   'views/components/code-editor/_cursors.vala',
   'views/components/code-editor/_drag-selection.vala',
@@ -238,6 +240,8 @@ opus_gtk_view_sources = files(
   'views/git-view/tree-pane/_message-cell.vala',
   'views/git-view/tree-pane/index.vala',
   'views/git-view/history-pane/index.vala',
+  'views/git-view/diff-pane/index.vala',
+  'views/git-view/content/index.vala',
 )
 
 # No opus_controller_sources here — the whole point of this tree: every

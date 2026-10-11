@@ -47,6 +47,9 @@ namespace GitView {
 
     public Gtk.Widget widget { get { return list_view; } }
 
+    /** The set of selected rows changed — StagingPane opens a preview diff when exactly one row is selected. */
+    public signal void selection_changed ();
+
     /** A row was double-clicked — carries just that row's own Change, regardless of whatever else might currently be selected (see this class's own doc comment for why Enter doesn't also fire this). */
     public signal void item_activated (GitScope.Change change);
 
@@ -68,6 +71,7 @@ namespace GitView {
       factory.bind.connect (on_bind);
 
       selection = new Gtk.MultiSelection (store);
+      selection.selection_changed.connect (() => selection_changed ());
       list_view = new Gtk.ListView (selection, factory);
       list_view.activate.connect ((position) => item_activated ((GitScope.Change) store.get_item (position)));
       var secondary_click = new Gtk.GestureClick ();
@@ -122,6 +126,17 @@ namespace GitView {
         } while (iter.next (out position));
       }
       return result;
+    }
+
+    /** Selects just the row for `path` (absolute); false when there is none. */
+    public bool select_path (string path) {
+      for (uint i = 0; i < store.get_n_items (); i++) {
+        if (((GitScope.Change) store.get_item (i)).path == path) {
+          selection.select_item (i, true);
+          return true;
+        }
+      }
+      return false;
     }
 
     /**

@@ -1,0 +1,112 @@
+/**
+ * The Git activity's main area: a breadcrumb bar over a stack holding
+ * the history tree (GitView.TreePane's widget, owned by MainWindow) or a
+ * file's diff (GitView.DiffPane, owned here). "History" alone while the
+ * tree shows; "History / <commit or WIP> / <file>" while a diff does,
+ * "History" being the way back, chevrons between the crumbs. MainWindow decides what to show and when
+ * a live diff must be re-read; this only lays it out.
+ */
+namespace GitView {
+  public class Content : Object {
+    private Gtk.Box root = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+    private Gtk.Box breadcrumb = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+    private Gtk.Stack stack = new Gtk.Stack ();
+    private DiffPane diff_pane;
+    private string middle_crumb = "";
+    private string file_crumb = "";
+
+    public Content (Gtk.Widget tree_widget, UserSettings user_settings) {
+      diff_pane = new DiffPane (user_settings);
+      breadcrumb.add_css_class ("git-breadcrumb");
+      stack.add_named (tree_widget, "tree");
+      stack.add_named (diff_pane.widget, "diff");
+      root.append (breadcrumb);
+      root.append (stack);
+      rebuild_breadcrumb ();
+      GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/git-content.css");
+    }
+
+    public Gtk.Widget widget { get { return root; } }
+
+    /** "tree" or "diff" — the debug D-Bus surface. */
+    public string showing { owned get { return stack.visible_child_name; } }
+
+    /** "History", or "History / <middle> / <file>" — the debug D-Bus surface. */
+    public string breadcrumb_text {
+      owned get { return showing == "tree" ? _("History") : "%s / %s / %s".printf (_("History"), middle_crumb, file_crumb); }
+    }
+
+    public void show_tree () {
+      stack.visible_child_name = "tree";
+      rebuild_breadcrumb ();
+    }
+
+    /** `middle` is the commit's short hash, or "WIP" for the working tree. */
+    public void show_diff (GitDiff.Request request, string middle) {
+      middle_crumb = middle;
+      file_crumb = request.relative_path;
+      diff_pane.show (request);
+      stack.visible_child_name = "diff";
+      rebuild_breadcrumb ();
+    }
+
+    /** Re-reads the diff on screen if a side of it is the working tree or the index. */
+    public void reload_live_diff () {
+      var request = diff_pane.shown_request;
+      if (showing == "diff" && request != null && request.is_live) {
+        diff_pane.reload ();
+      }
+    }
+
+    public string[] describe_diff_lines () {
+      return diff_pane.describe_lines ();
+    }
+
+    /** "diff", "plain" or "placeholder". */
+    public string diff_mode {
+      owned get { return diff_pane.mode; }
+    }
+
+    public string diff_placeholder_title {
+      owned get { return diff_pane.placeholder_title; }
+    }
+
+    public void close () {
+      diff_pane.close ();
+    }
+
+    private void rebuild_breadcrumb () {
+      Gtk.Widget? child;
+      while ((child = breadcrumb.get_first_child ()) != null) {
+        breadcrumb.remove (child);
+      }
+      if (showing == "tree") {
+        breadcrumb.append (crumb_label (_("History"), true));
+        return;
+      }
+      var back = new Gtk.Button.with_label (_("History")) { has_frame = false };
+      back.add_css_class ("crumb");
+      back.clicked.connect (show_tree);
+      breadcrumb.append (back);
+      breadcrumb.append (separator ());
+      breadcrumb.append (crumb_label (middle_crumb, false));
+      breadcrumb.append (separator ());
+      breadcrumb.append (crumb_label (file_crumb, true));
+    }
+
+    private static Gtk.Widget crumb_label (string text, bool current) {
+      var label = new Gtk.Label (text) { ellipsize = Pango.EllipsizeMode.MIDDLE };
+      label.add_css_class ("crumb");
+      if (current) {
+        label.add_css_class ("current");
+      }
+      return label;
+    }
+
+    private static Gtk.Widget separator () {
+      var chevron = new Gtk.Image.from_icon_name ("chevron-right-symbolic");
+      chevron.add_css_class ("crumb-separator");
+      return chevron;
+    }
+  }
+}

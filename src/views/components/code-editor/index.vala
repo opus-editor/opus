@@ -34,6 +34,8 @@
 */
 public class CodeEditor : Object {
   private Gtk.ScrolledWindow scrolled_window;
+  // Wraps scrolled_window so a floating toolbar (CodeEditorConflicts') can sit over the editor in widget coordinates.
+  private Gtk.Overlay overlay = new Gtk.Overlay ();
   private CodeEditorSourceView text_view;
   private UserSettings settings;
   private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
@@ -42,8 +44,13 @@ public class CodeEditor : Object {
   private CodeEditorInput input;
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
+  // Only in diff mode (show_diff()): the old/new/marker gutter and the row backgrounds.
+  private CodeEditorDiffGutter? diff_gutter = null;
+  private bool diff_gutter_attached = false;
+  private GitDiff.FileDiff? shown_diff = null;
   private CodeEditorSyntaxHighlighter syntax_highlighter;
   private CodeEditorLinePreview line_preview;
+  private CodeEditorConflicts conflicts;
   /** What set_text() last showed — "" for none. Kept so the language can be worked out again when the packages change. */
   private string language_path = "";
   /** The language package named by hand for what is showing, over whatever `language_path` says — null for none. */
@@ -58,7 +65,7 @@ public class CodeEditor : Object {
   /** A reveal_offset() already queued, not yet run — see that method's own doc comment. 0 means none pending. */
   private uint pending_reveal_id = 0;
 
-  public Gtk.Widget widget { get { return scrolled_window; } }
+  public Gtk.Widget widget { get { return overlay; } }
 
   /** The real buffer, for a consumer's own tags/highlighting and for reads — never for writing content: only set_text() carries the guard that keeps a load from being recorded as an edit (see CodeEditorCursors.load_text()). */
   public GtkSource.Buffer buffer { get { return source_buffer; } }
@@ -152,6 +159,10 @@ public class CodeEditor : Object {
 
     cursors = new CodeEditorCursors (text_view);
     cursors.text_changed.connect ((text) => text_changed (text));
+    conflicts = new CodeEditorConflicts (this, text_view);
+    cursors.text_changed.connect (() => conflicts.schedule_scan ());
+    overlay.child = scrolled_window;
+    overlay.add_overlay (conflicts.widget);
     clipboard = new CodeEditorClipboard (text_view, cursors);
     input = new CodeEditorInput (text_view, cursors, clipboard);
     input.link_click.connect ((offset) => link_click (offset));
@@ -199,6 +210,7 @@ public class CodeEditor : Object {
       Source.remove (pending_reveal_id);
       pending_reveal_id = 0;
     }
+    conflicts.close ();
     cursors.close ();
     search.close ();
     syntax_highlighter.close ();
@@ -214,6 +226,100 @@ public class CodeEditor : Object {
 
   private void apply_style_scheme () {
     source_buffer.style_scheme = EditorTheme.instance.scheme;
+    apply_diff_colors ();
+    conflicts.reload_colors ();
+  }
+
+  /**
+   * Turns this editor into an inline diff of `diff`: read-only, the
+   * native line numbers (and the change gutter) swapped for
+   * CodeEditorDiffGutter's old/new/marker columns, the text being every
+   * line of the diff in order — so `path`'s own language colors it —
+   * with added and removed rows tinted edge to edge
+   * (CodeEditorSourceView's row bands). Call again with a new diff to
+   * refresh in place, or show_plain_text() for a file with only one
+   * side; the change gutter never comes back, a diff view is one.
+   */
+  public void show_diff (GitDiff.FileDiff diff, string path) {
+    read_only = true;
+    show_line_numbers = false;
+    show_indent_guides = false;
+    var gutter = text_view.get_gutter (Gtk.TextWindowType.LEFT);
+    if (diff_gutter == null) {
+      gutter.remove (change_gutter);
+      diff_gutter = new CodeEditorDiffGutter (text_view);
+    }
+    if (!diff_gutter_attached) {
+      diff_gutter.attach (gutter);
+      diff_gutter_attached = true;
+    }
+    shown_diff = diff;
+    diff_gutter.set_diff (diff);
+    var text = new StringBuilder ();
+    for (uint i = 0; i < diff.lines.length; i++) {
+      if (i > 0) {
+        text.append_c ('\n');
+      }
+      text.append (diff.lines[i].text);
+    }
+    set_text (text.str, path);
+    paint_diff_rows ();
+  }
+
+  /** Each diff line as "<old>|<new>|<marker>|<text>" — for the debug D-Bus surface; empty when not in diff mode. */
+  public string[] describe_diff_lines () {
+    string[] out = {};
+    if (shown_diff == null) {
+      return out;
+    }
+    for (uint i = 0; i < shown_diff.lines.length; i++) {
+      var line = shown_diff.lines[i];
+      var marker = line.kind == GitDiff.LineKind.ADDED ? "+" : line.kind == GitDiff.LineKind.REMOVED ? "-" : " ";
+      out += "%d|%d|%s|%s".printf (line.old_number, line.new_number, marker, line.text);
+    }
+    return out;
+  }
+
+  /** A file with only one side (new, or deleted) is no diff: the text as it is, read-only, with the native line numbers — the way VS Code opens an untracked file plainly rather than as all-added. */
+  public void show_plain_text (string text, string path) {
+    read_only = true;
+    show_indent_guides = false;
+    if (diff_gutter_attached) {
+      diff_gutter.detach (text_view.get_gutter (Gtk.TextWindowType.LEFT));
+      diff_gutter_attached = false;
+    }
+    shown_diff = null;
+    text_view.set_row_bands ("diff", new GenericArray<CodeEditorSourceView.RowBand> ());
+    show_line_numbers = true;
+    set_text (text, path);
+  }
+
+  /** Re-reads the tints after a theme change — the bands carry resolved colors. */
+  private void apply_diff_colors () {
+    if (shown_diff != null) {
+      paint_diff_rows ();
+    }
+  }
+
+  /** One band per run of added or removed lines, in the tones CodeEditorDiffGutter resolves. */
+  private void paint_diff_rows () {
+    var added = diff_gutter.added_background ();
+    var removed = diff_gutter.removed_background ();
+    var bands = new GenericArray<CodeEditorSourceView.RowBand> ();
+    int run_start = -1;
+    GitDiff.LineKind run_kind = GitDiff.LineKind.CONTEXT;
+    for (uint i = 0; i <= shown_diff.lines.length; i++) {
+      var kind = i < shown_diff.lines.length ? shown_diff.lines[i].kind : GitDiff.LineKind.CONTEXT;
+      if (kind == run_kind) {
+        continue;
+      }
+      if (run_kind != GitDiff.LineKind.CONTEXT) {
+        bands.add (new CodeEditorSourceView.RowBand (run_start, (int) i - 1, run_kind == GitDiff.LineKind.ADDED ? added : removed));
+      }
+      run_start = (int) i;
+      run_kind = kind;
+    }
+    text_view.set_row_bands ("diff", bands);
   }
 
   /**
@@ -335,6 +441,15 @@ public class CodeEditor : Object {
     this.language_override = language_override;
     syntax_highlighter.set_language (language_for (text));
     cursors.load_text (text);
+    conflicts.schedule_scan ();
+  }
+
+  /** How many merge-conflict blocks the text holds right now (see CodeEditorConflicts). */
+  public int conflict_count { get { return conflicts.count; } }
+
+  /** Resolves conflict block `index` with "current", "incoming", "both" or "both-incoming-first" — the links' own action, for the debug D-Bus surface. */
+  public void accept_conflict (int index, string side) throws Error {
+    conflicts.accept (index, side);
   }
 
   /** Changes the language of the text already showing: a package's name, or null to go back to the one its path says. */

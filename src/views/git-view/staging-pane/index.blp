@@ -86,11 +86,8 @@ Gtk.Box root_box {
           };
         }
 
-        // TODO: stays insensitive until GitDiffTab exists — "Solve All"
-        // walks the user through every conflict in a diff tab, which
-        // this pane can't open yet. Staging a conflict as it is already
-        // works per row (double-click/Enter, see index.vala's own
-        // stage_conflicts()).
+        // Opens every conflicted file in the editor, where each block gets
+        // its Accept buttons (CodeEditorConflicts). sensitive wired in code.
         Gtk.Button conflicts_solve_button {
           styles ["subsection-button"]
           valign: center;

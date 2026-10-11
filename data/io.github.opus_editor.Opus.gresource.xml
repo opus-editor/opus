@@ -30,6 +30,7 @@
     <file compressed="true">styles/staging-pane.css</file>
     <file compressed="true">styles/log-dialog.css</file>
     <file compressed="true">styles/tree-pane.css</file>
+    <file compressed="true">styles/git-content.css</file>
   </gresource>
   <gresource prefix="/io/github/opus_editor/Opus/icons">
     <!-- BEGIN generated icon theme assets (see tools/) -->

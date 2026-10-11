@@ -1,0 +1,28 @@
+/* GitView.Content's breadcrumb over the tree/diff: one quiet row, the
+ * current crumb a touch stronger, "History" a flat button on the way
+ * back from a diff. */
+.git-breadcrumb {
+  min-height: 20px; /* +12 from padding */
+  padding: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+.git-breadcrumb .crumb {
+  min-height: 20px;
+  padding: 0 4px;
+  opacity: 0.6;
+  font-weight: normal;
+  line-height: 0.8;
+  border-radius: 6px;
+}
+.git-breadcrumb .crumb.current {
+  font-weight: bold;
+}
+.git-breadcrumb .crumb.current,
+.git-breadcrumb button.crumb {
+  opacity: 1;
+}
+
+.git-breadcrumb .crumb-separator {
+  opacity: 0.4;
+  -gtk-icon-size: 12px;
+}

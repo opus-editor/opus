@@ -407,10 +407,58 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     }
   }
 
+  /** A run of whole lines tinted edge to edge below the text — what a tag's paragraph_background can't do for an empty line (confirmed: GTK leaves an empty paragraph unpainted whatever the range). */
+  public class RowBand : Object {
+    public int first_line { get; construct; }
+    public int last_line { get; construct; }
+    public Gdk.RGBA color { get; construct; }
+
+    public RowBand (int first_line, int last_line, Gdk.RGBA color) {
+      Object (first_line: first_line, last_line: last_line, color: color);
+    }
+  }
+
+  private HashTable<string, GenericArray<RowBand>> row_bands = new HashTable<string, GenericArray<RowBand>> (str_hash, str_equal);
+
+  /** Replaces `owner`'s bands (the diff rows are one owner, the conflict blocks another) — painted under the text, over the whole visible width. */
+  public void set_row_bands (string owner, GenericArray<RowBand> bands) {
+    row_bands[owner] = bands;
+    queue_draw ();
+  }
+
+  private void draw_row_bands (Gtk.Snapshot snapshot) {
+    Gdk.Rectangle visible;
+    get_visible_rect (out visible);
+    row_bands.foreach ((owner, bands) => {
+      for (uint i = 0; i < bands.length; i++) {
+        var band = bands[i];
+        Gtk.TextIter first;
+        Gtk.TextIter last;
+        if (!buffer.get_iter_at_line (out first, band.first_line)) {
+          continue;
+        }
+        if (!buffer.get_iter_at_line (out last, band.last_line)) {
+          continue;
+        }
+        int top, first_height, last_top, last_height;
+        get_line_yrange (first, out top, out first_height);
+        get_line_yrange (last, out last_top, out last_height);
+        int bottom = last_top + last_height;
+        if (bottom < visible.y || top > visible.y + visible.height) {
+          continue;
+        }
+        var rect = Graphene.Rect ();
+        rect.init (visible.x, top, visible.width, bottom - top);
+        snapshot.append_color (band.color, rect);
+      }
+    });
+  }
+
   public override void snapshot_layer (Gtk.TextViewLayer layer, Gtk.Snapshot snapshot) {
     base.snapshot_layer (layer, snapshot);
 
     if (layer == Gtk.TextViewLayer.BELOW_TEXT) {
+      draw_row_bands (snapshot);
       if (show_indent_guides) {
         draw_indent_guides (snapshot);
       }

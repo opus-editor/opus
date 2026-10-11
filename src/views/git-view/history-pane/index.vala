@@ -5,8 +5,9 @@
  * up top, the message in the box StagingPane types into, and the files
  * the commit changed (GitTree.CommitFiles) as a ChangeList. The close
  * button, and selecting the WIP row, go back to StagingPane
- * (back_requested, handled by MainWindow). A row's double-click is a
- * TODO until a diff tab exists to open it in.
+ * (back_requested, handled by MainWindow). Selecting a file row shows
+ * that file's diff in the commit (open_diff_requested), the same single
+ * click the staging lists use.
  */
 namespace GitView {
   public class HistoryPane : Object, ISidebarPane {
@@ -22,6 +23,11 @@ namespace GitView {
     /** The close button: the user wants the working tree back. */
     public signal void back_requested ();
 
+    /** A file selected (a single click is enough, as in the staging lists) or double-clicked: its diff in this commit — MainWindow shows it in the Git view. */
+    public signal void open_diff_requested (GitDiff.Request request);
+
+    private GitTree.Commit? shown_commit = null;
+
     public HistoryPane (UserSettings user_settings) {
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/git-view/history-pane/index.ui");
       root_box = (Gtk.Box) builder.get_object ("root_box");
@@ -30,6 +36,13 @@ namespace GitView {
       message_view = (Gtk.TextView) builder.get_object ("message_view");
       ((Gtk.Button) builder.get_object ("close_button")).clicked.connect (() => back_requested ());
       ((Gtk.ScrolledWindow) builder.get_object ("files_scrolled")).child = files.widget;
+      files.item_activated.connect (request_diff);
+      files.selection_changed.connect (() => {
+        var selected = files.selected_changes ();
+        if (selected.length == 1) {
+          request_diff (selected[0]);
+        }
+      });
       files.set_sort_key (user_settings.changes_sort);
       GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/staging-pane.css");
     }
@@ -40,6 +53,7 @@ namespace GitView {
     public void show_row (string root_path, GitTree.Row row) {
       this.root_path = root_path;
       var commit = row.commit;
+      shown_commit = commit;
       if (row.stash != null) {
         commit_label.label = _("Stash: %s").printf (row.stash.name);
         commit_label.tooltip_text = commit.hash;
@@ -55,6 +69,27 @@ namespace GitView {
 
     public void close () {
       generation++;
+    }
+
+    /** One file picked (a click, or a double-click): its diff in this commit, under the breadcrumb. */
+    private void request_diff (GitScope.Change change) {
+      if (shown_commit == null || root_path == null) {
+        return;
+      }
+      var parent = shown_commit.parents.length > 0 ? shown_commit.parents[0] : null;
+      open_diff_requested (GitDiff.Request.for_commit_change (root_path, change, shown_commit.hash, parent));
+    }
+
+    /** A double-click on `path`'s file row — the debug D-Bus surface. */
+    public void activate_file (string path) throws Error {
+      var changes = files.all_changes ();
+      for (uint i = 0; i < changes.length; i++) {
+        if (changes[i].path == Path.build_filename (root_path, path)) {
+          files.item_activated (changes[i]);
+          return;
+        }
+      }
+      throw new IOError.NOT_FOUND ("No “%s” file in the commit".printf (path));
     }
 
     /** The header's first line — the debug D-Bus surface reads it. */

@@ -41,6 +41,7 @@ public class MainWindow : Object {
   public GitView.StagingPane git_pane { get; private set; }
   public GitView.TreePane tree_pane { get; private set; }
   public GitView.HistoryPane history_pane { get; private set; }
+  public GitView.Content git_content { get; private set; }
   /** Which pane the Git sidebar shows: "staging" for the working tree, "history" for a selected commit — the debug D-Bus surface reads it. */
   public string git_sidebar_name { get; private set; default = "staging"; }
 
@@ -195,7 +196,12 @@ public class MainWindow : Object {
     history_pane = new GitView.HistoryPane (user_settings);
     history_pane.back_requested.connect (tree_pane.clear_selection);
     tree_pane.row_selected.connect (on_tree_row_selected);
-    ((Adw.Bin) builder.get_object ("tree_bin")).child = tree_pane.widget;
+    git_content = new GitView.Content (tree_pane.widget, user_settings);
+    git_pane.open_diff_requested.connect ((request) => git_content.show_diff (request, "WIP"));
+    git_pane.open_file_requested.connect (open_conflicted_file);
+    history_pane.open_diff_requested.connect ((request) => git_content.show_diff (request, request.right.label));
+    git_pane.repository_changed.connect (git_content.reload_live_diff);
+    ((Adw.Bin) builder.get_object ("tree_bin")).child = git_content.widget;
     sidebar.set_git_pane (git_pane);
     toast_overlay = (Adw.ToastOverlay) builder.get_object ("toast_overlay");
     view_stack = (Adw.ViewStack) builder.get_object ("view_stack");
@@ -313,6 +319,7 @@ public class MainWindow : Object {
       git_pane.close ();
       tree_pane.close ();
       history_pane.close ();
+      git_content.close ();
       teardown_workspace_extensions ();
       command_bar.destroy ();
       editor_pane.close ();
@@ -412,6 +419,7 @@ public class MainWindow : Object {
     var new_workspace_watcher = new WorkspaceWatcher (path);
     new_workspace_watcher.directory_changed.connect ((changed_path) => new_workspace_context.directory_changed (changed_path));
     new_workspace_watcher.content_changed.connect ((changed_path) => new_workspace_context.file_content_changed (changed_path));
+    new_workspace_context.file_content_changed.connect (() => git_content.reload_live_diff ());
     var new_decorations = new FileDecoration.Registry (path);
     var new_decoration_providers = new Opus.Plugins.WorkspaceExtensions (typeof (FileDecoration.IProvider), new_workspace_context);
     new_decoration_providers.added.connect ((e) => new_decorations.add_provider ((FileDecoration.IProvider) e));
@@ -1258,8 +1266,24 @@ public class MainWindow : Object {
     view_stack.visible_child_name = "git";
   }
 
-  /** A commit or stash selected in the tree puts HistoryPane in the sidebar; the WIP row, or no selection, puts StagingPane back. */
+  /** "editor" or "git" — the debug D-Bus surface. */
+  public string current_view_name {
+    owned get { return view_stack.visible_child_name; }
+  }
+
+  /** A file in conflict, from the Conflicts list: the file itself, in the editor, to resolve by hand. */
+  private void open_conflicted_file (string path) {
+    try {
+      editor_pane.open (path, true);
+      view_stack.visible_child_name = "editor";
+    } catch (Error e) {
+      show_error (_("Couldn’t open “%s”: %s").printf (path, e.message));
+    }
+  }
+
+  /** A commit or stash selected in the tree puts HistoryPane in the sidebar; the WIP row, or no selection, puts StagingPane back — and either way the tree is what the main area shows again. */
   private void on_tree_row_selected (GitTree.Row? row) {
+    git_content.show_tree ();
     if (row == null || workspace_context == null) {
       git_sidebar_name = "staging";
       sidebar.set_git_pane (git_pane);
