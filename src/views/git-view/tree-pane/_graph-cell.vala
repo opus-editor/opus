@@ -5,7 +5,7 @@ namespace GitView {
    * segment stays in its lane, an S-curve between lanes, each in its
    * lane's color (TreePanePalette). Lines run edge to edge vertically,
    * so consecutive rows join seamlessly. The working-tree row draws in
-   * HEAD's lane color at 75%, its node a square with the theme's
+   * HEAD's lane color, its node a square with the theme's
    * view-more icon; a commit row crossed by its line down to
    * HEAD draws that stretch too (TreePaneItem.working_lane). A stash row (GitTree.Row.stash)
    * gets a square with an inbox glyph in place of the dot; its lines are
@@ -91,10 +91,9 @@ namespace GitView {
       }
     }
 
-    /** A square, the lane's width, with an inbox tray and a down arrow inside, both at 75% of the lane color — the glyph is drawn here, not an icon, so it scales and tints with the lane like everything else in the cell. Filled with the view background first, so the lane line doesn't run through the glyph. */
+    /** A square, the lane's width, with an inbox tray and a down arrow inside, in the lane color — the glyph is drawn here, not an icon, so it scales and tints with the lane like everything else in the cell. Filled with the view background first, so the lane line doesn't run through the glyph. */
     private void draw_stash (Gtk.Snapshot snapshot, int lane, float middle, Gdk.RGBA lane_color) {
       var color = lane_color;
-      color.alpha = 0.75f;
       float cx = x_of (lane);
       draw_box (snapshot, lane, middle, color);
 
@@ -148,11 +147,9 @@ namespace GitView {
       snapshot.restore ();
     }
 
-    /** The WIP line and dot are HEAD's own lane color at 75% — it's a "what's coming", not history. */
+    /** The WIP line and square are HEAD's own lane color. */
     private Gdk.RGBA working_color () {
-      var color = palette.color (item.row != null ? item.row.node_color : item.working.head_color);
-      color.alpha = 0.75f;
-      return color;
+      return palette.color (item.row != null ? item.row.node_color : item.working.head_color);
     }
 
     private static float x_of (int lane) {

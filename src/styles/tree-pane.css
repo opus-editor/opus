@@ -8,8 +8,8 @@ window:not(.dark) {
   --graph-lane-2: #e66100;
   --graph-lane-3: #9141ac;
   --graph-lane-4: #c01c28;
-  --graph-lane-5: #0f8a8a;
-  --graph-lane-6: #a26a00;
+  --graph-lane-5: #11899b;
+  --graph-lane-6: #e5a50a;
   --graph-lane-7: #5e5c64;
 }
 window.dark {
@@ -18,7 +18,7 @@ window.dark {
   --graph-lane-2: #ffa348;
   --graph-lane-3: #dc8add;
   --graph-lane-4: #f66151;
-  --graph-lane-5: #5bc8af;
+  --graph-lane-5: #55c7cc;
   --graph-lane-6: #f8e45c;
   --graph-lane-7: #9a9996;
 }
@@ -53,25 +53,34 @@ columnview.tree-pane > header > button {
   opacity: 0.7;
 }
 
-/* A ref pill: a small rounded chip tinted by its kind. */
+/* A ref pill: a small rounded chip in its row's lane color — the
+ * `lane-N` class TreePaneRefCell sets from the row's node color, the
+ * same hue the graph cell draws the dot with — except a tag, always in
+ * the warning yellow, since it never belongs to a lane the way a branch
+ * does. Local vs remote is told by the icon, not the color. */
+.ref-pill.lane-0 { --pill-color: var(--graph-lane-0); }
+.ref-pill.lane-1 { --pill-color: var(--graph-lane-1); }
+.ref-pill.lane-2 { --pill-color: var(--graph-lane-2); }
+.ref-pill.lane-3 { --pill-color: var(--graph-lane-3); }
+.ref-pill.lane-4 { --pill-color: var(--graph-lane-4); }
+.ref-pill.lane-5 { --pill-color: var(--graph-lane-5); }
+.ref-pill.lane-6 { --pill-color: var(--graph-lane-6); }
+.ref-pill.lane-7 { --pill-color: var(--graph-lane-7); }
 .ref-pill {
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-size: 90%;
-  background-color: color-mix(in srgb, var(--accent-bg-color) 18%, transparent);
-  color: color-mix(in srgb, var(--accent-color) 85%, currentColor);
-}
-.ref-pill.remote {
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
-  color: currentColor;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--pill-color) 25%, transparent);
+  color: color-mix(in srgb, var(--pill-color) 25%, currentColor);
 }
 .ref-pill.tag {
-  background-color: color-mix(in srgb, var(--warning-color) 18%, transparent);
-  color: color-mix(in srgb, var(--warning-color) 85%, currentColor);
+  --pill-color: var(--warning-color);
 }
+/* Text in the window's own background: dark on the light lane tones
+ * of the dark set, light on the deep tones of the light set — white
+ * alone washed out on the pastels. */
 .ref-pill.current {
-  background-color: var(--accent-bg-color);
-  color: var(--accent-fg-color);
+  background-color: var(--pill-color);
+  color: var(--window-bg-color);
 }
 .ref-pill.overflow {
   opacity: 0.7;
