@@ -11,10 +11,10 @@ Gtk.Box root_box {
     Gtk.Box {
       orientation: vertical;
       hexpand: true;
-      margin-top: 6;
+      margin-top: 8;
       margin-end: 6;
       margin-start: 12;
-      margin-bottom: 6;
+      margin-bottom: 8;
 
       Gtk.Label commit_label {
         styles ["file-tree-root-label"]
@@ -31,14 +31,18 @@ Gtk.Box root_box {
       }
     }
 
-    Gtk.Button close_button {
-      styles ["root-header-more-button", "flat"]
-      icon-name: "close-symbolic";
-      tooltip-text: _("Back to WIP");
-      margin-top: 6;
+    Gtk.Box {
+      orientation: vertical;
+      margin-top: 8;
       margin-end: 6;
       margin-start: 0;
-      margin-bottom: 6;
+      margin-bottom: 8;
+
+      Gtk.Button close_button {
+        styles ["root-header-more-button", "flat"]
+        icon-name: "close-symbolic";
+        tooltip-text: _("Back to WIP");
+      }
     }
   }
 

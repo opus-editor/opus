@@ -140,8 +140,9 @@ listview.data-table.file-tree-list row:selected:not(:focus):not(:hover) {
  * Shrunk back down to the icon's own size. */
 .root-header-more-button {
   min-width: 28px;
-  min-height: 16px;
+  min-height: 28px;
   padding: 0;
+  border-radius: 6px;
 }
 /* A plugin's own decoration (git status, a future linter badge, …) — a
  * small filled circle, right-aligned on the row. tone-accent has no

@@ -3,8 +3,7 @@
  * "..." menu button) identical in shape to ExplorerPane's own, then
  * Unstaged Changes and Staged Changes — each a real ChangeList, from
  * GitScope.WorkingTree's own unstaged/staged — splitting the remaining
- * space evenly, then a Commit button sized to itself. more_button has
- * no click handler yet; Stage All/Unstage All do
+ * space evenly, then a Commit button sized to itself. Stage All/Unstage All
  * (GitScope.Stage.add_async()/unstage_async() over that list's own
  * all_changes(), not selected_changes() — they ignore selection
  * entirely; a refusal from git surfaces through operation_failed),
@@ -66,7 +65,6 @@ namespace GitView {
     private Gtk.Box root_box;
     private Gtk.Label root_label;
     private Gtk.Label branch_label;
-    private Gtk.Button more_button;
     private Gtk.Button stage_more_button;
     private Gtk.Button stage_button;
     private Gtk.Button unstage_button;
@@ -136,7 +134,6 @@ namespace GitView {
       root_box = (Gtk.Box) builder.get_object ("root_box");
       root_label = (Gtk.Label) builder.get_object ("root_label");
       branch_label = (Gtk.Label) builder.get_object ("branch_label");
-      more_button = (Gtk.Button) builder.get_object ("more_button");
       stage_more_button = (Gtk.Button) builder.get_object ("stage_more_button");
       stage_more_button.clicked.connect (() => show_discard_menu ());
       stage_button = (Gtk.Button) builder.get_object ("stage_button");
