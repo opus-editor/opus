@@ -214,6 +214,42 @@ namespace Opus.Dev {
     /** HistoryPane's close button. */
     public abstract void git_history_back () throws DBusError, IOError;
 
+    /** A single click on `path`'s row in StagingPane's `section` ("unstaged"/"staged"/"conflicts"): selects it alone, which opens its diff or file. */
+    public abstract void git_select_row (string section, string path) throws DBusError, IOError;
+
+    /** A double-click on `path` in HistoryPane's file list: that file's diff in the commit. */
+    public abstract void git_history_open_file (string path) throws DBusError, IOError;
+
+    /** What the Git view's main area shows: "tree" or "diff". */
+    public abstract string git_content_showing () throws DBusError, IOError;
+
+    /** The breadcrumb over it: "History", or "History / <commit or WIP> / <file>". */
+    public abstract string git_breadcrumb () throws DBusError, IOError;
+
+    /** The breadcrumb's "History": back to the tree. */
+    public abstract void git_show_tree () throws DBusError, IOError;
+
+    /** The diff on screen, each line "<old>|<new>|<marker>|<text>"; empty while a placeholder shows or no diff is open. */
+    public abstract string[] git_diff_lines () throws DBusError, IOError;
+
+    /** How the diff area shows the file: "diff", "plain" (one side only) or "placeholder". */
+    public abstract string git_diff_mode () throws DBusError, IOError;
+
+    /** The diff placeholder's title ("Binary file", …), "" while a real diff shows. */
+    public abstract string git_diff_placeholder () throws DBusError, IOError;
+
+    /** The Conflicts list's "Solve All" button. */
+    public abstract void git_solve_all () throws DBusError, IOError;
+
+    /** The header switcher's current page: "editor" or "git". */
+    public abstract string current_view () throws DBusError, IOError;
+
+    /** How many merge-conflict blocks the active document tab's text holds. */
+    public abstract int conflict_count () throws DBusError, IOError;
+
+    /** One of conflict block `index`'s own links in the active document tab: `side` is "current", "incoming", "both" (current then incoming) or "both-incoming-first". */
+    public abstract void accept_conflict (int index, string side) throws DBusError, IOError;
+
     /** The heading of whichever Dialogs dialog is showing, "" with none. */
     public abstract string dialog_heading () throws DBusError, IOError;
 

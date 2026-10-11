@@ -341,4 +341,18 @@ public class SystemTestSession : Object {
     public string history_header () throws Error { return tree.history_header (); }
     public void wait_for_history_files (string[] expected) throws Error { tree.wait_for_history_files (expected); }
     public void history_back () throws Error { tree.history_back (); }
+    public void git_select_row (string section, string path) throws Error { tree.select_row (section, path); }
+    public void history_open_file (string path) throws Error { tree.history_open_file (path); }
+    public string git_content_showing () throws Error { return tree.content_showing (); }
+    public string git_breadcrumb () throws Error { return tree.breadcrumb (); }
+    public void git_show_tree () throws Error { tree.show_tree (); }
+    public string[] diff_lines () throws Error { return tree.diff_lines (); }
+    public void wait_for_diff_lines (string[] expected) throws Error { tree.wait_for_diff_lines (expected); }
+    public string wait_for_diff_placeholder () throws Error { return tree.wait_for_diff_placeholder (); }
+    public string diff_mode () throws Error { return tree.diff_mode (); }
+    public void git_solve_all () throws Error { tree.solve_all (); }
+    public string current_view () throws Error { return tree.current_view (); }
+    public int conflict_count () throws Error { return tree.conflict_count (); }
+    public void wait_for_conflict_count (int expected) throws Error { tree.wait_for_conflict_count (expected); }
+    public void accept_conflict (int index, string side) throws Error { tree.accept_conflict (index, side); }
 }

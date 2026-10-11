@@ -88,6 +88,78 @@ public class SystemTestTree : Object {
         call ("GitHistoryBack");
     }
 
+    /** A single click on `path`'s row in StagingPane's `section`. */
+    public void select_row (string section, string path) throws Error {
+        call ("GitSelectRow", new Variant ("(ss)", section, path));
+    }
+
+    /** A double-click on `path` in HistoryPane's file list. */
+    public void history_open_file (string path) throws Error {
+        call ("GitHistoryOpenFile", new Variant ("(s)", path));
+    }
+
+    /** "tree" or "diff". */
+    public string content_showing () throws Error {
+        return call ("GitContentShowing").get_child_value (0).get_string ();
+    }
+
+    public string breadcrumb () throws Error {
+        return call ("GitBreadcrumb").get_child_value (0).get_string ();
+    }
+
+    public void show_tree () throws Error {
+        call ("GitShowTree");
+    }
+
+    /** Each diff line "<old>|<new>|<marker>|<text>"; empty while a placeholder shows. */
+    public string[] diff_lines () throws Error {
+        var array = call ("GitDiffLines").get_child_value (0);
+        var result = new string[array.n_children ()];
+        for (size_t i = 0; i < array.n_children (); i++) {
+            result[i] = array.get_child_value (i).get_string ();
+        }
+        return result;
+    }
+
+    public void wait_for_diff_lines (string[] expected) throws Error {
+        wait (() => same (diff_lines (), expected), "diff lines [%s], last saw [%s]".printf (string.joinv (", ", expected), string.joinv (", ", diff_lines ())));
+    }
+
+    /** "diff", "plain" or "placeholder". */
+    public string diff_mode () throws Error {
+        return call ("GitDiffMode").get_child_value (0).get_string ();
+    }
+
+    public string diff_placeholder () throws Error {
+        return call ("GitDiffPlaceholder").get_child_value (0).get_string ();
+    }
+
+    public string wait_for_diff_placeholder () throws Error {
+        wait (() => diff_placeholder () != "", "a diff placeholder");
+        return diff_placeholder ();
+    }
+
+    public void solve_all () throws Error {
+        call ("GitSolveAll");
+    }
+
+    /** "editor" or "git". */
+    public string current_view () throws Error {
+        return call ("CurrentView").get_child_value (0).get_string ();
+    }
+
+    public int conflict_count () throws Error {
+        return call ("ConflictCount").get_child_value (0).get_int32 ();
+    }
+
+    public void wait_for_conflict_count (int expected) throws Error {
+        wait (() => { try { return conflict_count () == expected; } catch (Error e) { return false; } }, "%d conflict blocks".printf (expected));
+    }
+
+    public void accept_conflict (int index, string side) throws Error {
+        call ("AcceptConflict", new Variant ("(is)", index, side));
+    }
+
     private delegate bool Condition () throws Error;
 
     private void wait (Condition condition, string what) throws Error {

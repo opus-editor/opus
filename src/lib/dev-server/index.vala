@@ -382,6 +382,66 @@ namespace Opus.Dev {
       current_window ().history_pane.back_requested ();
     }
 
+    public void git_select_row (string section, string path) throws DBusError, IOError {
+      try {
+        git_pane ().select_row (section, path);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public void git_history_open_file (string path) throws DBusError, IOError {
+      try {
+        current_window ().history_pane.activate_file (path);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
+    public string git_content_showing () throws DBusError, IOError {
+      return current_window ().git_content.showing;
+    }
+
+    public string git_breadcrumb () throws DBusError, IOError {
+      return current_window ().git_content.breadcrumb_text;
+    }
+
+    public void git_show_tree () throws DBusError, IOError {
+      current_window ().git_content.show_tree ();
+    }
+
+    public string[] git_diff_lines () throws DBusError, IOError {
+      return current_window ().git_content.describe_diff_lines ();
+    }
+
+    public string git_diff_mode () throws DBusError, IOError {
+      return current_window ().git_content.diff_mode;
+    }
+
+    public string git_diff_placeholder () throws DBusError, IOError {
+      return current_window ().git_content.diff_placeholder_title;
+    }
+
+    public void git_solve_all () throws DBusError, IOError {
+      git_pane ().solve_all ();
+    }
+
+    public string current_view () throws DBusError, IOError {
+      return current_window ().current_view_name;
+    }
+
+    public int conflict_count () throws DBusError, IOError {
+      return active_editor ().conflict_count;
+    }
+
+    public void accept_conflict (int index, string side) throws DBusError, IOError {
+      try {
+        active_editor ().accept_conflict (index, side);
+      } catch (Error e) {
+        throw new IOError.NOT_FOUND (e.message);
+      }
+    }
+
     public string dialog_heading () throws DBusError, IOError {
       current_window ();
       return Dialogs.current_heading ();

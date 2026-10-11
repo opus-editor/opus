@@ -784,6 +784,26 @@ test(
   is_parallel: false,
 )
 
+git_diff_pane_test = executable(
+  'git-diff-pane-test',
+  ['system/git/diff-pane-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'git-diff-pane',
+  git_diff_pane_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 180,
+  is_parallel: false,
+)
+
 git_tree_pane_test = executable(
   'git-tree-pane-test',
   ['system/git/tree-pane-test.vala'],
