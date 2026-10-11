@@ -45,16 +45,20 @@ namespace Syntax {
     }
   }
 
-  private class LocalScope {
+  // Plain values in a GLib.Array, not objects in a GenericArray: a large
+  // file has thousands of each, made again on every edit.
+  private struct LocalScope {
     public uint32 start;
     public uint32 end;
     /** False for a scope that hides what encloses it — a Ruby method body sees none of the locals around it. */
-    public bool inherits = true;
-    public GenericSet<string> definitions = new GenericSet<string> (str_hash, str_equal);
+    public bool inherits;
   }
 
-  private class LocalName {
+  private struct LocalName {
     public TreeSitter.Node node;
+    // Read once: the sort and the same-node checks ask for them over and over.
+    public uint32 start;
+    public uint32 end;
     public LocalRole role;
     public uint16 pattern;
   }
@@ -72,8 +76,8 @@ namespace Syntax {
    */
   namespace SyntaxLocals {
     internal LocalReferences resolve (LoadedLanguage language, TreeSitter.Tree tree, NodeTextFunc node_text) {
-      var scopes = new GenericArray<LocalScope> ();
-      var names = new GenericArray<LocalName> ();
+      var scopes = new GLib.Array<LocalScope> ();
+      var names = new GLib.Array<LocalName> ();
       collect (language, tree, node_text, scopes, names);
 
       // Outermost first among scopes starting together, so the stack below nests them properly.
@@ -82,35 +86,52 @@ namespace Syntax {
       names.sort ((a, b) => by_position_then_role (a, b));
 
       var references = new LocalReferences ();
-      var root = new LocalScope ();
-      root.end = uint32.MAX;
-      var stack = new GenericArray<LocalScope> ();
-      stack.add (root);
+      // The names each scope defines, by its index in `scopes` — made
+      // when the first arrives, since many scopes define nothing. The
+      // whole text is the root scope, -1 on the stack, with its own set.
+      var definitions = new GenericArray<GenericSet<string>?> ();
+      for (uint i = 0; i < scopes.length; i++) {
+        definitions.add (null);
+      }
+      var root_definitions = new GenericSet<string> (str_hash, str_equal);
+      var stack = new GenericArray<int> ();
+      stack.add (-1);
       int next_scope = 0;
 
       for (int i = 0; i < names.length; i++) {
-        var name = names[i];
-        uint32 position = name.node.start_byte ();
-        while (stack.length > 1 && stack[stack.length - 1].end <= position) {
+        unowned LocalName name = names.index (i);
+        uint32 position = name.start;
+        while (stack.length > 1 && scopes.index (stack[stack.length - 1]).end <= position) {
           stack.remove_index (stack.length - 1);
         }
-        while (next_scope < scopes.length && scopes[next_scope].start <= position) {
-          if (scopes[next_scope].end > position) {
-            stack.add (scopes[next_scope]);
+        while (next_scope < scopes.length && scopes.index (next_scope).start <= position) {
+          if (scopes.index (next_scope).end > position) {
+            stack.add (next_scope);
           }
           next_scope++;
         }
 
         if (name.role == LocalRole.DEFINITION) {
-          stack[stack.length - 1].definitions.add (node_text (name.node));
-        } else if (name.role == LocalRole.REFERENCE && !discarded (names, i) && defined_in (stack, node_text (name.node))) {
+          define (stack[stack.length - 1], node_text (name.node), definitions, root_definitions);
+        } else if (name.role == LocalRole.REFERENCE && !discarded (names, i) && defined_in (stack, scopes, definitions, root_definitions, node_text (name.node))) {
           references.add (name.node);
         }
       }
       return references;
     }
 
-    private void collect (LoadedLanguage language, TreeSitter.Tree tree, NodeTextFunc node_text, GenericArray<LocalScope> scopes, GenericArray<LocalName> names) {
+    private void define (int scope, string text, GenericArray<GenericSet<string>?> definitions, GenericSet<string> root_definitions) {
+      if (scope < 0) {
+        root_definitions.add (text);
+        return;
+      }
+      if (definitions[scope] == null) {
+        definitions[scope] = new GenericSet<string> (str_hash, str_equal);
+      }
+      definitions[scope].add (text);
+    }
+
+    private void collect (LoadedLanguage language, TreeSitter.Tree tree, NodeTextFunc node_text, GLib.Array<LocalScope> scopes, GLib.Array<LocalName> names) {
       var cursor = new TreeSitter.QueryCursor ();
       cursor.exec (language.locals, tree.root_node ());
 
@@ -123,27 +144,19 @@ namespace Syntax {
         foreach (var capture in match.captures) {
           var role = language.local_roles[capture.index];
           if (role == LocalRole.SCOPE) {
-            var scope = new LocalScope ();
-            scope.start = capture.node.start_byte ();
-            scope.end = capture.node.end_byte ();
-            scope.inherits = inherits;
-            scopes.add (scope);
+            LocalScope scope = { capture.node.start_byte (), capture.node.end_byte (), inherits };
+            scopes.append_val (scope);
             continue;
           }
-          var name = new LocalName ();
-          name.node = capture.node;
-          name.role = role;
-          name.pattern = match.pattern_index;
-          names.add (name);
+          LocalName name = { capture.node, capture.node.start_byte (), capture.node.end_byte (), role, (uint16) match.pattern_index };
+          names.append_val (name);
         }
       }
     }
 
     private int by_position_then_role (LocalName a, LocalName b) {
-      uint32 a_start = a.node.start_byte ();
-      uint32 b_start = b.node.start_byte ();
-      if (a_start != b_start) {
-        return a_start < b_start ? -1 : 1;
+      if (a.start != b.start) {
+        return a.start < b.start ? -1 : 1;
       }
       bool a_defines = a.role == LocalRole.DEFINITION;
       bool b_defines = b.role == LocalRole.DEFINITION;
@@ -154,15 +167,15 @@ namespace Syntax {
     }
 
     /** Whether another capture on the very same node, from a later pattern, takes the reference at `index` back. Same-node entries sit next to each other in the sorted list. */
-    private bool discarded (GenericArray<LocalName> names, int index) {
-      var reference = names[index];
-      for (int i = index - 1; i >= 0 && same_node (names[i], reference); i--) {
-        if (names[i].role == LocalRole.DISCARD && names[i].pattern > reference.pattern) {
+    private bool discarded (GLib.Array<LocalName> names, int index) {
+      unowned LocalName reference = names.index (index);
+      for (int i = index - 1; i >= 0 && same_node (names.index (i), reference); i--) {
+        if (names.index (i).role == LocalRole.DISCARD && names.index (i).pattern > reference.pattern) {
           return true;
         }
       }
-      for (int i = index + 1; i < names.length && same_node (names[i], reference); i++) {
-        if (names[i].role == LocalRole.DISCARD && names[i].pattern > reference.pattern) {
+      for (int i = index + 1; i < names.length && same_node (names.index (i), reference); i++) {
+        if (names.index (i).role == LocalRole.DISCARD && names.index (i).pattern > reference.pattern) {
           return true;
         }
       }
@@ -170,16 +183,20 @@ namespace Syntax {
     }
 
     private bool same_node (LocalName a, LocalName b) {
-      return a.node.start_byte () == b.node.start_byte () && a.node.end_byte () == b.node.end_byte ();
+      return a.start == b.start && a.end == b.end;
     }
 
     /** Whether a definition of `text` is visible from the innermost scope of `stack`. */
-    private bool defined_in (GenericArray<LocalScope> stack, string text) {
+    private bool defined_in (GenericArray<int> stack, GLib.Array<LocalScope> scopes, GenericArray<GenericSet<string>?> definitions, GenericSet<string> root_definitions, string text) {
       for (int i = stack.length - 1; i >= 0; i--) {
-        if (stack[i].definitions.contains (text)) {
+        int scope = stack[i];
+        if (scope < 0) {
+          return root_definitions.contains (text);
+        }
+        if (definitions[scope] != null && definitions[scope].contains (text)) {
           return true;
         }
-        if (!stack[i].inherits) {
+        if (!scopes.index (scope).inherits) {
           return false;
         }
       }
