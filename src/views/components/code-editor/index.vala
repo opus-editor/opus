@@ -294,17 +294,13 @@ public class CodeEditor : Object {
     set_text (text, path);
   }
 
-  /** Re-reads the tints after a theme change — the bands carry resolved colors. */
+  /** A theme change: the bands read their swatches when painted, so a repaint is all it takes. */
   private void apply_diff_colors () {
-    if (shown_diff != null) {
-      paint_diff_rows ();
-    }
+    text_view.queue_draw ();
   }
 
-  /** One band per run of added or removed lines, in the tones CodeEditorDiffGutter resolves. */
+  /** One band per run of added or removed lines, painted from CodeEditorDiffGutter's swatches. */
   private void paint_diff_rows () {
-    var added = diff_gutter.added_background ();
-    var removed = diff_gutter.removed_background ();
     var bands = new GenericArray<CodeEditorSourceView.RowBand> ();
     int run_start = -1;
     GitDiff.LineKind run_kind = GitDiff.LineKind.CONTEXT;
@@ -314,7 +310,7 @@ public class CodeEditor : Object {
         continue;
       }
       if (run_kind != GitDiff.LineKind.CONTEXT) {
-        bands.add (new CodeEditorSourceView.RowBand (run_start, (int) i - 1, run_kind == GitDiff.LineKind.ADDED ? added : removed));
+        bands.add (new CodeEditorSourceView.RowBand (run_start, (int) i - 1, run_kind == GitDiff.LineKind.ADDED ? diff_gutter.added_swatch : diff_gutter.removed_swatch));
       }
       run_start = (int) i;
       run_kind = kind;

@@ -413,10 +413,11 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   public class RowBand : Object {
     public int first_line { get; construct; }
     public int last_line { get; construct; }
-    public Gdk.RGBA color { get; construct; }
+    /** The swatch whose CSS color paints the band — read at paint time, so a theme change repaints without anyone resolving colors in a callback the cascade hasn't settled for. */
+    public Gtk.Widget swatch { get; construct; }
 
-    public RowBand (int first_line, int last_line, Gdk.RGBA color) {
-      Object (first_line: first_line, last_line: last_line, color: color);
+    public RowBand (int first_line, int last_line, Gtk.Widget swatch) {
+      Object (first_line: first_line, last_line: last_line, swatch: swatch);
     }
   }
 
@@ -451,7 +452,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
         }
         var rect = Graphene.Rect ();
         rect.init (visible.x, top, visible.width, bottom - top);
-        snapshot.append_color (band.color, rect);
+        snapshot.append_color (band.swatch.get_color (), rect);
       }
     });
   }
