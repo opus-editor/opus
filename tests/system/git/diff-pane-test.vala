@@ -142,6 +142,19 @@ int main (string[] args) {
         opus.wait_for_diff_lines ({ "1|1| |one", "0|2|+|two" }); // not the unstaged "three"
     }));
 
+    Test.add_func ("/system/diff/a_renamed_file_edited_afterwards_diffs_the_index_against_the_worktree", () => run ((root) => {
+        commit_file (root, "old.txt", "one\ntwo\n", "base");
+        git (root, { "mv", "old.txt", "new.txt" });
+        write_file (root, "new.txt", "one\nTWO\n");
+    }, (root, opus) => {
+        opus.wait_for_git_changes ("unstaged", { "M new.txt" });
+
+        opus.git_select_row ("unstaged", "new.txt");
+
+        opus.wait_for_diff_lines ({ "1|1| |one", "2|0|-|two", "0|2|+|TWO" });
+        assert_cmpstr (opus.diff_mode (), CompareOperator.EQ, "diff");
+    }));
+
     Test.add_func ("/system/diff/a_file_with_one_side_shows_plainly_not_as_a_diff", () => run ((root) => {
         commit_file (root, "gone.txt", "x\ny\n", "base");
         FileUtils.remove (Path.build_filename (root, "gone.txt"));

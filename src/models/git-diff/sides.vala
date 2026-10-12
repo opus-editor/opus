@@ -88,7 +88,10 @@ namespace GitDiff {
      * `section` is "unstaged" or "staged" (StagingPane's own lists).
      * Unstaged: index → worktree (untracked: nothing → worktree; deleted:
      * index → nothing). Staged: HEAD → index (added: nothing → index;
-     * deleted: HEAD → nothing), a rename's left side under its old path.
+     * deleted: HEAD → nothing), a rename's left side under its old path —
+     * only there: the index already holds a renamed file at its new path,
+     * so the Unstaged diff of one edited after the rename reads both
+     * sides at that path.
      */
     public static Request for_working_change (string root_path, GitScope.Change change, string section) {
       var relative = change.path.substring (root_path.length + 1);
@@ -98,7 +101,7 @@ namespace GitDiff {
         var right = change.kind == GitScope.ChangeKind.DELETED ? new Side (SideKind.EMPTY) : new Side (SideKind.REVISION, "", relative);
         return new Request (root_path, left, right, change.path);
       }
-      var left = change.kind == GitScope.ChangeKind.UNTRACKED ? new Side (SideKind.EMPTY) : new Side (SideKind.REVISION, "", old_relative);
+      var left = change.kind == GitScope.ChangeKind.UNTRACKED ? new Side (SideKind.EMPTY) : new Side (SideKind.REVISION, "", relative);
       var right = change.kind == GitScope.ChangeKind.DELETED ? new Side (SideKind.EMPTY) : new Side (SideKind.WORKTREE, "", change.path);
       return new Request (root_path, left, right, change.path);
     }

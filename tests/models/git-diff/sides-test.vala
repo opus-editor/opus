@@ -53,6 +53,11 @@ int main (string[] args) {
         assert (r.relative_path == "new.txt");
     });
 
+    Test.add_func ("/git-diff-sides/an-unstaged-edit-of-a-staged-rename-reads-the-index-at-the-new-path", () => {
+        var r = GitDiff.Request.for_working_change ("/r", new GitScope.Change ("/r/new.txt", GitScope.ChangeKind.MODIFIED, "", "/r/old.txt"), "unstaged");
+        assert (sides (r) == "index:new.txt -> worktree:new.txt");
+    });
+
     Test.add_func ("/git-diff-sides/a-commits-file-is-parent-to-commit", () => {
         var r = GitDiff.Request.for_commit_change ("/r", new GitScope.Change ("/r/a.txt", GitScope.ChangeKind.MODIFIED), "abc1234def", "parent99");
         assert (sides (r) == "parent99:a.txt -> abc1234def:a.txt");
