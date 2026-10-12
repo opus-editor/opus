@@ -84,10 +84,24 @@ namespace EditorView.EditorPane {
       }
     }
 
-    /** The folder's per-file settings, for this file's indentation (next time the editor is built) and its save. `root_path` is where Save As starts for an untitled document. */
+    /** The folder's per-file settings, for this file's indentation and its save. `root_path` is where Save As starts for an untitled document. */
     public void set_file_settings (FileSettings.Registry? registry, string root_path) {
       file_settings = registry;
       this.root_path = root_path;
+      reapply_file_settings ();
+    }
+
+    /** The settings changed under an open editor: its indentation follows now. The line ending and the save switches are read at save time anyway. */
+    public void reapply_file_settings () {
+      if (editor == null) {
+        return;
+      }
+      apply_indent ();
+    }
+
+    private void apply_indent () {
+      var settings = file_settings_for ();
+      editor.set_indent (settings.indent_size ?? DEFAULT_INDENT_SIZE, settings.insert_spaces ?? DEFAULT_INSERT_SPACES);
     }
 
     /** The settings for this file — or for `path`, when a Save As is about to write it there. An Untitled document counts as a file at the root, so the folder's general rules reach it too. */
@@ -154,8 +168,7 @@ namespace EditorView.EditorPane {
       root.append (editor.widget);
 
       load_into_editor ();
-      var settings = file_settings_for ();
-      editor.set_indent (settings.indent_size ?? DEFAULT_INDENT_SIZE, settings.insert_spaces ?? DEFAULT_INSERT_SPACES);
+      apply_indent ();
       editor.bind (document.cursors, document.history);
       // A fresh editor already shows the top; scrolling there would only nudge the margin away.
       if (document.top_line > 1) {

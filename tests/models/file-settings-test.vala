@@ -43,6 +43,31 @@ private void test_the_last_provider_with_a_field_wins_and_nulls_leave_the_rest_a
     assert_true (values.insert_spaces == true);
 }
 
+private void test_a_providers_change_is_relayed () {
+    var registry = new FileSettings.Registry ();
+    var provider = new Fixed (new FileSettings.Values ());
+    registry.add_provider (provider);
+    int relayed = 0;
+    registry.changed.connect (() => relayed++);
+
+    provider.changed ();
+
+    assert_cmpint (relayed, CompareOperator.EQ, 1);
+}
+
+private void test_a_removed_providers_change_is_not () {
+    var registry = new FileSettings.Registry ();
+    var provider = new Fixed (new FileSettings.Values ());
+    registry.add_provider (provider);
+    int relayed = 0;
+    registry.changed.connect (() => relayed++);
+    registry.remove_provider (provider);
+
+    provider.changed ();
+
+    assert_cmpint (relayed, CompareOperator.EQ, 0);
+}
+
 private void test_a_removed_provider_no_longer_counts () {
     var registry = new FileSettings.Registry ();
     var provider = new Fixed (new FileSettings.Values () { indent_size = 2 });
@@ -58,6 +83,8 @@ void main (string[] args) {
     Test.add_func ("/models/file-settings/without_a_provider_every_field_is_null", test_without_a_provider_every_field_is_null);
     Test.add_func ("/models/file-settings/a_providers_fields_come_through", test_a_providers_fields_come_through);
     Test.add_func ("/models/file-settings/the_last_provider_with_a_field_wins_and_nulls_leave_the_rest_alone", test_the_last_provider_with_a_field_wins_and_nulls_leave_the_rest_alone);
+    Test.add_func ("/models/file-settings/a_providers_change_is_relayed", test_a_providers_change_is_relayed);
+    Test.add_func ("/models/file-settings/a_removed_providers_change_is_not", test_a_removed_providers_change_is_not);
     Test.add_func ("/models/file-settings/a_removed_provider_no_longer_counts", test_a_removed_provider_no_longer_counts);
     Test.run ();
 }

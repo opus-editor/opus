@@ -4,8 +4,9 @@ namespace Opus.Plugins.EditorConfig {
    * per file when asked, with the parsed files cached by directory.
    * The workspace's own watcher empties the cache when a .editorconfig
    * is written, or any directory's listing changes (one may have been
-   * created or removed); outside the linked folder nothing is watched,
-   * so a `~/.editorconfig` edit counts from the next link on.
+   * created or removed), and `changed` goes out so open tabs ask again;
+   * outside the linked folder nothing is watched, so a `~/.editorconfig`
+   * edit counts from the next link on.
    */
   public class Provider : Object, IWorkspaceExtension, FileSettings.IProvider {
     public WorkspaceContext context { get; set; }
@@ -52,13 +53,19 @@ namespace Opus.Plugins.EditorConfig {
     }
 
     private void on_directory_changed (string path) {
-      cache.remove_all ();
+      forget ();
     }
 
     private void on_file_content_changed (string path) {
       if (Path.get_basename (path) == ConfigFile.NAME) {
-        cache.remove_all ();
+        forget ();
       }
+    }
+
+    /** The files may say something else now: drop them, and say so. */
+    private void forget () {
+      cache.remove_all ();
+      changed ();
     }
   }
 }

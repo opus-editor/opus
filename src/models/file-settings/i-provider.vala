@@ -8,5 +8,8 @@ namespace FileSettings {
   public interface IProvider : Object, IWorkspaceExtension {
     /** What this provider says about the file at `path` (absolute); every field null when nothing. */
     public abstract Values settings_for (string path);
+
+    /** settings_for() may answer differently now — a source was rewritten. Emit on the main loop. */
+    public signal void changed ();
   }
 }

@@ -50,5 +50,38 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/system/editorconfig_hierarchy/an_open_tab_follows_a_rewritten_editorconfig", () => {
+        try {
+            var folder = make_folder ("");
+            var path = Path.build_filename (folder, "a.rb");
+            FileUtils.set_contents (path, "def foo\n  bar\n");
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY, folder);
+            opus.open_tab (path);
+            opus.set_cursors ({ {0, 7} });
+            opus.type_cmd ("enter");
+            opus.assert_editor_text ("def foo\n  \n  bar\n");
+
+            FileUtils.set_contents (Path.build_filename (folder, ".editorconfig"), "root = true\n[*]\nindent_style = space\nindent_size = 4\n");
+
+            // The watcher reports in batches, a little after the write.
+            string text = "";
+            int64 deadline = get_monotonic_time () + 5 * 1000 * 1000;
+            while (get_monotonic_time () < deadline) {
+                opus.editor_write ("def foo\n  bar\n");
+                opus.set_cursors ({ {0, 7} });
+                opus.type_cmd ("enter");
+                text = opus.active_text ();
+                if (text == "def foo\n    \n  bar\n") {
+                    break;
+                }
+                Thread.usleep (100 * 1000);
+            }
+            assert_cmpstr (text, CompareOperator.EQ, "def foo\n    \n  bar\n");
+            opus.close ();
+        } catch (Error e) {
+            error ("unexpected error: %s", e.message);
+        }
+    });
+
     return Test.run ();
 }

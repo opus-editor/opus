@@ -253,9 +253,22 @@ namespace EditorView {
 
     /** The folder's per-file settings (the .editorconfig plugin's, through FileSettings.Registry), null with no folder — what a tab's editor is built with and what a save honours. */
     public void set_file_settings (FileSettings.Registry? registry) {
+      if (file_settings != null) {
+        file_settings.changed.disconnect (reapply_file_settings);
+      }
       file_settings = registry;
+      if (file_settings != null) {
+        file_settings.changed.connect (reapply_file_settings);
+      }
       foreach (var tab in document_tabs ()) {
         tab.set_file_settings (file_settings, root_path);
+      }
+    }
+
+    /** A .editorconfig was rewritten: every open tab's indentation follows right away, as VS Code's extension does, not only the next editor built. */
+    private void reapply_file_settings () {
+      foreach (var tab in document_tabs ()) {
+        tab.reapply_file_settings ();
       }
     }
 

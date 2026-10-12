@@ -49,9 +49,32 @@ private void test_a_rewritten_editorconfig_counts_once_the_workspace_says_so () 
     }
 }
 
+private void test_a_rewritten_editorconfig_is_announced_and_another_file_is_not () {
+    try {
+        var root = make_tree ();
+        var context = new WorkspaceContext (root);
+        var provider = new Opus.Plugins.EditorConfig.Provider (context);
+        provider.activate ();
+        int announced = 0;
+        provider.changed.connect (() => announced++);
+
+        context.file_content_changed (Path.build_filename (root, "a.rb"));
+        assert_cmpint (announced, CompareOperator.EQ, 0);
+        context.file_content_changed (Path.build_filename (root, ".editorconfig"));
+
+        assert_cmpint (announced, CompareOperator.EQ, 1);
+        provider.deactivate ();
+        FileUtils.remove (Path.build_filename (root, ".editorconfig"));
+        DirUtils.remove (root);
+    } catch (Error e) {
+        error (e.message);
+    }
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/plugins/editorconfig/provider/the_values_say_what_the_files_do", test_the_values_say_what_the_files_do);
     Test.add_func ("/plugins/editorconfig/provider/a_rewritten_editorconfig_counts_once_the_workspace_says_so", test_a_rewritten_editorconfig_counts_once_the_workspace_says_so);
+    Test.add_func ("/plugins/editorconfig/provider/a_rewritten_editorconfig_is_announced_and_another_file_is_not", test_a_rewritten_editorconfig_is_announced_and_another_file_is_not);
     Test.run ();
 }
