@@ -34,6 +34,94 @@ private void test_load_save_round_trip () {
     }
 }
 
+private void test_a_crlf_file_loads_with_plain_newlines_and_remembers_crlf () {
+    string path = make_temp_file ("one\r\ntwo\r\n".data);
+
+    try {
+        var document = Document.load (path);
+
+        assert_cmpstr (document.content, CompareOperator.EQ, "one\ntwo\n");
+        assert_true (document.line_ending == Document.LineEnding.CRLF);
+        assert_false (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_crlf_document_saves_with_crlf () {
+    string path = make_temp_file ("one\r\ntwo\r\n".data);
+
+    try {
+        var document = Document.load (path);
+        document.content = "one\ntwo\nthree\n";
+        document.save ();
+
+        string on_disk;
+        FileUtils.get_contents (path, out on_disk);
+        assert_cmpstr (on_disk, CompareOperator.EQ, "one\r\ntwo\r\nthree\r\n");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_mixed_line_ends_follow_the_majority () {
+    string path = make_temp_file ("a\nb\r\nc\r\nd\n".data);
+
+    try {
+        var document = Document.load (path);
+
+        assert_true (document.line_ending == Document.LineEnding.LF);
+        assert_cmpstr (document.content, CompareOperator.EQ, "a\nb\nc\nd\n");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_file_without_line_ends_is_lf () {
+    string path = make_temp_file ("one line".data);
+
+    try {
+        var document = Document.load (path);
+
+        assert_true (document.line_ending == Document.LineEnding.LF);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_line_ending_set_by_hand_is_what_save_writes () {
+    string path = make_temp_file ("one\ntwo\n".data);
+
+    try {
+        var document = Document.load (path);
+        document.line_ending = Document.LineEnding.CRLF;
+        document.content = "one\ntwo\n";
+        document.save ();
+
+        string on_disk;
+        FileUtils.get_contents (path, out on_disk);
+        assert_cmpstr (on_disk, CompareOperator.EQ, "one\r\ntwo\r\n");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_an_untitled_document_is_lf () {
+    var document = Document.untitled ("1", "Untitled-1");
+
+    assert_true (document.line_ending == Document.LineEnding.LF);
+}
+
 private void test_dirty_tracking () {
     string path = make_temp_file ("original".data);
 
@@ -298,6 +386,12 @@ private void test_each_document_owns_its_own_independent_cursors_and_history () 
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/document/load_save_round_trip", test_load_save_round_trip);
+    Test.add_func ("/models/document/a_crlf_file_loads_with_plain_newlines_and_remembers_crlf", test_a_crlf_file_loads_with_plain_newlines_and_remembers_crlf);
+    Test.add_func ("/models/document/a_crlf_document_saves_with_crlf", test_a_crlf_document_saves_with_crlf);
+    Test.add_func ("/models/document/mixed_line_ends_follow_the_majority", test_mixed_line_ends_follow_the_majority);
+    Test.add_func ("/models/document/a_file_without_line_ends_is_lf", test_a_file_without_line_ends_is_lf);
+    Test.add_func ("/models/document/a_line_ending_set_by_hand_is_what_save_writes", test_a_line_ending_set_by_hand_is_what_save_writes);
+    Test.add_func ("/models/document/an_untitled_document_is_lf", test_an_untitled_document_is_lf);
     Test.add_func ("/models/document/dirty_tracking", test_dirty_tracking);
     Test.add_func ("/models/document/preview_document", test_preview_document);
     Test.add_func ("/models/document/invalid_utf8_is_unreadable", test_invalid_utf8_is_unreadable);

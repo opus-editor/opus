@@ -219,13 +219,14 @@ namespace GitDiff {
 
       try {
         tmp_dir = DirUtils.mkdtemp (Path.build_filename (HostCommand.shared_tmp_dir ("git"), "opus-diff-base-XXXXXX"));
+        // The text being tracked is a Document's, always "\n"; a CRLF base would differ on every line.
         if (bases.head_text != null) {
           head_tmp_path = Path.build_filename (tmp_dir, "head");
-          FileUtils.set_contents (head_tmp_path, bases.head_text);
+          FileUtils.set_contents (head_tmp_path, bases.head_text.replace ("\r\n", "\n"));
         }
         if (bases.index_text != null) {
           index_tmp_path = Path.build_filename (tmp_dir, "index");
-          FileUtils.set_contents (index_tmp_path, bases.index_text);
+          FileUtils.set_contents (index_tmp_path, bases.index_text.replace ("\r\n", "\n"));
         }
       } catch (Error e) {
         // clear_temp_files(), not just nulling the path fields: if the

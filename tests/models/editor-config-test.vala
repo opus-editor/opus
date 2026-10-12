@@ -108,6 +108,28 @@ indent_size = 2
     assert_cmpint (config.indent_size_for ("main.vala"), CompareOperator.EQ, 2);
 }
 
+private void test_end_of_line_resolves_lf_and_crlf () {
+    var config = EditorConfig.parse ("""
+[*]
+end_of_line = lf
+[*.bat]
+end_of_line = crlf
+""");
+
+    assert_true (config.end_of_line_for ("main.vala") == Document.LineEnding.LF);
+    assert_true (config.end_of_line_for ("run.bat") == Document.LineEnding.CRLF);
+}
+
+private void test_end_of_line_unset_or_unsupported_is_null () {
+    var config = EditorConfig.parse ("""
+[*.txt]
+end_of_line = cr
+""");
+
+    assert_true (config.end_of_line_for ("main.vala") == null);
+    assert_true (config.end_of_line_for ("notes.txt") == null);
+}
+
 private void test_indent_style_space_resolves_to_insert_spaces_true () {
     var config = EditorConfig.parse ("""
 [*]
@@ -180,6 +202,8 @@ int main (string[] args) {
     Test.add_func ("/models/editor-config/no_matching_section_is_null", test_no_matching_section_is_null);
     Test.add_func ("/models/editor-config/later_section_wins_when_both_match_the_same_path", test_later_section_wins_when_both_match_the_same_path);
     Test.add_func ("/models/editor-config/comments_and_blank_lines_are_ignored", test_comments_and_blank_lines_are_ignored);
+    Test.add_func ("/models/editor-config/end_of_line_resolves_lf_and_crlf", test_end_of_line_resolves_lf_and_crlf);
+    Test.add_func ("/models/editor-config/end_of_line_unset_or_unsupported_is_null", test_end_of_line_unset_or_unsupported_is_null);
     Test.add_func ("/models/editor-config/indent_style_space_resolves_to_insert_spaces_true", test_indent_style_space_resolves_to_insert_spaces_true);
     Test.add_func ("/models/editor-config/indent_style_tab_resolves_to_insert_spaces_false", test_indent_style_tab_resolves_to_insert_spaces_false);
     Test.add_func ("/models/editor-config/indent_style_unset_resolves_to_null", test_indent_style_unset_resolves_to_null);

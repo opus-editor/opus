@@ -398,6 +398,7 @@ namespace EditorView.EditorPane {
       var old_uri = document.uri;
       var old_pathname = document.pathname;
       // Watching the new path before the write: its own event is the one to swallow.
+      apply_end_of_line (new_path);
       file_watcher.watch (new_path);
       file_watcher.mark_own_write ();
       try {
@@ -450,6 +451,7 @@ namespace EditorView.EditorPane {
         return true;
       }
 
+      apply_end_of_line (document.pathname);
       file_watcher.mark_own_write ();
       try {
         document.save ();
@@ -613,6 +615,14 @@ namespace EditorView.EditorPane {
     }
 
     /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */
+    /** The .editorconfig's `end_of_line` for `path`, when it has one, becomes the document's — at save time, so a config loaded after the tab opened still counts. */
+    private void apply_end_of_line (string path) {
+      var line_ending = editor_config?.end_of_line_for (relative_path (path));
+      if (line_ending != null) {
+        document.line_ending = line_ending;
+      }
+    }
+
     private string relative_path (string path) {
       var prefix = root_path + "/";
       return path.has_prefix (prefix) ? path.substring (prefix.length) : path;

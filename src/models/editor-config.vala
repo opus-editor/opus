@@ -103,6 +103,15 @@ public class EditorConfig : Object {
     return int.parse (indent_size);
   }
 
+  /** "lf" or "crlf" for `relative_path`, null when no matching section sets `end_of_line` or it is something else ("cr", which nothing supports). */
+  public Document.LineEnding? end_of_line_for (string relative_path) {
+    switch (resolve_property (relative_path, "end_of_line")) {
+      case "lf": return Document.LineEnding.LF;
+      case "crlf": return Document.LineEnding.CRLF;
+      default: return null;
+    }
+  }
+
   /** "space" resolves to true, "tab" (or any other value) to false, null if no matching section sets `indent_style` at all. */
   public bool? insert_spaces_for (string relative_path) {
     string? indent_style = resolve_property (relative_path, "indent_style");

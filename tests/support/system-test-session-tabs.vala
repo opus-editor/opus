@@ -54,6 +54,11 @@ public class SystemTestTabs : Object {
     private const int64 WAIT_TIMEOUT_USEC = 5 * 1000 * 1000;
     private const uint WAIT_POLL_INTERVAL_MSEC = 50;
 
+    /** Saves `path`'s tab, as Ctrl+S would. */
+    public void save_tab (string path) throws Error {
+        call ("SaveTab", new Variant ("(s)", path));
+    }
+
     /** Closes `path`'s tab outright, no unsaved-changes prompt (matching CloseTab's own semantics — see dev-server/index.vala) — fine for a clean, just-created test document. */
     public void close_tab (string path) throws Error {
         call ("CloseTab", new Variant ("(s)", path));

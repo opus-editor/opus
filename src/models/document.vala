@@ -20,11 +20,27 @@
  * true`, no `pathname` until it's actually saved somewhere).
  */
 public class Document : Object {
+  /** How a file's lines end on disk. The buffer itself is always "\n"; this is reapplied when saving. */
+  public enum LineEnding {
+    LF,
+    CRLF;
+
+    public string text () {
+      return this == CRLF ? "\r\n" : "\n";
+    }
+  }
+
   public string uri { get; private set; }
   public string? pathname { get; private set; default = null; }
   /** This document's own short display name — a real file's basename, or a synthetic tab's plain name ("Untitled-1", "Find Results"). Set once at creation and kept in sync with `pathname`/`uri` by move_to()/save_as(); never derived from `uri` itself, which is a machine key only and never guaranteed to look presentable. */
   public string name { get; private set; }
   public string content { get; set; default = ""; }
+  /**
+   * The line ending the file is written with: what it had when loaded
+   * (CRLF when more than half its line ends were), LF for a new one,
+   * or what the folder's .editorconfig says. Never present in `content`.
+   */
+  public LineEnding line_ending { get; set; default = LineEnding.LF; }
   /**
    * The name of the language package this document was set to by
    * hand, over whatever its own name would make it — null while it
@@ -114,14 +130,35 @@ public class Document : Object {
     FileUtils.get_contents (pathname, out contents, out length);
 
     if (((string) contents).validate ((ssize_t) length)) {
-      content = contents;
-      original_content = contents;
+      line_ending = detect_line_ending (contents);
+      content = contents.replace ("\r\n", "\n");
+      original_content = content;
       readable = true;
     } else {
       content = "";
       original_content = "";
       readable = false;
     }
+  }
+
+  /** VS Code's rule (pieceTreeTextBufferBuilder): CRLF when more than half the line ends are; a lone "\r" counts as nothing. */
+  private static LineEnding detect_line_ending (string text) {
+    int lf = 0, crlf = 0;
+    for (int i = 0; i < text.length; i++) {
+      if (text[i] != '\n') {
+        continue;
+      }
+      lf++;
+      if (i > 0 && text[i - 1] == '\r') {
+        crlf++;
+      }
+    }
+    return crlf * 2 > lf ? LineEnding.CRLF : LineEnding.LF;
+  }
+
+  /** `content` as it goes to disk: the buffer's "\n" as `line_ending`. */
+  private string serialized () {
+    return line_ending == LineEnding.CRLF ? content.replace ("\n", "\r\n") : content;
   }
 
   /**
@@ -160,7 +197,7 @@ public class Document : Object {
       return;
     }
 
-    FileUtils.set_contents (pathname, content);
+    FileUtils.set_contents (pathname, serialized ());
     original_content = content;
     is_deleted = false;
     is_externally_modified = false;
@@ -172,7 +209,7 @@ public class Document : Object {
       return;
     }
 
-    FileUtils.set_contents (new_path, content);
+    FileUtils.set_contents (new_path, serialized ());
     uri = uri_for_path (new_path);
     pathname = new_path;
     name = Path.get_basename (new_path);

@@ -148,6 +148,18 @@ int main (string[] args) {
         assert (hunks[0].current_start == 1);
     });
 
+    Test.add_func ("/git-diff-document-tracker/a-crlf-base-is-compared-line-for-line-with-the-lf-text", () => {
+        var path = Path.build_filename (ROOT, "a.txt");
+        var provider = new FakeProvider (new WorkspaceContext (ROOT));
+        provider.set_bases (path, new GitDiff.Bases ("line1\r\nline2\r\nline3\r\n", null));
+
+        var tracker = new GitDiff.DocumentTracker ();
+        tracker.set_document.begin (path, "line1\nline2\nline3\n", provider);
+
+        assert (wait_for_hunks_changed (tracker));
+        assert (tracker.hunks ().length == 0);
+    });
+
     Test.add_func ("/git-diff-document-tracker/further-edits-are-debounced-and-recomputed", () => {
         var path = Path.build_filename (ROOT, "a.txt");
         var provider = new FakeProvider (new WorkspaceContext (ROOT));
