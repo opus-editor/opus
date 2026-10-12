@@ -276,6 +276,10 @@ opus_sources = files(
 # g_module_symbol) can actually resolve an embedded plugin's own
 # Embedded= entry point — see GIT_STATUS_PLUGIN_PLAN.md's own
 # "libpeas 2 is the native answer" section.
+# The bundled functions (src/functions/), read at runtime like the
+# language packages — see BuildInfo.FUNCTIONS_DIR.
+install_subdir('functions', install_dir: get_option('datadir') / 'opus')
+
 opus_exe = executable(
   'opus',
   opus_sources,

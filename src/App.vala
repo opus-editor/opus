@@ -79,6 +79,9 @@ public class App : Adw.Application {
     Syntax.Languages.instance = new Syntax.Languages (language_directories (), grammar_directories (), {}, grammar_builder ());
     Syntax.Languages.instance.watch (user_languages_directory ());
 
+    // Scanned on the Command Bar's first `|`, or "Reload functions" — not here.
+    Functions.Registry.instance = new Functions.Registry (function_directories (), (name) => Syntax.Languages.instance.by_name (name) != null);
+
     // One-way (settings -> style manager): the reverse never happens
     // through this app, since nothing here ever sets color_scheme
     // directly — every actual write goes through the theme selector's
@@ -168,6 +171,11 @@ public class App : Adw.Application {
   /** The bundled packages, then the user's own, which win a shared name. The variable points an uninstalled build (`just run`, the tests) at the source tree's packages. */
   private static string[] language_directories () {
     return { Environment.get_variable ("OPUS_LANGUAGES_DIR") ?? BuildInfo.LANGUAGES_DIR, user_languages_directory () };
+  }
+
+  /** The bundled functions, then the user's own, which win a shared id — same shape as the language directories. */
+  private static string[] function_directories () {
+    return { Environment.get_variable ("OPUS_FUNCTIONS_DIR") ?? BuildInfo.FUNCTIONS_DIR, Path.build_filename (Environment.get_user_data_dir (), "opus", "functions") };
   }
 
   private static string user_languages_directory () {

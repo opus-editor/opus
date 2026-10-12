@@ -99,6 +99,7 @@ public class MainWindow : Object {
   private const string COMMAND_SET_LANGUAGE = "set-language";
   private const string COMMAND_TOGGLE_WORD_WRAP = "toggle-word-wrap";
   private const string COMMAND_USER_SETTINGS = "user-settings";
+  private const string COMMAND_RELOAD_FUNCTIONS = "reload-functions";
 
   private CommandBar.Registry command_registry = new CommandBar.Registry ();
   private CommandBar.Router command_router;
@@ -253,8 +254,9 @@ public class MainWindow : Object {
     command_provider = new CommandBar.CommandProvider ({
       new CommandBar.Command (COMMAND_SET_LANGUAGE, _("File / Set language...")),
       new CommandBar.Command (COMMAND_TOGGLE_WORD_WRAP, _("Editor / Toggle word wrap")),
+      new CommandBar.Command (COMMAND_RELOAD_FUNCTIONS, _("Functions / Reload functions")),
       new CommandBar.Command (COMMAND_USER_SETTINGS, _("User Settings")),
-    });
+    }, Functions.Registry.instance, document_state);
     command_registry.add (command_provider);
     // Not registered: no prefix leads to it, only "Set language...".
     language_provider = new CommandBar.LanguageProvider (Syntax.Languages.instance);
@@ -804,11 +806,107 @@ public class MainWindow : Object {
   }
 
   private void on_command_accepted (string command_id) {
+    string function_id;
+    bool on_selection;
+    if (CommandBar.CommandProvider.decode_function (command_id, out function_id, out on_selection)) {
+      run_function (function_id, on_selection);
+      return;
+    }
     if (command_id == COMMAND_TOGGLE_WORD_WRAP) {
       toggle_word_wrap ();
     } else if (command_id == COMMAND_USER_SETTINGS) {
       open_settings ();
+    } else if (command_id == COMMAND_RELOAD_FUNCTIONS) {
+      Functions.Registry.instance?.reload ();
     }
+  }
+
+  /** What the `>` list's function rows are built from: the active document's language and whether anything is selected; false with no document. */
+  private bool document_state (out string? language, out bool has_selection) {
+    language = null;
+    has_selection = false;
+    var tab = editor_pane.active_document;
+    if (tab == null) {
+      return false;
+    }
+    language = editor_pane.code_editor?.language_name;
+    foreach (var cursor in tab.document.cursors.snapshot ()) {
+      has_selection = has_selection || !cursor.is_empty;
+    }
+    return true;
+  }
+
+  /** A function row picked: the function runs off the main thread over the selections or the whole text, and its edits land only if the text is still the one it saw. */
+  private void run_function (string id, bool on_selection) {
+    var function = Functions.Registry.instance?.by_id (id);
+    var tab = editor_pane.active_document;
+    var editor = editor_pane.code_editor;
+    if (function == null || tab == null || editor == null) {
+      return;
+    }
+    var input = function_input (tab, editor, on_selection);
+    if (input == null) {
+      show_failure_toast (_("%s works on a selection: select something first").printf (function.name), null);
+      return;
+    }
+    var text_seen = input.text;
+    Functions.Executor.run_async.begin (function, input, (obj, result) => {
+      try {
+        var edits = Functions.Executor.run_async.end (result);
+        if (editor_pane.active_document != tab || editor.get_text () != text_seen) {
+          show_failure_toast (_("%s was not applied: the text changed while it ran").printf (function.name), null);
+          return;
+        }
+        if (edits.length > 0) {
+          editor.apply_external_edits (edits);
+        }
+        editor.grab_focus ();
+      } catch (Functions.FunctionError e) {
+        show_failure_toast ("%s: %s".printf (function.name, e.message), null);
+      }
+    });
+  }
+
+  /** The text, cursors and segments a function gets — the non-empty selections, in order, or the whole text; null when a selection was asked for and there is none. */
+  private Functions.Input? function_input (EditorView.EditorPane.TabDocument tab, CodeEditor editor, bool wants_selection) {
+    var text = editor.get_text ();
+    LuaSandbox.Caret[] carets = {};
+    var selections = new GenericArray<LuaSandbox.Segment?> ();
+    foreach (var cursor in tab.document.cursors.snapshot ()) {
+      carets += LuaSandbox.Caret () { anchor = cursor.anchor_offset, position = cursor.position_offset };
+      if (cursor.is_empty) {
+        continue;
+      }
+      int start = int.min (cursor.anchor_offset, cursor.position_offset);
+      int end = int.min (int.max (cursor.anchor_offset, cursor.position_offset), text.char_count ());
+      int start_byte = text.index_of_nth_char (start);
+      int end_byte = text.index_of_nth_char (end);
+      selections.add (LuaSandbox.Segment () { text = text.substring (start_byte, end_byte - start_byte), start = start, end = end });
+    }
+    selections.sort ((a, b) => a.start - b.start);
+    if (wants_selection && selections.length == 0) {
+      return null;
+    }
+
+    var input = new Functions.Input () {
+      kind = wants_selection ? "selection" : "document",
+      text = text,
+      language = editor.language_name ?? "",
+      path = tab.document.pathname ?? "",
+      insert_spaces = editor.insert_spaces,
+      indent_size = editor.indent_size,
+    };
+    input.cursors = carets;
+    if (wants_selection) {
+      LuaSandbox.Segment[] segments = {};
+      for (int i = 0; i < selections.length; i++) {
+        segments += selections[i];
+      }
+      input.segments = segments;
+    } else {
+      input.segments = { LuaSandbox.Segment () { text = text, start = 0, end = text.char_count () } };
+    }
+    return input;
   }
 
   /** The languages the active tab can be set to, in place of the commands: the bar stays open, only what it lists changes. */

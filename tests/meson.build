@@ -1141,6 +1141,18 @@ test(
   depends: opus_grammar_modules,
 )
 
+# src/functions/ — every bundled function package, run through its own script.
+functions_builtins_test = executable(
+  'functions-builtins-test',
+  ['functions/builtins-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'functions-builtins',
+  functions_builtins_test,
+  env: ['OPUS_FUNCTIONS_DIR=' + meson.project_source_root() / 'src' / 'functions'],
+)
+
 smart_indent_test = executable(
   'smart-indent-test',
   ['system/editing/smart-indent-test.vala'],
@@ -1215,6 +1227,27 @@ test(
     'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
     'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+command_bar_functions_test = executable(
+  'command-bar-functions-test',
+  ['system/command-bar/functions-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'command-bar-functions',
+  command_bar_functions_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+    'OPUS_FUNCTIONS_DIR=' + meson.project_source_root() / 'tests' / 'system' / 'command-bar' / 'functions',
   ],
   depends: opus_grammar_modules,
   timeout: 60,

@@ -36,7 +36,7 @@ int main (string[] args) {
 
             opus.open_commands ();
 
-            assert_cmpstrv (opus.command_bar_items (), { "set-language", "toggle-word-wrap", "user-settings" });
+            assert_cmpstrv (opus.command_bar_items (), { "set-language", "toggle-word-wrap", "reload-functions", "user-settings" });
 
             opus.close ();
         } catch (Error e) {

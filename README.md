@@ -38,6 +38,13 @@ Highlighted out of the box:
 - **Tooling:** Bash, Dockerfile, Diff, Git commit messages, Meson, Just,
   Blueprint
 
+## Functions
+
+`Ctrl+P`, then `>`: after the commands, things to do to the text —
+change its case, reindent it — as `Selection > …` or `File > …`. Write
+your own in Lua, a folder with a manifest and a script: see
+[docs/FUNCTIONS.md](docs/FUNCTIONS.md).
+
 ## Install
 
 Opus ships as a Flatpak. With [Flatpak](https://flatpak.org/setup/)

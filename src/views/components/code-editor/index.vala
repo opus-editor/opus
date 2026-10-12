@@ -516,8 +516,22 @@ public class CodeEditor : Object {
 
   /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. Resolved by EditorView.EditorPane.TabDocument from the linked folder's .editorconfig, per file. */
   public void set_indent (int size, bool insert_spaces) {
+    indent_size = size;
+    this.insert_spaces = insert_spaces;
     text_view.set_indent_size (size);
     cursors.set_indent_config (size, insert_spaces);
+  }
+
+  /** As last given to set_indent() — what a function that rewrites indentation follows. */
+  public int indent_size { get; private set; default = 2; }
+  public bool insert_spaces { get; private set; default = true; }
+
+  /** The package name of the language the text is highlighted as, null for plain text. */
+  public string? language_name {
+    owned get {
+      var language = language_for (text_view.buffer.text);
+      return language == null ? null : language.package.name;
+    }
   }
 
   /** Renders `cursor_set` onto the real buffer's own selection/carets — pass-through to the cursors sub-component. EditorView.EditorPane.TabDocument's own SetActiveCursors (Opus.Dev.DevServer) mutates a document's own CursorCollection directly, then calls this to make it visible. */
