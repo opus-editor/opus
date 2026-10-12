@@ -66,7 +66,8 @@ public class CodeEditorSelections : Object {
     // the app's theme for the one color it paints with, no separate
     // "theme" object reaching in from outside.
     var style_manager = Adw.StyleManager.get_default ();
-    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors ());
+    // One main-loop turn later: the CSS the swatch is read from has settled by then.
+    dark_handler = style_manager.notify["dark"].connect (() => Idle.add (() => { apply_theme_colors (); return Source.REMOVE; }));
     apply_theme_colors ();
   }
 
@@ -84,15 +85,13 @@ public class CodeEditorSelections : Object {
   }
 
   private void apply_theme_colors () {
-    focused_color = SystemColor.from_accent ().transparentize (0.35f).to_rgba ();
+    focused_color = text_view.palette.selection ();
 
     // Mirrors GTK's own ratio between its default (backdrop) and
-    // :focus-within selection colors: an opaque, fully desaturated
-    // color at half the alpha of the focused one.
-    backdrop_color = SystemColor.from_accent ()
-      .desaturate ()
-      .transparentize (focused_color.alpha * 0.5f)
-      .to_rgba ();
+    // :focus-within selection colors: fully desaturated, at half the
+    // alpha of the focused one.
+    float lightness = float.max (float.max (focused_color.red, focused_color.green), focused_color.blue);
+    backdrop_color = { lightness, lightness, lightness, focused_color.alpha * 0.5f };
 
     update_color ();
   }

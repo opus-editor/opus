@@ -47,36 +47,36 @@
   margin-right: 2px;
 }
 .change-decoration-letter.git-added {
-  color: var(--git-added-color);
+  color: var(--opus-git-added);
 }
 .change-decoration-letter.git-modified {
-  color: var(--git-modified-color);
+  color: var(--opus-git-modified);
 }
 .change-decoration-letter.git-conflict {
-  color: var(--git-conflict-color);
+  color: var(--opus-git-conflict);
 }
 .change-decoration-letter.git-removed {
-  color: var(--git-removed-color);
+  color: var(--opus-git-removed);
 }
 
 /* A plain Gtk.TextView, no css-name override: renaming it to "entry"
  * to borrow Gtk.Entry's stylesheet would stack its real padding on top
  * of commit_message_view's own margins instead of replacing them, and
- * its background wouldn't carry over. --input-bg-color
- * (main-window.css) is a real entry node's own background: a
- * translucent overlay, not a flat color. Only on this node itself, not
- * its own `text` child too — both paint, so stacking the same
- * translucent value on both double-counts it. */
+ * its background wouldn't carry over. The fill is the one libadwaita
+ * gives its own entries and buttons (_buttons.scss): currentColor at
+ * 10%, a translucent overlay that follows the text color in both modes.
+ * Only on this node itself, not its own `text` child too — both paint,
+ * so stacking the same translucent value on both double-counts it. */
 .commit-message-view {
   /* Same --control-radius (common.css) every other real Gtk.Entry/
    * Gtk.Button already carries. */
   border-radius: var(--control-radius);
-  background-color: var(--input-bg-color);
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 /* HistoryPane's own read-only message: plain text on the sidebar's own
  * background, edge to edge, no input chrome — framed only by a hairline
  * above and below. Both nodes paint, so only the view itself is styled. */
 .history-message-view {
-  background-color: color-mix(in srgb, var(--input-bg-color) 50%, transparent);
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
 }

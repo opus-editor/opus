@@ -1,37 +1,14 @@
-/* The lane palette the graph cells read back through TreePanePalette —
- * eight hues, distinct enough side by side, in a light and a dark set
- * (split by the window's own class, see main-window.css: GTK's CSS has
- * no light-dark()). */
-window:not(.dark) {
-  --graph-lane-0: #1c71d8;
-  --graph-lane-1: #26a269;
-  --graph-lane-2: #e66100;
-  --graph-lane-3: #9141ac;
-  --graph-lane-4: #c01c28;
-  --graph-lane-5: #11899b;
-  --graph-lane-6: #e5a50a;
-  --graph-lane-7: #5e5c64;
-}
-window.dark {
-  --graph-lane-0: #62a0ea;
-  --graph-lane-1: #57e389;
-  --graph-lane-2: #ffa348;
-  --graph-lane-3: #dc8add;
-  --graph-lane-4: #f66151;
-  --graph-lane-5: #55c7cc;
-  --graph-lane-6: #f8e45c;
-  --graph-lane-7: #9a9996;
-}
-.graph-lane-0 { color: var(--graph-lane-0); }
-.graph-lane-1 { color: var(--graph-lane-1); }
-.graph-lane-2 { color: var(--graph-lane-2); }
-.graph-lane-3 { color: var(--graph-lane-3); }
-.graph-lane-4 { color: var(--graph-lane-4); }
-.graph-lane-5 { color: var(--graph-lane-5); }
-.graph-lane-6 { color: var(--graph-lane-6); }
-.graph-lane-7 { color: var(--graph-lane-7); }
+/* The lane palette the graph cells read back through TreePanePalette: the theme's graph.lane.N. */
+.graph-lane-0 { color: var(--opus-graph-lane-0); }
+.graph-lane-1 { color: var(--opus-graph-lane-1); }
+.graph-lane-2 { color: var(--opus-graph-lane-2); }
+.graph-lane-3 { color: var(--opus-graph-lane-3); }
+.graph-lane-4 { color: var(--opus-graph-lane-4); }
+.graph-lane-5 { color: var(--opus-graph-lane-5); }
+.graph-lane-6 { color: var(--opus-graph-lane-6); }
+.graph-lane-7 { color: var(--opus-graph-lane-7); }
 /* Read back as a color, so the swatch's `color` is the view background. */
-.graph-background { color: var(--view-bg-color); }
+.graph-background { color: var(--opus-view-background); }
 
 /* Rows butt against each other with no padding at all: the graph cell
  * draws edge to edge, and any gap would cut every lane line. libadwaita's
@@ -58,14 +35,14 @@ columnview.tree-pane > header > button {
  * same hue the graph cell draws the dot with — except a tag, always in
  * the warning yellow, since it never belongs to a lane the way a branch
  * does. Local vs remote is told by the icon, not the color. */
-.ref-pill.lane-0 { --pill-color: var(--graph-lane-0); }
-.ref-pill.lane-1 { --pill-color: var(--graph-lane-1); }
-.ref-pill.lane-2 { --pill-color: var(--graph-lane-2); }
-.ref-pill.lane-3 { --pill-color: var(--graph-lane-3); }
-.ref-pill.lane-4 { --pill-color: var(--graph-lane-4); }
-.ref-pill.lane-5 { --pill-color: var(--graph-lane-5); }
-.ref-pill.lane-6 { --pill-color: var(--graph-lane-6); }
-.ref-pill.lane-7 { --pill-color: var(--graph-lane-7); }
+.ref-pill.lane-0 { --pill-color: var(--opus-graph-lane-0); }
+.ref-pill.lane-1 { --pill-color: var(--opus-graph-lane-1); }
+.ref-pill.lane-2 { --pill-color: var(--opus-graph-lane-2); }
+.ref-pill.lane-3 { --pill-color: var(--opus-graph-lane-3); }
+.ref-pill.lane-4 { --pill-color: var(--opus-graph-lane-4); }
+.ref-pill.lane-5 { --pill-color: var(--opus-graph-lane-5); }
+.ref-pill.lane-6 { --pill-color: var(--opus-graph-lane-6); }
+.ref-pill.lane-7 { --pill-color: var(--opus-graph-lane-7); }
 .ref-pill {
   padding: 2px 6px;
   border-radius: 4px;
@@ -73,14 +50,14 @@ columnview.tree-pane > header > button {
   color: color-mix(in srgb, var(--pill-color) 25%, currentColor);
 }
 .ref-pill.tag {
-  --pill-color: var(--warning-color);
+  --pill-color: var(--opus-git-modified);
 }
 /* Text in the window's own background: dark on the light lane tones
  * of the dark set, light on the deep tones of the light set — white
  * alone washed out on the pastels. */
 .ref-pill.current {
   background-color: var(--pill-color);
-  color: var(--window-bg-color);
+  color: var(--opus-window-background);
 }
 .ref-pill.overflow {
   opacity: 0.7;
@@ -90,6 +67,6 @@ columnview.tree-pane > header > button {
 }
 
 .wip-count {
-  color: var(--git-added-color);
+  color: var(--opus-git-added);
   font-weight: bold;
 }

@@ -4,7 +4,7 @@
 .git-breadcrumb {
   min-height: 20px; /* +12 from padding */
   padding: 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--opus-window-border) 60%, transparent);
 }
 .git-breadcrumb .crumb {
   min-height: 20px;

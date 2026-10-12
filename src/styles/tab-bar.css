@@ -7,24 +7,21 @@
 }
 
 .tab-bar-fade.start {
-  background: linear-gradient(to right, var(--view-bg-color), transparent);
+  background: linear-gradient(to right, var(--opus-view-background), transparent);
 }
 
 .tab-bar-fade.end {
-  background: linear-gradient(to left, var(--view-bg-color), transparent);
+  background: linear-gradient(to left, var(--opus-view-background), transparent);
 }
 
 .tab-drag-ghost {
   border-radius: 6px;
 }
 
-.tab-drag-ghost-light {
-  background-color: #ebebeb;
+.tab-drag-ghost {
+  background-color: var(--opus-tab-drag-ghost);
 }
 
-.tab-drag-ghost-dark {
-  background-color: #333336;
-}
 
 /* The real pill being dragged — stays in place, invisible, showing just
  * its empty slot ("hole") while the ghost above follows the pointer
@@ -85,20 +82,20 @@
  * tone-accent has no git-status meaning (see explorer-pane.css's own
  * comment), so it stays its own literal mix. */
 .tab-pill label.tone-accent {
-  color: color-mix(in srgb, var(--accent-color) 75%, currentColor);
+  color: color-mix(in srgb, var(--opus-accent-text) 75%, currentColor);
 }
 .tab-pill label.git-added {
-  color: color-mix(in srgb, var(--git-added-color) 75%, currentColor);
+  color: color-mix(in srgb, var(--opus-git-added) 75%, currentColor);
 }
 .tab-pill label.git-modified {
-  color: color-mix(in srgb, var(--git-modified-color) 75%, currentColor);
+  color: color-mix(in srgb, var(--opus-git-modified) 75%, currentColor);
 }
 .tab-pill label.git-conflict {
-  color: color-mix(in srgb, var(--git-conflict-color) 75%, currentColor);
+  color: color-mix(in srgb, var(--opus-git-conflict) 75%, currentColor);
 }
 .tab-pill label.git-removed {
-  color: color-mix(in srgb, var(--git-removed-color) 75%, currentColor);
+  color: color-mix(in srgb, var(--opus-git-removed) 75%, currentColor);
 }
 .tab-pill label.git-ignored {
-  opacity: var(--dim-ignored);
+  color: var(--opus-git-ignored);
 }

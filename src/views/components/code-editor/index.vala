@@ -522,6 +522,11 @@ public class CodeEditor : Object {
     cursors.set_indent_config (size, insert_spaces);
   }
 
+  /** The theme's colors for what the view paints itself — what a sibling painting alongside (find results, a line preview) matches. */
+  public CodeEditorPalette palette {
+    get { return text_view.palette; }
+  }
+
   /** As last given to set_indent() — what a function that rewrites indentation follows. */
   public int indent_size { get; private set; default = 2; }
   public bool insert_spaces { get; private set; default = true; }

@@ -160,7 +160,7 @@ private class ResponseAreaLayout : Gtk.LayoutManager {
  * Not a Gtk.Widget subclass itself (nothing to instantiate and keep
  * around — every method builds, shows, and discards its own Adw.Dialog),
  * so this belongs in views/lib/ rather than views/components/, same
- * reasoning as SystemColor.
+ * reasoning as GlobalCss.
  */
 public class Dialogs : Object {
   // Past Adw.AlertDialog's own natural-width cap (372sp) for a

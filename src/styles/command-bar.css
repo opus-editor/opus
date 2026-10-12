@@ -41,7 +41,7 @@ popover.command-bar-results > contents {
 .command-bar-caption {
   padding: 6px 10px 2px;
   margin-bottom: 2px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--opus-window-border) 60%, transparent);
 }
 
 .command-bar-empty {

@@ -36,13 +36,13 @@ textview.code-editor > text > selection {
  * combo — it's the gutter's own per-hunk runtime data, nothing else
  * needs it. */
 .change-gutter.git-added {
-  color: color-mix(in srgb, var(--git-added-color) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-added) 50%, transparent);
 }
 .change-gutter.git-modified {
-  color: color-mix(in srgb, var(--git-modified-color) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-modified) 50%, transparent);
 }
 .change-gutter.git-removed {
-  color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-removed) 50%, transparent);
 }
 
 /* CodeEditorDiffGutter's own columns and row tints (CodeEditor.show_diff()).
@@ -54,18 +54,18 @@ textview.code-editor > text > selection {
   opacity: 0.75;
 }
 .diff-gutter.git-added {
-  color: var(--git-added-color);
+  color: var(--opus-git-added);
   opacity: 1;
 }
 .diff-gutter.git-removed {
-  color: var(--git-removed-color);
+  color: var(--opus-git-removed);
   opacity: 1;
 }
 .diff-added-line {
-  color: color-mix(in srgb, var(--git-added-color) 18%, transparent);
+  color: var(--opus-diff-added-background);
 }
 .diff-removed-line {
-  color: color-mix(in srgb, var(--git-removed-color) 18%, transparent);
+  color: var(--opus-diff-removed-background);
 }
 
 /* CodeEditorConflicts' own tints, read off zero-sized swatch overlays the
@@ -73,19 +73,20 @@ textview.code-editor > text > selection {
  * incoming side in the added green, the diff3 base neutral; the
  * `<<<<<<<`/`>>>>>>>` lines take their block's tone, stronger. */
 .conflict-current-line {
-  color: color-mix(in srgb, var(--accent-bg-color) 18%, transparent);
+  color: var(--opus-merge-current-content-background);
 }
 .conflict-incoming-line {
-  color: color-mix(in srgb, var(--git-added-color) 18%, transparent);
+  color: var(--opus-merge-incoming-content-background);
 }
+/* The common ancestor (diff3): halfway between the two sides. */
 .conflict-base-line {
-  color: color-mix(in srgb, currentColor 10%, transparent);
+  color: color-mix(in srgb, var(--opus-merge-current-content-background) 50%, var(--opus-merge-incoming-content-background));
 }
 .conflict-current-marker {
-  color: color-mix(in srgb, var(--accent-bg-color) 40%, transparent);
+  color: var(--opus-merge-current-header-background);
 }
 .conflict-incoming-marker {
-  color: color-mix(in srgb, var(--git-added-color) 40%, transparent);
+  color: var(--opus-merge-incoming-header-background);
 }
 /* CodeEditorConflicts' floating toolbar at the bottom of the editor —
  * a rounded, shadowed pill over the text, Figma-style, with the three
@@ -93,11 +94,19 @@ textview.code-editor > text > selection {
 .conflict-toolbar {
   padding: 6px;
   border-radius: 12px;
-  background-color: var(--popover-bg-color);
-  color: var(--popover-fg-color);
-  box-shadow: 0 2px 12px rgb(0 0 6 / 30%), 0 0 0 1px color-mix(in srgb, var(--border-color) 60%, transparent);
+  background-color: var(--opus-popover-background);
+  color: var(--opus-popover-foreground);
+  box-shadow: 0 2px 12px rgb(0 0 6 / 30%), 0 0 0 1px color-mix(in srgb, var(--opus-window-border) 60%, transparent);
 }
 /* libadwaita bolds every button label by default; these read as plain actions. */
 .conflict-toolbar button label {
   font-weight: normal;
 }
+
+/* CodeEditorPalette's swatches: what the view paints itself, from the theme. */
+.editor-cursor { color: var(--opus-editor-cursor); }
+.editor-selection { color: var(--opus-editor-selection); }
+.editor-indent-guide { color: var(--opus-editor-indent-guide); }
+.editor-indent-guide-active { color: var(--opus-editor-indent-guide-active); }
+.editor-search-match { color: var(--opus-editor-search-match); }
+.editor-search-current { color: var(--opus-editor-search-current); }

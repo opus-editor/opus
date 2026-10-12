@@ -87,13 +87,13 @@
   padding: 2px 8px;
 }
 
-/* The system's own real focus color, not plain var(--accent-color) —
+/* The system's own real focus color, not plain var(--opus-accent-text) —
  * checked libadwaita's actual _drawing.scss/_colors.scss: every native
  * focus-ring() is $focus_border_color, defined as accent at 50% opacity
- * (color-mix(in srgb, var(--accent-color) 50%, transparent)), not the
+ * (color-mix(in srgb, var(--opus-accent-text) 50%, transparent)), not the
  * full-strength accent. */
 .outline-input:focus-within {
-  border-color: color-mix(in srgb, var(--accent-color) 50%, transparent);
+  border-color: color-mix(in srgb, var(--opus-accent-text) 50%, transparent);
 }
 
 /* A muted fill on top of the plain border, so a disabled field reads as
@@ -138,50 +138,12 @@
   opacity: 0.85;
 }
 
-/* Shared git-status color vocabulary — pure hue only, no surface's own
- * mixing formula baked in. Every surface that shows git status (the
- * explorer dot in explorer-pane.css, the tab label tint in tab-bar.css,
- * the editor gutter in code-editor.css) applies its OWN color-mix
- * recipe on top of these same four tokens instead of each hardcoding
- * --success-color/--warning-color/--error-color directly — a future
- * theming feature only ever has to touch these four lines to restyle
- * git status everywhere at once. Kept as tokens, not full `.git-*`
- * rules, precisely because the mixing formula genuinely differs by
- * surface (a flat background mixes toward transparent; text mixes
- * toward currentColor instead) — one shared rule couldn't serve both
- * without being wrong for one of them.
- *
- * --git-conflict-color has no libadwaita platform color to reach for at
- * all (none of them is orange), so it's derived by mixing
- * --warning-color and --error-color first (color-mix() confirmed to
- * nest cleanly — unlike light-dark(), see docs/DECISIONS.md). */
-:root {
-  --git-added-color: var(--success-color);
-  --git-modified-color: var(--warning-color);
-  --git-conflict-color: color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%);
-  --git-removed-color: var(--error-color);
-}
 
-/* How far a git-ignored name fades (explorer row, tab label). Tuned by
- * eye so an explorer name lands at 40% (dark) and 47.5% (light) once
- * multiplied by the row label's own 0.75 opacity (_tree-row.blp).
- * Split by the window's own class, not :root: GTK's CSS parser has no
- * light-dark() (see main-window.css). */
-window.dark {
-  --dim-ignored: 0.533;
-}
-window:not(.dark) {
-  --dim-ignored: 0.633;
-}
 
 /* The editor's plain text — whatever no syntax style paints. Set here
  * rather than left to the GtkSourceView scheme, whose own text color
  * this outranks. On the view itself: a color on its `text` node is
- * ignored. Split by the window's class for the same reason as
- * --dim-ignored above. */
-window:not(.dark) textview.code-editor {
-  color: #212121;
-}
-window.dark textview.code-editor {
-  color: #cccccc;
+ * ignored. */
+textview.code-editor {
+  color: var(--opus-editor-foreground);
 }

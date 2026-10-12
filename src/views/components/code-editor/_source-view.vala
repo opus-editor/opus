@@ -56,8 +56,6 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   // of lines taller than this just loses its guide past the edge,
   // same as IndentGuides already treats the real top/bottom of a file.
   private const int INDENT_GUIDE_CONTEXT_LINES = 300;
-  private const float INDENT_GUIDE_ALPHA = 0.075f;
-  private const float ACTIVE_INDENT_GUIDE_ALPHA = 0.15f;
 
   // How many characters to measure at once for the per-character
   // guide width (see draw_indent_guides()) — long enough that
@@ -92,7 +90,11 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
    * render itself — it never imports Gtk, so it has no notion of focus
    * at all, and the cursor state it computes is correct regardless.
    */
+  /** The theme's colors for what this view paints itself. */
+  public CodeEditorPalette palette { get; private set; }
+
   public CodeEditorSourceView () {
+    palette = new CodeEditorPalette (this);
     selections = new CodeEditorSelections (this);
 
     notify["has-focus"].connect (() => {
@@ -476,12 +478,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
       return;
     }
 
-    // Read the theme's resolved foreground color fresh on every
-    // paint rather than caching it from a theme-change callback —
-    // CSS re-cascading on a light/dark switch isn't guaranteed to
-    // have already settled by the time such a callback runs, but it
-    // always has by the time an actual draw happens.
-    var color = get_color ();
+    var color = palette.cursor ();
 
     foreach (var offset in caret_offsets) {
       Gtk.TextIter iter;
@@ -826,10 +823,8 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     layout.get_pixel_size (out sample_width, out sample_height);
     float char_width = sample_width / (float) CHAR_WIDTH_SAMPLE_LENGTH;
 
-    var guide_color = get_color ();
-    guide_color.alpha = INDENT_GUIDE_ALPHA;
-    var active_color = get_color ();
-    active_color.alpha = ACTIVE_INDENT_GUIDE_ALPHA;
+    var guide_color = palette.indent_guide ();
+    var active_color = palette.indent_guide_active ();
 
     var levels = guides.levels_for_lines (visible_first_line - window_start_line, visible_last_line - window_start_line);
 

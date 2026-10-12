@@ -28,8 +28,9 @@ public class CodeEditorLinePreview : Object {
     text_view.buffer.tag_table.add (tag);
 
     var style_manager = Adw.StyleManager.get_default ();
-    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
-    apply_theme_colors (style_manager.dark);
+    // One main-loop turn later: the CSS the swatch is read from has settled by then.
+    dark_handler = style_manager.notify["dark"].connect (() => Idle.add (() => { apply_theme_colors (); return Source.REMOVE; }));
+    apply_theme_colors ();
   }
 
   private ulong dark_handler;
@@ -39,9 +40,10 @@ public class CodeEditorLinePreview : Object {
     Adw.StyleManager.get_default ().disconnect (dark_handler);
   }
 
-  private void apply_theme_colors (bool dark) {
-    var background = SystemColor.from_accent ().desaturate (dark ? 0.10f : 0.05f).to_rgba ();
-    background.alpha = 0.25f;
+  private void apply_theme_colors () {
+    // Find's own match tint, a touch lighter: a preview, not a hit.
+    var background = text_view.palette.search_match ();
+    background.alpha *= 0.85f;
     // The paragraph's background, not the text's: it reaches both edges of the view however short the line is.
     tag.paragraph_background_rgba = background;
   }

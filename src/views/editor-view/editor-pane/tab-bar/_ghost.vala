@@ -36,7 +36,6 @@ namespace EditorView.EditorPane {
       // picked once here instead, matching whatever's current when the
       // drag starts (a drag is too short-lived for a live theme switch
       // mid-drag to matter).
-      pill.widget.add_css_class (Adw.StyleManager.get_default ().dark ? "tab-drag-ghost-dark" : "tab-drag-ghost-light");
     }
   }
 }
