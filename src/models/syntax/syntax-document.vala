@@ -190,7 +190,7 @@ namespace Syntax {
         return 0;
       }
       NodeTextFunc line_text = (node) => line.substring (node.start_byte (), node.end_byte () - node.start_byte ());
-      return SyntaxIndents.new_line_change (layer_language, tree, line, line_text, (uint32) line.length - 1);
+      return SyntaxIndents.new_line_change (layer_language, tree, line, line_text, (uint32) line.length - 1, true);
     }
 
     /**
@@ -204,6 +204,55 @@ namespace Syntax {
       uint32 position = byte_of (char_offset);
       var layer = indenting_layer_at (position);
       return layer != null && SyntaxIndents.outdent_change (layer.language, layer.tree, text, node_text, position, byte_of (reference_offset), out levels);
+    }
+
+    /**
+     * {@link outdent_change} for a line as it already stands: the token
+     * at character `char_offset` — the line's first non-blank — is
+     * taken whole, as if it had just been typed. What Reindent asks.
+     */
+    public bool outdent_change_at (int char_offset, int reference_offset, out int levels) {
+      levels = 0;
+      uint32 position = byte_of (char_offset);
+      // A token starting where an embedded language ends (the `</script>`
+      // after a script's text) is the host's, not the embedded one's.
+      var layer = indenting_layer_at (position, false);
+      if (layer == null) {
+        return false;
+      }
+      uint32 token_end = layer.tree.root_node ().descendant_for_byte_range (position, position).end_byte ();
+      return SyntaxIndents.outdent_change (layer.language, layer.tree, text, node_text, token_end, byte_of (reference_offset), out levels);
+    }
+
+    /**
+     * The 1-based line of the first place the text's own language
+     * couldn't parse — an error node, or something missing — or 0
+     * when the whole text parsed. Only the text's own language: an
+     * embedded one is its own matter.
+     */
+    public int syntax_error_line () {
+      if (halted || layers.length == 0) {
+        return 0;
+      }
+      var node = layers[0].tree.root_node ();
+      if (!node.has_error ()) {
+        return 0;
+      }
+      while (!node.is_missing () && node.type () != "ERROR") {
+        TreeSitter.Node? next = null;
+        for (uint32 i = 0; i < node.child_count (); i++) {
+          var child = node.child (i);
+          if (child.has_error ()) {
+            next = child;
+            break;
+          }
+        }
+        if (next == null) {
+          break;
+        }
+        node = next;
+      }
+      return (int) node.start_point ().row + 1;
     }
 
     /** Whether the text's language can list symbols at all — false tells "no symbols here" from "no way to know". */
@@ -228,33 +277,40 @@ namespace Syntax {
     }
 
     /** The innermost layer covering `position` that knows how to indent — the script inside the page, not the page. Null when none does, or while a parse is halted. */
-    private Layer? indenting_layer_at (uint32 position) {
+    /**
+     * The very start of an embedded range is the host's — a break right
+     * after `<style>` is the page opening a block, not the style sheet.
+     * `at_end_too`: a position right at the end of the range still
+     * counts as inside it, where a cursor typing at the end of a
+     * script's text is.
+     */
+    private Layer? indenting_layer_at (uint32 position, bool at_end_too = true) {
       if (halted) {
         return null;
       }
       Layer? innermost = null;
       foreach (var layer in layers) {
-        innermost = deeper_of (innermost, layer, position);
+        innermost = deeper_of (innermost, layer, position, at_end_too);
       }
       foreach (var layer in on_demand.get_values ()) {
-        innermost = deeper_of (innermost, layer, position);
+        innermost = deeper_of (innermost, layer, position, at_end_too);
       }
       return innermost;
     }
 
-    private static Layer? deeper_of (Layer? current, Layer candidate, uint32 position) {
-      if (candidate.language.indents == null || !covers (candidate, position)) {
+    private static Layer? deeper_of (Layer? current, Layer candidate, uint32 position, bool at_end_too) {
+      if (candidate.language.indents == null || !covers (candidate, position, at_end_too)) {
         return current;
       }
       return current == null || candidate.depth > current.depth ? candidate : current;
     }
 
-    private static bool covers (Layer layer, uint32 position) {
+    private static bool covers (Layer layer, uint32 position, bool at_end_too) {
       if (layer.ranges.length == 0) {
         return true;
       }
       foreach (var range in layer.ranges) {
-        if (range.start_byte <= position && position <= range.end_byte) {
+        if (range.start_byte < position && (position < range.end_byte || (at_end_too && position == range.end_byte))) {
           return true;
         }
       }

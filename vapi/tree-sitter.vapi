@@ -106,6 +106,8 @@ namespace TreeSitter {
     /** A token the grammar required and the text doesn't have, put in by the parser to recover: the `end` nobody typed yet. */
     [CCode (cname = "ts_node_is_missing")]
     public bool is_missing ();
+    [CCode (cname = "ts_node_has_error")]
+    public bool has_error ();
 
     /** The smallest node that spans the given bytes. */
     [CCode (cname = "ts_node_descendant_for_byte_range")]

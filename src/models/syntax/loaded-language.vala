@@ -60,6 +60,11 @@ namespace Syntax {
     // Indexed by the tags query's capture ids: for `@definition.<kind>`, the kind.
     internal string?[] tag_kinds;
 
+    /** Whether the package says where lines go: without an indents query, Enter only carries indentation on. */
+    public bool indents_lines {
+      get { return indents != null; }
+    }
+
     private LoadedLanguage () {}
 
     /** Fails when `package` can't highlight: no grammar, no `highlights` query, or a query that doesn't compile. */

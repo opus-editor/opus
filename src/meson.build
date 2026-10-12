@@ -56,6 +56,12 @@ opus_model_sources = files(
   'models/git-tree/stash.vala',
   'models/git-tree/commit-files.vala',
   'models/git-branch/i-provider.vala',
+  'models/functions/manifest.vala',
+  'models/functions/function.vala',
+  'models/functions/lua-runner.vala',
+  'models/functions/registry.vala',
+  'models/functions/executor.vala',
+  'models/functions/native/reindent.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
   'models/git-diff/i-base-provider.vala',
@@ -122,6 +128,9 @@ opus_logger_sources = files('lib/logger.vala')
 # opus_lib_sources.
 opus_host_command_sources = files('lib/host-command.vala')
 
+# The Lua state the functions (src/models/functions/) run scripts in — GLib only, like the two above.
+opus_lua_sandbox_sources = files('lib/lua-sandbox.vala')
+
 # The Command Bar's generic fuzzy-finding engine (see src/lib/AGENTS.md):
 # GLib/Gio only — no Gtk,
 # no Logger, nothing from models/. Its own variable for the same reason
@@ -144,8 +153,8 @@ opus_fuzzy_finder_sources = files(
 # along for the same reason they always did: models call them, and
 # none needs Gtk. Declared here, before subdir('plugins'), because the
 # git-status plugin's own tests link it too.
-opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources
-opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep, gmodule_dep, tree_sitter_dep]
+opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources + opus_lua_sandbox_sources
+opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep, gmodule_dep, tree_sitter_dep, lua_dep]
 opus_model_test_lib = static_library(
   'opus-model-test',
   opus_model_test_sources,
@@ -251,6 +260,7 @@ opus_gtk_view_sources = files(
 # CursorController into CodeEditorCursors).
 
 opus_sources = files(
+  'lib/lua-sandbox.vala',
   'main.vala',
   'App.vala',
   'build-info.vala',
@@ -270,7 +280,7 @@ opus_exe = executable(
   'opus',
   opus_sources,
   opus_resources,
-  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep, peas_dep, gmodule_dep, tree_sitter_dep],
+  dependencies: [glib_dep, gobject_dep, gio_dep, gtk_dep, adwaita_dep, sourceview_dep, json_glib_dep, peas_dep, gmodule_dep, tree_sitter_dep, lua_dep],
   export_dynamic: true,
   install: true,
 )

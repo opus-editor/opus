@@ -10,6 +10,10 @@ infrastructure, independent of Opus's own domain concepts.
   A plain process concept, nothing Opus-specific about it.
 - `dev-server/` (`Opus.Dev.DevServer`/`IDevServer`) — the debug-only D-Bus control
   surface (see its own doc comment). Dev tooling, not editor logic.
+- `lua-sandbox.vala` (`LuaSandbox`) — a Lua 5.4 state to run a transform
+  script in: standard libraries minus everything that reaches outside the
+  process, an `opus` table of Unicode-aware string helpers, an instruction
+  limit. Strings and offsets in, strings out; nothing of Opus's own.
 - `host-command.vala` (`HostCommand`) — the argv for a command that must
   run with the user's own tools: untouched natively, routed through
   `flatpak-spawn --host` inside a Flatpak sandbox (see its own doc

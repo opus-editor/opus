@@ -1111,6 +1111,36 @@ host_command_test = executable(
 )
 test('host-command', host_command_test)
 
+lua_sandbox_test = executable(
+  'lua-sandbox-test',
+  ['lib/lua-sandbox-test.vala', opus_lua_sandbox_sources],
+  dependencies: [glib_dep, gobject_dep, gio_dep, lua_dep],
+)
+test('lua-sandbox', lua_sandbox_test)
+
+# src/models/functions/ — the manifest, the registry and the executor
+# are plain; Reindent runs over the bundled languages' real grammars.
+foreach name : ['manifest', 'registry', 'executor']
+  functions_test = executable(
+    'functions-' + name + '-test',
+    ['models/functions' / name + '-test.vala'],
+    dependencies: [opus_model_test_dep],
+  )
+  test('functions-' + name, functions_test)
+endforeach
+
+functions_reindent_test = executable(
+  'functions-reindent-test',
+  ['models/functions/reindent-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'functions-reindent',
+  functions_reindent_test,
+  env: opus_syntax_test_env,
+  depends: opus_grammar_modules,
+)
+
 smart_indent_test = executable(
   'smart-indent-test',
   ['system/editing/smart-indent-test.vala'],
