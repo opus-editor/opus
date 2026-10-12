@@ -121,6 +121,7 @@ public class MainWindow : Object {
   // leaves GTK to pick its own fallback (the view switcher button).
   private Gtk.Widget? focus_before_command_bar = null;
   private Opus.Plugins.WorkspaceExtensions? command_providers = null;
+  private Opus.Plugins.WorkspaceExtensions? command_sources = null;
 
   // The Find menu's own three items — kept live via update_find_menu(),
   // same push-on-change pattern as the primary menu's Save/Save as…
@@ -493,6 +494,12 @@ public class MainWindow : Object {
     command_providers = new Opus.Plugins.WorkspaceExtensions (typeof (CommandBar.IProvider), new_workspace_context);
     command_providers.added.connect ((e) => command_registry.add ((CommandBar.IProvider) e));
     command_providers.removed.connect ((e) => command_registry.remove ((CommandBar.IProvider) e));
+    command_sources = new Opus.Plugins.WorkspaceExtensions (typeof (CommandBar.ICommandSource), new_workspace_context);
+    command_sources.added.connect ((e) => add_command_source ((CommandBar.ICommandSource) e));
+    command_sources.removed.connect ((e) => remove_command_source ((CommandBar.ICommandSource) e));
+    foreach (var e in command_sources.current ()) {
+      add_command_source ((CommandBar.ICommandSource) e);
+    }
 
     if (explorer_pane != null) {
       explorer_pane.close ();
@@ -574,6 +581,10 @@ public class MainWindow : Object {
       command_providers.close ();
     }
     command_providers = null;
+    if (command_sources != null) {
+      command_sources.close ();
+    }
+    command_sources = null;
     if (file_provider != null) {
       command_registry.remove (file_provider);
       file_provider.deactivate ();
@@ -822,11 +833,38 @@ public class MainWindow : Object {
     editor_pane.code_editor?.preview_line (line);
   }
 
+  /** A plugin's commands in the `>` list; a file one asks to show opens as a permanent tab. */
+  private void add_command_source (CommandBar.ICommandSource source) {
+    command_provider.add_source (source);
+    source.open_file_requested.connect (open_requested_file);
+  }
+
+  private void remove_command_source (CommandBar.ICommandSource source) {
+    source.open_file_requested.disconnect (open_requested_file);
+    command_provider.remove_source (source);
+  }
+
+  private void open_requested_file (string path) {
+    try {
+      editor_pane.open (path, true);
+    } catch (Error e) {
+      show_failure_toast (_("Couldn’t open %s: %s").printf (Path.get_basename (path), e.message), null);
+    }
+  }
+
   private void on_command_accepted (string command_id) {
     string function_id;
     bool on_selection;
     if (CommandBar.CommandProvider.decode_function (command_id, out function_id, out on_selection)) {
       run_function (function_id, on_selection);
+      return;
+    }
+    try {
+      if (command_provider.run_from_source (command_id)) {
+        return;
+      }
+    } catch (Error e) {
+      show_failure_toast (e.message, null);
       return;
     }
     if (command_id == COMMAND_TOGGLE_WORD_WRAP) {

@@ -23,11 +23,13 @@ private void test_without_a_provider_every_field_is_null () {
 
 private void test_a_providers_fields_come_through () {
     var registry = new FileSettings.Registry ();
-    registry.add_provider (new Fixed (new FileSettings.Values () { indent_size = 2, line_ending = Document.LineEnding.CRLF, charset = Document.Charset.LATIN1 }));
+    registry.add_provider (new Fixed (new FileSettings.Values () { indent_size = 2, tab_width = 8, line_ending = Document.LineEnding.CRLF, charset = Document.Charset.LATIN1, max_line_length = 100 }));
 
     var values = registry.settings_for ("/r/a.txt");
 
     assert_true (values.indent_size == 2);
+    assert_true (values.tab_width == 8);
+    assert_true (values.max_line_length == 100);
     assert_true (values.line_ending == Document.LineEnding.CRLF);
     assert_true (values.charset == Document.Charset.LATIN1);
     assert_true (values.insert_spaces == null);

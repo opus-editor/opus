@@ -1,3 +1,21 @@
+private class FakeSource : Object, IWorkspaceExtension, CommandBar.ICommandSource {
+    public WorkspaceContext context { get; set; }
+    public string? ran = null;
+    public bool fails = false;
+    public void activate () {}
+    public void deactivate () {}
+    public string name { owned get { return "Fake"; } }
+    public CommandBar.Command[] commands () {
+        return { new CommandBar.Command ("one", "Do one"), new CommandBar.Command ("two", "Do two") };
+    }
+    public void run (string id) throws Error {
+        if (fails) {
+            throw new IOError.FAILED ("boom");
+        }
+        ran = id;
+    }
+}
+
 private class Scenario {
     public CommandBar.CommandProvider provider;
     public CommandBar.Picker picker;
@@ -82,6 +100,74 @@ int main (string[] args) {
         assert_cmpstrv (scenario.open (), { "user-settings", "function:selection:shout", "function:selection:trim", "function:selection:trim-trailing-whitespace", "function:document:reindent", "function:document:shout", "function:document:trim-trailing-whitespace" });
         assert_cmpstr (scenario.picker.items[1].label, CompareOperator.EQ, "Selection > Shout");
         assert_cmpstr (scenario.picker.items[5].label, CompareOperator.EQ, "File > Shout");
+    });
+
+    Test.add_func ("/command-bar/command-provider/a-sources-commands-follow-the-apps-own-under-its-name", () => {
+        var provider = new CommandBar.CommandProvider ({ new CommandBar.Command ("user-settings", "User Settings") });
+        provider.add_source (new FakeSource ());
+        var picker = new CommandBar.Picker (provider.prefix);
+
+        provider.provide (picker, new Cancellable ());
+
+        assert_cmpint ((int) picker.items.length, CompareOperator.EQ, 3);
+        assert_cmpstr (picker.items[1].id, CompareOperator.EQ, "source:0:one");
+        assert_cmpstr (picker.items[1].label, CompareOperator.EQ, "Fake / Do one");
+        assert_cmpstr (picker.items[2].label, CompareOperator.EQ, "Fake / Do two");
+    });
+
+    Test.add_func ("/command-bar/command-provider/a-sources-row-accepted-runs-at-that-source", () => {
+        var provider = new CommandBar.CommandProvider ({});
+        var source = new FakeSource ();
+        provider.add_source (source);
+
+        bool handled = false;
+        try {
+            handled = provider.run_from_source ("source:0:two");
+        } catch (Error e) {
+            assert_not_reached ();
+        }
+
+        assert_true (handled);
+        assert_cmpstr (source.ran, CompareOperator.EQ, "two");
+    });
+
+    Test.add_func ("/command-bar/command-provider/an-apps-own-id-is-not-a-sources", () => {
+        var provider = new CommandBar.CommandProvider ({});
+        provider.add_source (new FakeSource ());
+
+        try {
+            assert_false (provider.run_from_source ("user-settings"));
+            assert_false (provider.run_from_source ("source:9:one"));
+        } catch (Error e) {
+            assert_not_reached ();
+        }
+    });
+
+    Test.add_func ("/command-bar/command-provider/a-sources-failure-reaches-the-caller", () => {
+        var provider = new CommandBar.CommandProvider ({});
+        var source = new FakeSource () { fails = true };
+        provider.add_source (source);
+
+        string? failure = null;
+        try {
+            provider.run_from_source ("source:0:one");
+        } catch (Error e) {
+            failure = e.message;
+        }
+
+        assert_cmpstr (failure, CompareOperator.EQ, "boom");
+    });
+
+    Test.add_func ("/command-bar/command-provider/a-removed-source-is-not-listed", () => {
+        var provider = new CommandBar.CommandProvider ({});
+        var source = new FakeSource ();
+        provider.add_source (source);
+        provider.remove_source (source);
+        var picker = new CommandBar.Picker (provider.prefix);
+
+        provider.provide (picker, new Cancellable ());
+
+        assert_cmpint ((int) picker.items.length, CompareOperator.EQ, 0);
     });
 
     Test.add_func ("/command-bar/command-provider/without-a-document-only-the-commands-show", () => {

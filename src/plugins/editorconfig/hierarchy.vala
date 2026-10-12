@@ -71,6 +71,12 @@ namespace Opus.Plugins.EditorConfig {
       return value == null ? null : (int?) int.parse (value);
     }
 
+    /** `tab_width`, else a numeric `indent_size` (the spec's own default for it) — null without either. */
+    public int? tab_width () {
+      var value = properties["tab_width"] ?? properties["indent_size"];
+      return value == null || value == "tab" ? null : (int?) int.parse (value);
+    }
+
     /** `indent_style`: "space" is true, "tab" (or anything else set) false. */
     public bool? insert_spaces () {
       var value = properties["indent_style"];
@@ -90,6 +96,16 @@ namespace Opus.Plugins.EditorConfig {
     public Document.Charset? charset () {
       var value = properties["charset"];
       return value == null ? null : Document.Charset.parse (value);
+    }
+
+    /** `max_line_length` as a number of columns; `off`, or anything that isn't a number, is null. */
+    public int? max_line_length () {
+      var value = properties["max_line_length"];
+      if (value == null) {
+        return null;
+      }
+      int columns = int.parse (value);
+      return columns > 0 ? (int?) columns : null;
     }
 
     public bool? trim_trailing_whitespace () {

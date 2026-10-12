@@ -36,11 +36,13 @@ namespace Opus.Plugins.EditorConfig {
       var resolved = Hierarchy.for_file (path, cached).resolve (path);
       var values = new FileSettings.Values ();
       values.indent_size = resolved.indent_size ();
+      values.tab_width = resolved.tab_width ();
       values.insert_spaces = resolved.insert_spaces ();
       values.line_ending = resolved.end_of_line ();
       values.trim_trailing_whitespace = resolved.trim_trailing_whitespace ();
       values.insert_final_newline = resolved.insert_final_newline ();
       values.charset = resolved.charset ();
+      values.max_line_length = resolved.max_line_length ();
       return values;
     }
 

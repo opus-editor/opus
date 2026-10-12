@@ -261,5 +261,25 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/system/commands/a_plugins_command_generates_the_editorconfig_and_opens_it", () => {
+        try {
+            var folder = DirUtils.make_tmp ("opus-commands-test-XXXXXX");
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY, folder);
+            opus.open_commands ();
+            opus.command_bar_type (">generate .editorconfig");
+
+            opus.command_bar_accept ();
+
+            var path = Path.build_filename (folder, ".editorconfig");
+            opus.wait_for_active_tab (path);
+            string written;
+            FileUtils.get_contents (path, out written);
+            assert_true (written.has_prefix ("root = true\n"));
+            opus.close ();
+        } catch (Error e) {
+            error ("unexpected error: %s", e.message);
+        }
+    });
+
     return Test.run ();
 }

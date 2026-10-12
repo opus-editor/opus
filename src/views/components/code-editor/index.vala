@@ -393,9 +393,25 @@ public class CodeEditor : Object {
     apply_word_wrap ();
   }
 
-  /** Synchronous, so a tab never paints a frame in the wrong mode: set_text() and set_language_override() run it before the main loop gets to draw. */
+  /** Synchronous, so a tab never paints a frame in the wrong mode: set_text() and set_language_override() run it before the main loop gets to draw. The rulers go with it: the same per-language lookup. */
   private void apply_word_wrap () {
     text_view.wrap_mode = word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
+    text_view.set_rulers (rulers ());
+  }
+
+  private int max_line_length = 0;
+
+  /** The project's `max_line_length` for this file from its .editorconfig, 0 with none — the ruler when `editorconfig.max_line_length` is on. */
+  public void set_max_line_length (int columns) {
+    max_line_length = columns;
+    apply_word_wrap ();
+  }
+
+  private int[] rulers () {
+    if (max_line_length > 0 && settings.editorconfig_max_line_length_for (language_name)) {
+      return { max_line_length };
+    }
+    return settings.rulers_for (language_name);
   }
 
   private bool has_word_wrap_override = false;
@@ -537,10 +553,12 @@ public class CodeEditor : Object {
   }
 
   /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. Resolved by EditorView.EditorPane.TabDocument from the linked folder's .editorconfig, per file. */
-  public void set_indent (int size, bool insert_spaces) {
+  /** `tab_width` is how wide a literal tab renders, the indent size unless the folder says otherwise. */
+  public void set_indent (int size, bool insert_spaces, int tab_width = -1) {
     indent_size = size;
     this.insert_spaces = insert_spaces;
     text_view.set_indent_size (size);
+    text_view.tab_width = (uint) (tab_width > 0 ? tab_width : size);
     cursors.set_indent_config (size, insert_spaces);
   }
 

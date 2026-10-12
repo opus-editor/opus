@@ -76,6 +76,14 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   private int indent_size = 4; // matches EditorView.EditorPane.TabDocument.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
   private CodeEditorSelections selections;
 
+  /** The columns to draw a ruler at, ascending; the first one's margin is tinted to the right edge. */
+  private int[] rulers = {};
+
+  public void set_rulers (int[] columns) {
+    rulers = columns;
+    queue_draw ();
+  }
+
   /** Whether draw_indent_guides() runs at all — off for content whose leading whitespace isn't indentation (Find Results' own "  N: " line prefixes). */
   public bool show_indent_guides { get; set; default = true; }
 
@@ -303,16 +311,14 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   }
 
   /**
-   * Columns per indent level, resolved by EditorController from the
-   * linked folder's .editorconfig, per file — drives both the
-   * indent guides' own spacing and, via `tab_width`, how wide a
-   * literal `\t` character actually renders (`indent_width` is left
-   * at its own default of -1, GtkSource.View's own "follow
-   * tab_width" value, rather than set separately here).
+   * Columns per indent level, per file from the folder's settings —
+   * the indent guides' own spacing. How wide a literal `\t` renders is
+   * `tab_width`, GtkSource.View's own property, which CodeEditor sets
+   * apart: .editorconfig's `tab_width` can differ from `indent_size`.
+   * `indent_width` stays at -1, "follow tab_width".
    */
   public void set_indent_size (int size) {
     indent_size = size;
-    tab_width = (uint) size;
     queue_draw ();
   }
 
@@ -460,10 +466,12 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
     base.snapshot_layer (layer, snapshot);
 
     if (layer == Gtk.TextViewLayer.BELOW_TEXT) {
+      draw_ruler_margin (snapshot);
       draw_row_bands (snapshot);
       if (show_indent_guides) {
         draw_indent_guides (snapshot);
       }
+      draw_rulers (snapshot);
       selections.draw (snapshot);
       return;
     }
@@ -764,6 +772,48 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
    * column 0 — but a guide still needs to draw through it at its
    * interpolated depth.
    */
+  /** The x, in buffer coordinates, of text column `column` — the left margin plus that many glyph advances; the view is monospace. Whole pixels, so a 1px line stays one pixel instead of two half-painted ones. */
+  private float column_x (int column) {
+    var layout = create_pango_layout (string.nfill (CHAR_WIDTH_SAMPLE_LENGTH, '0'));
+    int sample_width;
+    int sample_height;
+    layout.get_pixel_size (out sample_width, out sample_height);
+    return Math.roundf (left_margin + column * (sample_width / (float) CHAR_WIDTH_SAMPLE_LENGTH));
+  }
+
+  /** The area past the leftmost ruler, from it to the right edge of whatever is showing, in the theme's `editor.ruler.background`. */
+  private void draw_ruler_margin (Gtk.Snapshot snapshot) {
+    if (rulers.length == 0) {
+      return;
+    }
+    var color = palette.ruler_background ();
+    if (color.alpha == 0) {
+      return;
+    }
+    Gdk.Rectangle visible;
+    get_visible_rect (out visible);
+    float x = column_x (rulers[0]);
+    float right = float.max (visible.x + visible.width, x + 1);
+    var rect = Graphene.Rect ();
+    rect.init (x, visible.y, right - x, visible.height);
+    snapshot.append_color (color, rect);
+  }
+
+  /** One 1px line per ruler column, the full visible height, in the theme's `editor.ruler`. */
+  private void draw_rulers (Gtk.Snapshot snapshot) {
+    if (rulers.length == 0) {
+      return;
+    }
+    Gdk.Rectangle visible;
+    get_visible_rect (out visible);
+    var color = palette.ruler ();
+    foreach (var column in rulers) {
+      var rect = Graphene.Rect ();
+      rect.init (column_x (column), visible.y, 1, visible.height);
+      snapshot.append_color (color, rect);
+    }
+  }
+
   private void draw_indent_guides (Gtk.Snapshot snapshot) {
     Gdk.Rectangle visible_rect;
     get_visible_rect (out visible_rect);

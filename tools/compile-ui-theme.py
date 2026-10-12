@@ -11,7 +11,8 @@ without recompiling; `system.accent@35%` is that color at 35% alpha,
 emitted as a color-mix() toward transparent; a palette name with the
 same `@35%` suffix becomes that color with that alpha, as a literal.
 An id ending in `.opacity` takes a percentage (`75%`) instead of a
-color: a stylesheet mixes a hue with it. The libadwaita variables a theme repaints
+color: a stylesheet mixes a hue with it. `transparent` is a color too,
+CSS's own word for "nothing painted here". The libadwaita variables a theme repaints
 (--window-bg-color, --headerbar-bg-color, …) are re-pointed to the
 theme's own, so libadwaita's widgets follow too; a system.* value never
 re-points the variable it comes from.
@@ -98,6 +99,8 @@ def resolve(path, key, value, palette):
         if not PERCENT.match(value):
             fail(path, key, f"{value!r} is not a percentage (an .opacity id takes '0%' to '100%')")
         return value
+    if value == "transparent":
+        return value
     if value in SYSTEM:
         return f"var({SYSTEM[value]})"
     faded = SYSTEM_ALPHA.match(value)
@@ -111,7 +114,7 @@ def resolve(path, key, value, palette):
     if faded and faded.group(1) in palette and 0 <= int(faded.group(2)) <= 100:
         value = with_alpha(palette[faded.group(1)].lower(), int(faded.group(2)))
     if not HEX.match(value):
-        fail(path, key, f"{value!r} is neither a #rrggbb/#rrggbbaa color, a palette name nor a system.* name")
+        fail(path, key, f"{value!r} is neither a #rrggbb/#rrggbbaa color, a palette name, a system.* name nor transparent")
     return value.lower()
 
 

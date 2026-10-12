@@ -39,6 +39,8 @@
     "editor.foreground": "ink@80%",
     "editor.indent_guide": "ink@8%",
     "editor.indent_guide.active": "ink@15%",
+    "editor.ruler": "ink@5%",
+    "editor.ruler.background": "transparent",
     "editor.search.current": "system.accent@60%",
     "editor.search.match": "system.accent@30%",
     "editor.selection": "system.accent@35%",

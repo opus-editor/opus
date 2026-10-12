@@ -117,6 +117,34 @@ public class UserSettings : Object {
     return read_string_list (language_block (language), "editor.on_save") ?? read_string_list (root, "editor.on_save") ?? new string[0];
   }
 
+  /**
+   * The columns the editor draws a ruler at (`"editor.rulers": [80, 120]`),
+   * VS Code's own setting without its per-ruler colors: a `language.<name>`
+   * block's own list when it has one, else the plain key's; none with
+   * neither. The first one also tints everything to its right.
+   */
+  public int[] rulers_for (string? language) {
+    int[] columns;
+    if (read_int_list (language_block (language), "editor.rulers", out columns) || read_int_list (root, "editor.rulers", out columns)) {
+      return columns;
+    }
+    return {};
+  }
+
+  /**
+   * `editorconfig.max_line_length`: whether a file's own `max_line_length`
+   * from .editorconfig is its ruler, in place of `editor.rulers`. Off by
+   * default, as in VS Code, whose extension never reads that property.
+   * A `language.<name>` block may set it for one language.
+   */
+  public bool editorconfig_max_line_length_for (string? language) {
+    var node = language_block (language)?.get_member ("editorconfig.max_line_length");
+    if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
+      return read_bool ("editorconfig.max_line_length", false);
+    }
+    return node.get_boolean ();
+  }
+
   /** The `"language.<name>": { … }` object, null without one. */
   private Json.Object? language_block (string? language) {
     if (language == null) {
@@ -124,6 +152,23 @@ public class UserSettings : Object {
     }
     var block = root.get_member ("language." + language);
     return block != null && block.get_node_type () == Json.NodeType.OBJECT ? block.get_object () : null;
+  }
+
+  /** Whether `object` has `key` as an array; `list` is its whole numbers above zero, anything else left out. An empty int array has no "null" of its own to tell absence apart, hence the bool. */
+  private static bool read_int_list (Json.Object? object, string key, out int[] list) {
+    list = {};
+    var node = object?.get_member (key);
+    if (node == null || node.get_node_type () != Json.NodeType.ARRAY) {
+      return false;
+    }
+    int[] found = {};
+    foreach (var element in node.get_array ().get_elements ()) {
+      if (element.get_node_type () == Json.NodeType.VALUE && element.get_value_type () == typeof (int64) && element.get_int () > 0) {
+        found += (int) element.get_int ();
+      }
+    }
+    list = found;
+    return true;
   }
 
   /** `key`'s array of strings in `object`, the non-strings left out; null without an array. */
@@ -222,6 +267,8 @@ public class UserSettings : Object {
   "editor.letter_spacing": 0,
   "editor.word_wrap": false,
   "editor.on_save": [],
+  "editor.rulers": [],
+  "editorconfig.max_line_length": false,
   "editor.theme_light": "%s",
   "editor.theme_dark": "%s",
   "git.changes_sort": "path"

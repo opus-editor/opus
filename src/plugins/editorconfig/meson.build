@@ -5,10 +5,11 @@ opus_editorconfig_plugin_sources = files(
   'config-file.vala',
   'hierarchy.vala',
   'provider.vala',
+  'commands.vala',
 )
 opus_plugin_sources += opus_editorconfig_plugin_sources + files('plugin.vala')
 
-foreach name : ['config-file', 'hierarchy', 'provider']
+foreach name : ['config-file', 'hierarchy', 'provider', 'commands']
   editorconfig_test = executable(
     'editorconfig-' + name + '-test',
     ['test' / name + '-test.vala', opus_editorconfig_plugin_sources],

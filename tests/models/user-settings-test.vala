@@ -304,6 +304,59 @@ private void test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_
     remove_temp_config_dir (config_dir);
 }
 
+private void test_editorconfig_max_line_length_is_off_unless_asked () {
+    string config_dir = make_temp_config_dir ();
+    var settings = new UserSettings (config_dir);
+    assert_false (settings.editorconfig_max_line_length_for (null));
+    remove_temp_config_dir (config_dir);
+
+    string on_dir = make_temp_config_dir ();
+    write_settings (on_dir, """{ "editorconfig.max_line_length": true, "language.markdown": { "editorconfig.max_line_length": false } }""");
+    var on = new UserSettings (on_dir);
+
+    assert_true (on.editorconfig_max_line_length_for ("ruby"));
+    assert_false (on.editorconfig_max_line_length_for ("markdown"));
+    remove_temp_config_dir (on_dir);
+}
+
+private void test_rulers_read_the_columns () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.rulers": [80, 120] }""");
+    var settings = new UserSettings (config_dir);
+
+    var columns = settings.rulers_for (null);
+
+    assert_cmpint (columns.length, CompareOperator.EQ, 2);
+    assert_cmpint (columns[0], CompareOperator.EQ, 80);
+    assert_cmpint (columns[1], CompareOperator.EQ, 120);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_rulers_for_a_language_are_its_blocks_own () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.rulers": [80], "language.markdown": { "editor.rulers": [] } }""");
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpint (settings.rulers_for ("markdown").length, CompareOperator.EQ, 0);
+    assert_cmpint (settings.rulers_for ("ruby").length, CompareOperator.EQ, 1);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_rulers_without_the_key_are_none_and_odd_entries_are_skipped () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.rulers": [80, "100", 0, -5, 2.5] }""");
+    var settings = new UserSettings (config_dir);
+
+    var columns = settings.rulers_for (null);
+
+    assert_cmpint (columns.length, CompareOperator.EQ, 1);
+    assert_cmpint (columns[0], CompareOperator.EQ, 80);
+    remove_temp_config_dir (config_dir);
+    string empty_dir = make_temp_config_dir ();
+    assert_cmpint (new UserSettings (empty_dir).rulers_for (null).length, CompareOperator.EQ, 0);
+    remove_temp_config_dir (empty_dir);
+}
+
 private void test_on_save_reads_the_list_in_order () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{ "editor.on_save": ["trim-trailing-whitespace", "insert-final-newline"] }""");
@@ -535,6 +588,10 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_without_a_block_is_the_plain_key", test_word_wrap_for_a_language_without_a_block_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_no_language_is_the_plain_key", test_word_wrap_for_no_language_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key", test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key);
+    Test.add_func ("/models/user-settings/editorconfig_max_line_length_is_off_unless_asked", test_editorconfig_max_line_length_is_off_unless_asked);
+    Test.add_func ("/models/user-settings/rulers_read_the_columns", test_rulers_read_the_columns);
+    Test.add_func ("/models/user-settings/rulers_for_a_language_are_its_blocks_own", test_rulers_for_a_language_are_its_blocks_own);
+    Test.add_func ("/models/user-settings/rulers_without_the_key_are_none_and_odd_entries_are_skipped", test_rulers_without_the_key_are_none_and_odd_entries_are_skipped);
     Test.add_func ("/models/user-settings/on_save_reads_the_list_in_order", test_on_save_reads_the_list_in_order);
     Test.add_func ("/models/user-settings/on_save_for_a_language_is_its_blocks_own_list", test_on_save_for_a_language_is_its_blocks_own_list);
     Test.add_func ("/models/user-settings/on_save_without_the_key_is_empty", test_on_save_without_the_key_is_empty);

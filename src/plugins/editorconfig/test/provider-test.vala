@@ -2,7 +2,7 @@
 
 private string make_tree () throws Error {
     var root = DirUtils.make_tmp ("opus-editorconfig-provider-test-XXXXXX");
-    FileUtils.set_contents (Path.build_filename (root, ".editorconfig"), "root = true\n[*]\nindent_size = 2\nindent_style = space\nend_of_line = crlf\ntrim_trailing_whitespace = true\ninsert_final_newline = false\ncharset = latin1\n");
+    FileUtils.set_contents (Path.build_filename (root, ".editorconfig"), "root = true\n[*]\nindent_size = 2\nindent_style = space\nend_of_line = crlf\ntrim_trailing_whitespace = true\ninsert_final_newline = false\ncharset = latin1\nmax_line_length = 120\n");
     return root;
 }
 
@@ -15,11 +15,13 @@ private void test_the_values_say_what_the_files_do () {
         var values = provider.settings_for (Path.build_filename (root, "a.rb"));
 
         assert_true (values.indent_size == 2);
+        assert_true (values.tab_width == 2);
         assert_true (values.insert_spaces == true);
         assert_true (values.line_ending == Document.LineEnding.CRLF);
         assert_true (values.trim_trailing_whitespace == true);
         assert_true (values.insert_final_newline == false);
         assert_true (values.charset == Document.Charset.LATIN1);
+        assert_true (values.max_line_length == 120);
         provider.deactivate ();
         FileUtils.remove (Path.build_filename (root, ".editorconfig"));
         DirUtils.remove (root);

@@ -5,6 +5,7 @@ opus_model_sources = files(
   # into one flat directory, where those would collide with
   # file-decoration/i-provider.vala and file-decoration/registry.vala.
   'models/command-bar/i-command-bar-provider.vala',
+  'models/command-bar/i-command-source.vala',
   'models/command-bar/command-bar-registry.vala',
   'models/command-bar/router.vala',
   'models/command-bar/recent-files.vala',

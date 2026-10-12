@@ -57,6 +57,8 @@ code, _, css = compile_themes(theme("light", {"git.added": "green@18%"}, {"green
 check("palette name with alpha", "--opus-git-added: #26a2692e;" in css, css)
 code, _, css = compile_themes(theme("light", {"sidebar.git.opacity": "75%"}), theme("dark", {"sidebar.git.opacity": "75%"}))
 check("an opacity id is a percentage", "--opus-sidebar-git-opacity: 75%;" in css, css)
+code, _, css = compile_themes(theme("light", {"editor.ruler.background": "transparent"}), theme("dark", {"editor.ruler.background": "transparent"}))
+check("transparent is a color", "--opus-editor-ruler-background: transparent;" in css, css)
 code, err, _ = compile_themes(theme("light", {"sidebar.git.opacity": "#ffffff"}), theme("dark", {"sidebar.git.opacity": "#ffffff"}))
 check("a color in an opacity id fails", code != 0 and "percentage" in err, err)
 

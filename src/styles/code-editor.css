@@ -108,3 +108,5 @@ textview.code-editor > text > selection {
 .editor-indent-guide-active { color: var(--opus-editor-indent-guide-active); }
 .editor-search-match { color: var(--opus-editor-search-match); }
 .editor-search-current { color: var(--opus-editor-search-current); }
+.editor-ruler { color: var(--opus-editor-ruler); }
+.editor-ruler-background { color: var(--opus-editor-ruler-background); }

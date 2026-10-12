@@ -16,7 +16,8 @@ namespace CommandBar {
   /**
    * The `>` provider — VS Code's own Command Palette: a list of things
    * the app can do, narrowed by what is typed after the `>`. Two
-   * groups: the commands it was built with, then the functions
+   * groups: the commands it was built with and the ones every
+   * ICommandSource (a plugin's) adds after them, then the functions
    * (src/models/functions/) listed for the active document's language —
    * while something is selected every `Selection > Name` first, being
    * the special case, then every `File > Name`, each by name — read
@@ -44,7 +45,10 @@ namespace CommandBar {
       owned get { return _("Type a command"); }
     }
 
+    public const string SOURCE_PREFIX = "source:";
+
     private GenericArray<Item> commands = new GenericArray<Item> ();
+    private GenericArray<ICommandSource> sources = new GenericArray<ICommandSource> ();
     private GenericArray<Item> rows = new GenericArray<Item> ();
     private Functions.Registry? registry;
     private DocumentStateSource? document_state;
@@ -80,12 +84,47 @@ namespace CommandBar {
       detach_picker ();
     }
 
+    /** A plugin's commands join the list, after the app's own and after any source added before. */
+    public void add_source (ICommandSource source) {
+      uint existing_index;
+      if (!sources.find (source, out existing_index)) {
+        sources.add (source);
+      }
+    }
+
+    public void remove_source (ICommandSource source) {
+      sources.remove (source);
+    }
+
+    /** Whether `id` is a source's row; when it is, that source runs it (its failure is the caller's to show). */
+    public bool run_from_source (string id) throws Error {
+      if (!id.has_prefix (SOURCE_PREFIX)) {
+        return false;
+      }
+      var rest = id.substring (SOURCE_PREFIX.length);
+      int separator = rest.index_of_char (':');
+      if (separator < 0) {
+        return false;
+      }
+      int index = int.parse (rest.substring (0, separator));
+      if (index < 0 || index >= sources.length) {
+        return false;
+      }
+      sources[index].run (rest.substring (separator + 1));
+      return true;
+    }
+
     public void provide (Picker picker, Cancellable cancellable) {
       this.picker = picker;
       picker.empty_message = _("No matching commands");
       rows = new GenericArray<Item> ();
       foreach (var command in commands) {
         rows.add (command);
+      }
+      for (int i = 0; i < sources.length; i++) {
+        foreach (var command in sources[i].commands ()) {
+          rows.add (new Item ("%s%d:%s".printf (SOURCE_PREFIX, i, command.id), "%s / %s".printf (sources[i].name, command.label)));
+        }
       }
       foreach (var row in function_rows ()) {
         rows.add (row);

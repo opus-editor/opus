@@ -163,6 +163,37 @@ insert_final_newline = true
     assert_true (resolved (config, "main.vala").insert_final_newline () == null);
 }
 
+private void test_tab_width_is_its_own_and_defaults_to_a_numeric_indent_size () {
+    var file = parsed ("""
+[*.c]
+indent_size = 2
+tab_width = 8
+[*.rb]
+indent_size = 2
+[*.mk]
+indent_style = tab
+indent_size = tab
+""");
+
+    assert_cmpint ((int) resolved (file, "a.c").tab_width (), CompareOperator.EQ, 8);
+    assert_cmpint ((int) resolved (file, "a.c").indent_size (), CompareOperator.EQ, 2);
+    assert_cmpint ((int) resolved (file, "a.rb").tab_width (), CompareOperator.EQ, 2);
+    assert_true (resolved (file, "a.mk").tab_width () == null);
+}
+
+private void test_max_line_length_is_a_number_of_columns_or_nothing () {
+    var file = parsed ("""
+[*.rb]
+max_line_length = 100
+[*.md]
+max_line_length = off
+""");
+
+    assert_cmpint ((int) resolved (file, "a.rb").max_line_length (), CompareOperator.EQ, 100);
+    assert_true (resolved (file, "a.md").max_line_length () == null);
+    assert_true (resolved (file, "a.vala").max_line_length () == null);
+}
+
 private void test_charset_resolves_editorconfigs_names_and_nothing_else () {
     var file = parsed ("""
 [*.txt]
@@ -276,6 +307,8 @@ int main (string[] args) {
     Test.add_func ("/plugins/editorconfig/config-file/later_section_wins_when_both_match_the_same_path", test_later_section_wins_when_both_match_the_same_path);
     Test.add_func ("/plugins/editorconfig/config-file/comments_and_blank_lines_are_ignored", test_comments_and_blank_lines_are_ignored);
     Test.add_func ("/plugins/editorconfig/config-file/the_save_switches_resolve_true_false_and_unset", test_the_save_switches_resolve_true_false_and_unset);
+    Test.add_func ("/plugins/editorconfig/config-file/tab_width_is_its_own_and_defaults_to_a_numeric_indent_size", test_tab_width_is_its_own_and_defaults_to_a_numeric_indent_size);
+    Test.add_func ("/plugins/editorconfig/config-file/max_line_length_is_a_number_of_columns_or_nothing", test_max_line_length_is_a_number_of_columns_or_nothing);
     Test.add_func ("/plugins/editorconfig/config-file/charset_resolves_editorconfigs_names_and_nothing_else", test_charset_resolves_editorconfigs_names_and_nothing_else);
     Test.add_func ("/plugins/editorconfig/config-file/end_of_line_resolves_lf_and_crlf", test_end_of_line_resolves_lf_and_crlf);
     Test.add_func ("/plugins/editorconfig/config-file/end_of_line_unset_or_unsupported_is_null", test_end_of_line_unset_or_unsupported_is_null);

@@ -2,4 +2,5 @@
 [CCode (cname = "opus_editorconfig_register_types")]
 public void opus_editorconfig_register_types (Peas.ObjectModule module) {
   module.register_extension_type (typeof (FileSettings.IProvider), typeof (Opus.Plugins.EditorConfig.Provider));
+  module.register_extension_type (typeof (CommandBar.ICommandSource), typeof (Opus.Plugins.EditorConfig.Commands));
 }

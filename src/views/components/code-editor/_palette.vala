@@ -8,7 +8,7 @@
  * time a draw happens.
  */
 public class CodeEditorPalette : Object {
-  private const string[] CLASSES = { "editor-cursor", "editor-selection", "editor-indent-guide", "editor-indent-guide-active", "editor-search-match", "editor-search-current" };
+  private const string[] CLASSES = { "editor-cursor", "editor-selection", "editor-indent-guide", "editor-indent-guide-active", "editor-search-match", "editor-search-current", "editor-ruler", "editor-ruler-background" };
 
   private Gtk.Box[] swatches = {};
 
@@ -27,4 +27,6 @@ public class CodeEditorPalette : Object {
   public Gdk.RGBA indent_guide_active () { return swatches[3].get_color (); }
   public Gdk.RGBA search_match () { return swatches[4].get_color (); }
   public Gdk.RGBA search_current () { return swatches[5].get_color (); }
+  public Gdk.RGBA ruler () { return swatches[6].get_color (); }
+  public Gdk.RGBA ruler_background () { return swatches[7].get_color (); }
 }

@@ -101,7 +101,9 @@ namespace EditorView.EditorPane {
 
     private void apply_indent () {
       var settings = file_settings_for ();
-      editor.set_indent (settings.indent_size ?? DEFAULT_INDENT_SIZE, settings.insert_spaces ?? DEFAULT_INSERT_SPACES);
+      int indent_size = settings.indent_size ?? DEFAULT_INDENT_SIZE;
+      editor.set_indent (indent_size, settings.insert_spaces ?? DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
+      editor.set_max_line_length (settings.max_line_length ?? 0);
     }
 
     /** The settings for this file — or for `path`, when a Save As is about to write it there. An Untitled document counts as a file at the root, so the folder's general rules reach it too. */
