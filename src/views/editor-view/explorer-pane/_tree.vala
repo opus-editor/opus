@@ -29,7 +29,7 @@ namespace EditorView {
   public class ExplorerPaneTree : Object {
     private Gtk.ListView list_view;
     private Gtk.TreeListModel? tree_model;
-    private Gtk.SingleSelection? selection;
+    private Gtk.MultiSelection? selection;
 
     // Set for the one selection_changed this arrow key's own native move
     // binding is about to cause, then cleared — see on_selection_changed()'s
@@ -109,8 +109,15 @@ namespace EditorView {
     /** F2 pressed with `node` selected — same entry point the "Rename…" context menu item already uses. */
     public signal void rename_requested (FileNode node);
 
-    /** Delete pressed with `node` selected — same entry point the "Delete" context menu item already uses. */
-    public signal void delete_requested (FileNode node);
+    /** Delete pressed with something selected — every selected entry, the same entry point the "Delete" context menu item already uses. */
+    public signal void delete_requested (FileNode[] nodes);
+
+    /** Ctrl+X / Ctrl+C with something selected — the same entry points the "Cut"/"Copy" context menu items use. */
+    public signal void cut_requested (FileNode[] nodes);
+    public signal void copy_requested (FileNode[] nodes);
+
+    /** Ctrl+V: pastes into `target` — the one selected folder, a selected file's own folder, or the root (null) with nothing selected. The same entry point the "Paste" context menu item uses. */
+    public signal void paste_requested (FileNode? target);
 
     public ExplorerPaneTree () {
       var factory = new Gtk.SignalListItemFactory ();
@@ -190,6 +197,30 @@ namespace EditorView {
             }
             return true;
 
+          case Gdk.Key.x:
+          case Gdk.Key.c:
+          case Gdk.Key.v:
+            // Ctrl+X/C/V on the rows: the tree's own clipboard, not the
+            // system's (see ExplorerPane's own comment on that). Typing
+            // into an inline entry keeps the entry's own bindings.
+            if (editing_active || (state & Gdk.ModifierType.CONTROL_MASK) == 0) {
+              return false;
+            }
+            if (keyval == Gdk.Key.v) {
+              paste_requested (paste_target ());
+              return true;
+            }
+            var nodes = selected_nodes ();
+            if (nodes.length == 0) {
+              return true;
+            }
+            if (keyval == Gdk.Key.x) {
+              cut_requested (nodes);
+            } else {
+              copy_requested (nodes);
+            }
+            return true;
+
           case Gdk.Key.Delete:
           case Gdk.Key.KP_Delete:
             // Same reasoning as Left/Right above: a new-entry/rename text
@@ -198,9 +229,9 @@ namespace EditorView {
             if (editing_active) {
               return false;
             }
-            var delete_node = selected_node ();
-            if (delete_node != null) {
-              delete_requested (delete_node);
+            var delete_nodes = selected_nodes ();
+            if (delete_nodes.length > 0) {
+              delete_requested (delete_nodes);
             }
             return true;
 
@@ -230,7 +261,9 @@ namespace EditorView {
       stores_by_path[root.path] = root_store;
 
       tree_model = tree_list_model_new_raw (root_store, false, false, on_create_model_raw, (void*) this, null);
-      selection = new Gtk.SingleSelection (tree_model);
+      // Several rows at once: Ctrl and Shift clicks are GtkListView's own
+      // with this model, and a Cut/Copy/Delete/drag acts on all of them.
+      selection = new Gtk.MultiSelection (tree_model);
       selection.selection_changed.connect (on_selection_changed);
       list_view.model = selection;
     }
@@ -272,8 +305,39 @@ namespace EditorView {
 
       uint position;
       if (find_position (path, out position)) {
-        selection.selected = position;
+        select_only (position);
       }
+    }
+
+    /** `position` as the one selected row, whatever was selected before. */
+    private void select_only (uint position) {
+      selection.select_item (position, true);
+    }
+
+    /** The one selected row's position, or Gtk.INVALID_LIST_POSITION with none or with several — what the keyboard's Left/Right and the single-row actions key off. */
+    private uint sole_selected () {
+      var selected = selection.get_selection ();
+      return selected.get_size () == 1 ? selected.get_nth (0) : Gtk.INVALID_LIST_POSITION;
+    }
+
+    /** Every selected row's node, in tree order; empty with nothing selected. */
+    public FileNode[] selected_nodes () {
+      FileNode[] nodes = {};
+      if (selection == null) {
+        return nodes;
+      }
+      var selected = selection.get_selection ();
+      for (uint i = 0; i < selected.get_size (); i++) {
+        var list_row = (Gtk.TreeListRow) selection.get_item (selected.get_nth (i));
+        nodes += (FileNode) list_row.item;
+      }
+      return nodes;
+    }
+
+    /** Whether `node`'s row is one of several selected — the case a right-click or a drag on it means the whole selection. */
+    public bool is_in_multi_selection (FileNode node) {
+      var nodes = selected_nodes ();
+      return nodes.length > 1 && node in nodes;
     }
 
     /**
@@ -319,7 +383,7 @@ namespace EditorView {
         return;
       }
 
-      selection.selected = position;
+      select_only (position);
       list_view.scroll_to (position, Gtk.ListScrollFlags.NONE, null);
 
       Idle.add (() => {
@@ -408,11 +472,12 @@ namespace EditorView {
 
     /** Left — ported from VS Code's own real Explorer (onLeftArrow, abstractTree.ts): collapses the selected row if it's an expanded directory; otherwise moves to its parent. A no-op at a top-level entry. */
     private void navigate_left () {
-      if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+      var position = sole_selected ();
+      if (position == Gtk.INVALID_LIST_POSITION) {
         return;
       }
 
-      var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+      var list_row = (Gtk.TreeListRow) selection.get_item (position);
       var node = (FileNode) list_row.item;
 
       if (node.is_directory && list_row.expanded) {
@@ -430,11 +495,12 @@ namespace EditorView {
 
     /** Right — ported from VS Code's own real Explorer (onRightArrow, abstractTree.ts): expands the selected row if collapsed; otherwise moves into its own first child. */
     private void navigate_right () {
-      if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+      var position = sole_selected ();
+      if (position == Gtk.INVALID_LIST_POSITION) {
         return;
       }
 
-      var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+      var list_row = (Gtk.TreeListRow) selection.get_item (position);
       var node = (FileNode) list_row.item;
 
       if (node.is_directory && !list_row.expanded) {
@@ -494,7 +560,10 @@ namespace EditorView {
 
     /** A single click (or the first click of a double-click) changed the selected row. Arrow-key navigation lands here too but should only move the highlight, not also toggle a directory or open a preview — and a refresh_children() call reshuffling the selected row's own position shouldn't land here at all, see its own doc comment. */
     private void on_selection_changed (uint position, uint n_items) {
-      if (selection.selected == Gtk.INVALID_LIST_POSITION || syncing_children) {
+      // A Ctrl/Shift click growing the selection previews nothing: it is
+      // gathering rows for a Cut, Copy, Delete or drag, not opening one.
+      var sole = sole_selected ();
+      if (sole == Gtk.INVALID_LIST_POSITION || syncing_children) {
         return;
       }
 
@@ -503,7 +572,7 @@ namespace EditorView {
         return;
       }
 
-      var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+      var list_row = (Gtk.TreeListRow) selection.get_item (sole);
       var node = (FileNode) list_row.item;
 
       if (node.is_directory) {
@@ -584,12 +653,26 @@ namespace EditorView {
       return row == null ? null : row.bound_node;
     }
 
-    /** Whatever Gtk.SingleSelection's own `selected` currently points at — the keyboard-driven counterpart to node_at(), which needs a mouse position instead. Null with nothing selected (an empty tree). */
-    private FileNode? selected_node () {
-      if (selection.selected == Gtk.INVALID_LIST_POSITION) {
+    /** Where Ctrl+V lands: the one selected folder; a selected file's own parent; the root (null) otherwise. */
+    private FileNode? paste_target () {
+      var node = selected_node ();
+      if (node == null) {
         return null;
       }
-      var list_row = (Gtk.TreeListRow) selection.get_item (selection.selected);
+      if (node.is_directory) {
+        return node;
+      }
+      var parent_row = ((Gtk.TreeListRow) selection.get_item (sole_selected ())).get_parent ();
+      return parent_row == null ? null : (FileNode) parent_row.item;
+    }
+
+    /** The one selected row's node — the keyboard-driven counterpart to node_at(), which needs a mouse position instead. Null with nothing, or several, selected: a rename needs exactly one. */
+    private FileNode? selected_node () {
+      var position = sole_selected ();
+      if (position == Gtk.INVALID_LIST_POSITION) {
+        return null;
+      }
+      var list_row = (Gtk.TreeListRow) selection.get_item (position);
       return (FileNode) list_row.item;
     }
 
@@ -675,7 +758,7 @@ namespace EditorView {
         }
 
         uint position;
-        if (!find_position (node.path, out position) || selection.selected != position) {
+        if (!find_position (node.path, out position) || sole_selected () != position) {
           return;
         }
 

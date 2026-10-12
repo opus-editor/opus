@@ -34,10 +34,12 @@ namespace EditorView {
 
     // The tree's own internal Cut/Copy clipboard — never the system
     // clipboard (copy_to_clipboard()/Copy Path are the only things that
-    // touch that). Cutting dims the node (clipboard_node.is_cut, undone on
-    // the next Cut/Copy or once pasted); copying doesn't dim anything and
-    // survives multiple pastes, only a cut is consumed by its one paste.
-    private FileNode? clipboard_node = null;
+    // touch that). One entry, or a whole selection. Cutting dims the
+    // nodes (is_cut, undone on the next Cut/Copy or once pasted); copying
+    // doesn't dim anything and survives multiple pastes, only a cut is
+    // consumed by its one paste.
+    private FileNode[] clipboard_nodes = {};
+    private bool clipboard_is_cut = false;
 
     public Gtk.Widget widget { get { return root_box; } }
 
@@ -47,8 +49,8 @@ namespace EditorView {
     /** A New File was just created on disk (not a New Folder — nothing to open for those) — meant to be opened as a permanent tab right away. */
     public signal void file_created (string path);
 
-    /** "Delete" was chosen for `path` — whether this needs an unsaved-changes confirmation first is the app's own call, since only it can see open tabs' state too; delete_entry() below does the actual deletion once that's decided. */
-    public signal void delete_entry_requested (string path);
+    /** "Delete" was chosen for `paths` — one entry, or a whole selection. Whether each needs an unsaved-changes confirmation first is the app's own call, since only it can see open tabs' state too; delete_entry() below does the actual deletion once that's decided. */
+    public signal void delete_entries_requested (string[] paths);
 
     /** `old_path` moved to `new_path` on disk — a Rename, or a Cut+Paste (menu or drag) actually moving something rather than copying it. */
     public signal void file_moved (string old_path, string new_path);
@@ -87,13 +89,16 @@ namespace EditorView {
       // already use (see show_context_menu()) — F2/Delete are just
       // another way to reach them, keyboard-only, no menu involved.
       tree.rename_requested.connect ((node) => inline_edit.request_rename (node));
-      tree.delete_requested.connect ((node) => delete_entry_requested (node.path));
+      tree.delete_requested.connect ((nodes) => delete_entries_requested (paths_of (nodes)));
+      tree.cut_requested.connect ((nodes) => set_clipboard (nodes, true));
+      tree.copy_requested.connect ((nodes) => set_clipboard (nodes, false));
+      tree.paste_requested.connect ((target) => request_paste (target));
 
       inline_edit.create_entry_requested.connect (on_create_entry_requested);
       inline_edit.rename_entry_requested.connect (on_rename_entry_requested);
 
       watcher.directory_changed.connect (on_directory_changed);
-      drag_drop.moved_via_drag.connect ((source_path, target_path) => do_paste (source_path, true, target_path));
+      drag_drop.moved_via_drag.connect ((source_paths, target_path) => paste_all (source_paths, true, target_path));
 
       decorations.changed.connect (on_decorations_changed);
     }
@@ -310,6 +315,13 @@ namespace EditorView {
       );
     }
 
+    /** Every one of `source_paths` into `target_path`, one after the other — a failure is reported and the rest still goes. */
+    private void paste_all (string[] source_paths, bool is_cut, string target_path) {
+      foreach (var source_path in FileTree.top_level (source_paths)) {
+        do_paste (source_path, is_cut, target_path);
+      }
+    }
+
     private void do_paste (string source_path, bool is_cut, string target_path) {
       var source = model.find (source_path);
       var source_parent = source == null ? null : model.find (Path.get_dirname (source_path));
@@ -340,10 +352,14 @@ namespace EditorView {
         // this.
         file_moved (source_path, result.path);
       }
+    }
 
-      if (is_cut) {
-        clipboard_node = null;
+    private static string[] paths_of (FileNode[] nodes) {
+      string[] paths = {};
+      foreach (var node in nodes) {
+        paths += node.path;
       }
+      return paths;
     }
 
     private void open_in_files (string path) {
@@ -405,8 +421,12 @@ namespace EditorView {
      * button, not the tree.
      */
     private void show_context_menu (Gtk.Widget anchor, double x, double y, FileNode? target) {
+      if (target != null && tree.is_in_multi_selection (target)) {
+        show_selection_menu (anchor, x, y, tree.selected_nodes ());
+        return;
+      }
       var context_path = target == null ? model.root.path : target.path;
-      var has_clipboard = clipboard_node != null;
+      var has_clipboard = clipboard_nodes.length > 0;
 
       ContextMenu.popup_at (anchor, x, y, (popover, box) => {
         if (target == null || target.is_directory) {
@@ -435,12 +455,22 @@ namespace EditorView {
         if (target != null) {
           box.append (ContextMenu.separator ());
           box.append (ContextMenu.item (_("Rename…"), () => inline_edit.request_rename (target), popover));
-          box.append (ContextMenu.item (_("Delete"), () => delete_entry_requested (target.path), popover));
+          box.append (ContextMenu.item (_("Delete"), () => delete_entries_requested ({ target.path }), popover));
         }
 
         box.append (ContextMenu.separator ());
         box.append (ContextMenu.item (_("Copy Path"), () => copy_to_clipboard (context_path), popover));
         box.append (ContextMenu.item (_("Copy Relative Path"), () => copy_to_clipboard (relative_path (context_path)), popover));
+      });
+    }
+
+    /** Right-click on one of several selected rows: what applies to all of them at once — Cut, Copy, Delete. Rename, New, Paste and the paths are one entry's own and stay on the single-row menu. */
+    private void show_selection_menu (Gtk.Widget anchor, double x, double y, FileNode[] nodes) {
+      ContextMenu.popup_at (anchor, x, y, (popover, box) => {
+        box.append (ContextMenu.item (_("Cut"), () => set_clipboard (nodes, true), popover));
+        box.append (ContextMenu.item (_("Copy"), () => set_clipboard (nodes, false), popover));
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Delete"), () => delete_entries_requested (paths_of (nodes)), popover));
       });
     }
 
@@ -452,36 +482,47 @@ namespace EditorView {
      * take on a real clipboard format for it.
      */
     private void request_cut (FileNode target) {
-      set_clipboard (target, true);
+      set_clipboard ({ target }, true);
     }
 
     private void request_copy (FileNode target) {
-      set_clipboard (target, false);
+      set_clipboard ({ target }, false);
     }
 
-    private void set_clipboard (FileNode node, bool is_cut) {
+    private void set_clipboard (FileNode[] nodes, bool is_cut) {
       clear_cut_dim ();
-      clipboard_node = node;
+      clipboard_nodes = nodes;
+      clipboard_is_cut = is_cut;
       if (is_cut) {
-        node.is_cut = true;
-        tree.rebind (node);
+        foreach (var node in nodes) {
+          node.is_cut = true;
+          tree.rebind (node);
+        }
       }
     }
 
     private void request_paste (FileNode? target) {
-      if (clipboard_node == null) {
+      if (clipboard_nodes.length == 0) {
         return;
       }
-      do_paste (clipboard_node.path, clipboard_node.is_cut, target == null ? model.root.path : target.path);
+      var is_cut = clipboard_is_cut;
+      var sources = paths_of (clipboard_nodes);
+      if (is_cut) {
+        // Consumed by its one paste; the dimming goes with the move.
+        clipboard_nodes = {};
+      }
+      paste_all (sources, is_cut, target == null ? model.root.path : target.path);
     }
 
     /** Undims whatever's currently on the Cut clipboard, if anything — called before replacing it with a new Cut/Copy. */
     private void clear_cut_dim () {
-      if (clipboard_node == null || !clipboard_node.is_cut) {
+      if (!clipboard_is_cut) {
         return;
       }
-      clipboard_node.is_cut = false;
-      tree.rebind (clipboard_node);
+      foreach (var node in clipboard_nodes) {
+        node.is_cut = false;
+        tree.rebind (node);
+      }
     }
 
     public void show_error (string message) {

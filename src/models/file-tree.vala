@@ -105,6 +105,30 @@ public class FileTree : Object {
     return renamed_node;
   }
 
+  /**
+   * `paths` without any that sits inside another of them, in the order
+   * given — what a Cut, Copy, Delete or drag of a selection acts on: a
+   * folder carries its own contents along, so an entry selected under a
+   * selected folder would only be moved twice, or deleted after its
+   * folder already went.
+   */
+  public static string[] top_level (string[] paths) {
+    string[] kept = {};
+    foreach (var path in paths) {
+      bool inside = false;
+      foreach (var other in paths) {
+        if (other != path && path.has_prefix (other + "/")) {
+          inside = true;
+          break;
+        }
+      }
+      if (!inside) {
+        kept += path;
+      }
+    }
+    return kept;
+  }
+
   /** Moves `node` (a child of `parent`) to the trash, and removes it from `parent.children`. */
   public void delete_child (FileNode parent, FileNode node) throws Error {
     File.new_for_path (node.path).trash ();

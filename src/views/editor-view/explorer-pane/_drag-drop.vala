@@ -26,12 +26,14 @@ namespace EditorView {
     private uint hover_expand_timeout_id = 0;
 
     /**
-     * `source_path` was dropped onto `target_path` (a directory — the
-     * workspace root included). Not fired for a folder dropped onto itself,
-     * or back into the directory it's already in — both are treated as the
-     * user changing their mind mid-drag, not a real move attempt.
+     * `source_paths` were dropped onto `target_path` (a directory — the
+     * workspace root included): the dragged row, or the whole selection it
+     * was part of, less what already sits there or would land inside
+     * itself. Not fired when nothing is left — a folder let go onto itself,
+     * or back into the directory it's already in, is the user changing
+     * their mind mid-drag, not a move.
      */
-    public signal void moved_via_drag (string source_path, string target_path);
+    public signal void moved_via_drag (string[] source_paths, string target_path);
 
     public ExplorerPaneDragDrop (ExplorerPaneTree tree) {
       this.tree = tree;
@@ -42,7 +44,7 @@ namespace EditorView {
         if (widget == null || row == null || row.bound_node == null) {
           return null;
         }
-        return new FileDragCandidate (row.bound_node.path, widget);
+        return new FileDragCandidate (dragged_paths (row.bound_node), widget);
       });
 
       var drop_target = new Gtk.DropTarget (typeof (FileDragPayload), Gdk.DragAction.MOVE);
@@ -134,6 +136,18 @@ namespace EditorView {
       }
     }
 
+    /** The dragged row's path alone — or, when that row is one of several selected, every selected path, a folder's contents counted once. */
+    private string[] dragged_paths (FileNode picked) {
+      if (!tree.is_in_multi_selection (picked)) {
+        return { picked.path };
+      }
+      string[] paths = {};
+      foreach (var node in tree.selected_nodes ()) {
+        paths += node.path;
+      }
+      return FileTree.top_level (paths);
+    }
+
     private bool on_drag_drop (Value value, double x, double y) {
       tree.set_drag_hover (drag_hover_widget, false);
       drag_hover_widget = null;
@@ -145,26 +159,23 @@ namespace EditorView {
       }
 
       var target = tree.node_at (x, y);
-
-      // A folder dropped directly onto itself — almost always the user
-      // starting a drag, changing their mind, and letting go right back
-      // where they picked it up, not a real move attempt. Only meaningful
-      // for a directory target: a file "dropped onto itself" already
-      // resolves to its own parent below, caught by the next check instead.
-      if (target != null && target.is_directory && target.path == payload.path) {
-        return true;
-      }
-
       var target_path = drag_target_path (target);
 
-      // Dropped back into the folder it's already in — also a no-op
-      // (covers a file dropped onto itself, or onto a sibling file, too,
-      // once resolved to that shared parent above).
-      if (Path.get_dirname (payload.path) == target_path) {
-        return true;
+      // Left out of a drop: a folder let go onto itself, or anywhere
+      // inside itself; and anything dropped back into the folder it is
+      // already in (a file onto itself, or onto a sibling, resolves to
+      // that same parent). With one path that is the user changing their
+      // mind; within a selection the rest still moves.
+      string[] moving = {};
+      foreach (var path in payload.paths) {
+        bool into_itself = target_path == path || target_path.has_prefix (path + "/");
+        if (!into_itself && Path.get_dirname (path) != target_path) {
+          moving += path;
+        }
       }
-
-      moved_via_drag (payload.path, target_path);
+      if (moving.length > 0) {
+        moved_via_drag (moving, target_path);
+      }
       return true;
     }
   }

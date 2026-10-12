@@ -14,12 +14,13 @@
  * not a paintable of the dragged one).
  */
 public class FileDragCandidate : Object {
-  public string path;
+  /** The paths dragged — one, or the whole selection the picked row belongs to. */
+  public string[] paths;
   public Gtk.Widget preview_widget;
   public Gtk.Widget? icon_widget;
 
-  public FileDragCandidate (string path, Gtk.Widget preview_widget, Gtk.Widget? icon_widget = null) {
-    this.path = path;
+  public FileDragCandidate (string[] paths, Gtk.Widget preview_widget, Gtk.Widget? icon_widget = null) {
+    this.paths = paths;
     this.preview_widget = preview_widget;
     this.icon_widget = icon_widget;
   }

@@ -616,6 +616,23 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/file-tree/top-level/an-entry-inside-a-listed-folder-is-dropped", () => {
+        var kept = FileTree.top_level ({ "/r/src", "/r/src/a.txt", "/r/b.txt", "/r/src/lib/c.txt" });
+
+        assert_cmpstrv (kept, { "/r/src", "/r/b.txt" });
+    });
+
+    Test.add_func ("/file-tree/top-level/a-sibling-with-a-common-prefix-is-not-inside", () => {
+        var kept = FileTree.top_level ({ "/r/src", "/r/src-old/a.txt" });
+
+        assert_cmpstrv (kept, { "/r/src", "/r/src-old/a.txt" });
+    });
+
+    Test.add_func ("/file-tree/top-level/order-and-an-empty-list-are-kept", () => {
+        assert_cmpstrv (FileTree.top_level ({ "/r/z", "/r/a" }), { "/r/z", "/r/a" });
+        assert_cmpint (FileTree.top_level ({}).length, CompareOperator.EQ, 0);
+    });
+
     Test.add_func ("/file-tree/find/finds-a-nested-node-by-path", () => {
         string root_path = "";
         try {

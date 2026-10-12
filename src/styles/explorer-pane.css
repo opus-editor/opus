@@ -93,37 +93,18 @@ listview.data-table row:focus {
 }
 /* libadwaita's own default keeps a selected row's own background-color
  * (`row:selected`, _lists.scss) regardless of whether keyboard focus
- * is actually anywhere in this list — so it stayed visibly "selected"
- * even after clicking into the editor. Deliberately checked against
- * the row's own `:focus` here, not `listview:focus-within`: pressing a
- * different row moves real focus onto *that* row directly, before
- * Gtk.SingleSelection itself updates on release — so for that whole
- * press-to-release window, `listview:focus-within` was already true
- * while the *previous* row was still the one `:selected`, bringing its
- * background back for exactly that window. Scoped to the row's own
- * `:focus` instead, this only hides a selected row's background while
- * *that exact row* isn't the one focused.
- *
- * `:not(:hover)` too: this selector's specificity (an id-less
- * `listview.data-table row:selected:not(:focus)`) already beats
- * libadwaita's own `row.activatable:hover`/`row.activatable:selected:
- * hover` (base.css), so without it this rule kept winning even while
- * actually hovering that row — the previously-focused row simply never
- * showed a hover background again once focus left it. Excluding
- * `:hover` here just stops this rule from matching during a real
- * hover, letting the cascade fall through to libadwaita's own rule
- * instead of racing it.
+ * is anywhere in this list — so it stayed visibly "selected" even after
+ * clicking into the editor. Hidden while the list itself has no focus:
+ * with Gtk.MultiSelection several rows are `:selected` and only one can
+ * be `:focus`, so the row's own focus can't be the test any more.
+ * `:not(:hover)`: this selector's specificity beats libadwaita's own
+ * `row.activatable:hover`, and would otherwise keep a selected row from
+ * ever showing a hover background while the list is unfocused.
  *
  * `.file-tree-list` scopes this to ExplorerPaneTree's own list_view
  * specifically, not every `listview.data-table` (GitView.ChangeList is
- * the other one, see its own doc comment) — this rule only reads right
- * for Gtk.SingleSelection, where exactly one row is ever `:selected` at
- * all. With Gtk.MultiSelection, Ctrl/Shift-clicking a second row moves
- * keyboard focus onto *that* row, leaving every previously selected row
- * `:selected` but not `:focus` — this rule would then hide all of their
- * backgrounds, reading as "only one row selected" even though the
- * selection model still has every one of them. */
-listview.data-table.file-tree-list row:selected:not(:focus):not(:hover) {
+ * the other one, see its own doc comment). */
+listview.data-table.file-tree-list:not(:focus-within) row:selected:not(:hover) {
   background-color: transparent;
 }
 .file-tree-root-label {

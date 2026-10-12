@@ -382,7 +382,7 @@ namespace EditorView.EditorPane {
         // sizes its equivalent throwaway tab the same way, matching
         // the real pill's own current size.
         ghost.widget.set_size_request (pill.widget.get_width (), pill.widget.get_height ());
-        return new FileDragCandidate (path, pill.widget, ghost.widget);
+        return new FileDragCandidate ({ path }, pill.widget, ghost.widget);
       });
 
       // The real pill stays right where it is — still in `box`, still

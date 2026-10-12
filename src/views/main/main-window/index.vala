@@ -711,7 +711,7 @@ public class MainWindow : Object {
     // double-click — there's no reason to make the user go find and
     // click the file they just named.
     pane.file_created.connect ((path) => open_from_explorer (path, true));
-    pane.delete_entry_requested.connect ((path) => on_delete_requested.begin (pane, path));
+    pane.delete_entries_requested.connect ((paths) => on_delete_requested.begin (pane, paths));
     pane.file_moved.connect ((old_path, new_path) => {
       editor_pane.file_moved (old_path, new_path);
       if (recent_files != null && recent_files.contains (old_path)) {
@@ -1041,18 +1041,22 @@ public class MainWindow : Object {
    * its tab. Either way, once actually deleted, whatever tab was open
    * for it closes outright — nothing left on disk to save it back to.
    */
-  private async void on_delete_requested (EditorView.ExplorerPane pane, string path) {
-    if (editor_pane.is_dirty (path)) {
-      var confirmed = yield pane.confirm_delete_with_unsaved_changes (Path.get_basename (path));
-      if (!confirmed) {
-        return;
+  private async void on_delete_requested (EditorView.ExplorerPane pane, string[] paths) {
+    // A selection, one entry at a time: each dirty file gets its own
+    // question, and declining one leaves only that one untouched.
+    foreach (var path in FileTree.top_level (paths)) {
+      if (editor_pane.is_dirty (path)) {
+        var confirmed = yield pane.confirm_delete_with_unsaved_changes (Path.get_basename (path));
+        if (!confirmed) {
+          continue;
+        }
       }
-    }
 
-    pane.delete_entry (path);
-    editor_pane.discard_tab (path);
-    recent_files?.remove (path);
-    closed_tabs.forget (path);
+      pane.delete_entry (path);
+      editor_pane.discard_tab (path);
+      recent_files?.remove (path);
+      closed_tabs.forget (path);
+    }
   }
 
   /** "Reveal in Sidebar" — a pure View<->View navigation, no Model involved. A no-op with no folder linked (explorer_pane null). */

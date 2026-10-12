@@ -47,7 +47,7 @@ public class FileDrag : Object {
       }
 
       var value = Value (typeof (FileDragPayload));
-      value.set_object (new FileDragPayload (candidate.path));
+      value.set_object (new FileDragPayload (candidate.paths));
       return new Gdk.ContentProvider.for_value (value);
     });
 

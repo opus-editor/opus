@@ -1,5 +1,5 @@
 /**
- * Payload for an in-app drag of a single file/folder path — a
+ * Payload for an in-app drag of one or more file/folder paths — a
  * EditorView.ExplorerPaneTreeRow (a sidebar entry) or a EditorView.TabBarPill (an open tab), dropped onto
  * a EditorView.FileTree folder row or another EditorView.TabBarPill (to reorder). A distinct
  * GType, not a plain string: Gtk.DropTarget matches by GType, and a plain
@@ -12,9 +12,13 @@
  * built for it.
  */
 public class FileDragPayload : Object {
+  /** The first path — the one dragged for a single row or a tab. */
   public string path { get; private set; }
+  /** Every path dragged: the explorer's whole selection when the dragged row is part of one. */
+  public string[] paths { get; private set; }
 
-  public FileDragPayload (string path) {
-    this.path = path;
+  public FileDragPayload (string[] paths) {
+    this.paths = paths;
+    this.path = paths[0];
   }
 }
