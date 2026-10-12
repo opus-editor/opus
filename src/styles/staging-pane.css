@@ -47,16 +47,16 @@
   margin-right: 2px;
 }
 .change-decoration-letter.git-added {
-  color: var(--opus-git-added);
+  color: color-mix(in srgb, var(--opus-git-added) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-modified {
-  color: var(--opus-git-modified);
+  color: color-mix(in srgb, var(--opus-git-modified) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-conflict {
-  color: var(--opus-git-conflict);
+  color: color-mix(in srgb, var(--opus-git-conflict) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-removed {
-  color: var(--opus-git-removed);
+  color: color-mix(in srgb, var(--opus-git-removed) var(--opus-sidebar-git-opacity), transparent);
 }
 
 /* A plain Gtk.TextView, no css-name override: renaming it to "entry"

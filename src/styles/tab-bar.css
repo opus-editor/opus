@@ -68,34 +68,25 @@
 }
 
 /* A plugin's own decoration (git status, a future linter badge, …) —
- * tints the tab's own label text, same git-status color source as
- * ExplorerPaneTreeRow's own dot (common.css's shared pure-hue
- * --git-*-color tokens), but mixed against `currentColor` instead of
- * `transparent`: the dot sits on a flat row background, so blending
- * toward transparent reads as "a softer version of that background".
- * Text has no such single backdrop to blend into — `currentColor`
- * resolves to whatever this label's own text color already is
- * (light/dark theme, active/inactive state, all already resolved by
- * inheritance before this rule runs), so the tint reads as "this tone,
- * but still clearly this app's own text color" in both themes, rather
- * than one flat literal that only happens to work against one of them.
+ * tints the tab's own label text in the theme's tab tone for that
+ * state: softer than the git hue itself, which is too loud as text.
  * tone-accent has no git-status meaning (see explorer-pane.css's own
  * comment), so it stays its own literal mix. */
 .tab-pill label.tone-accent {
   color: color-mix(in srgb, var(--opus-accent-text) 75%, currentColor);
 }
 .tab-pill label.git-added {
-  color: color-mix(in srgb, var(--opus-git-added) 75%, currentColor);
+  color: var(--opus-tab-git-added);
 }
 .tab-pill label.git-modified {
-  color: color-mix(in srgb, var(--opus-git-modified) 75%, currentColor);
+  color: var(--opus-tab-git-modified);
 }
 .tab-pill label.git-conflict {
-  color: color-mix(in srgb, var(--opus-git-conflict) 75%, currentColor);
+  color: var(--opus-tab-git-conflict);
 }
 .tab-pill label.git-removed {
-  color: color-mix(in srgb, var(--opus-git-removed) 75%, currentColor);
+  color: var(--opus-tab-git-removed);
 }
 .tab-pill label.git-ignored {
-  color: var(--opus-git-ignored);
+  color: var(--opus-tab-git-ignored);
 }

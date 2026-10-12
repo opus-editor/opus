@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-Compiles a UI theme folder (src/themes/ui/base/: theme.json naming its
+Compiles a UI theme folder (src/themes/ui/adwaita-ui/: theme.json naming its
 light and dark files) into the one stylesheet the app loads: every color id becomes a CSS variable the other stylesheets
 read — --opus-<id, with . and _ as -> — defined under window:not(.dark)
 from its light file and under window.dark from its dark one, both in one
 file since the mode switches at runtime. A value is a hex color, a
 palette name, or a system.* pseudo-name: a libadwaita color, emitted as
 var(--…) so it keeps following the desktop (the accent picked in GNOME)
-without recompiling. The libadwaita variables a theme repaints
+without recompiling; `system.accent@35%` is that color at 35% alpha,
+emitted as a color-mix() toward transparent; a palette name with the
+same `@35%` suffix becomes that color with that alpha, as a literal.
+An id ending in `.opacity` takes a percentage (`75%`) instead of a
+color: a stylesheet mixes a hue with it. The libadwaita variables a theme repaints
 (--window-bg-color, --headerbar-bg-color, …) are re-pointed to the
 theme's own, so libadwaita's widgets follow too; a system.* value never
 re-points the variable it comes from.
@@ -65,6 +69,15 @@ LIBADWAITA = {
 }
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+SYSTEM_ALPHA = re.compile(r"^(system\.[a-z.]+)@(\d{1,3})%$")
+PALETTE_ALPHA = re.compile(r"^([a-z][a-z0-9-]*)@(\d{1,3})%$")
+PERCENT = re.compile(r"^(100|[1-9]?\d)%$")
+
+
+def with_alpha(color, percent):
+    """`color` (#rrggbb or #rrggbbaa) at `percent` of its alpha, as #rrggbbaa."""
+    alpha = int(color[7:9], 16) / 255 if len(color) == 9 else 1.0
+    return f"{color[:7]}{round(alpha * percent / 100 * 255):02x}"
 ID = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9][a-z0-9_]*)*$")
 
 
@@ -81,12 +94,22 @@ def resolve(path, key, value, palette):
         fail(path, key, "ids are lower-case snake_case words joined by dots")
     if not isinstance(value, str):
         fail(path, key, "a value must be a string")
+    if key.endswith(".opacity"):
+        if not PERCENT.match(value):
+            fail(path, key, f"{value!r} is not a percentage (an .opacity id takes '0%' to '100%')")
+        return value
     if value in SYSTEM:
         return f"var({SYSTEM[value]})"
+    faded = SYSTEM_ALPHA.match(value)
+    if faded and faded.group(1) in SYSTEM and 0 <= int(faded.group(2)) <= 100:
+        return f"color-mix(in srgb, var({SYSTEM[faded.group(1)]}) {int(faded.group(2))}%, transparent)"
     if value.startswith("system."):
         fail(path, key, f"unknown system color {value}; one of {', '.join(sorted(SYSTEM))}")
     if value in palette:
         value = palette[value]
+    faded = PALETTE_ALPHA.match(value)
+    if faded and faded.group(1) in palette and 0 <= int(faded.group(2)) <= 100:
+        value = with_alpha(palette[faded.group(1)].lower(), int(faded.group(2)))
     if not HEX.match(value):
         fail(path, key, f"{value!r} is neither a #rrggbb/#rrggbbaa color, a palette name nor a system.* name")
     return value.lower()
@@ -103,7 +126,7 @@ def check_stylesheets(styles_dir, defined):
         for number, line in enumerate(open(css, encoding="utf-8"), 1):
             for name in re.findall(r"var\((--opus-[a-z0-9-]+)\)", line):
                 if name not in known:
-                    sys.exit(f"{css}:{number}: {name} is not defined by the UI theme (src/themes/ui/base/)")
+                    sys.exit(f"{css}:{number}: {name} is not defined by the UI theme (src/themes/ui/adwaita-ui/)")
 
 
 def rules(path, selector):

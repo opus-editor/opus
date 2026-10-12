@@ -8,7 +8,7 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TOOL = os.path.join(ROOT, "tools", "compile-ui-theme.py")
-BASE = os.path.join(ROOT, "src", "themes", "ui", "base")
+UI_THEMES = os.path.join(ROOT, "src", "themes", "ui")
 failures = []
 
 
@@ -33,9 +33,10 @@ def theme(variant, ui, palette=None):
     return {"name": "T", "variant": variant, "palette": palette or {}, "ui": ui}
 
 
-# the bundled base themes compile, and every --opus-* the stylesheets read is defined
-result = subprocess.run([sys.executable, TOOL, os.path.join(tempfile.gettempdir(), "opus-base-theme.css"), BASE, os.path.join(ROOT, "src", "styles")], capture_output=True, text=True)
-check("bundled themes compile", result.returncode == 0, result.stderr)
+# every bundled UI theme compiles, and every --opus-* the stylesheets read is defined by each
+for folder in sorted(os.listdir(UI_THEMES)):
+    result = subprocess.run([sys.executable, TOOL, os.path.join(tempfile.gettempdir(), f"opus-{folder}.css"), os.path.join(UI_THEMES, folder), os.path.join(ROOT, "src", "styles")], capture_output=True, text=True)
+    check(f"bundled theme {folder} compiles", result.returncode == 0, result.stderr)
 
 # a hex, a palette name and a system name each become a variable, under the mode's selector
 code, _, css = compile_themes(theme("light", {"editor.cursor": "#112233", "view.background": "paper", "git.added": "system.success.text"}, {"paper": "#FFFFFF"}),
@@ -50,6 +51,14 @@ check("dark value", "--opus-editor-cursor: #445566;" in css, css)
 check("libadwaita repointed", "--view-bg-color: var(--opus-view-background);" in css, css)
 code, _, css = compile_themes(theme("light", {"accent.text": "system.accent.text"}), theme("dark", {"accent.text": "system.accent.text"}))
 check("system accent keeps libadwaita's own", "--accent-color: var(" not in css, css)
+code, _, css = compile_themes(theme("light", {"editor.selection": "system.accent@35%"}), theme("dark", {"editor.selection": "system.accent@35%"}))
+check("system name with alpha", "--opus-editor-selection: color-mix(in srgb, var(--accent-bg-color) 35%, transparent);" in css, css)
+code, _, css = compile_themes(theme("light", {"git.added": "green@18%"}, {"green": "#26A269"}), theme("dark", {"git.added": "green@18%"}, {"green": "#26a269"}))
+check("palette name with alpha", "--opus-git-added: #26a2692e;" in css, css)
+code, _, css = compile_themes(theme("light", {"sidebar.git.opacity": "75%"}), theme("dark", {"sidebar.git.opacity": "75%"}))
+check("an opacity id is a percentage", "--opus-sidebar-git-opacity: 75%;" in css, css)
+code, err, _ = compile_themes(theme("light", {"sidebar.git.opacity": "#ffffff"}), theme("dark", {"sidebar.git.opacity": "#ffffff"}))
+check("a color in an opacity id fails", code != 0 and "percentage" in err, err)
 
 # refusals name the file and the id
 code, err, _ = compile_themes(theme("light", {"editor.cursor": "red"}), theme("dark", {"editor.cursor": "#000000"}))

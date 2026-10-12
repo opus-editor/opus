@@ -27,22 +27,20 @@ textview.code-editor > text > selection {
  * their own widgets) — it can't apply a CSS background directly (it
  * paints via raw Gsk/Gtk.Snapshot calls), so it toggles the git-* class
  * alongside this one and reads the resolved `color` back via
- * Gtk.Widget.get_color(). Same flat-surface 50%-transparent recipe as
- * .decoration-dot's own git-* rules (explorer-pane.css) — a gutter bar
- * is a flat surface too, same reasoning. No .git-conflict here: a diff
- * hunk is never "conflicted", only added/changed/removed. The dimmed
- * (already-staged) state is plain alpha math in
- * CodeEditorChangeGutter's own Vala code instead of a second CSS class
- * combo — it's the gutter's own per-hunk runtime data, nothing else
- * needs it. */
+ * Gtk.Widget.get_color(): the git hue at the theme's gutter opacity.
+ * No .git-conflict here: a diff hunk is never
+ * "conflicted", only added/changed/removed. The dimmed (already-staged)
+ * state is plain alpha math in CodeEditorChangeGutter's own Vala code
+ * instead of a second CSS class combo — it's the gutter's own per-hunk
+ * runtime data, nothing else needs it. */
 .change-gutter.git-added {
-  color: color-mix(in srgb, var(--opus-git-added) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-added) var(--opus-gutter-git-opacity), transparent);
 }
 .change-gutter.git-modified {
-  color: color-mix(in srgb, var(--opus-git-modified) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-modified) var(--opus-gutter-git-opacity), transparent);
 }
 .change-gutter.git-removed {
-  color: color-mix(in srgb, var(--opus-git-removed) 50%, transparent);
+  color: color-mix(in srgb, var(--opus-git-removed) var(--opus-gutter-git-opacity), transparent);
 }
 
 /* CodeEditorDiffGutter's own columns and row tints (CodeEditor.show_diff()).

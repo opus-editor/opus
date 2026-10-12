@@ -67,6 +67,6 @@ columnview.tree-pane > header > button {
 }
 
 .wip-count {
-  color: var(--opus-git-added);
+  color: color-mix(in srgb, var(--opus-git-added) var(--opus-sidebar-git-opacity), transparent);
   font-weight: bold;
 }

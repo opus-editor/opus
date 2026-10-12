@@ -76,8 +76,8 @@ src/
   styles/     .css loaded by resource — see src/views/AGENTS.md
   themes/     bundled themes: syntax/<id>/ and ui/<id>/, each a folder with
               a theme.json naming its light and dark files — the same shape a
-              user drops in their own themes directory; ui/base is compiled
-              into the app's stylesheet at build time
+              user drops in their own themes directory; the ui_theme Meson option
+              (adwaita-ui by default) picks the one compiled into the stylesheet
   functions/  bundled functions, one folder each — see docs/FUNCTIONS.md
   views/      see src/views/AGENTS.md
 data/         .desktop file, GResource XML, icons
