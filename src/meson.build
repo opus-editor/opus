@@ -211,6 +211,7 @@ opus_gtk_view_sources = files(
   'views/components/context-menu.vala',
   'views/components/search-input.vala',
   'views/components/code-editor/_change-gutter.vala',
+  'views/components/code-editor/_scrollbar.vala',
   'views/components/code-editor/_diff-gutter.vala',
   'views/components/code-editor/_conflicts.vala',
   'views/components/code-editor/_clipboard.vala',

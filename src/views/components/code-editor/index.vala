@@ -44,6 +44,7 @@ public class CodeEditor : Object {
   private CodeEditorInput input;
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
+  private CodeEditorScrollbar scrollbar;
   // Only in diff mode (show_diff()): the old/new/marker gutter and the row backgrounds.
   private CodeEditorDiffGutter? diff_gutter = null;
   private bool diff_gutter_attached = false;
@@ -153,7 +154,8 @@ public class CodeEditor : Object {
     scrolled_window = new Gtk.ScrolledWindow () {
       vexpand = true,
       hscrollbar_policy = Gtk.PolicyType.AUTOMATIC,
-      vscrollbar_policy = Gtk.PolicyType.AUTOMATIC,
+      // The vertical bar is CodeEditorScrollbar's, over the view, with the git changes marked along it.
+      vscrollbar_policy = Gtk.PolicyType.EXTERNAL,
       child = text_view,
     };
 
@@ -162,6 +164,8 @@ public class CodeEditor : Object {
     conflicts = new CodeEditorConflicts (this, text_view);
     cursors.text_changed.connect (() => conflicts.schedule_scan ());
     overlay.child = scrolled_window;
+    scrollbar = new CodeEditorScrollbar (text_view, scrolled_window.vadjustment);
+    overlay.add_overlay (scrollbar);
     overlay.add_overlay (conflicts.widget);
     clipboard = new CodeEditorClipboard (text_view, cursors);
     input = new CodeEditorInput (text_view, cursors, clipboard);
@@ -211,6 +215,7 @@ public class CodeEditor : Object {
       pending_reveal_id = 0;
     }
     conflicts.close ();
+    scrollbar.close ();
     cursors.close ();
     search.close ();
     syntax_highlighter.close ();
@@ -587,6 +592,7 @@ public class CodeEditor : Object {
   /** Pass-through to the change-bar gutter renderer, same "prop forwarded to a child" shape as set_hunks()'s siblings above. */
   public void set_hunks (GitDiff.Hunk[] hunks) {
     change_gutter.set_hunks (hunks);
+    scrollbar.set_hunks (hunks);
   }
 
   /** Moves keyboard focus into the text view — used when opening a tab is meant to start editing right away, not just show it. */
