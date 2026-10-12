@@ -22,6 +22,25 @@ test: build
 run *ARGS: build
     GSETTINGS_SCHEMA_DIR=out/native/data OPUS_LANGUAGES_DIR=languages OPUS_GRAMMARS_DIR=out/native/languages OPUS_THEMES_DIR=src/themes OPUS_FUNCTIONS_DIR=src/functions ./out/native/src/opus {{ARGS}}
 
+# Opens the app sized to exactly match the window in assets/preview.png
+# (1080x720 — the image itself is 1202x842, padded by its drop shadow),
+# so a plain window screenshot drops straight into README.md's Preview
+# section without cropping or resizing. Restores whatever window size
+# was set before, once the window closes — window-width/window-height
+# are saved dconf state (src/views/main/main-window/index.vala), shared
+# with every other launch, not something this should leave changed.
+run-preview-setup: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    schema=io.github.opus_editor.Opus
+    export GSETTINGS_SCHEMA_DIR=out/native/data
+    width="$(gsettings get "$schema" window-width)"
+    height="$(gsettings get "$schema" window-height)"
+    trap 'gsettings set "$schema" window-width "$width"; gsettings set "$schema" window-height "$height"' EXIT
+    gsettings set "$schema" window-width 1080
+    gsettings set "$schema" window-height 720
+    just run
+
 # Build the Flatpak from build/'s manifest and install it for the
 # current user, so `flatpak run io.github.opus_editor.Opus` runs this
 # working tree. Needs org.flatpak.Builder from Flathub (itself a
