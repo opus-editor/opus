@@ -13,7 +13,7 @@
  *   at a dedent shows one guide level too many.
  * - A single `indent_size` serves both roles VS Code splits into `tabSize`
  *   and `indentSize` — matches the common case where they're equal, and
- *   is what {@link EditorConfig.indent_size_for} already produces.
+ *   is what the folder's per-file settings (FileSettings.Values.indent_size) already produce.
  *
  * `active_guide` ports VS Code's own `getActiveIndentGuide`
  * (`guidesTextModelPart.ts:41`) faithfully — control flow included, not

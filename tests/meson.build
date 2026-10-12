@@ -303,12 +303,12 @@ document_test = executable(
 )
 test('document', document_test)
 
-editor_config_test = executable(
-  'editor-config-test',
-  ['models/editor-config-test.vala'],
+file_settings_test = executable(
+  'file-settings-test',
+  ['models/file-settings-test.vala'],
   dependencies: [opus_model_test_dep],
 )
-test('editor-config', editor_config_test)
+test('file-settings', file_settings_test)
 
 display_rows_test = executable(
   'display-rows-test',
@@ -1288,6 +1288,26 @@ editing_on_save_test = executable(
 test(
   'editing-on-save',
   editing_on_save_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+editing_editorconfig_hierarchy_test = executable(
+  'editing-editorconfig-hierarchy-test',
+  ['system/editing/editorconfig-hierarchy-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'editing-editorconfig-hierarchy',
+  editing_editorconfig_hierarchy_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',

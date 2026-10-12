@@ -64,6 +64,8 @@ public class MainWindow : Object {
   // will ever register GitDiff.IBaseProvider, so the last one to register
   // simply wins.
   private Opus.Plugins.WorkspaceExtensions? diff_base_providers = null;
+  private Opus.Plugins.WorkspaceExtensions? file_settings_providers = null;
+  private FileSettings.Registry? file_settings = null;
   private GitDiff.IBaseProvider? diff_base_provider = null;
   private Opus.Plugins.WorkspaceExtensions? branch_providers = null;
 
@@ -428,6 +430,15 @@ public class MainWindow : Object {
     new_decoration_providers.added.connect ((e) => new_decorations.add_provider ((FileDecoration.IProvider) e));
     new_decoration_providers.removed.connect ((e) => new_decorations.remove_provider ((FileDecoration.IProvider) e));
 
+    var new_file_settings = new FileSettings.Registry ();
+    var new_file_settings_providers = new Opus.Plugins.WorkspaceExtensions (typeof (FileSettings.IProvider), new_workspace_context);
+    new_file_settings_providers.added.connect ((e) => new_file_settings.add_provider ((FileSettings.IProvider) e));
+    new_file_settings_providers.removed.connect ((e) => new_file_settings.remove_provider ((FileSettings.IProvider) e));
+    // Right away, not a turn later: a file opened alongside the folder is built from these.
+    foreach (var e in new_file_settings_providers.current ()) {
+      new_file_settings.add_provider ((FileSettings.IProvider) e);
+    }
+
     var new_diff_base_providers = new Opus.Plugins.WorkspaceExtensions (typeof (GitDiff.IBaseProvider), new_workspace_context);
     new_diff_base_providers.added.connect ((e) => {
       diff_base_provider = (GitDiff.IBaseProvider) e;
@@ -446,6 +457,7 @@ public class MainWindow : Object {
     } catch (Error e) {
       new_workspace_watcher.close ();
       new_decoration_providers.close ();
+      new_file_settings_providers.close ();
       new_diff_base_providers.close ();
       throw e;
     }
@@ -467,8 +479,11 @@ public class MainWindow : Object {
     decorations = new_decorations;
     decoration_providers = new_decoration_providers;
     diff_base_providers = new_diff_base_providers;
+    file_settings_providers = new_file_settings_providers;
+    file_settings = new_file_settings;
     branch_providers = new_branch_providers;
     editor_pane.set_decorations (new_decorations);
+    editor_pane.set_file_settings (new_file_settings);
 
     recent_files = new CommandBar.RecentFiles ();
     file_provider = new CommandBar.FileProvider (new_workspace_context, recent_files);
@@ -579,6 +594,12 @@ public class MainWindow : Object {
     diff_base_providers = null;
     diff_base_provider = null;
 
+    if (file_settings_providers != null) {
+      file_settings_providers.close ();
+    }
+    file_settings_providers = null;
+    file_settings = null;
+
     if (branch_providers != null) {
       branch_providers.close ();
     }
@@ -590,6 +611,7 @@ public class MainWindow : Object {
     }
     workspace_watcher = null;
     editor_pane.set_decorations (null);
+    editor_pane.set_file_settings (null);
     editor_pane.set_diff_base_provider (null);
     git_pane.set_workspace_context (null);
     tree_pane.set_workspace_context (null);

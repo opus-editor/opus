@@ -1,0 +1,9 @@
+[Plugin]
+Module=editorconfig
+Name=EditorConfig
+Description=Per-file editor settings from .editorconfig files
+Embedded=opus_editorconfig_register_types
+Builtin=true
+Hidden=true
+Version=0.1.0
+Copyright=Opus contributors

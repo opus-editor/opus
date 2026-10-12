@@ -432,5 +432,6 @@
   </gresource>
   <gresource prefix="/io/github/opus_editor/Opus/plugins">
     <file alias="git-status/git-status.plugin">plugins/git-status/git-status.plugin</file>
+    <file alias="editorconfig/editorconfig.plugin">plugins/editorconfig/editorconfig.plugin</file>
   </gresource>
 </gresources>

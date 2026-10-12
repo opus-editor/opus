@@ -21,7 +21,8 @@ in `settings.json`, or inside a `"language.<name>": { … }` block for
 one language's files. `insert-final-newline` exists for this alone and
 isn't listed. A folder's `.editorconfig` has the last word on those
 two: `trim_trailing_whitespace` and `insert_final_newline`, `true` or
-`false`, add or remove them for the files they match. A function that
+`false`, add or remove them for the files they match — resolved per
+file, from its own directory up to `root = true`, as the spec says. A function that
 fails is skipped; the save goes out regardless.
 
 | What | Where |

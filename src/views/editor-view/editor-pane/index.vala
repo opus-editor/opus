@@ -40,7 +40,7 @@ namespace EditorView {
     // What is the folder's, not any one file's — see the class comment.
     private int untitled_counter = 0;
     private EditorPane.TabDocument? preview_tab = null;
-    private EditorConfig? editor_config;
+    private FileSettings.Registry? file_settings = null;
     private FileDecoration.Registry? decorations = null;
     private GitDiff.IBaseProvider? diff_base_provider = null;
     // One Find query for every document tab's editor: the FindBar's term follows the user from tab to tab.
@@ -91,7 +91,6 @@ namespace EditorView {
     public EditorPaneWidget (string root_path, UserSettings user_settings) {
       this.root_path = root_path;
       this.user_settings = user_settings;
-      editor_config = EditorConfig.load (root_path);
       search_settings.set_wrap_around (true);
 
       tab_bar = new EditorPane.TabBar ();
@@ -203,7 +202,7 @@ namespace EditorView {
     /** A new document tab, with everything the folder lends it, wired and registered — the one place a TabDocument is made. */
     private EditorPane.TabDocument add_document_tab (Document document) {
       var tab = new EditorPane.TabDocument (document, user_settings, search_settings, root_path);
-      tab.set_editor_config (editor_config, root_path);
+      tab.set_file_settings (file_settings, root_path);
       tab.set_diff_base_provider (diff_base_provider);
       tab.file_tab_closed.connect ((path, line, column) => file_tab_closed (path, line, column));
       wire_tab (tab);
@@ -244,12 +243,19 @@ namespace EditorView {
       return found;
     }
 
-    /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path"/.editorconfig lookups resolve against the new root. */
+    /** "Open Folder…" swaps the sidebar to a new root, in the same window — open tabs stay open, only future "Copy Relative Path" lookups resolve against the new root. */
     public void set_root_path (string root_path) {
       this.root_path = root_path;
-      editor_config = EditorConfig.load (root_path);
       foreach (var tab in document_tabs ()) {
-        tab.set_editor_config (editor_config, root_path);
+        tab.set_file_settings (file_settings, root_path);
+      }
+    }
+
+    /** The folder's per-file settings (the .editorconfig plugin's, through FileSettings.Registry), null with no folder — what a tab's editor is built with and what a save honours. */
+    public void set_file_settings (FileSettings.Registry? registry) {
+      file_settings = registry;
+      foreach (var tab in document_tabs ()) {
+        tab.set_file_settings (file_settings, root_path);
       }
     }
 

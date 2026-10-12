@@ -40,7 +40,7 @@ namespace EditorView.EditorPane {
     // The provider changed while this tab was hidden: recompute when it shows again.
     private bool hunks_stale = false;
     private string root_path;
-    private EditorConfig? editor_config = null;
+    private FileSettings.Registry? file_settings = null;
     private FileDecoration.Registry? decorations = null;
 
     // Null until first shown — a session restores many tabs and shows one.
@@ -84,10 +84,16 @@ namespace EditorView.EditorPane {
       }
     }
 
-    /** The folder's .editorconfig, for this file's indentation; takes effect the next time the editor is built. `root_path` is where Save As starts for an untitled document. */
-    public void set_editor_config (EditorConfig? config, string root_path) {
-      editor_config = config;
+    /** The folder's per-file settings, for this file's indentation (next time the editor is built) and its save. `root_path` is where Save As starts for an untitled document. */
+    public void set_file_settings (FileSettings.Registry? registry, string root_path) {
+      file_settings = registry;
       this.root_path = root_path;
+    }
+
+    /** The settings for this file — or for `path`, when a Save As is about to write it there. An Untitled document counts as a file at the root, so the folder's general rules reach it too. */
+    private FileSettings.Values file_settings_for (string? path = null) {
+      var target = path ?? document.pathname ?? Path.build_filename (root_path, document.name);
+      return file_settings?.settings_for (target) ?? new FileSettings.Values ();
     }
 
     /** The folder's git decorations, null with no folder — stamps this tab's own tint right away, and again on restamp_decoration(). */
@@ -148,10 +154,8 @@ namespace EditorView.EditorPane {
       root.append (editor.widget);
 
       load_into_editor ();
-      editor.set_indent (
-        editor_config?.indent_size_for (relative_path (display_path ())) ?? DEFAULT_INDENT_SIZE,
-        editor_config?.insert_spaces_for (relative_path (display_path ())) ?? DEFAULT_INSERT_SPACES
-      );
+      var settings = file_settings_for ();
+      editor.set_indent (settings.indent_size ?? DEFAULT_INDENT_SIZE, settings.insert_spaces ?? DEFAULT_INSERT_SPACES);
       editor.bind (document.cursors, document.history);
       // A fresh editor already shows the top; scrolling there would only nudge the margin away.
       if (document.top_line > 1) {
@@ -659,9 +663,9 @@ namespace EditorView.EditorPane {
 
     private string[] save_function_ids (string path) {
       var ids = user_settings.on_save_for (editor.language_name);
-      var relative = relative_path (path);
-      ids = switched (ids, "trim-trailing-whitespace", editor_config?.trim_trailing_whitespace_for (relative));
-      ids = switched (ids, "insert-final-newline", editor_config?.insert_final_newline_for (relative));
+      var settings = file_settings_for (path);
+      ids = switched (ids, "trim-trailing-whitespace", settings.trim_trailing_whitespace);
+      ids = switched (ids, "insert-final-newline", settings.insert_final_newline);
       return ids;
     }
 
@@ -682,17 +686,12 @@ namespace EditorView.EditorPane {
       return result;
     }
 
-    /** The .editorconfig's `end_of_line` for `path`, when it has one, becomes the document's — at save time, so a config loaded after the tab opened still counts. */
+    /** The folder's line ending for `path`, when it has one, becomes the document's — at save time, so a rule written after the tab opened still counts. */
     private void apply_end_of_line (string path) {
-      var line_ending = editor_config?.end_of_line_for (relative_path (path));
+      var line_ending = file_settings_for (path).line_ending;
       if (line_ending != null) {
         document.line_ending = line_ending;
       }
-    }
-
-    private string relative_path (string path) {
-      var prefix = root_path + "/";
-      return path.has_prefix (prefix) ? path.substring (prefix.length) : path;
     }
   }
 }

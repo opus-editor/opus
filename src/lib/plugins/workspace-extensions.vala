@@ -53,6 +53,16 @@ namespace Opus.Plugins {
       });
     }
 
+    /** The extensions this set holds right now, already activate()d — for a caller that can't wait the one turn added() takes: a tab opened in the same turn the folder was linked (`opus folder file`, or a D-Bus call that lands before the Idle) has to see them. */
+    public GenericArray<IWorkspaceExtension> current () {
+      var extensions = new GenericArray<IWorkspaceExtension> ();
+      for (uint i = 0; i < extension_set.get_n_items (); i++) {
+        Object item = extension_set.get_item (i);
+        extensions.add ((IWorkspaceExtension) item);
+      }
+      return extensions;
+    }
+
     private void on_extension_added (Peas.PluginInfo info, Object extension_object) {
       var extension = (IWorkspaceExtension) extension_object;
       extension.activate ();

@@ -5,3 +5,4 @@
 # src/meson.build's own opus_model_sources already relies on).
 opus_plugin_sources = []
 subdir('git-status')
+subdir('editorconfig')
