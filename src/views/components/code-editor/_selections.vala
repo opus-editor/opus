@@ -48,9 +48,8 @@
 public class CodeEditorSelections : Object {
   private CodeEditorSourceView text_view;
   private Cursor[] cursors = {};
+  /** The tint of the draw in progress, resolved by draw(). */
   private Gdk.RGBA color;
-  private Gdk.RGBA focused_color;
-  private Gdk.RGBA backdrop_color;
 
   public CodeEditorSelections (CodeEditorSourceView text_view) {
     this.text_view = text_view;
@@ -59,23 +58,7 @@ public class CodeEditorSelections : Object {
     // inactive (state_flags_changed fires on text_view itself; BACKDROP
     // propagates down from the toplevel window) — reproduced here for
     // the hand-painted selection the same way.
-    text_view.state_flags_changed.connect ((previous_state) => update_color ());
-
-    // Own registration, same shape VS Code's registerThemingParticipant
-    // gets in viewCursors.ts (checked its source) — this class reacts to
-    // the app's theme for the one color it paints with, no separate
-    // "theme" object reaching in from outside.
-    var style_manager = Adw.StyleManager.get_default ();
-    // One main-loop turn later: the CSS the swatch is read from has settled by then.
-    dark_handler = style_manager.notify["dark"].connect (() => Idle.add (() => { apply_theme_colors (); return Source.REMOVE; }));
-    apply_theme_colors ();
-  }
-
-  private ulong dark_handler;
-
-  /** See CodeEditor.close(). */
-  public void close () {
-    Adw.StyleManager.get_default ().disconnect (dark_handler);
+    text_view.state_flags_changed.connect ((previous_state) => text_view.queue_draw ());
   }
 
   /** The live cursor set, straight from `CodeEditorCursors.render_cursors()` — empty (`is_empty`) ones included, skipped here rather than pre-filtered by the caller. Call whenever the cursor set changes. */
@@ -84,22 +67,14 @@ public class CodeEditorSelections : Object {
     text_view.queue_draw ();
   }
 
-  private void apply_theme_colors () {
-    focused_color = text_view.palette.selection ();
-
-    // Mirrors GTK's own ratio between its default (backdrop) and
-    // :focus-within selection colors: fully desaturated, at half the
-    // alpha of the focused one.
-    float lightness = float.max (float.max (focused_color.red, focused_color.green), focused_color.blue);
-    backdrop_color = { lightness, lightness, lightness, focused_color.alpha * 0.5f };
-
-    update_color ();
-  }
-
-  private void update_color () {
-    bool backdrop = (text_view.get_state_flags () & Gtk.StateFlags.BACKDROP) != 0;
-    color = backdrop ? backdrop_color : focused_color;
-    text_view.queue_draw ();
+  /** The theme's selection tint, read off the palette as painted — a cached copy could be read before the CSS settled. In the backdrop, GTK's own ratio between its default and :focus-within selection colors: fully desaturated, at half the alpha. */
+  private Gdk.RGBA current_color () {
+    var focused = text_view.palette.selection ();
+    if ((text_view.get_state_flags () & Gtk.StateFlags.BACKDROP) == 0) {
+      return focused;
+    }
+    float lightness = float.max (float.max (focused.red, focused.green), focused.blue);
+    return { lightness, lightness, lightness, focused.alpha * 0.5f };
   }
 
   /**
@@ -123,6 +98,7 @@ public class CodeEditorSelections : Object {
    * whenever the selection's own end offset includes a newline.
    */
   public void draw (Gtk.Snapshot snapshot) {
+    color = current_color ();
     if (cursors.length == 0 || color.alpha == 0) {
       return;
     }

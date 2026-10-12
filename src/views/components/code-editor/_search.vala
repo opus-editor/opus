@@ -89,7 +89,8 @@ public class CodeEditorSearch : Object {
     var style_manager = Adw.StyleManager.get_default ();
     // One main-loop turn later: the CSS the swatches are read from has settled by then.
     dark_handler = style_manager.notify["dark"].connect (() => Idle.add (() => { apply_theme_colors (); return Source.REMOVE; }));
-    apply_theme_colors ();
+    // Not before the view is mapped: until then the swatches haven't been styled by the window they'll sit in.
+    text_view.map.connect (apply_theme_colors);
   }
 
   /** See CodeEditor.close(). */

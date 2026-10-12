@@ -123,7 +123,6 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
       Source.remove (overscroll_idle_id);
       overscroll_idle_id = 0;
     }
-    selections.close ();
   }
 
   /** A view in a hidden tab has nothing to blink for. */
