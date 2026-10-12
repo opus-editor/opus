@@ -58,10 +58,10 @@ namespace GlobalCss {
    * first — see uninstall()'s own doc comment for why that matters here
    * specifically.
    */
-  public Gtk.CssProvider install_from_string (string css) {
+  public Gtk.CssProvider install_from_string (string css, uint priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION) {
     var provider = new Gtk.CssProvider ();
     provider.load_from_string (css);
-    add_provider_for_display_raw (Gdk.Display.get_default (), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+    add_provider_for_display_raw (Gdk.Display.get_default (), provider, priority);
     return provider;
   }
 

@@ -71,31 +71,29 @@ private void test_the_themes_default_to_the_bundled_github_pair () {
 
     var settings = new UserSettings (config_dir);
 
-    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github");
-    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "github");
+    assert_cmpstr (settings.theme_syntax, CompareOperator.EQ, "opus-editor/github-theme");
 
     remove_temp_config_dir (config_dir);
 }
 
-private void test_the_themes_are_read_from_the_file () {
+private void test_the_theme_is_read_from_the_file () {
     string config_dir = make_temp_config_dir ();
-    write_settings (config_dir, "{\"editor.theme_light\": \"paper\", \"editor.theme_dark\": \"ink\"}");
+    write_settings (config_dir, "{\"theme.syntax\": \"someone/paper\"}");
 
     var settings = new UserSettings (config_dir);
 
-    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "paper");
-    assert_cmpstr (settings.theme_dark, CompareOperator.EQ, "ink");
+    assert_cmpstr (settings.theme_syntax, CompareOperator.EQ, "someone/paper");
 
     remove_temp_config_dir (config_dir);
 }
 
 private void test_a_theme_of_the_wrong_type_falls_back_to_the_default () {
     string config_dir = make_temp_config_dir ();
-    write_settings (config_dir, "{\"editor.theme_light\": 3}");
+    write_settings (config_dir, "{\"theme.syntax\": 3}");
 
     var settings = new UserSettings (config_dir);
 
-    assert_cmpstr (settings.theme_light, CompareOperator.EQ, "github");
+    assert_cmpstr (settings.theme_syntax, CompareOperator.EQ, "opus-editor/github-theme");
 
     remove_temp_config_dir (config_dir);
 }
@@ -582,7 +580,7 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/reload_of_an_invalid_file_announces_nothing", test_reload_of_an_invalid_file_announces_nothing);
     Test.add_func ("/models/user-settings/reload_keeps_the_last_values_when_the_file_is_gone", test_reload_keeps_the_last_values_when_the_file_is_gone);
     Test.add_func ("/models/user-settings/the_themes_default_to_the_bundled_github_pair", test_the_themes_default_to_the_bundled_github_pair);
-    Test.add_func ("/models/user-settings/the_themes_are_read_from_the_file", test_the_themes_are_read_from_the_file);
+    Test.add_func ("/models/user-settings/the_theme_is_read_from_the_file", test_the_theme_is_read_from_the_file);
     Test.add_func ("/models/user-settings/a_theme_of_the_wrong_type_falls_back_to_the_default", test_a_theme_of_the_wrong_type_falls_back_to_the_default);
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_reads_its_block", test_word_wrap_for_a_language_reads_its_block);
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_without_a_block_is_the_plain_key", test_word_wrap_for_a_language_without_a_block_is_the_plain_key);

@@ -36,7 +36,6 @@
     "editor.background": "paper",
     "editor.change_banner.background": "yellow",
     "editor.cursor": "ink@80%",
-    "editor.foreground": "ink@80%",
     "editor.indent_guide": "ink@8%",
     "editor.indent_guide.active": "ink@15%",
     "editor.ruler": "ink@5%",

@@ -17,8 +17,7 @@ public class UserSettings : Object {
   // installed at all — a headless/minimal system, not a real desktop.
   private const int FALLBACK_FONT_SIZE = 11;
 
-  public const string DEFAULT_THEME_LIGHT = "github";
-  public const string DEFAULT_THEME_DARK = "github";
+  public const string DEFAULT_THEME_SYNTAX = "opus-editor/github-theme";
 
   private Json.Object root;
 
@@ -186,14 +185,9 @@ public class UserSettings : Object {
     return list;
   }
 
-  /** The syntax theme the editor wears while the app is light — a folder under a `themes/syntax` directory, by its name (`github`); its manifest picks the light file. */
-  public string theme_light {
-    owned get { return read_string ("editor.theme_light") ?? DEFAULT_THEME_LIGHT; }
-  }
-
-  /** Its counterpart for while the app is dark. */
-  public string theme_dark {
-    owned get { return read_string ("editor.theme_dark") ?? DEFAULT_THEME_DARK; }
+  /** The syntax theme the editor wears, `owner/theme` (`opus-editor/github-theme`): the folder `themes/syntax/<owner>/<theme>/`, whose manifest picks the light or the dark file for the app's mode. Not in the generated settings.json yet: there is one bundled theme to choose from. */
+  public string theme_syntax {
+    owned get { return read_string ("theme.syntax") ?? DEFAULT_THEME_SYNTAX; }
   }
 
   /** VS Code's own `scm.defaultViewSortKey` ("name"/"path"/"status") — GitView.ChangeList's own sort order for the Unstaged/Staged lists. An unrecognized value (a typo, same as any other key here) falls back to "path", same as VS Code's own default. */
@@ -269,11 +263,9 @@ public class UserSettings : Object {
   "editor.on_save": [],
   "editor.rulers": [],
   "editorconfig.max_line_length": false,
-  "editor.theme_light": "%s",
-  "editor.theme_dark": "%s",
   "git.changes_sort": "path"
 }
-""".printf (system_monospace_font_size (), DEFAULT_THEME_LIGHT, DEFAULT_THEME_DARK);
+""".printf (system_monospace_font_size ());
   }
 
   private Json.Object? read_root () {

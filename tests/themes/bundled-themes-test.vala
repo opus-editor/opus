@@ -1,20 +1,24 @@
 // Guards src/themes/syntax/ itself rather than a Model: every bundled
-// syntax theme — each folder with a theme.json — must load in every
+// syntax theme — each owner/theme folder with a theme.json — must load in every
 // variant its manifest lists, and style something.
 
 private string themes_directory () {
     return Path.build_filename (Environment.get_variable ("OPUS_THEMES_DIR"), "syntax");
 }
 
-/** Every theme folder's id, by the manifest it holds. */
+/** Every theme's id, `owner/theme`, by the manifest its folder holds. */
 private GenericArray<string> bundled_theme_ids () {
     var ids = new GenericArray<string> ();
     try {
-        var dir = Dir.open (themes_directory ());
-        string? entry;
-        while ((entry = dir.read_name ()) != null) {
-            if (FileUtils.test (Path.build_filename (themes_directory (), entry, ThemeManifest.FILE), FileTest.IS_REGULAR)) {
-                ids.add (entry);
+        var owners = Dir.open (themes_directory ());
+        string? owner;
+        while ((owner = owners.read_name ()) != null) {
+            var themes = Dir.open (Path.build_filename (themes_directory (), owner));
+            string? theme;
+            while ((theme = themes.read_name ()) != null) {
+                if (FileUtils.test (Path.build_filename (themes_directory (), owner, theme, ThemeManifest.FILE), FileTest.IS_REGULAR)) {
+                    ids.add (Path.build_filename (owner, theme));
+                }
             }
         }
     } catch (Error e) {
@@ -43,8 +47,8 @@ private void test_every_bundled_theme_loads_in_every_variant_it_lists () {
 
 private void test_the_themes_worn_by_default_are_bundled_in_both_variants () {
     try {
-        assert_cmpint (Theme.load ({ themes_directory () }, UserSettings.DEFAULT_THEME_LIGHT, false).style_keys ().length, CompareOperator.GT, 0);
-        assert_cmpint (Theme.load ({ themes_directory () }, UserSettings.DEFAULT_THEME_DARK, true).style_keys ().length, CompareOperator.GT, 0);
+        assert_cmpint (Theme.load ({ themes_directory () }, UserSettings.DEFAULT_THEME_SYNTAX, false).style_keys ().length, CompareOperator.GT, 0);
+        assert_cmpint (Theme.load ({ themes_directory () }, UserSettings.DEFAULT_THEME_SYNTAX, true).style_keys ().length, CompareOperator.GT, 0);
     } catch (ThemeError e) {
         error ("%s", e.message);
     }

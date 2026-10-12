@@ -1,8 +1,8 @@
 /**
  * A theme folder's `theme.json`: the name shown for it and which file
  * holds each variant. The same shape for a syntax theme
- * (`themes/syntax/<id>/`) and a UI theme (`themes/ui/<id>/`); a folder
- * may carry only one variant. The folder's name is the theme's id —
+ * (`themes/syntax/<owner>/<theme>/`) and a UI theme (`themes/ui/<id>/`);
+ * a folder may carry only one variant. `owner/theme` is the theme's id —
  * what settings.json names.
  */
 public class ThemeManifest : Object {
@@ -42,8 +42,8 @@ public class ThemeManifest : Object {
 
     var manifest = new ThemeManifest ();
     manifest.directory = directory;
-    manifest.id = Path.get_basename (directory);
-    manifest.name = optional_string (directory, object, "name") ?? manifest.id;
+    manifest.id = Path.build_filename (Path.get_basename (Path.get_dirname (directory)), Path.get_basename (directory));
+    manifest.name = optional_string (directory, object, "name") ?? Path.get_basename (directory);
     manifest.light = file_of (directory, object, "light");
     manifest.dark = file_of (directory, object, "dark");
     if (manifest.light == null && manifest.dark == null) {

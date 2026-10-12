@@ -120,6 +120,7 @@
  * rather than left to the GtkSourceView scheme, whose own text color
  * this outranks. On the view itself: a color on its `text` node is
  * ignored. */
+/* The window's text, unless the syntax theme asks for a shade of its own (EditorTheme installs that one over this). */
 textview.code-editor {
-  color: var(--opus-editor-foreground);
+  color: var(--opus-window-foreground);
 }

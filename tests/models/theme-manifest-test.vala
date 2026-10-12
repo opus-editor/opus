@@ -2,7 +2,7 @@
 
 private ThemeManifest parse (string json) {
     try {
-        return ThemeManifest.parse ("/tmp/themes/syntax/github", json);
+        return ThemeManifest.parse ("/tmp/themes/syntax/opus-editor/github-theme", json);
     } catch (ThemeError e) {
         error ("%s", e.message);
     }
@@ -10,28 +10,28 @@ private ThemeManifest parse (string json) {
 
 private string? failure_of (string json) {
     try {
-        ThemeManifest.parse ("/tmp/themes/syntax/github", json);
+        ThemeManifest.parse ("/tmp/themes/syntax/opus-editor/github-theme", json);
         return null;
     } catch (ThemeError e) {
         return e.message;
     }
 }
 
-private void test_the_folder_is_the_id_and_the_files_are_resolved_inside_it () {
+private void test_owner_and_folder_are_the_id_and_the_files_are_resolved_inside_it () {
     var manifest = parse ("""{ "name": "GitHub", "light": "light.json", "dark": "dark.json" }""");
 
-    assert_cmpstr (manifest.id, CompareOperator.EQ, "github");
+    assert_cmpstr (manifest.id, CompareOperator.EQ, "opus-editor/github-theme");
     assert_cmpstr (manifest.name, CompareOperator.EQ, "GitHub");
-    assert_cmpstr (manifest.file_for (false), CompareOperator.EQ, "/tmp/themes/syntax/github/light.json");
-    assert_cmpstr (manifest.file_for (true), CompareOperator.EQ, "/tmp/themes/syntax/github/dark.json");
+    assert_cmpstr (manifest.file_for (false), CompareOperator.EQ, "/tmp/themes/syntax/opus-editor/github-theme/light.json");
+    assert_cmpstr (manifest.file_for (true), CompareOperator.EQ, "/tmp/themes/syntax/opus-editor/github-theme/dark.json");
 }
 
 private void test_a_theme_may_have_one_variant_only () {
     var manifest = parse ("""{ "dark": "dark.json" }""");
 
-    assert_cmpstr (manifest.name, CompareOperator.EQ, "github");
+    assert_cmpstr (manifest.name, CompareOperator.EQ, "github-theme");
     assert_null (manifest.file_for (false));
-    assert_cmpstr (manifest.file_for (true), CompareOperator.EQ, "/tmp/themes/syntax/github/dark.json");
+    assert_cmpstr (manifest.file_for (true), CompareOperator.EQ, "/tmp/themes/syntax/opus-editor/github-theme/dark.json");
 }
 
 private void test_a_manifest_with_no_variant_is_invalid () {
@@ -48,7 +48,7 @@ private void test_broken_json_is_invalid () {
 
 void main (string[] args) {
     Test.init (ref args);
-    Test.add_func ("/models/theme-manifest/the_folder_is_the_id_and_the_files_are_resolved_inside_it", test_the_folder_is_the_id_and_the_files_are_resolved_inside_it);
+    Test.add_func ("/models/theme-manifest/owner_and_folder_are_the_id_and_the_files_are_resolved_inside_it", test_owner_and_folder_are_the_id_and_the_files_are_resolved_inside_it);
     Test.add_func ("/models/theme-manifest/a_theme_may_have_one_variant_only", test_a_theme_may_have_one_variant_only);
     Test.add_func ("/models/theme-manifest/a_manifest_with_no_variant_is_invalid", test_a_manifest_with_no_variant_is_invalid);
     Test.add_func ("/models/theme-manifest/a_variant_that_is_not_a_file_name_is_invalid", test_a_variant_that_is_not_a_file_name_is_invalid);

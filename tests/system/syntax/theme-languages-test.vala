@@ -1,12 +1,12 @@
 /**
  * A theme's styles for one language, end to end through the real
- * window: with tests/fixtures/themes/by-language.json on, the same
+ * window: with tests/fixtures/themes/syntax/opus-editor/by-language on, the same
  * capture is painted one way in the languages the theme singles out
  * and the general way everywhere else.
  */
 
 private const uint DISPLAY = 130;
-private const string SETTINGS = """{ "editor.theme_light": "by-language", "editor.theme_dark": "by-language" }""";
+private const string SETTINGS = """{ "theme.syntax": "opus-editor/by-language" }""";
 
 private string write_fixture (string name, string contents) throws Error {
     var root_path = DirUtils.make_tmp ("opus-theme-languages-test-XXXXXX");

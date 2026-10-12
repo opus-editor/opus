@@ -20,6 +20,10 @@ public class ThemeStyle : Object {
  * theme's `keyword` when it defines nothing closer (see
  * Syntax.CaptureStyles).
  *
+ * Under `editor`, the editor's own text color, `foreground`: a theme
+ * that wants its text a shade of its own, as GtkSourceView's Adwaita
+ * does; left out, the text is the window's.
+ *
  * Under `palette`, names for colors: wherever a style takes a color,
  * it may name one of these instead of spelling it out. A name is told
  * from a color by not starting with `#`. Two names need no palette:
@@ -33,9 +37,9 @@ public class ThemeStyle : Object {
  * ones, so whatever paints by key needs to know nothing about them.
  *
  * Bundled themes and the user's own are the same folders in two
- * directories (`themes/syntax/<id>/`, see ThemeManifest); a theme is
- * known by its folder's name, and its manifest says which file is the
- * light one and which the dark.
+ * directories (`themes/syntax/<owner>/<theme>/`, see ThemeManifest); a
+ * theme is known by `owner/theme`, and its manifest says which file is
+ * the light one and which the dark.
  */
 public class Theme : Object {
   private const string COLOR_PREFIX = "#";
@@ -43,6 +47,8 @@ public class Theme : Object {
   private const string EDITOR_BACKGROUND = "editor.background";
 
   public string name { get; private set; }
+  /** The editor's text color this theme asks for, `#rrggbb[aa]`; null when it leaves that to the window. */
+  public string? editor_foreground { get; private set; default = null; }
 
   private HashTable<string, ThemeStyle> styles = new HashTable<string, ThemeStyle> (str_hash, str_equal);
   // Only while the file is being read: styles end up holding the colors themselves.
@@ -58,8 +64,14 @@ public class Theme : Object {
     this ("");
   }
 
-  /** The `dark` or light variant of the theme folder `id` in the last of `directories` that has it, so a later directory overrides an earlier one. */
+  /** An id is `owner/theme` — a GitHub address, the shape a theme will be fetched by one day; the bundled ones are `opus-editor/…`. */
+  private const string ID_PATTERN = "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$";
+
+  /** The `dark` or light variant of the theme `id` (`owner/theme`, the folder `<directory>/owner/theme`) in the last of `directories` that has it, so a later directory overrides an earlier one. */
   public static Theme load (string[] directories, string id, bool dark) throws ThemeError {
+    if (!Regex.match_simple (ID_PATTERN, id)) {
+      throw new ThemeError.NOT_FOUND ("\"%s\" is not a theme id: expected owner/theme, like opus-editor/github-theme", id);
+    }
     for (int i = directories.length - 1; i >= 0; i--) {
       var directory = Path.build_filename (directories[i], id);
       if (!FileUtils.test (Path.build_filename (directory, ThemeManifest.FILE), FileTest.IS_REGULAR)) {
@@ -85,6 +97,7 @@ public class Theme : Object {
     var root = parse_root (json);
     var theme = new Theme (name);
     theme.read_palette (object_member (root, "palette"));
+    theme.read_editor (object_member (root, "editor"));
     theme.read_syntax (object_member (root, "syntax"));
     theme.read_languages (object_member (root, "languages"));
     theme.palette.remove_all ();
@@ -200,6 +213,17 @@ public class Theme : Object {
     style.underline = flag_of (object, "underline", where);
     style.strikethrough = flag_of (object, "strikethrough", where);
     return style;
+  }
+
+  private void read_editor (Json.Object? editor) throws ThemeError {
+    if (editor == null || !editor.has_member ("foreground")) {
+      return;
+    }
+    var color = color_of (editor, "foreground", "", "editor.foreground");
+    if (color == null) {
+      throw new ThemeError.INVALID ("editor.foreground must be a color written #rrggbb or #rrggbbaa, or the name of one in the palette");
+    }
+    editor_foreground = color;
   }
 
   /** Null for `editors_own`, the editor's color for this side — unless the palette gives that name a color of its own. */

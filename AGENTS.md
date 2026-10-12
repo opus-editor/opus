@@ -74,7 +74,8 @@ src/
   lib/        generic infra, independent of Opus's own domain — see src/lib/AGENTS.md
   plugins/    libpeas plugins, one directory each — see src/plugins/AGENTS.md
   styles/     .css loaded by resource — see src/views/AGENTS.md
-  themes/     bundled themes: syntax/<id>/ and ui/<id>/, each a folder with
+  themes/     bundled themes: syntax/<owner>/<theme>/ (the id settings.json
+              names, opus-editor/github-theme) and ui/<id>/, each a folder with
               a theme.json naming its light and dark files — the same shape a
               user drops in their own themes directory; ui/adwaita-ui is compiled
               into the app's stylesheet at build time

@@ -40,7 +40,7 @@ public class EditorTheme : Object {
 
   private void reload () {
     bool dark = Adw.StyleManager.get_default ().dark;
-    var name = dark ? settings.theme_dark : settings.theme_light;
+    var name = settings.theme_syntax;
     // settings.changed fires for every key; only a different theme is news here.
     if (name == loaded_name && dark == loaded_dark) {
       return;
@@ -49,14 +49,33 @@ public class EditorTheme : Object {
     loaded_dark = dark;
 
     theme = load (name, dark);
+    apply_editor_foreground ();
     scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (dark ? "Adwaita-dark" : "Adwaita");
     Syntax.Languages.instance.set_style_keys (theme.style_keys ());
     changed ();
   }
 
+  private Gtk.CssProvider? foreground_provider = null;
+
+  /** The theme's own text color for every CodeEditor, as one stylesheet over the window's text color — gone again for a theme that leaves it to the window. */
+  private void apply_editor_foreground () {
+    if (foreground_provider != null) {
+      GlobalCss.uninstall (foreground_provider);
+      foreground_provider = null;
+    }
+    if (theme.editor_foreground != null) {
+      // One priority above the app's stylesheets: among providers of the
+      // same priority GTK lets the one installed last win, whatever the
+      // selectors say, and this one is installed at startup, before the
+      // window installs common.css — the theme's color only showed up
+      // once a theme switch reinstalled this after it.
+      foreground_provider = GlobalCss.install_from_string ("textview.code-editor { color: %s; }".printf (theme.editor_foreground), Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    }
+  }
+
   /** The named theme, else the bundled one for this mode, else none at all — a typo in settings.json must not cost the editor its colors. */
   private Theme load (string name, bool dark) {
-    string[] candidates = { name, dark ? UserSettings.DEFAULT_THEME_DARK : UserSettings.DEFAULT_THEME_LIGHT };
+    string[] candidates = { name, UserSettings.DEFAULT_THEME_SYNTAX };
     foreach (unowned string candidate in candidates) {
       try {
         return Theme.load (theme_directories, candidate, dark);

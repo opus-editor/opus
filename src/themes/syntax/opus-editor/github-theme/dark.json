@@ -1,17 +1,17 @@
 {
   "palette": {
     "gray": "#6a737d",
-    "blue": "#005cc5",
-    "blue-dark": "#024694",
-    "purple": "#6f42c1",
-    "violet": "#a33e85",
-    "red": "#d73a49",
-    "red-dark": "#b31d28",
-    "green": "#22863a",
-    "orange": "#e36209",
-    "red-wash": "#ffeef0",
-    "green-wash": "#f0fff4",
-    "orange-wash": "#ffebda"
+    "blue": "#79b8ff",
+    "blue-light": "#aecdf1",
+    "purple": "#b392f0",
+    "violet": "#d684ba",
+    "red": "#f97583",
+    "red-light": "#fdaeb7",
+    "green": "#85e89d",
+    "orange": "#ffab70",
+    "red-deep": "#86181d",
+    "green-deep": "#144620",
+    "orange-deep": "#c24e00"
   },
   "syntax": {
     "attribute": { "foreground": "purple" },
@@ -20,9 +20,9 @@
     "constant.builtin": { "foreground": "orange" },
     "constant.numeric": { "foreground": "orange" },
     "constructor": { "foreground": "purple" },
-    "diff.delta": { "foreground": "orange", "background": "orange-wash" },
-    "diff.minus": { "foreground": "red-dark", "background": "red-wash" },
-    "diff.plus": { "foreground": "green", "background": "green-wash" },
+    "diff.delta": { "foreground": "orange", "background": "orange-deep" },
+    "diff.minus": { "foreground": "red-light", "background": "red-deep" },
+    "diff.plus": { "foreground": "green", "background": "green-deep" },
     "function": { "foreground": "purple" },
     "function.builtin": { "foreground": "blue" },
     "function.macro": { "foreground": "purple" },
@@ -35,11 +35,11 @@
     "markup.bold": { "bold": true },
     "markup.heading": { "foreground": "blue", "bold": true },
     "markup.italic": { "italic": true },
-    "markup.link.label": { "foreground": "blue-dark", "underline": true },
-    "markup.link.text": { "foreground": "blue-dark", "underline": true },
-    "markup.link.url": { "foreground": "blue-dark", "underline": true },
+    "markup.link.label": { "foreground": "blue" },
+    "markup.link.text": { "foreground": "blue-light" },
+    "markup.link.url": { "foreground": "blue", "underline": true },
     "markup.quote": { "foreground": "green" },
-    "markup.raw": { "foreground": "blue-dark" },
+    "markup.raw": { "foreground": "blue-light" },
     "markup.strikethrough": { "strikethrough": true },
     "namespace": { "foreground": "purple" },
     "operator": { "foreground": "red" },
@@ -55,16 +55,16 @@
   },
   "languages": {
     "markdown": {
-      "label": { "foreground": "blue-dark" }
-    },
-    "json": {
-      "variable.other.member": { "foreground": "purple" }
-    },
-    "toml": {
-      "punctuation.bracket": { "foreground": "purple" }
+      "label": { "foreground": "blue-light" }
     },
     "ruby": {
       "string.special.symbol": { "foreground": "orange" }
+    },
+    "json": {
+      "variable.other.member": { "!foreground": "purple" }
+    },
+    "toml": {
+      "punctuation.bracket": { "foreground": "purple" }
     },
     "bash": {
       "string": { "foreground": "editor.foreground" }

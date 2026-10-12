@@ -61,27 +61,9 @@ https://www.mozilla.org/en-US/MPL/2.0/
 GitHub VS Code theme — https://github.com/primer/github-vscode-theme
 MIT License. Copyright (c) 2020 Primer.
 
-The colors of src/themes/syntax/github/light.json and src/themes/syntax/github/dark.json are
+The colors of src/themes/syntax/opus-editor/github-theme/light.json and src/themes/syntax/opus-editor/github-theme/dark.json are
 its "GitHub Light" and "GitHub Dark" themes, converted by
 tools/port-vscode-theme.py. Under the same permission notice reproduced
 above for Visual Studio Code.
 
 --------------------------------------------------------------------------
-
-Tree-sitter — https://github.com/tree-sitter/tree-sitter
-MIT License. Copyright (c) 2018 Max Brunsfeld.
-
-The parsing runtime, built from source (subprojects/tree-sitter.wrap), and
-the grammars each bundled language pins in its language.json, compiled
-into one library apiece. Every grammar is under the license of its own
-repository: MIT, under the same permission notice reproduced above for
-Visual Studio Code, for all but tree-sitter-vala
-(https://github.com/vala-lang/tree-sitter-vala), which is under the GNU
-Lesser General Public License, version 2.1.
-
---------------------------------------------------------------------------
-
-Symbols icon theme — https://github.com/miguelsolorio/vscode-symbols
-MIT License. Copyright (c) 2020-22 Miguel Solorio.
-
-Bundled as-is in data/icons/symbols/, with its own LICENSE file there.
