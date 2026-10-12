@@ -263,6 +263,14 @@ test(
 # only held to loading at all, by bundled-themes below.
 opus_test_themes_dir = meson.current_source_dir() / 'fixtures' / 'themes'
 
+# tools/compile-ui-theme.py, the build step that turns src/themes/ui/base/
+# into the stylesheet every other .css reads its colors from.
+test(
+  'ui-theme-compiler',
+  find_program('python3'),
+  args: [meson.current_source_dir() / 'themes' / 'compile-ui-theme-test.py'],
+)
+
 bundled_themes_test = executable(
   'bundled-themes-test',
   ['themes/bundled-themes-test.vala'],

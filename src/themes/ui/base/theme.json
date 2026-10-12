@@ -1,0 +1,5 @@
+{
+  "name": "Base",
+  "light": "light.json",
+  "dark": "dark.json"
+}
