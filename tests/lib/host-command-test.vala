@@ -24,6 +24,18 @@ int main (string[] args) {
         assert_false (HostCommand.has_program ("opus-no-such-program-4f1c"));
     });
 
+    Test.add_func ("/host-command/threads-asking-at-once-all-get-the-same-answer", () => {
+        Thread<bool>[] threads = {};
+
+        for (var i = 0; i < 16; i++) {
+            threads += new Thread<bool> (null, () => HostCommand.has_program ("env"));
+        }
+
+        foreach (var thread in threads) {
+            assert_true (thread.join ());
+        }
+    });
+
     Test.add_func ("/host-command/shared-tmp-dir-for-a-local-program-is-the-tmp-dir", () => {
         var dir = HostCommand.shared_tmp_dir ("sh");
 

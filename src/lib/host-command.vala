@@ -25,6 +25,7 @@ public class HostCommand : Object {
   private enum Where { NOWHERE, LOCAL, HOST }
 
   private static HashTable<string, Where>? program_cache = null;
+  private static Mutex program_cache_lock;
 
   /** `command` as a launcher should spawn it: untouched when `command[0]` is on this process's PATH, prefixed with `flatpak-spawn --host` when only the host has it. */
   public static string[] argv (string[] command) {
@@ -47,14 +48,19 @@ public class HostCommand : Object {
     return where_is (name) != Where.NOWHERE;
   }
 
+  // Asked from worker threads that start together (git status, the
+  // commit graph): the cache must not be built or filled by two at once.
   private static Where where_is (string name) {
+    program_cache_lock.lock ();
     if (program_cache == null) {
       program_cache = new HashTable<string, Where> (str_hash, str_equal);
     }
     if (!program_cache.contains (name)) {
       program_cache[name] = look_up_program (name);
     }
-    return program_cache[name];
+    var where = program_cache[name];
+    program_cache_lock.unlock ();
+    return where;
   }
 
   /**
