@@ -1,34 +1,10 @@
-/* Adwaita's own default control radius (a plain Gtk.Entry/Gtk.Button,
- * _entries.scss/_buttons.scss) — it ships no custom property for this
- * itself, just the literal 9px repeated across its own selectors, so
- * this is ours: one place to change it, instead of each call site
- * hardcoding the number again. */
-:root {
-  --control-radius: 9px;
-}
-
-/* Adwaita ships no general-purpose "sm" size class for buttons/entries
- * (checked its own stylesheet, ~/Downloads/libadwaita: .compact/.small
- * exist, but scoped to ViewSwitcherBar and tabbutton's own indicator
- * label specifically) — same explicit-override approach tab-bar.css's
- * own .tab-close-button already uses. Default entry padding is 0 9px at
- * min-height 34px, default button 5px 10px at min-height 32px with a
- * 9px border-radius (_entries.scss/_buttons.scss) — cut down to a
- * smaller, secondary-chrome size; border-radius follows the height back
- * down too (same ~0.28 ratio as the default 9px/32px), not just left at
- * its default 9px, which reads as too round once the box itself is this
- * much shorter.
- *
- * Loaded once, app-wide, from MainWindow's own install_css() — not
- * scoped to whichever view first happens to use it (tab-find-results.css's
- * own instance is created lazily, only after a first Find in Files
- * search) — so it's available to every domain from app start, the same
- * "shared across domains" reasoning views/components/ already applies
- * to widget classes (src/views/AGENTS.md). */
+/* A compact entry/toggle: the .btn-sm height (base.css) with an
+ * entry's own side padding, for the controls that sit in a .linked row
+ * with a text field. */
 .compact-control {
   min-height: 24px;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 
 /* .linked normally squares off its own children's touching inner
@@ -69,7 +45,7 @@
  * the pair reads as one continuous control at rest; :hover/:active
  * still darken normally, only the resting :checked fill is touched. */
 .linked > .compact-control:checked {
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  background-color: var(--fill-strong);
 }
 
 /* A narrower, "web input"-styled text field — transparent background
@@ -82,18 +58,18 @@
 .outline-input {
   background-color: transparent;
   border: 1px solid alpha(currentColor, 0.2);
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-height: 24px;
   padding: 2px 8px;
 }
 
-/* The system's own real focus color, not plain var(--accent-color) —
+/* The system's own real focus color, not plain var(--opus-accent-text) —
  * checked libadwaita's actual _drawing.scss/_colors.scss: every native
  * focus-ring() is $focus_border_color, defined as accent at 50% opacity
- * (color-mix(in srgb, var(--accent-color) 50%, transparent)), not the
+ * (color-mix(in srgb, var(--opus-accent-text) 50%, transparent)), not the
  * full-strength accent. */
 .outline-input:focus-within {
-  border-color: color-mix(in srgb, var(--accent-color) 50%, transparent);
+  border-color: color-mix(in srgb, var(--opus-accent-text) 50%, transparent);
 }
 
 /* A muted fill on top of the plain border, so a disabled field reads as
@@ -107,7 +83,7 @@
  * Gtk.Text carrying the class directly. */
 .outline-input-disabled,
 .outline-input:disabled {
-  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  background-color: var(--fill);
 }
 
 /* A real Gtk.Entry dims its placeholder via a real GTK theme rule scoped
@@ -138,50 +114,12 @@
   opacity: 0.85;
 }
 
-/* Shared git-status color vocabulary — pure hue only, no surface's own
- * mixing formula baked in. Every surface that shows git status (the
- * explorer dot in explorer-pane.css, the tab label tint in tab-bar.css,
- * the editor gutter in code-editor.css) applies its OWN color-mix
- * recipe on top of these same four tokens instead of each hardcoding
- * --success-color/--warning-color/--error-color directly — a future
- * theming feature only ever has to touch these four lines to restyle
- * git status everywhere at once. Kept as tokens, not full `.git-*`
- * rules, precisely because the mixing formula genuinely differs by
- * surface (a flat background mixes toward transparent; text mixes
- * toward currentColor instead) — one shared rule couldn't serve both
- * without being wrong for one of them.
- *
- * --git-conflict-color has no libadwaita platform color to reach for at
- * all (none of them is orange), so it's derived by mixing
- * --warning-color and --error-color first (color-mix() confirmed to
- * nest cleanly — unlike light-dark(), see docs/DECISIONS.md). */
-:root {
-  --git-added-color: var(--success-color);
-  --git-modified-color: var(--warning-color);
-  --git-conflict-color: color-mix(in srgb, var(--warning-color) 50%, var(--error-color) 50%);
-  --git-removed-color: var(--error-color);
-}
 
-/* How far a git-ignored name fades (explorer row, tab label). Tuned by
- * eye so an explorer name lands at 40% (dark) and 47.5% (light) once
- * multiplied by the row label's own 0.75 opacity (_tree-row.blp).
- * Split by the window's own class, not :root: GTK's CSS parser has no
- * light-dark() (see main-window.css). */
-window.dark {
-  --dim-ignored: 0.533;
-}
-window:not(.dark) {
-  --dim-ignored: 0.633;
-}
 
 /* The editor's plain text — whatever no syntax style paints. Set here
  * rather than left to the GtkSourceView scheme, whose own text color
  * this outranks. On the view itself: a color on its `text` node is
- * ignored. Split by the window's class for the same reason as
- * --dim-ignored above. */
-window:not(.dark) textview.code-editor {
-  color: #212121;
-}
-window.dark textview.code-editor {
-  color: #cccccc;
+ * ignored. */
+textview.code-editor {
+  color: var(--opus-editor-foreground);
 }

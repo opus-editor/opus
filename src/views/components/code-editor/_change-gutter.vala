@@ -1,9 +1,8 @@
 /**
  * Colored change-indicator bars in the gutter, one per GitDiff.Hunk —
  * colors come from `.change-gutter.git-added`/`git-modified`/
- * `git-removed` (code-editor.css), the same shared, pure-hue
- * `--git-*-color` tokens (common.css) the explorer dot's own git-*
- * rules and the tab label's own git-* rules mix too — not
+ * `git-removed` (code-editor.css), the theme's git hues at its gutter
+ * opacity — not
  * GtkSourceView's own bundled diff:*-line style-scheme colors, which
  * have no relation to the rest of Opus's own git-status color
  * language. A hunk that still differs from the index (unstaged work on

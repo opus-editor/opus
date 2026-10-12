@@ -32,10 +32,10 @@ public class ThemeStyle : Object {
  * Syntax.CaptureStyles.language_key() gives it, next to the general
  * ones, so whatever paints by key needs to know nothing about them.
  *
- * Bundled themes and the user's own are the same file in two
- * directories; a theme is known by its path inside one, without the
- * `.json` — `github/theme-light` for the light one of the `github`
- * folder.
+ * Bundled themes and the user's own are the same folders in two
+ * directories (`themes/syntax/<id>/`, see ThemeManifest); a theme is
+ * known by its folder's name, and its manifest says which file is the
+ * light one and which the dark.
  */
 public class Theme : Object {
   private const string COLOR_PREFIX = "#";
@@ -58,12 +58,16 @@ public class Theme : Object {
     this ("");
   }
 
-  /** `<name>.json` from the last of `directories` that has it, so a later directory overrides an earlier one. */
-  public static Theme load (string[] directories, string name) throws ThemeError {
+  /** The `dark` or light variant of the theme folder `id` in the last of `directories` that has it, so a later directory overrides an earlier one. */
+  public static Theme load (string[] directories, string id, bool dark) throws ThemeError {
     for (int i = directories.length - 1; i >= 0; i--) {
-      var path = Path.build_filename (directories[i], name + ".json");
-      if (!FileUtils.test (path, FileTest.IS_REGULAR)) {
+      var directory = Path.build_filename (directories[i], id);
+      if (!FileUtils.test (Path.build_filename (directory, ThemeManifest.FILE), FileTest.IS_REGULAR)) {
         continue;
+      }
+      var path = ThemeManifest.load (directory).file_for (dark);
+      if (path == null) {
+        throw new ThemeError.NOT_FOUND ("theme \"%s\" has no %s variant", id, dark ? "dark" : "light");
       }
       string contents;
       try {
@@ -71,9 +75,9 @@ public class Theme : Object {
       } catch (FileError e) {
         throw new ThemeError.INVALID ("%s: %s", path, e.message);
       }
-      return parse (name, contents);
+      return parse (id, contents);
     }
-    throw new ThemeError.NOT_FOUND ("no theme named \"%s\"", name);
+    throw new ThemeError.NOT_FOUND ("no theme named \"%s\"", id);
   }
 
   /** Split out from {@link load} so a theme can be tested as plain text. */

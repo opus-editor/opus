@@ -132,28 +132,23 @@ public class CodeEditorConflicts : Object {
   }
 
   private void paint () {
-    var current_marker = swatches[0].get_color ();
-    var incoming_marker = swatches[1].get_color ();
-    var current = swatches[2].get_color ();
-    var base_color = swatches[3].get_color ();
-    var incoming = swatches[4].get_color ();
     var bands = new GenericArray<CodeEditorSourceView.RowBand> ();
     for (uint i = 0; i < conflicts.length; i++) {
       var c = conflicts[i];
-      band (bands, c.start_line, c.start_line, current_marker);
-      band (bands, c.current_first, c.current_last, current);
+      band (bands, c.start_line, c.start_line, swatches[0]);
+      band (bands, c.current_first, c.current_last, swatches[2]);
       if (c.base_line >= 0) {
-        band (bands, c.base_line, c.splitter_line - 1, base_color);
+        band (bands, c.base_line, c.splitter_line - 1, swatches[3]);
       }
-      band (bands, c.incoming_first, c.incoming_last, incoming);
-      band (bands, c.end_line, c.end_line, incoming_marker);
+      band (bands, c.incoming_first, c.incoming_last, swatches[4]);
+      band (bands, c.end_line, c.end_line, swatches[1]);
     }
     text_view.set_row_bands ("conflicts", bands);
   }
 
-  private static void band (GenericArray<CodeEditorSourceView.RowBand> bands, int first, int last, Gdk.RGBA color) {
+  private static void band (GenericArray<CodeEditorSourceView.RowBand> bands, int first, int last, Gtk.Widget swatch) {
     if (last >= first) {
-      bands.add (new CodeEditorSourceView.RowBand (first, last, color));
+      bands.add (new CodeEditorSourceView.RowBand (first, last, swatch));
     }
   }
 

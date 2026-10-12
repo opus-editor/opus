@@ -263,6 +263,14 @@ test(
 # only held to loading at all, by bundled-themes below.
 opus_test_themes_dir = meson.current_source_dir() / 'fixtures' / 'themes'
 
+# tools/compile-ui-theme.py, the build step that turns src/themes/ui/adwaita-ui/
+# into the stylesheet every other .css reads its colors from.
+test(
+  'ui-theme-compiler',
+  find_program('python3'),
+  args: [meson.current_source_dir() / 'themes' / 'compile-ui-theme-test.py'],
+)
+
 bundled_themes_test = executable(
   'bundled-themes-test',
   ['themes/bundled-themes-test.vala'],
@@ -271,8 +279,15 @@ bundled_themes_test = executable(
 test(
   'bundled-themes',
   bundled_themes_test,
-  env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes'],
+  env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'src' / 'themes'],
 )
+
+theme_manifest_test = executable(
+  'theme-manifest-test',
+  ['models/theme-manifest-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('theme-manifest', theme_manifest_test)
 
 theme_test = executable(
   'theme-test',

@@ -87,8 +87,10 @@ public class CodeEditorSearch : Object {
     // the app's theme for its own two tags' colors, no separate "theme"
     // object reaching in from outside.
     var style_manager = Adw.StyleManager.get_default ();
-    dark_handler = style_manager.notify["dark"].connect (() => apply_theme_colors (style_manager.dark));
-    apply_theme_colors (style_manager.dark);
+    // One main-loop turn later: the CSS the swatches are read from has settled by then.
+    dark_handler = style_manager.notify["dark"].connect (() => Idle.add (() => { apply_theme_colors (); return Source.REMOVE; }));
+    // Not before the view is mapped: until then the swatches haven't been styled by the window they'll sit in.
+    text_view.map.connect (apply_theme_colors);
   }
 
   /** See CodeEditor.close(). */
@@ -120,28 +122,10 @@ public class CodeEditorSearch : Object {
     search_position_changed (position, count);
   }
 
-  /**
-   * A light desaturation (not cursors' own full grayscale) — enough to
-   * read as visually distinct from the accent-colored selection, without
-   * draining the accent away entirely. Dark gets double light's amount:
-   * the same darker background these highlights sit on already reads
-   * any given desaturation as more washed-out, so it needs more of it to
-   * look equally "toned down".
-   */
-  private void apply_theme_colors (bool dark) {
-    // .to_rgba() here, not chained further: search_match_background/
-    // search_current_match_background each need their own independent
-    // alpha off this same base — a plain Gdk.RGBA (a value type) copies
-    // safely on assignment, where branching two .transparentize() calls
-    // off the same SystemColor instance would mutate one shared object
-    // instead.
-    var search_base = SystemColor.from_accent ().desaturate (dark ? 0.10f : 0.05f).to_rgba ();
-    var search_match_background = search_base;
-    search_match_background.alpha = 0.30f;
-    var search_current_match_background = search_base;
-    search_current_match_background.alpha = 0.60f;
-    search_match_tag.background_rgba = search_match_background;
-    search_current_match_tag.background_rgba = search_current_match_background;
+  /** The two tints come from the theme (editor.search.match / .current), read off CodeEditorPalette's swatches. */
+  private void apply_theme_colors () {
+    search_match_tag.background_rgba = text_view.palette.search_match ();
+    search_current_match_tag.background_rgba = text_view.palette.search_current ();
   }
 
   /** "" clears the search (no match, no highlight) rather than matching everything. Also re-lands on the nearest match from the real caret. */

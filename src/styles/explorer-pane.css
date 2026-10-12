@@ -48,10 +48,10 @@ listview.data-table row.reveal-flash-fading {
   transition: background-color 700ms ease-out;
 }
 treeexpander > expander {
-  -gtk-icon-source: -gtk-icontheme("chevron-right-symbolic");
+  -gtk-icon-source: -gtk-icontheme("opus-chevron-right-symbolic");
 }
 treeexpander > expander:checked {
-  -gtk-icon-source: -gtk-icontheme("chevron-down-symbolic");
+  -gtk-icon-source: -gtk-icontheme("opus-chevron-down-symbolic");
 }
 /* The folder row directly under a dragged file/folder — accent color
  * (the system's own, not a hardcoded blue) at partial opacity, so it
@@ -61,7 +61,7 @@ treeexpander > expander:checked {
  * rule right above already covers it too, same as it does for native
  * hover/selection. */
 listview.data-table row.drag-hover {
-  background-color: color-mix(in srgb, var(--accent-bg-color) 30%, transparent);
+  background-color: var(--opus-sidebar-list-drag-hover);
 }
 /* libadwaita's own default for any widget currently holding an
  * "active" drop target (base.css: `:drop(active)`) is a 1px
@@ -82,7 +82,7 @@ listview.data-table:drop(active) {
  * with .reveal-flash-fading's own transition (above) fading it back
  * out instead of snapping off. */
 listview.data-table row.reveal-flash {
-  background-color: var(--warning-bg-color);
+  background-color: var(--opus-sidebar-list-flash);
 }
 /* libadwaita's own default for any `row` (base `_lists.scss`:
  * `row { @include focus-ring(); }`) draws an accent-colored outline on
@@ -133,55 +133,39 @@ listview.data-table.file-tree-list row:selected:not(:focus):not(:hover) {
   font-size: 90%;
   font-style: italic;
 }
-/* `icon-name` makes GTK add its own "image-button" class, whose Adwaita
- * rule (`button.image-button { min-width: 24px; padding-left/right: 5px;
- * }`) stacks with the plain `button` rule's own 24px min-height and 5px
- * top/bottom padding — a ~34x34px button for one 16px symbolic icon.
- * Shrunk back down to the icon's own size. */
-.root-header-more-button {
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
-  border-radius: 6px;
-}
 /* A plugin's own decoration (git status, a future linter badge, …) — a
- * small filled circle, right-aligned on the row. tone-accent has no
- * git-status meaning (unused by the git-status plugin today, kept for
- * a future non-git provider) so it stays its own literal color-mix;
- * git-added/git-modified/git-conflict/git-removed instead mix the pure
- * hue tokens common.css defines once for every git-status surface (also
- * the editor gutter, also the tab label tint) — 50% with transparent,
- * this surface's own recipe: a flat row background, so blending toward
- * transparent reads as "a softer version of that background"; mixing
- * with black turns muddy in light mode.
+ * small filled circle, right-aligned on the row, in the git hue of its
+ * state at the opacity the theme gives every panel's git decoration.
+ * tone-accent has no git-status meaning (unused by the git-status
+ * plugin today, kept for a future non-git provider).
  * margin-right, not margin-inline-end: GTK4's CSS box model is
  * physical-only, no logical margin properties. */
 .decoration-dot {
   min-width: 8px;
   min-height: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   margin-right: 4px;
 }
 .decoration-dot.tone-accent {
-  background-color: color-mix(in srgb, var(--accent-color) 50%, transparent);
+  background-color: color-mix(in srgb, var(--opus-accent-text) 50%, transparent);
 }
 .decoration-dot.git-added {
-  background-color: color-mix(in srgb, var(--git-added-color) 50%, transparent);
+  background-color: color-mix(in srgb, var(--opus-git-added) var(--opus-sidebar-git-opacity), transparent);
 }
 .decoration-dot.git-modified {
-  background-color: color-mix(in srgb, var(--git-modified-color) 50%, transparent);
+  background-color: color-mix(in srgb, var(--opus-git-modified) var(--opus-sidebar-git-opacity), transparent);
 }
 /* A conflict is a bold "!" in its hue where the dot would be. */
 .decoration-mark {
-  color: var(--git-conflict-color);
+  color: color-mix(in srgb, var(--opus-git-conflict) var(--opus-sidebar-git-opacity), transparent);
   font-weight: bold;
   margin-right: 4px;
 }
 .decoration-dot.git-removed {
-  background-color: color-mix(in srgb, var(--git-removed-color) 50%, transparent);
+  background-color: color-mix(in srgb, var(--opus-git-removed) var(--opus-sidebar-git-opacity), transparent);
 }
 /* The one decoration with no dot: the name itself fades, the icon
  * stays as is. */
 listview.data-table label.git-ignored {
-  opacity: var(--dim-ignored);
+  color: color-mix(in srgb, var(--opus-git-ignored) var(--opus-sidebar-git-opacity), transparent);
 }

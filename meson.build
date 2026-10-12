@@ -82,8 +82,6 @@ add_project_arguments(
 )
 
 subdir('data')
-# The bundled editor themes — see src/models/theme.vala for the format.
-install_subdir('themes', install_dir: get_option('datadir') / 'opus')
 subdir('languages')
 subdir('src')
 subdir('po')

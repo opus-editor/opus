@@ -1274,6 +1274,9 @@ public class MainWindow : Object {
   }
 
   private void install_css () {
+    // First: the compiled UI theme defines the --opus-* variables everything below reads.
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/theme.css");
+    GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/base.css");
     GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/main-window.css");
     GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/context-menu.css");
     GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/dialogs.css");

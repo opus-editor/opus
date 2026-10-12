@@ -53,21 +53,21 @@ Gtk.SearchBar search_bar {
 
         Gtk.ToggleButton regex_button {
           styles ["flat"]
-          icon-name: "regex-symbolic";
+          icon-name: "opus-regex-symbolic";
           tooltip-text: _("Regular Expressions");
           focus-on-click: false;
         }
 
         Gtk.ToggleButton case_sensitive_button {
           styles ["flat"]
-          icon-name: "case-sensitive-symbolic";
+          icon-name: "opus-case-sensitive-symbolic";
           tooltip-text: _("Case Sensitive");
           focus-on-click: false;
         }
 
         Gtk.ToggleButton whole_word_button {
           styles ["flat"]
-          icon-name: "whole-word-symbolic";
+          icon-name: "opus-whole-word-symbolic";
           tooltip-text: _("Match Whole Word Only");
           focus-on-click: false;
         }
@@ -111,7 +111,7 @@ Gtk.SearchBar search_bar {
       // to the far right.
       Gtk.Button search_button {
         styles ["flat"]
-        icon-name: "search-symbolic";
+        icon-name: "opus-search-symbolic";
         tooltip-text: _("Search");
         focus-on-click: false;
         halign: start;
@@ -131,7 +131,7 @@ Gtk.SearchBar search_bar {
       // at all.
       Gtk.ToggleButton gitignore_button {
         styles ["flat"]
-        icon-name: "gitignore-symbolic";
+        icon-name: "opus-gitignore-symbolic";
         tooltip-text: _("Use gitignore");
         focus-on-click: false;
         active: true;
@@ -193,11 +193,11 @@ Gtk.SearchBar search_bar {
       // default) hugs where_entry's own right edge instead of stretching
       // across all of column 3's width (as wide as search_button's own
       // column above it) or drifting to its far right edge. Same icon
-      // as always (more-symbolic) — only its own meaning/tooltip changed,
+      // as always (opus-more-symbolic) — only its own meaning/tooltip changed,
       // see MainWindow's own on_add_folder_requested() for what it does.
       Gtk.Button add_folder_button {
         styles ["flat"]
-        icon-name: "more-symbolic";
+        icon-name: "opus-more-symbolic";
         tooltip-text: _("Add Folder…");
         focus-on-click: false;
         halign: start;

@@ -59,7 +59,7 @@ public class EditorTheme : Object {
     string[] candidates = { name, dark ? UserSettings.DEFAULT_THEME_DARK : UserSettings.DEFAULT_THEME_LIGHT };
     foreach (unowned string candidate in candidates) {
       try {
-        return Theme.load (theme_directories, candidate);
+        return Theme.load (theme_directories, candidate, dark);
       } catch (ThemeError e) {
         Logger.warn ("theme \"%s\": %s".printf (candidate, e.message));
       }

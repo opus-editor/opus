@@ -3,19 +3,16 @@ using Adw 1;
 
 // Same header shape as ExplorerPane's own (editor-view/explorer-pane/
 // index.blp) — folder name, branch, a "..." menu button — reusing its
-// file-tree-root-label/file-tree-branch-label/root-header-more-button
-// CSS classes (explorer-pane.css) rather than duplicating the rules.
+// file-tree-root-label/file-tree-branch-label CSS classes
+// (explorer-pane.css) rather than duplicating the rules.
 Gtk.Box root_box {
   orientation: vertical;
 
   Gtk.Box root_header_box {
     Gtk.Box {
+      styles ["mt-200", "me-150", "ms-300", "mb-200"]
       orientation: vertical;
       hexpand: true;
-      margin-top: 8;
-      margin-end: 6;
-      margin-start: 12;
-      margin-bottom: 8;
 
       Gtk.Label root_label {
         styles ["file-tree-root-label"]
@@ -50,44 +47,34 @@ Gtk.Box root_box {
       visible: false;
 
       Gtk.Box {
+        styles ["mb-200"]
         orientation: horizontal;
-        margin-bottom: 8;
 
         Gtk.Label {
-          styles ["heading"]
+          styles ["heading", "mt-150", "mb-150", "ms-300", "me-150"]
           label: _("Conflicts");
           halign: start;
           hexpand: true;
-          margin-top: 6;
-          margin-bottom: 6;
-          margin-start: 12;
-          margin-end: 6;
         }
 
         Gtk.Button conflicts_more_button {
-          styles ["subsection-more-button"]
+          styles ["btn-sm", "btn-icon", "mt-50", "mb-50", "me-150"]
           valign: center;
-          margin-top: 2;
-          margin-bottom: 2;
-          margin-end: 6;
 
           child: Adw.ButtonContent {
-            icon-name: "open-menu-symbolic";
+            icon-name: "opus-more-symbolic";
           };
         }
 
         // Opens every conflicted file in the editor, where each block gets
         // its Accept buttons (CodeEditorConflicts). sensitive wired in code.
         Gtk.Button conflicts_solve_button {
-          styles ["subsection-button"]
+          styles ["btn-sm", "subsection-button", "mt-50", "mb-50", "me-150"]
           valign: center;
           sensitive: false;
-          margin-top: 2;
-          margin-bottom: 2;
-          margin-end: 6;
 
           child: Adw.ButtonContent {
-            icon-name: "stage-symbolic";
+            icon-name: "opus-stage-symbolic";
             label: _("Solve All");
           };
         }
@@ -103,18 +90,14 @@ Gtk.Box root_box {
       orientation: vertical;
 
       Gtk.Box {
+        styles ["mb-200"]
         orientation: horizontal;
-        margin-bottom: 8;
 
         Gtk.Label {
-          styles ["heading"]
+          styles ["heading", "mt-150", "mb-150", "ms-300", "me-150"]
           label: _("Unstaged");
           halign: start;
           hexpand: true;
-          margin-top: 6;
-          margin-bottom: 6;
-          margin-start: 12;
-          margin-end: 6;
         }
 
         // Always sensitive, even with Unstaged Changes empty — the menu
@@ -122,29 +105,23 @@ Gtk.Box root_box {
         // disabled), which is more discoverable than hiding the "..."
         // entirely until there's something to discard.
         Gtk.Button stage_more_button {
-          styles ["subsection-more-button"]
+          styles ["btn-sm", "btn-icon", "mt-50", "mb-50", "me-150"]
           valign: center;
-          margin-top: 2;
-          margin-bottom: 2;
-          margin-end: 6;
 
           child: Adw.ButtonContent {
-            icon-name: "open-menu-symbolic";
+            icon-name: "opus-more-symbolic";
           };
         }
 
         // clicked/sensitive are both wired in code — see index.vala's own doc comment.
         // sensitive: false until unstaged_scrolled holds anything at all.
         Gtk.Button stage_button {
-          styles ["subsection-button"]
+          styles ["btn-sm", "subsection-button", "mt-50", "mb-50", "me-150"]
           valign: center;
           sensitive: false;
-          margin-top: 2;
-          margin-bottom: 2;
-          margin-end: 6;
 
           child: Adw.ButtonContent {
-            icon-name: "stage-symbolic";
+            icon-name: "opus-stage-symbolic";
             label: _("Stage All");
           };
         }
@@ -162,33 +139,25 @@ Gtk.Box root_box {
       orientation: vertical;
 
       Gtk.Box {
+        styles ["mt-400", "mb-200"]
         orientation: horizontal;
-        margin-top: 16;
-        margin-bottom: 8;
 
         Gtk.Label {
-          styles ["heading"]
+          styles ["heading", "mt-150", "mb-150", "ms-300", "me-150"]
           label: _("Staged");
           halign: start;
           hexpand: true;
-          margin-top: 6;
-          margin-bottom: 6;
-          margin-start: 12;
-          margin-end: 6;
         }
 
         // clicked/sensitive are both wired in code — see index.vala's own doc comment.
         // sensitive: false until staged_scrolled holds anything at all.
         Gtk.Button unstage_button {
-          styles ["subsection-button"]
+          styles ["btn-sm", "subsection-button", "mt-50", "mb-50", "me-150"]
           valign: center;
           sensitive: false;
-          margin-top: 2;
-          margin-bottom: 2;
-          margin-end: 6;
 
           child: Adw.ButtonContent {
-            icon-name: "unstage-symbolic";
+            icon-name: "opus-unstage-symbolic";
             label: _("Unstage All");
           };
         }
@@ -217,9 +186,7 @@ Gtk.Box root_box {
   // follow that rename anyway — see staging-pane.css's own comment on
   // .commit-message-view.
   Gtk.Overlay {
-    margin-top: 6;
-    margin-start: 6;
-    margin-end: 6;
+    styles ["mt-150", "ms-150", "me-150"]
 
     Gtk.ScrolledWindow {
       height-request: 72;
@@ -237,13 +204,11 @@ Gtk.Box root_box {
 
     [overlay]
     Gtk.Label commit_message_placeholder {
-      styles ["dim-label"]
+      styles ["dim-label", "mt-200", "ms-200"]
       label: _("Commit message");
       halign: start;
       valign: start;
       can-target: false;
-      margin-top: 8;
-      margin-start: 8;
     }
   }
 
@@ -257,12 +222,9 @@ Gtk.Box root_box {
   // use-markup + Markup.escape_text() on the dynamic part — as its own
   // title_label).
   Gtk.Box {
+    styles ["mt-150", "mb-150", "ms-150", "me-150"]
     orientation: horizontal;
     spacing: 6;
-    margin-top: 6;
-    margin-bottom: 6;
-    margin-start: 6;
-    margin-end: 6;
 
     // Only while an operation is parked (index.vala's own
     // apply_operation()) — plain, not destructive-styled: the

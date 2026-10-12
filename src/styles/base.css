@@ -1,0 +1,121 @@
+/* The base layer every other stylesheet builds on, loaded right after
+ * the theme: the scales (space, radius, fill, hairline) as tokens, and
+ * the few generic classes the Blueprints and the Vala reach for — the
+ * sizes a small button comes in, a chip, a margin. Colors stay the
+ * theme's; a component's own look stays in its own stylesheet. */
+:root {
+  --space-50: 2px;
+  --space-100: 4px;
+  --space-150: 6px;
+  --space-200: 8px;
+  --space-250: 10px;
+  --space-300: 12px;
+  --space-400: 16px;
+  --space-500: 20px;
+  --space-600: 24px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  /* Adwaita's own default control radius (a plain Gtk.Entry/Gtk.Button): it ships the literal 9px, no custom property. */
+  --radius-control: 9px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+  /* Translucent fills over whatever is behind, following the text color: libadwaita's own recipe for hover and entry backgrounds. */
+  --fill-weak: color-mix(in srgb, currentColor 5%, transparent);
+  --fill: color-mix(in srgb, currentColor 8%, transparent);
+  --fill-strong: color-mix(in srgb, currentColor 10%, transparent);
+  --hairline-color: color-mix(in srgb, var(--opus-window-border) 60%, transparent);
+  --hairline: 1px solid var(--hairline-color);
+  --icon-size-sm: 12px;
+}
+
+/* Small buttons: Adwaita ships no "sm" size for buttons (its .compact
+ * and .small are scoped to specific widgets), and its default 32px is
+ * too tall for secondary chrome. .btn-sm is the one size every panel
+ * header, tab and breadcrumb uses, .btn-xs the breadcrumb's own;
+ * .btn-icon squares either for an icon alone. The radius follows the
+ * height down (same ~0.28 ratio as Adwaita's own 9px/32px), unless the
+ * button is .circular. */
+.btn-sm {
+  min-height: 24px;
+  padding: 0 6px;
+  border-radius: var(--radius);
+}
+.btn-xs {
+  min-height: 20px;
+  padding: 0 4px;
+  border-radius: var(--radius);
+}
+.btn-sm.btn-icon {
+  min-width: 24px;
+  padding: 0;
+}
+.btn-xs.btn-icon {
+  min-width: 20px;
+  padding: 0;
+}
+.btn-sm.circular,
+.btn-xs.circular {
+  border-radius: var(--radius-pill);
+}
+
+/* A chip: a short text in a color, --chip-color, worn as a light tint —
+ * a quarter over the background and a quarter into the text. .chip-solid
+ * fills it instead, for the one chip that has to stand out. */
+.chip {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--chip-color) 25%, transparent);
+  color: color-mix(in srgb, var(--chip-color) 25%, currentColor);
+}
+.chip.chip-solid {
+  background-color: var(--chip-color);
+  color: var(--opus-window-background);
+}
+
+.muted {
+  opacity: 0.6;
+}
+.faint {
+  opacity: 0.4;
+}
+
+/* Margins on the space scale, .m{t,b,s,e}-<step>: what a Blueprint's own
+ * margin-* properties would say, as a class, so the scale is the only
+ * source of spacing. GTK's CSS margins are physical, so start/end are
+ * written out per text direction. */
+.mt-50 { margin-top: 2px; }
+.mb-50 { margin-bottom: 2px; }
+.ms-50:dir(ltr), .me-50:dir(rtl) { margin-left: 2px; }
+.me-50:dir(ltr), .ms-50:dir(rtl) { margin-right: 2px; }
+.mt-100 { margin-top: 4px; }
+.mb-100 { margin-bottom: 4px; }
+.ms-100:dir(ltr), .me-100:dir(rtl) { margin-left: 4px; }
+.me-100:dir(ltr), .ms-100:dir(rtl) { margin-right: 4px; }
+.mt-150 { margin-top: 6px; }
+.mb-150 { margin-bottom: 6px; }
+.ms-150:dir(ltr), .me-150:dir(rtl) { margin-left: 6px; }
+.me-150:dir(ltr), .ms-150:dir(rtl) { margin-right: 6px; }
+.mt-200 { margin-top: 8px; }
+.mb-200 { margin-bottom: 8px; }
+.ms-200:dir(ltr), .me-200:dir(rtl) { margin-left: 8px; }
+.me-200:dir(ltr), .ms-200:dir(rtl) { margin-right: 8px; }
+.mt-250 { margin-top: 10px; }
+.mb-250 { margin-bottom: 10px; }
+.ms-250:dir(ltr), .me-250:dir(rtl) { margin-left: 10px; }
+.me-250:dir(ltr), .ms-250:dir(rtl) { margin-right: 10px; }
+.mt-300 { margin-top: 12px; }
+.mb-300 { margin-bottom: 12px; }
+.ms-300:dir(ltr), .me-300:dir(rtl) { margin-left: 12px; }
+.me-300:dir(ltr), .ms-300:dir(rtl) { margin-right: 12px; }
+.mt-400 { margin-top: 16px; }
+.mb-400 { margin-bottom: 16px; }
+.ms-400:dir(ltr), .me-400:dir(rtl) { margin-left: 16px; }
+.me-400:dir(ltr), .ms-400:dir(rtl) { margin-right: 16px; }
+.mt-500 { margin-top: 20px; }
+.mb-500 { margin-bottom: 20px; }
+.ms-500:dir(ltr), .me-500:dir(rtl) { margin-left: 20px; }
+.me-500:dir(ltr), .ms-500:dir(rtl) { margin-right: 20px; }
+.mt-600 { margin-top: 24px; }
+.mb-600 { margin-bottom: 24px; }
+.ms-600:dir(ltr), .me-600:dir(rtl) { margin-left: 24px; }
+.me-600:dir(ltr), .ms-600:dir(rtl) { margin-right: 24px; }

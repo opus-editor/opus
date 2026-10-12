@@ -7,19 +7,6 @@
   font-weight: normal;
 }
 
-.subsection-more-button {
-  min-width: 23px;
-  min-height: 23px;
-  padding: 0;
-  border-radius: 6px;
-}
-
-.subsection-button {
-  min-width: 23px;
-  min-height: 23px;
-  padding: 0 6px;
-  border-radius: 6px;
-}
 /* Different fix than .commit-button's own, and a separate rule: libadwaita's
  * `buttoncontent > box > label { font-weight: bold; }` (_buttons.scss) sets
  * this directly on Adw.ButtonContent's own internal label, not inherited
@@ -47,36 +34,36 @@
   margin-right: 2px;
 }
 .change-decoration-letter.git-added {
-  color: var(--git-added-color);
+  color: color-mix(in srgb, var(--opus-git-added) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-modified {
-  color: var(--git-modified-color);
+  color: color-mix(in srgb, var(--opus-git-modified) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-conflict {
-  color: var(--git-conflict-color);
+  color: color-mix(in srgb, var(--opus-git-conflict) var(--opus-sidebar-git-opacity), transparent);
 }
 .change-decoration-letter.git-removed {
-  color: var(--git-removed-color);
+  color: color-mix(in srgb, var(--opus-git-removed) var(--opus-sidebar-git-opacity), transparent);
 }
 
 /* A plain Gtk.TextView, no css-name override: renaming it to "entry"
  * to borrow Gtk.Entry's stylesheet would stack its real padding on top
  * of commit_message_view's own margins instead of replacing them, and
- * its background wouldn't carry over. --input-bg-color
- * (main-window.css) is a real entry node's own background: a
- * translucent overlay, not a flat color. Only on this node itself, not
- * its own `text` child too — both paint, so stacking the same
- * translucent value on both double-counts it. */
+ * its background wouldn't carry over. The fill is the one libadwaita
+ * gives its own entries and buttons (_buttons.scss): currentColor at
+ * 10%, a translucent overlay that follows the text color in both modes.
+ * Only on this node itself, not its own `text` child too — both paint,
+ * so stacking the same translucent value on both double-counts it. */
 .commit-message-view {
-  /* Same --control-radius (common.css) every other real Gtk.Entry/
+  /* Same --radius-control (base.css) every other real Gtk.Entry/
    * Gtk.Button already carries. */
-  border-radius: var(--control-radius);
-  background-color: var(--input-bg-color);
+  border-radius: var(--radius-control);
+  background-color: var(--fill-strong);
 }
 
 /* HistoryPane's own read-only message: plain text on the sidebar's own
  * background, edge to edge, no input chrome — framed only by a hairline
  * above and below. Both nodes paint, so only the view itself is styled. */
 .history-message-view {
-  background-color: color-mix(in srgb, var(--input-bg-color) 50%, transparent);
+  background-color: var(--fill-weak);
 }

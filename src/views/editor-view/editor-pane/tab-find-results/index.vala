@@ -432,13 +432,13 @@ namespace EditorView.EditorPane {
       }
 
       if (query.regex_enabled) {
-        find_icons.append (find_icon ("regex-symbolic", _("Regular Expression")));
+        find_icons.append (find_icon ("opus-regex-symbolic", _("Regular Expression")));
       }
       if (query.case_sensitive_enabled) {
-        find_icons.append (find_icon ("case-sensitive-symbolic", _("Case Sensitive")));
+        find_icons.append (find_icon ("opus-case-sensitive-symbolic", _("Case Sensitive")));
       }
       if (query.whole_word_enabled) {
-        find_icons.append (find_icon ("whole-word-symbolic", _("Match Whole Word Only")));
+        find_icons.append (find_icon ("opus-whole-word-symbolic", _("Match Whole Word Only")));
       }
     }
 
@@ -593,11 +593,8 @@ namespace EditorView.EditorPane {
       line_number_color.alpha = dark ? 0.5f : 0.35f;
       line_number_tag.foreground_rgba = line_number_color;
 
-      // Same technique CodeEditorSearch's own apply_theme_colors() uses
-      // for its match highlight, for visual consistency with in-file Find.
-      var match_background = SystemColor.from_accent ().desaturate (dark ? 0.10f : 0.05f).to_rgba ();
-      match_background.alpha = 0.30f;
-      match_highlight_tag.background_rgba = match_background;
+      // The same tint in-file Find paints its matches with.
+      match_highlight_tag.background_rgba = code_editor.palette.search_match ();
 
       // Re-render with the new colors if there's anything currently shown.
       if (last_result != null || last_error_message != null) {

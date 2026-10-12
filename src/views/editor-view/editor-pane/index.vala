@@ -204,11 +204,12 @@ namespace EditorView {
     private EditorPane.TabDocument add_document_tab (Document document) {
       var tab = new EditorPane.TabDocument (document, user_settings, search_settings, root_path);
       tab.set_editor_config (editor_config, root_path);
-      tab.set_decorations (decorations);
       tab.set_diff_base_provider (diff_base_provider);
       tab.file_tab_closed.connect ((path, line, column) => file_tab_closed (path, line, column));
       wire_tab (tab);
       register_tab (tab);
+      // Stamps the tint right away, so the pill has to exist and listen first.
+      tab.set_decorations (decorations);
       return tab;
     }
 

@@ -5,12 +5,9 @@ Gtk.Box root_box {
 
   Gtk.Box root_header_box {
     Gtk.Box {
+      styles ["mt-200", "me-150", "ms-300", "mb-200"]
       orientation: vertical;
       hexpand: true;
-      margin-top: 8;
-      margin-end: 6;
-      margin-start: 12;
-      margin-bottom: 8;
 
       Gtk.Label root_label {
         styles ["file-tree-root-label"]
@@ -28,15 +25,13 @@ Gtk.Box root_box {
     }
 
     Gtk.Box {
+      styles ["mt-200", "me-150", "mb-200"]
       orientation: vertical;
-      margin-top: 8;
-      margin-end: 6;
       margin-start: 0;
-      margin-bottom: 8;
 
       Gtk.Button more_button {
-        styles ["root-header-more-button", "flat"]
-        icon-name: "open-menu-symbolic";
+        styles ["btn-sm", "btn-icon", "flat"]
+        icon-name: "opus-more-symbolic";
       }
     }
 

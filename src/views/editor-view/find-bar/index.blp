@@ -53,21 +53,21 @@ Gtk.SearchBar search_bar {
 
         Gtk.ToggleButton regex_button {
           styles ["flat"]
-          icon-name: "regex-symbolic";
+          icon-name: "opus-regex-symbolic";
           tooltip-text: _("Regular Expressions");
           focus-on-click: false;
         }
 
         Gtk.ToggleButton case_sensitive_button {
           styles ["flat"]
-          icon-name: "case-sensitive-symbolic";
+          icon-name: "opus-case-sensitive-symbolic";
           tooltip-text: _("Case Sensitive");
           focus-on-click: false;
         }
 
         Gtk.ToggleButton whole_word_button {
           styles ["flat"]
-          icon-name: "whole-word-symbolic";
+          icon-name: "opus-whole-word-symbolic";
           tooltip-text: _("Match Whole Word Only");
           focus-on-click: false;
         }
@@ -112,22 +112,22 @@ Gtk.SearchBar search_bar {
           row: 0;
         }
 
-        // arrow-up-symbolic.svg/arrow-down-symbolic.svg are
+        // opus-arrow-up-symbolic.svg/opus-arrow-down-symbolic.svg are
         // arrow_forward_ios rotated by hand in Inkscape (±90°) — not
-        // chevron-down-symbolic.svg (expand_more), which stays reserved
+        // opus-chevron-down-symbolic.svg (expand_more), which stays reserved
         // for the file-tree's own expand/collapse indicator elsewhere in
         // the project; kept as separate files so rotating one never
         // risks the other's orientation.
         Gtk.Button move_previous_button {
           styles ["flat"]
-          icon-name: "arrow-up-symbolic";
+          icon-name: "opus-arrow-up-symbolic";
           tooltip-text: _("Previous Match");
           focus-on-click: false;
         }
 
         Gtk.Button move_next_button {
           styles ["flat"]
-          icon-name: "arrow-down-symbolic";
+          icon-name: "opus-arrow-down-symbolic";
           tooltip-text: _("Next Match");
           focus-on-click: false;
         }
@@ -182,7 +182,7 @@ Gtk.SearchBar search_bar {
         }
 
         // Material Symbols has no dedicated "replace"/"replace all"
-        // icons. replace-symbolic/replace-all-symbolic (data/icons/) are
+        // icons. opus-replace-symbolic/opus-replace-all-symbolic (data/icons/) are
         // reply/reply_all (a single vs. a doubled curved arrow — the
         // same real pairing Gmail etc. use for Reply/Reply All) rotated
         // 180° by hand in Inkscape, baked into the SVG's own path data —
@@ -190,14 +190,14 @@ Gtk.SearchBar search_bar {
         // symbolic, minus needing a matching icon under that exact name.
         Gtk.Button replace_button {
           styles ["flat"]
-          icon-name: "replace-symbolic";
+          icon-name: "opus-replace-symbolic";
           tooltip-text: _("Replace");
           focus-on-click: false;
         }
 
         Gtk.Button replace_all_button {
           styles ["flat"]
-          icon-name: "replace-all-symbolic";
+          icon-name: "opus-replace-all-symbolic";
           tooltip-text: _("Replace All");
           focus-on-click: false;
         }

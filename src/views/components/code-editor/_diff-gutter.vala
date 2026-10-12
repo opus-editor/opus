@@ -14,8 +14,9 @@ public class CodeEditorDiffGutter : Object {
   private CodeEditorDiffGutterColumn old_numbers;
   private CodeEditorDiffGutterColumn new_numbers;
   private CodeEditorDiffGutterColumn markers;
-  private Gtk.Box added_swatch = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false };
-  private Gtk.Box removed_swatch = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false };
+  /** The swatches the added/removed row bands are painted from (`diff-added-line`/`diff-removed-line`, code-editor.css). */
+  public Gtk.Widget added_swatch { get; private set; default = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false }; }
+  public Gtk.Widget removed_swatch { get; private set; default = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false }; }
   private GitDiff.FileDiff? diff = null;
 
   public CodeEditorDiffGutter (GtkSource.View text_view) {
@@ -61,14 +62,7 @@ public class CodeEditorDiffGutter : Object {
     return diff != null && line < diff.lines.length ? diff.lines[line] : null;
   }
 
-  /** The row background for an added/removed line, resolved from the swatches' own CSS `color`. */
-  public Gdk.RGBA added_background () {
-    return added_swatch.get_color ();
-  }
 
-  public Gdk.RGBA removed_background () {
-    return removed_swatch.get_color ();
-  }
 }
 
 /** One column of CodeEditorDiffGutter. `cell_text` says what a diff line shows here; a `colored` column paints added/removed cells in the git tones. */

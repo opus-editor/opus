@@ -39,14 +39,15 @@ namespace GitView {
 
     private static Gtk.Widget pill (GitTree.Ref git_ref, string lane_class) {
       var pill = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+      pill.add_css_class ("chip");
       pill.add_css_class ("ref-pill");
       pill.add_css_class (lane_class);
       pill.add_css_class (kind_class (git_ref));
       pill.append (new Gtk.Image.from_icon_name (kind_icon (git_ref)));
       pill.append (new Gtk.Label (git_ref.name) { ellipsize = Pango.EllipsizeMode.END, max_width_chars = 18 });
       if (git_ref.is_head) {
-        pill.add_css_class ("current");
-        pill.append (new Gtk.Image.from_icon_name ("object-select-symbolic"));
+        pill.add_css_class ("chip-solid");
+        pill.append (new Gtk.Image.from_icon_name ("opus-check-symbolic"));
       }
       pill.tooltip_text = git_ref.name;
       return pill;
@@ -54,6 +55,7 @@ namespace GitView {
 
     private static Gtk.Widget overflow_pill (GenericArray<GitTree.Ref> refs, uint from, string lane_class) {
       var pill = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+      pill.add_css_class ("chip");
       pill.add_css_class ("ref-pill");
       pill.add_css_class (lane_class);
       pill.add_css_class ("overflow");
@@ -79,9 +81,9 @@ namespace GitView {
 
     private static string kind_icon (GitTree.Ref git_ref) {
       switch (git_ref.kind) {
-        case GitTree.RefKind.REMOTE: return "network-server-symbolic";
-        case GitTree.RefKind.TAG: return "user-bookmarks-symbolic";
-        default: return "computer-symbolic";
+        case GitTree.RefKind.REMOTE: return "opus-cloud-symbolic";
+        case GitTree.RefKind.TAG: return "opus-tag-symbolic";
+        default: return "opus-desktop-symbolic";
       }
     }
 

@@ -4,11 +4,11 @@
 .command-bar-entry {
   min-height: 30px;
   padding: 0 10px;
-  border-radius: var(--control-radius);
+  border-radius: var(--radius-control);
 }
 
 .command-bar-entry:focus-within {
-  background-color: alpha(currentColor, 0.08);
+  background-color: var(--fill);
 }
 
 .command-bar-entry text {
@@ -20,7 +20,7 @@
 
 popover.command-bar-results > contents {
   padding: 0;
-  border-radius: var(--control-radius);
+  border-radius: var(--radius-control);
 }
 
 .command-bar-list {
@@ -41,7 +41,7 @@ popover.command-bar-results > contents {
 .command-bar-caption {
   padding: 6px 10px 2px;
   margin-bottom: 2px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-bottom: var(--hairline);
 }
 
 .command-bar-empty {

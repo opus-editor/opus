@@ -4,5 +4,5 @@
  * --view-bg-color, so overriding libadwaita's own sheet variable here
  * makes the flat header and the text below it one surface. */
 .log-dialog {
-  --dialog-bg-color: var(--view-bg-color);
+  --dialog-bg-color: var(--opus-dialog-background);
 }

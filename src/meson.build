@@ -99,6 +99,7 @@ opus_model_sources = files(
   'models/session-store.vala',
   'models/text-edit.vala',
   'models/theme.vala',
+  'models/theme-manifest.vala',
   'models/user-settings.vala',
   'models/workspace.vala',
   'models/workspace-context.vala',
@@ -193,7 +194,6 @@ opus_gtk_view_sources = files(
   'views/lib/drag-icons.vala',
   'views/lib/editor-theme.vala',
   'views/lib/syntax-tags.vala',
-  'views/lib/system-color.vala',
   'views/lib/file-drag/_payload.vala',
   'views/lib/file-drag/_candidate.vala',
   'views/lib/file-drag/index.vala',
@@ -211,6 +211,7 @@ opus_gtk_view_sources = files(
   'views/components/code-editor/_search.vala',
   'views/components/code-editor/_selections.vala',
   'views/components/code-editor/_source-view.vala',
+  'views/components/code-editor/_palette.vala',
   'views/components/code-editor/_syntax-highlighter.vala',
   'views/components/code-editor/index.vala',
   'views/main/_i-global-panel.vala',
@@ -276,8 +277,10 @@ opus_sources = files(
 # g_module_symbol) can actually resolve an embedded plugin's own
 # Embedded= entry point — see GIT_STATUS_PLUGIN_PLAN.md's own
 # "libpeas 2 is the native answer" section.
-# The bundled functions (src/functions/), read at runtime like the
-# language packages — see BuildInfo.FUNCTIONS_DIR.
+# The bundled editor themes (src/themes/, see src/models/theme.vala for
+# the format) and functions (src/functions/), read at runtime like the
+# language packages — see BuildInfo.THEMES_DIR/FUNCTIONS_DIR.
+install_subdir('themes', install_dir: get_option('datadir') / 'opus')
 install_subdir('functions', install_dir: get_option('datadir') / 'opus')
 
 opus_exe = executable(
