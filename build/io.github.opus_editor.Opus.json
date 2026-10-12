@@ -46,7 +46,11 @@
       "sources": [
         {
           "type": "dir",
-          "path": ".."
+          "path": "..",
+          "skip": [
+            "out",
+            "subprojects"
+          ]
         },
         "grammar-sources.json"
       ]
