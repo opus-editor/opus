@@ -105,7 +105,7 @@ namespace GitView {
 
     /** Flat, pushed to the right end; insensitive when the file is not on disk (deleted, or only in a commit). */
     private Gtk.Widget open_button () {
-      var button = new Gtk.Button.from_icon_name ("file-open-symbolic") { has_frame = false, halign = Gtk.Align.END, hexpand = true, valign = Gtk.Align.CENTER };
+      var button = new Gtk.Button.from_icon_name ("opus-file-open-symbolic") { has_frame = false, halign = Gtk.Align.END, hexpand = true, valign = Gtk.Align.CENTER };
       button.add_css_class ("btn-xs");
       button.add_css_class ("crumb-action");
       button.tooltip_text = _("Open File");
@@ -125,7 +125,7 @@ namespace GitView {
     }
 
     private static Gtk.Widget separator () {
-      var chevron = new Gtk.Image.from_icon_name ("chevron-right-symbolic");
+      var chevron = new Gtk.Image.from_icon_name ("opus-chevron-right-symbolic");
       chevron.add_css_class ("faint");
       chevron.add_css_class ("crumb-separator");
       return chevron;

@@ -122,7 +122,7 @@ namespace GitView {
       var color = working_color ();
       draw_segment (snapshot, GitTree.Segment.NODE, working.head_lane, working.head_lane, height, middle, color);
       draw_box (snapshot, working.head_lane, middle, color);
-      draw_icon (snapshot, "view-more-symbolic", x_of (working.head_lane), middle, color);
+      draw_icon (snapshot, "opus-more-symbolic", x_of (working.head_lane), middle, color);
     }
 
     /** A square the lane's width, filled with the view background (so no lane line runs through what goes inside) and framed in `color`. */

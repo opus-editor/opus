@@ -48,10 +48,10 @@ listview.data-table row.reveal-flash-fading {
   transition: background-color 700ms ease-out;
 }
 treeexpander > expander {
-  -gtk-icon-source: -gtk-icontheme("chevron-right-symbolic");
+  -gtk-icon-source: -gtk-icontheme("opus-chevron-right-symbolic");
 }
 treeexpander > expander:checked {
-  -gtk-icon-source: -gtk-icontheme("chevron-down-symbolic");
+  -gtk-icon-source: -gtk-icontheme("opus-chevron-down-symbolic");
 }
 /* The folder row directly under a dragged file/folder — accent color
  * (the system's own, not a hardcoded blue) at partial opacity, so it

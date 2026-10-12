@@ -3,7 +3,7 @@ namespace GitView {
   public class TreePaneMessageCell : Object {
     private Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
     private Gtk.Label label = new Gtk.Label ("") { use_markup = true, xalign = 0, ellipsize = Pango.EllipsizeMode.END };
-    private Gtk.Image body_icon = new Gtk.Image.from_icon_name ("notes-symbolic") { visible = false, opacity = 0.5 };
+    private Gtk.Image body_icon = new Gtk.Image.from_icon_name ("opus-notes-symbolic") { visible = false, opacity = 0.5 };
     private Gtk.Label count = new Gtk.Label ("") { visible = false };
 
     public Gtk.Widget widget { get { return box; } }

@@ -432,13 +432,13 @@ namespace EditorView.EditorPane {
       }
 
       if (query.regex_enabled) {
-        find_icons.append (find_icon ("regex-symbolic", _("Regular Expression")));
+        find_icons.append (find_icon ("opus-regex-symbolic", _("Regular Expression")));
       }
       if (query.case_sensitive_enabled) {
-        find_icons.append (find_icon ("case-sensitive-symbolic", _("Case Sensitive")));
+        find_icons.append (find_icon ("opus-case-sensitive-symbolic", _("Case Sensitive")));
       }
       if (query.whole_word_enabled) {
-        find_icons.append (find_icon ("whole-word-symbolic", _("Match Whole Word Only")));
+        find_icons.append (find_icon ("opus-whole-word-symbolic", _("Match Whole Word Only")));
       }
     }
 

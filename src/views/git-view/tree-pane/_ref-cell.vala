@@ -47,7 +47,7 @@ namespace GitView {
       pill.append (new Gtk.Label (git_ref.name) { ellipsize = Pango.EllipsizeMode.END, max_width_chars = 18 });
       if (git_ref.is_head) {
         pill.add_css_class ("chip-solid");
-        pill.append (new Gtk.Image.from_icon_name ("check-symbolic"));
+        pill.append (new Gtk.Image.from_icon_name ("opus-check-symbolic"));
       }
       pill.tooltip_text = git_ref.name;
       return pill;
@@ -81,9 +81,9 @@ namespace GitView {
 
     private static string kind_icon (GitTree.Ref git_ref) {
       switch (git_ref.kind) {
-        case GitTree.RefKind.REMOTE: return "cloud-symbolic";
-        case GitTree.RefKind.TAG: return "tag-symbolic";
-        default: return "desktop-symbolic";
+        case GitTree.RefKind.REMOTE: return "opus-cloud-symbolic";
+        case GitTree.RefKind.TAG: return "opus-tag-symbolic";
+        default: return "opus-desktop-symbolic";
       }
     }
 
