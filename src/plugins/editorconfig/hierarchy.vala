@@ -86,6 +86,12 @@ namespace Opus.Plugins.EditorConfig {
       }
     }
 
+    /** `charset`: one of EditorConfig's five names, null for anything else. */
+    public Document.Charset? charset () {
+      var value = properties["charset"];
+      return value == null ? null : Document.Charset.parse (value);
+    }
+
     public bool? trim_trailing_whitespace () {
       return boolean ("trim_trailing_whitespace");
     }

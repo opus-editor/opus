@@ -66,5 +66,40 @@ int main (string[] args) {
         }
     });
 
+    Test.add_func ("/system/line_endings/a_latin1_file_is_read_and_written_as_the_folder_says", () => {
+        try {
+            var folder = make_folder ("[*]\ncharset = latin1\n");
+            var path = Path.build_filename (folder, "a.txt");
+            uint8[] latin1 = { 0xE7, 0x61, 0x0A }; // "ça\n"
+            FileUtils.set_data (path, latin1);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY, folder);
+            opus.open_tab (path);
+            opus.wait_for_active_tab (path);
+            // The text lands a turn after the tab does.
+            string shown = "";
+            int64 opened_by = get_monotonic_time () + 5 * 1000 * 1000;
+            while ((shown = opus.active_text ()) != "ça\n" && get_monotonic_time () < opened_by) {
+                Thread.usleep (50 * 1000);
+            }
+            assert_cmpstr (shown, CompareOperator.EQ, "ça\n");
+
+            opus.editor_write ("çã\n");
+            opus.save_tab (path);
+
+            // Bytes, not text: latin1 isn't UTF-8 to compare as a string.
+            uint8[] on_disk = latin1;
+            int64 deadline = get_monotonic_time () + 5 * 1000 * 1000;
+            while (on_disk.length == 3 && on_disk[1] == 0x61 && get_monotonic_time () < deadline) {
+                Thread.usleep (50 * 1000);
+                FileUtils.get_data (path, out on_disk);
+            }
+            assert_cmpuint (on_disk.length, CompareOperator.EQ, 3);
+            assert_cmpuint (on_disk[1], CompareOperator.EQ, 0xE3);
+            opus.close ();
+        } catch (Error e) {
+            error ("unexpected error: %s", e.message);
+        }
+    });
+
     return Test.run ();
 }

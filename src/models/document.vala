@@ -30,6 +30,60 @@ public class Document : Object {
     }
   }
 
+  /** How a file's bytes encode its text. The buffer is always UTF-8; this is what the bytes are read and written as. */
+  public enum Charset {
+    UTF8,
+    UTF8_BOM,
+    LATIN1,
+    UTF16BE,
+    UTF16LE;
+
+    /** EditorConfig's own names: utf-8, utf-8-bom, latin1, utf-16be, utf-16le; null for anything else. */
+    public static Charset? parse (string name) {
+      switch (name) {
+        case "utf-8": return UTF8;
+        case "utf-8-bom": return UTF8_BOM;
+        case "latin1": return LATIN1;
+        case "utf-16be": return UTF16BE;
+        case "utf-16le": return UTF16LE;
+        default: return null;
+      }
+    }
+
+    public string iconv_name () {
+      switch (this) {
+        case LATIN1: return "ISO-8859-1";
+        case UTF16BE: return "UTF-16BE";
+        case UTF16LE: return "UTF-16LE";
+        default: return "UTF-8";
+      }
+    }
+
+    /** The byte order mark this charset is written with; none for plain UTF-8 and latin1. */
+    public uint8[] bom () {
+      switch (this) {
+        case UTF8_BOM: return { 0xEF, 0xBB, 0xBF };
+        case UTF16BE: return { 0xFE, 0xFF };
+        case UTF16LE: return { 0xFF, 0xFE };
+        default: return {};
+      }
+    }
+
+    /** The charset a leading byte order mark names, null without one. */
+    public static Charset? of_bom (uint8[] bytes) {
+      if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        return UTF8_BOM;
+      }
+      if (bytes.length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
+        return UTF16BE;
+      }
+      if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) {
+        return UTF16LE;
+      }
+      return null;
+    }
+  }
+
   public string uri { get; private set; }
   public string? pathname { get; private set; default = null; }
   /** This document's own short display name — a real file's basename, or a synthetic tab's plain name ("Untitled-1", "Find Results"). Set once at creation and kept in sync with `pathname`/`uri` by move_to()/save_as(); never derived from `uri` itself, which is a machine key only and never guaranteed to look presentable. */
@@ -41,6 +95,12 @@ public class Document : Object {
    * or what the folder's .editorconfig says. Never present in `content`.
    */
   public LineEnding line_ending { get; set; default = LineEnding.LF; }
+  /**
+   * The charset the file is read and written as: what its byte order
+   * mark said, else what the folder's settings said when it was opened,
+   * else UTF-8. A file that can't be decoded as it is `readable = false`.
+   */
+  public Charset charset { get; set; default = Charset.UTF8; }
   /**
    * The name of the language package this document was set to by
    * hand, over whatever its own name would make it — null while it
@@ -103,10 +163,14 @@ public class Document : Object {
     return "file://" + path;
   }
 
-  public static Document load (string path) throws Error {
+  /** `charset`, when given, is what the folder says the file is; a byte order mark in the file itself wins over it. */
+  public static Document load (string path, Charset? charset = null) throws Error {
     var document = new Document (uri_for_path (path));
     document.pathname = path;
     document.name = Path.get_basename (path);
+    if (charset != null) {
+      document.charset = charset;
+    }
     document.read_from_disk ();
     return document;
   }
@@ -125,13 +189,13 @@ public class Document : Object {
   }
 
   private void read_from_disk () throws Error {
-    string contents;
-    size_t length;
-    FileUtils.get_contents (pathname, out contents, out length);
+    uint8[] bytes;
+    FileUtils.get_data (pathname, out bytes);
 
-    if (((string) contents).validate ((ssize_t) length)) {
-      line_ending = detect_line_ending (contents);
-      content = contents.replace ("\r\n", "\n");
+    var decoded = decode (bytes);
+    if (decoded != null) {
+      line_ending = detect_line_ending (decoded);
+      content = decoded.replace ("\r\n", "\n");
       original_content = content;
       readable = true;
     } else {
@@ -139,6 +203,42 @@ public class Document : Object {
       original_content = "";
       readable = false;
     }
+  }
+
+  /** `bytes` as UTF-8 text in `charset` (a BOM naming another one wins, and is dropped), null when they aren't valid in it. */
+  private string? decode (uint8[] bytes) {
+    var marked = Charset.of_bom (bytes);
+    if (marked != null) {
+      charset = marked;
+    }
+    int skip = charset.bom ().length;
+    unowned uint8[] body = bytes[skip:bytes.length];
+    if (charset == Charset.UTF8 || charset == Charset.UTF8_BOM) {
+      return ((string) body).validate ((ssize_t) body.length) ? ((string) body).substring (0, body.length) : null;
+    }
+    try {
+      return GLib.convert ((string) body, body.length, "UTF-8", charset.iconv_name ());
+    } catch (ConvertError e) {
+      return null;
+    }
+  }
+
+  /** `content` as the bytes that go to disk: the buffer's "\n" as `line_ending`, in `charset`, behind its BOM. Throws for text the charset can't hold (a "ç" outside latin1's reach is not the case, an emoji is). */
+  private uint8[] encoded () throws Error {
+    var text = serialized ();
+    uint8[] body;
+    if (charset == Charset.UTF8 || charset == Charset.UTF8_BOM) {
+      body = text.data;
+    } else {
+      size_t written;
+      var converted = GLib.convert (text, text.length, charset.iconv_name (), "UTF-8", null, out written);
+      body = new uint8[written];
+      Memory.copy (body, (uint8*) converted, written);
+    }
+    var bytes = new ByteArray ();
+    bytes.append (charset.bom ());
+    bytes.append (body);
+    return bytes.steal ();
   }
 
   /** VS Code's rule (pieceTreeTextBufferBuilder): CRLF when more than half the line ends are; a lone "\r" counts as nothing. */
@@ -197,7 +297,7 @@ public class Document : Object {
       return;
     }
 
-    FileUtils.set_contents (pathname, serialized ());
+    FileUtils.set_data (pathname, encoded ());
     original_content = content;
     is_deleted = false;
     is_externally_modified = false;
@@ -209,7 +309,7 @@ public class Document : Object {
       return;
     }
 
-    FileUtils.set_contents (new_path, serialized ());
+    FileUtils.set_data (new_path, encoded ());
     uri = uri_for_path (new_path);
     pathname = new_path;
     name = Path.get_basename (new_path);

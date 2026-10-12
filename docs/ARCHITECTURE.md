@@ -11,7 +11,7 @@
 ## Plugins
 
 - Model-grade code discovered via libpeas — talks to the host only through `WorkspaceContext` and its own extension-point interfaces, never by importing a View.
-- The extension points so far: `FileDecoration.IProvider` (explorer and tab tints), `GitDiff.IBaseProvider` (the change gutter's bases), `GitBranch.IProvider`, `CommandBar.IProvider`, and `FileSettings.IProvider` (per-file indentation, line ending and save rules — the `.editorconfig` plugin). The host owns the hooks; a plugin owns the format.
+- The extension points so far: `FileDecoration.IProvider` (explorer and tab tints), `GitDiff.IBaseProvider` (the change gutter's bases), `GitBranch.IProvider`, `CommandBar.IProvider`, and `FileSettings.IProvider` (per-file indentation, line ending, charset and save rules — the `.editorconfig` plugin). The host owns the hooks; a plugin owns the format.
 
 ## Views
 

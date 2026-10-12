@@ -6,6 +6,7 @@ namespace FileSettings {
     public Document.LineEnding? line_ending = null;
     public bool? trim_trailing_whitespace = null;
     public bool? insert_final_newline = null;
+    public Document.Charset? charset = null;
 
     /** Every field `other` sets, taken over this one's. */
     public void take (Values other) {
@@ -23,6 +24,9 @@ namespace FileSettings {
       }
       if (other.insert_final_newline != null) {
         insert_final_newline = other.insert_final_newline;
+      }
+      if (other.charset != null) {
+        charset = other.charset;
       }
     }
   }

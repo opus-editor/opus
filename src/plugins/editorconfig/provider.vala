@@ -40,6 +40,7 @@ namespace Opus.Plugins.EditorConfig {
       values.line_ending = resolved.end_of_line ();
       values.trim_trailing_whitespace = resolved.trim_trailing_whitespace ();
       values.insert_final_newline = resolved.insert_final_newline ();
+      values.charset = resolved.charset ();
       return values;
     }
 

@@ -122,6 +122,119 @@ private void test_an_untitled_document_is_lf () {
     assert_true (document.line_ending == Document.LineEnding.LF);
 }
 
+private void test_a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same () {
+    uint8[] latin1 = { 0xE7, 0x61, 0x0A }; // "ça\n"
+    string path = make_temp_file (latin1);
+
+    try {
+        var document = Document.load (path, Document.Charset.LATIN1);
+        assert_true (document.readable);
+        assert_cmpstr (document.content, CompareOperator.EQ, "ça\n");
+
+        document.content = "çã\n";
+        document.save ();
+
+        uint8[] on_disk;
+        FileUtils.get_data (path, out on_disk);
+        assert_cmpuint (on_disk.length, CompareOperator.EQ, 3);
+        assert_cmpuint (on_disk[0], CompareOperator.EQ, 0xE7);
+        assert_cmpuint (on_disk[1], CompareOperator.EQ, 0xE3);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_utf8_bom_is_detected_dropped_and_written_back () {
+    uint8[] with_bom = { 0xEF, 0xBB, 0xBF, 0x61, 0x0A };
+    string path = make_temp_file (with_bom);
+
+    try {
+        var document = Document.load (path);
+        assert_true (document.charset == Document.Charset.UTF8_BOM);
+        assert_cmpstr (document.content, CompareOperator.EQ, "a\n");
+
+        document.content = "b\n";
+        document.save ();
+
+        uint8[] on_disk;
+        FileUtils.get_data (path, out on_disk);
+        assert_cmpuint (on_disk.length, CompareOperator.EQ, 5);
+        assert_cmpuint (on_disk[0], CompareOperator.EQ, 0xEF);
+        assert_cmpuint (on_disk[3], CompareOperator.EQ, 'b');
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_utf16_bom_wins_over_the_folders_charset () {
+    uint8[] utf16le = { 0xFF, 0xFE, 0x61, 0x00, 0x0A, 0x00 }; // "a\n"
+    string path = make_temp_file (utf16le);
+
+    try {
+        var document = Document.load (path, Document.Charset.LATIN1);
+        assert_true (document.charset == Document.Charset.UTF16LE);
+        assert_cmpstr (document.content, CompareOperator.EQ, "a\n");
+
+        document.content = "ab\n";
+        document.save ();
+
+        uint8[] on_disk;
+        FileUtils.get_data (path, out on_disk);
+        assert_cmpuint (on_disk.length, CompareOperator.EQ, 8);
+        assert_cmpuint (on_disk[0], CompareOperator.EQ, 0xFF);
+        assert_cmpuint (on_disk[4], CompareOperator.EQ, 'b');
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_charset_set_by_hand_is_what_save_writes () {
+    string path = make_temp_file ("a\n".data);
+
+    try {
+        var document = Document.load (path);
+        document.charset = Document.Charset.UTF8_BOM;
+        document.save ();
+
+        uint8[] on_disk;
+        FileUtils.get_data (path, out on_disk);
+        assert_cmpuint (on_disk.length, CompareOperator.EQ, 5);
+        assert_cmpuint (on_disk[0], CompareOperator.EQ, 0xEF);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_text_the_charset_cannot_hold_fails_the_save () {
+    string path = make_temp_file ("a\n".data);
+
+    try {
+        var document = Document.load (path, Document.Charset.LATIN1);
+        document.content = "€\n";
+        bool failed = false;
+        try {
+            document.save ();
+        } catch (Error e) {
+            failed = true;
+        }
+
+        assert_true (failed);
+        assert_true (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
 private void test_dirty_tracking () {
     string path = make_temp_file ("original".data);
 
@@ -158,7 +271,7 @@ private void test_preview_document () {
 }
 
 private void test_invalid_utf8_is_unreadable () {
-    uint8[] invalid_bytes = { 0xff, 0xfe, 0x00, 0x01 };
+    uint8[] invalid_bytes = { 0xff, 0xff, 0x00, 0x01 }; // not a byte order mark, not UTF-8
     string path = make_temp_file (invalid_bytes);
 
     try {
@@ -392,6 +505,11 @@ int main (string[] args) {
     Test.add_func ("/models/document/a_file_without_line_ends_is_lf", test_a_file_without_line_ends_is_lf);
     Test.add_func ("/models/document/a_line_ending_set_by_hand_is_what_save_writes", test_a_line_ending_set_by_hand_is_what_save_writes);
     Test.add_func ("/models/document/an_untitled_document_is_lf", test_an_untitled_document_is_lf);
+    Test.add_func ("/models/document/a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same", test_a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same);
+    Test.add_func ("/models/document/a_utf8_bom_is_detected_dropped_and_written_back", test_a_utf8_bom_is_detected_dropped_and_written_back);
+    Test.add_func ("/models/document/a_utf16_bom_wins_over_the_folders_charset", test_a_utf16_bom_wins_over_the_folders_charset);
+    Test.add_func ("/models/document/a_charset_set_by_hand_is_what_save_writes", test_a_charset_set_by_hand_is_what_save_writes);
+    Test.add_func ("/models/document/text_the_charset_cannot_hold_fails_the_save", test_text_the_charset_cannot_hold_fails_the_save);
     Test.add_func ("/models/document/dirty_tracking", test_dirty_tracking);
     Test.add_func ("/models/document/preview_document", test_preview_document);
     Test.add_func ("/models/document/invalid_utf8_is_unreadable", test_invalid_utf8_is_unreadable);

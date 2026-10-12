@@ -699,11 +699,14 @@ namespace EditorView.EditorPane {
       return result;
     }
 
-    /** The folder's line ending for `path`, when it has one, becomes the document's — at save time, so a rule written after the tab opened still counts. */
+    /** The folder's line ending and charset for `path`, when it has them, become the document's — at save time, so a rule written after the tab opened still counts. */
     private void apply_end_of_line (string path) {
-      var line_ending = file_settings_for (path).line_ending;
-      if (line_ending != null) {
-        document.line_ending = line_ending;
+      var settings = file_settings_for (path);
+      if (settings.line_ending != null) {
+        document.line_ending = settings.line_ending;
+      }
+      if (settings.charset != null) {
+        document.charset = settings.charset;
       }
     }
   }

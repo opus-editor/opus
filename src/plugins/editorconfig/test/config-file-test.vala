@@ -163,6 +163,22 @@ insert_final_newline = true
     assert_true (resolved (config, "main.vala").insert_final_newline () == null);
 }
 
+private void test_charset_resolves_editorconfigs_names_and_nothing_else () {
+    var file = parsed ("""
+[*.txt]
+charset = latin1
+[*.cs]
+charset = utf-8-bom
+[*.bin]
+charset = cp1252
+""");
+
+    assert_true (resolved (file, "a.txt").charset () == Document.Charset.LATIN1);
+    assert_true (resolved (file, "a.cs").charset () == Document.Charset.UTF8_BOM);
+    assert_true (resolved (file, "a.bin").charset () == null);
+    assert_true (resolved (file, "a.vala").charset () == null);
+}
+
 private void test_end_of_line_resolves_lf_and_crlf () {
     var config = parsed ("""
 [*]
@@ -260,6 +276,7 @@ int main (string[] args) {
     Test.add_func ("/plugins/editorconfig/config-file/later_section_wins_when_both_match_the_same_path", test_later_section_wins_when_both_match_the_same_path);
     Test.add_func ("/plugins/editorconfig/config-file/comments_and_blank_lines_are_ignored", test_comments_and_blank_lines_are_ignored);
     Test.add_func ("/plugins/editorconfig/config-file/the_save_switches_resolve_true_false_and_unset", test_the_save_switches_resolve_true_false_and_unset);
+    Test.add_func ("/plugins/editorconfig/config-file/charset_resolves_editorconfigs_names_and_nothing_else", test_charset_resolves_editorconfigs_names_and_nothing_else);
     Test.add_func ("/plugins/editorconfig/config-file/end_of_line_resolves_lf_and_crlf", test_end_of_line_resolves_lf_and_crlf);
     Test.add_func ("/plugins/editorconfig/config-file/end_of_line_unset_or_unsupported_is_null", test_end_of_line_unset_or_unsupported_is_null);
     Test.add_func ("/plugins/editorconfig/config-file/indent_style_space_resolves_to_insert_spaces_true", test_indent_style_space_resolves_to_insert_spaces_true);

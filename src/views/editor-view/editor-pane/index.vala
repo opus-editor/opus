@@ -251,6 +251,20 @@ namespace EditorView {
       }
     }
 
+    /** The charset the folder says `path` is in, null with no folder or no word on it — a byte order mark in the file wins anyway. */
+    private Document.Charset? charset_for (string path) {
+      if (file_settings == null) {
+        return null;
+      }
+      var settings = file_settings.settings_for (path);
+      if (settings.charset == null) {
+        return null;
+      }
+      // Unboxed before `settings` goes: a nullable read is a pointer into it, not a copy.
+      Document.Charset charset = settings.charset;
+      return charset;
+    }
+
     /** The folder's per-file settings (the .editorconfig plugin's, through FileSettings.Registry), null with no folder — what a tab's editor is built with and what a save honours. */
     public void set_file_settings (FileSettings.Registry? registry) {
       if (file_settings != null) {
@@ -317,7 +331,7 @@ namespace EditorView {
         }
         activate (tab.uri);
       } else {
-        var document = Document.load (path);
+        var document = Document.load (path, charset_for (path));
         document.is_preview = !as_permanent;
         var previous_preview = preview_tab;
         tab = add_document_tab (document);
@@ -397,7 +411,7 @@ namespace EditorView {
     public void restore_session (SavedSession session) {
       foreach (var saved in session.tabs) {
         try {
-          var document = Document.load (saved.path);
+          var document = Document.load (saved.path, charset_for (saved.path));
           document.is_preview = saved.preview;
           document.cursors.set_cursors ({ new Cursor (EditorPane.TabDocument.char_offset_of_line_column (document.content, saved.line, saved.column)) });
           document.top_line = saved.top_line;

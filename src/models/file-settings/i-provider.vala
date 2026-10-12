@@ -1,5 +1,6 @@
 /**
- * Per-file editor settings from a source in the workspace — the
+ * Per-file editor settings (indentation, line ending, charset, the save
+ * rules) from a source in the workspace — the
  * `.editorconfig` plugin is the one so far. Resolved when the host needs
  * them (building a tab's editor, saving), never pushed: a provider that
  * learns of a change just answers differently next time.
