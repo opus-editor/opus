@@ -1,2 +1,0 @@
-# The UI theme folder under src/themes/ui/ compiled into the app's stylesheet (tools/compile-ui-theme.py) — until the user can pick one at runtime.
-option('ui_theme', type: 'string', value: 'adwaita-ui')
