@@ -14,7 +14,7 @@ def requested_locale(accept_language)
 
   tags.each do |tag|
     match = find_locale(tag) || find_locale(tag.split("-").first)
-    
+
     return match if match
   end
 

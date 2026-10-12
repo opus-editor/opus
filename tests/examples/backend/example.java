@@ -5,9 +5,7 @@ public class LocaleResolver {
   record Locale(String code, String name) {}
 
   static Optional<Locale> findLocale(List<Locale> locales, String code) {
-    return locales.stream()
-      .filter(locale -> locale.code().equalsIgnoreCase(code))
-      .findFirst();
+    return locales.stream().filter(locale -> locale.code().equalsIgnoreCase(code)).findFirst();
   }
 
   public static void main(String[] args) {

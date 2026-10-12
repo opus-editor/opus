@@ -19,6 +19,11 @@ namespace Syntax {
     public int net () {
       return indent + indent_always - outdent - outdent_always;
     }
+
+    /** What the line opens, its own closers or `else`s left out of it. */
+    public int opened () {
+      return indent + indent_always;
+    }
   }
 
   private class IndentCaptures {
@@ -63,7 +68,13 @@ namespace Syntax {
      * line's leading whitespace: there is nothing on the line yet for
      * the tree to say anything about.
      */
-    internal int new_line_change (LoadedLanguage language, TreeSitter.Tree tree, string text, NodeTextFunc node_text, uint32 position) {
+    /**
+     * `alone` is for a line parsed by itself (SyntaxDocument's own
+     * fallback): what it starts with — a `]`, an `end`, an `else` — is
+     * then relative to nothing, and only what it opens can count. In
+     * its real tree an `else` leaves its own level and goes back in.
+     */
+    internal int new_line_change (LoadedLanguage language, TreeSitter.Tree tree, string text, NodeTextFunc node_text, uint32 position, bool alone = false) {
       uint32 line_start = start_of_line (text, position);
       uint32 first = first_non_blank (text, line_start);
       if (first >= position) {
@@ -75,10 +86,10 @@ namespace Syntax {
       }
 
       var root = tree.root_node ();
-      uint32 row = root.descendant_for_byte_range (first, first).start_point ().row;
+      uint32 row = row_at (tree, text, first);
       var broken_from = level_at (language, tree, node_text, first, row, -1);
       var broken_off = level_at (language, tree, node_text, last, row + 1, position);
-      int change = broken_off.net () - broken_from.net ();
+      int change = broken_off.net () - (alone ? broken_from.opened () : broken_from.net ());
 
       if (change <= 0 && opens_a_bracket (root.descendant_for_byte_range (last, last))) {
         // The line ends on a bracket nothing closes yet, which a tree
@@ -141,12 +152,23 @@ namespace Syntax {
         return false;
       }
 
-      var root = tree.root_node ();
       uint32 reference_first = first_non_blank (text, start_of_line (text, reference));
-      var line = level_at (language, tree, node_text, first, root.descendant_for_byte_range (first, first).start_point ().row, -1);
-      var reference_line = level_at (language, tree, node_text, reference_first, root.descendant_for_byte_range (reference_first, reference_first).start_point ().row, -1);
+      var line = level_at (language, tree, node_text, first, row_at (tree, text, first), -1);
+      var reference_line = level_at (language, tree, node_text, reference_first, row_at (tree, text, reference_first), -1);
       levels = line.net () - reference_line.net ();
       return true;
+    }
+
+    /** The row byte `position` is on: the node there says where it starts, and the text says how many lines further in `position` is — a leaf can span lines (the raw text of a style sheet). */
+    private uint32 row_at (TreeSitter.Tree tree, string text, uint32 position) {
+      var node = tree.root_node ().descendant_for_byte_range (position, position);
+      uint32 row = node.start_point ().row;
+      for (uint32 i = node.start_byte (); i < position; i++) {
+        if (text[i] == '\n') {
+          row++;
+        }
+      }
+      return row;
     }
 
     /** Whether the token at `first`, or a node it opens, is an `@outdent` — and ends exactly at `position`. */

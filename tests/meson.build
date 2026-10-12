@@ -1141,6 +1141,18 @@ test(
   depends: opus_grammar_modules,
 )
 
+functions_reindent_examples_test = executable(
+  'functions-reindent-examples-test',
+  ['functions/reindent-examples-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test(
+  'functions-reindent-examples',
+  functions_reindent_examples_test,
+  env: opus_syntax_test_env + ['OPUS_EXAMPLES_DIR=' + meson.project_source_root() / 'tests' / 'examples'],
+  depends: opus_grammar_modules,
+)
+
 # src/functions/ — every bundled function package, run through its own script.
 functions_builtins_test = executable(
   'functions-builtins-test',
