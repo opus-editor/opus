@@ -22,9 +22,13 @@ private string new_themes_directory () {
     return directory;
 }
 
-private void write_theme (string directory, string name, string json) {
+/** A theme folder `id` with one file serving both variants. */
+private void write_theme (string directory, string id, string json) {
     try {
-        FileUtils.set_contents (Path.build_filename (directory, name + ".json"), json);
+        var folder = Path.build_filename (directory, id);
+        DirUtils.create_with_parents (folder, 0700);
+        FileUtils.set_contents (Path.build_filename (folder, "theme.json"), """{ "name": "T", "light": "colors.json", "dark": "colors.json" }""");
+        FileUtils.set_contents (Path.build_filename (folder, "colors.json"), json);
     } catch (FileError e) {
         error ("%s", e.message);
     }
@@ -112,19 +116,24 @@ private void test_a_syntax_entry_that_is_not_an_object_is_invalid () {
     assert_invalid ("""{ "syntax": { "keyword": "#d73a49" } }""", "syntax.keyword");
 }
 
-private void test_a_theme_inside_a_folder_is_named_by_its_path () {
+private void test_a_theme_without_the_variant_asked_for_is_not_found () {
     string directory = new_themes_directory ();
-    DirUtils.create_with_parents (Path.build_filename (directory, "github"), 0700);
-    write_theme (directory, "github/theme-light", """{ "syntax": { "keyword": { "foreground": "#d73a49" } } }""");
-
-    Theme? theme = null;
+    var folder = Path.build_filename (directory, "paper");
+    DirUtils.create_with_parents (folder, 0700);
     try {
-        theme = Theme.load ({ directory }, "github/theme-light");
-    } catch (ThemeError e) {
+        FileUtils.set_contents (Path.build_filename (folder, "theme.json"), """{ "name": "Paper", "light": "light.json" }""");
+        FileUtils.set_contents (Path.build_filename (folder, "light.json"), """{ "syntax": {} }""");
+    } catch (FileError e) {
         error ("%s", e.message);
     }
 
-    assert_cmpstr (theme.style ("keyword").foreground, CompareOperator.EQ, "#d73a49");
+    try {
+        Theme.load ({ directory }, "paper", true);
+        assert_not_reached ();
+    } catch (ThemeError e) {
+        assert_true (e is ThemeError.NOT_FOUND);
+        assert_true (e.message.contains ("dark"));
+    }
 }
 
 private void test_a_theme_is_loaded_by_name_from_a_directory () {
@@ -133,7 +142,7 @@ private void test_a_theme_is_loaded_by_name_from_a_directory () {
 
     Theme? theme = null;
     try {
-        theme = Theme.load ({ directory }, "github-light");
+        theme = Theme.load ({ directory }, "github-light", false);
     } catch (ThemeError e) {
         error ("%s", e.message);
     }
@@ -150,7 +159,7 @@ private void test_a_later_directory_overrides_an_earlier_one () {
 
     Theme? theme = null;
     try {
-        theme = Theme.load ({ bundled, user }, "github-light");
+        theme = Theme.load ({ bundled, user }, "github-light", false);
     } catch (ThemeError e) {
         error ("%s", e.message);
     }
@@ -162,7 +171,7 @@ private void test_a_theme_no_directory_has_is_not_found () {
     string directory = new_themes_directory ();
 
     try {
-        Theme.load ({ directory }, "github-light");
+        Theme.load ({ directory }, "github-light", false);
         assert_not_reached ();
     } catch (ThemeError e) {
         assert_true (e is ThemeError.NOT_FOUND);
@@ -371,7 +380,7 @@ void main (string[] args) {
     Test.add_func ("/models/theme/a_shorthand_color_is_invalid", test_a_shorthand_color_is_invalid);
     Test.add_func ("/models/theme/a_font_flag_that_is_not_a_boolean_is_invalid", test_a_font_flag_that_is_not_a_boolean_is_invalid);
     Test.add_func ("/models/theme/a_syntax_entry_that_is_not_an_object_is_invalid", test_a_syntax_entry_that_is_not_an_object_is_invalid);
-    Test.add_func ("/models/theme/a_theme_inside_a_folder_is_named_by_its_path", test_a_theme_inside_a_folder_is_named_by_its_path);
+    Test.add_func ("/models/theme/a_theme_without_the_variant_asked_for_is_not_found", test_a_theme_without_the_variant_asked_for_is_not_found);
     Test.add_func ("/models/theme/a_theme_is_loaded_by_name_from_a_directory", test_a_theme_is_loaded_by_name_from_a_directory);
     Test.add_func ("/models/theme/a_later_directory_overrides_an_earlier_one", test_a_later_directory_overrides_an_earlier_one);
     Test.add_func ("/models/theme/a_theme_no_directory_has_is_not_found", test_a_theme_no_directory_has_is_not_found);

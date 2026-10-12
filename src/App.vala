@@ -100,8 +100,8 @@ public class App : Adw.Application {
     EditorTheme.instance = new EditorTheme (
       user_settings,
       {
-        Environment.get_variable ("OPUS_THEMES_DIR") ?? BuildInfo.THEMES_DIR,
-        Path.build_filename (Environment.get_user_data_dir (), "opus", "themes"),
+        Path.build_filename (Environment.get_variable ("OPUS_THEMES_DIR") ?? BuildInfo.THEMES_DIR, "syntax"),
+        Path.build_filename (Environment.get_user_data_dir (), "opus", "themes", "syntax"),
       }
     );
     session_store = new SessionStore (user_settings.save_session, Path.build_filename (Environment.get_user_data_dir (), "opus", "session.json"));

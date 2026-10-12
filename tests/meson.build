@@ -274,6 +274,13 @@ test(
   env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'src' / 'themes'],
 )
 
+theme_manifest_test = executable(
+  'theme-manifest-test',
+  ['models/theme-manifest-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('theme-manifest', theme_manifest_test)
+
 theme_test = executable(
   'theme-test',
   ['models/theme-test.vala'],
