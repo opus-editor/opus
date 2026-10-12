@@ -418,6 +418,10 @@
     <file alias="scalable/actions/arrow-down-symbolic.svg" compressed="true">icons/scalable/actions/arrow-down-symbolic.svg</file>
     <file alias="scalable/actions/gitignore-symbolic.svg" compressed="true">icons/scalable/actions/gitignore-symbolic.svg</file>
     <file alias="scalable/actions/more-symbolic.svg" compressed="true">icons/scalable/actions/more-symbolic.svg</file>
+    <file alias="scalable/actions/check-symbolic.svg" compressed="true">icons/scalable/actions/check-symbolic.svg</file>
+    <file alias="scalable/actions/desktop-symbolic.svg" compressed="true">icons/scalable/actions/desktop-symbolic.svg</file>
+    <file alias="scalable/actions/cloud-symbolic.svg" compressed="true">icons/scalable/actions/cloud-symbolic.svg</file>
+    <file alias="scalable/actions/tag-symbolic.svg" compressed="true">icons/scalable/actions/tag-symbolic.svg</file>
     <file alias="scalable/actions/search-symbolic.svg" compressed="true">icons/scalable/actions/search-symbolic.svg</file>
     <file alias="scalable/actions/content-lines-symbolic.svg" compressed="true">icons/scalable/actions/content-lines-symbolic.svg</file>
     <file alias="scalable/actions/stage-symbolic.svg" compressed="true">icons/scalable/actions/stage-symbolic.svg</file>
