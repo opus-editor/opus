@@ -46,7 +46,7 @@ int main (string[] args) {
         string folder = "";
         try {
             folder = make_fixture ();
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 108, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 103, folder);
 
             opus.open_command_bar ();
             opus.command_bar_type ("filetree");
@@ -69,7 +69,7 @@ int main (string[] args) {
         string folder = "";
         try {
             folder = make_fixture ();
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 108, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 103, folder);
             var readme = Path.build_filename (folder, "README.md");
             opus.open_tab (readme);
 

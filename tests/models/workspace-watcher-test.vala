@@ -4,7 +4,8 @@
 
 // Long enough for an inotify event to be delivered and dispatched; what a
 // "nothing was reported" test waits before concluding nothing will be.
-private const uint QUIET_MS = 400;
+// Sized for the ENV_TEST latencies (WorkspaceWatcher: 5ms batches, 20ms rescans), with room for inotify.
+private const uint QUIET_MS = 100;
 private const uint GIVE_UP_MS = 5000;
 
 private string make_tmp_dir () throws Error {

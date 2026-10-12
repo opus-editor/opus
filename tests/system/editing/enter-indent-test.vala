@@ -18,7 +18,7 @@ int main (string[] args) {
             DirUtils.create (folder, 0700);
             FileUtils.set_contents (Path.build_filename (folder, ".editorconfig"), "[*]\nindent_style = space\nindent_size = 2\n");
 
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 102, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 113, folder);
             opus.new_file ();
             opus.editor_write ("def foo\n  bar");
             opus.set_cursors ({ {1, 5} }); // end of "  bar"
@@ -48,7 +48,7 @@ int main (string[] args) {
             DirUtils.create (folder, 0700);
             FileUtils.set_contents (Path.build_filename (folder, ".editorconfig"), "[*]\nindent_style = space\nindent_size = 2\n");
 
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 102, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 113, folder);
             opus.new_file ();
             opus.editor_write ("    bar"); // 4 leading spaces
             opus.set_cursors ({ {0, 2} }); // halfway through the leading whitespace

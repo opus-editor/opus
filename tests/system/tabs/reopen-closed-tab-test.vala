@@ -5,7 +5,7 @@
  * one are passed over.
  */
 
-private const uint DISPLAY = 111;
+private const uint DISPLAY = 132;
 
 private string make_folder () throws Error {
     var folder = DirUtils.make_tmp ("opus-reopen-closed-test-XXXXXX");

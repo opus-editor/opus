@@ -3,7 +3,7 @@
  * it is saved, and the folder's .editorconfig switches its own two.
  */
 
-private const uint DISPLAY = 120;
+private const uint DISPLAY = 116;
 private const string SETTINGS = """{ "editor.on_save": ["trim-trailing-whitespace", "insert-final-newline"] }""";
 
 private string make_folder (string? editorconfig) throws Error {

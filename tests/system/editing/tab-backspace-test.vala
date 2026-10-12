@@ -20,7 +20,7 @@ int main (string[] args) {
             DirUtils.create (folder, 0700);
             FileUtils.set_contents (Path.build_filename (folder, ".editorconfig"), "[*]\nindent_style = space\nindent_size = 2\n");
 
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 101, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 119, folder);
             opus.new_file ();
 
             opus.type_cmd ("tab");
@@ -46,7 +46,7 @@ int main (string[] args) {
             // No linked folder at all — same as every other existing
             // system test — so there's no .editorconfig to find, matching
             // today's real default (unconfigured) behavior.
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 101);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 119);
             opus.new_file ();
 
             opus.type_cmd ("tab");
@@ -60,7 +60,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/tab_backspace/backspace_on_an_empty_line_merges_with_the_line_above", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 101);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 119);
             opus.new_file ();
             opus.editor_write ("abcd\n");
             opus.set_cursors ({ {1, 0} }); // start of the empty second line

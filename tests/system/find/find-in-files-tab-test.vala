@@ -15,7 +15,7 @@ int main (string[] args) {
             var file_path = Path.build_filename (folder, "haystack.txt");
             FileUtils.set_contents (file_path, "one needle\ntwo\n");
 
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 106, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 123, folder);
             opus.open_tab (file_path);
             opus.assert_active_tab (file_path);
 

@@ -9,7 +9,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/word_jump/ctrl_right_walks_word_by_word_to_the_end_of_text", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 95);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 110);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc");
             opus.set_cursors ({ {0, 2} }); // "aa|aa bbbb cccc"
@@ -31,7 +31,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/word_jump/ctrl_left_walks_word_by_word_back_to_the_start_of_text", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 95);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 110);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc");
             opus.set_cursors ({ {0, 12} }); // "aaaa bbbb cc|cc"
@@ -61,7 +61,7 @@ int main (string[] args) {
     // already hit the end of the document and can't move further).
     Test.add_func ("/system/word_jump/two_cursors_on_different_lines_move_independently_and_can_cross_lines", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 95);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 110);
             opus.new_file ();
             opus.editor_write ("aaaa   bbbb cccc\ndddd eeee ffff");
             opus.set_cursors ({ {0, 2}, {1, 2} }); // "aa|aa   bbbb cccc" / "dd|dd eeee ffff"

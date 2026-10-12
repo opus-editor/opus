@@ -5,7 +5,7 @@
  * and the general way everywhere else.
  */
 
-private const uint DISPLAY = 110;
+private const uint DISPLAY = 130;
 private const string SETTINGS = """{ "editor.theme_light": "by-language", "editor.theme_dark": "by-language" }""";
 
 private string write_fixture (string name, string contents) throws Error {

@@ -4,7 +4,7 @@
  * Alt+W's own override wins over both.
  */
 
-private const uint DISPLAY = 118;
+private const uint DISPLAY = 122;
 private const string SETTINGS = """{ "editor.word_wrap": false, "language.markdown": { "editor.word_wrap": true } }""";
 
 private string write_fixture (string name) throws Error {

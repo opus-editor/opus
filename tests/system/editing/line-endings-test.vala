@@ -3,7 +3,7 @@
  * a save, and a folder's `end_of_line` rewrites a file's on save.
  */
 
-private const uint DISPLAY = 119;
+private const uint DISPLAY = 114;
 
 private string make_folder (string? editorconfig) throws Error {
     var folder = DirUtils.make_tmp ("opus-line-endings-test-XXXXXX");

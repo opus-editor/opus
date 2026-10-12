@@ -161,10 +161,16 @@ opus_fuzzy_finder_sources = files(
 # git-status plugin's own tests link it too.
 opus_model_test_sources = opus_model_sources + opus_logger_sources + opus_host_command_sources + opus_fuzzy_finder_sources + opus_lua_sandbox_sources
 opus_model_test_deps = [glib_dep, gobject_dep, gio_dep, json_glib_dep, gmodule_dep, tree_sitter_dep, lua_dep]
+# ENV_TEST: the same sources as the app, with the waits a test would
+# otherwise sit through (WorkspaceWatcher's batching, the git-status
+# plugin's cooldown) shortened under `#if ENV_TEST`. The opus binary
+# itself, and so every system test, runs the real values.
+opus_test_vala_args = ['--define=ENV_TEST']
 opus_model_test_lib = static_library(
   'opus-model-test',
   opus_model_test_sources,
   dependencies: opus_model_test_deps,
+  vala_args: opus_test_vala_args,
 )
 opus_model_test_dep = declare_dependency(
   link_with: opus_model_test_lib,

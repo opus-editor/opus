@@ -15,7 +15,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/cursor_merge/two_cursors_extended_down_then_right_merge_once_they_overlap", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 93);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 106);
             opus.new_file ();
             opus.editor_write ("aaaa\nbbbb\ncccc");
             opus.set_cursors ({ {0, 2}, {1, 2} }); // "aa|aa" / "bb|bb", offsets 2 and 7

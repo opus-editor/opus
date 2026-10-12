@@ -43,7 +43,10 @@ private void init_repo (string root_path) throws Error {
     run_git (root_path, { "config", "user.name", "Opus Test" });
 }
 
-/** Waits for `provider`'s own decorations_changed to fire at least once (its schedule_refresh() debounce + the async subprocess round trip) — a generous timeout so a slow machine doesn't hang this test forever. */
+// What a "does not refresh" scenario waits before concluding nothing will come: the ENV_TEST refresh latency (20ms) and cooldown (50ms) plus the `git status` round trip, with room.
+private const uint GIVE_UP_MS = 400;
+
+/** Waits for `provider`'s own decorations_changed to fire at least once (its schedule_refresh() debounce + the async subprocess round trip). */
 private bool wait_for_decorations_changed (Opus.Plugins.GitStatus.Provider provider) {
     var loop = new MainLoop ();
     bool fired = false;
@@ -52,7 +55,7 @@ private bool wait_for_decorations_changed (Opus.Plugins.GitStatus.Provider provi
         loop.quit ();
     });
     uint timeout_id = 0;
-    timeout_id = Timeout.add (2000, () => {
+    timeout_id = Timeout.add (GIVE_UP_MS, () => {
         timeout_id = 0;
         loop.quit ();
         return Source.REMOVE;

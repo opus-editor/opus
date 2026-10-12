@@ -7,7 +7,7 @@
  * Accept buttons.
  */
 
-private const uint DISPLAY = 116;
+private const uint DISPLAY = 125;
 
 private string make_repo () throws Error {
     var root = DirUtils.make_tmp ("opus-diff-view-test-XXXXXX");

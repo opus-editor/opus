@@ -11,7 +11,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/close_tab/falls_back_to_the_rightmost_remaining_tab", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 99);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 131);
             opus.new_file (); // Untitled-1
             opus.new_file (); // Untitled-2
             opus.new_file (); // Untitled-3, active
@@ -28,7 +28,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/close_tab/closing_the_last_tab_leaves_none_active", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 99);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 131);
             opus.new_file (); // Untitled-1, the only tab
 
             opus.close_tab ("Untitled-1");

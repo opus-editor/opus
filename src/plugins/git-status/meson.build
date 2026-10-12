@@ -43,6 +43,7 @@ git_status_provider_test = executable(
   'git-status-provider-test',
   ['test/git-status-provider-test.vala', opus_git_status_plugin_sources],
   dependencies: [opus_model_test_dep],
+  vala_args: opus_test_vala_args,
 )
 test('git-status-provider', git_status_provider_test)
 

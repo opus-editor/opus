@@ -10,7 +10,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/cut_paste/cut_then_paste_round_trips_through_undo", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 96);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 111);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc");
             opus.set_cursors ({ {0, 0} });
@@ -47,7 +47,7 @@ int main (string[] args) {
     // back to where each came from.
     Test.add_func ("/system/cut_paste/multi_cursor_cut_then_paste_distributes_one_piece_per_cursor", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 96);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 111);
             opus.new_file ();
             opus.editor_write ("aaa\nbbb\nccc");
             opus.set_selections ({ {0, 0, 3}, {1, 0, 3}, {2, 0, 3} }); // "aaa", "bbb", "ccc" each fully selected

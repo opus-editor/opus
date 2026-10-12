@@ -16,12 +16,20 @@ namespace Opus.Plugins.GitStatus {
     // How long the first change of a burst waits for its refresh, so the
     // rest of the burst rides along. Never extended by later changes — a
     // steady stream of them would otherwise postpone the refresh forever.
-    private const uint REFRESH_LATENCY_MS = 400;
     // After a refresh, the next one waits this many times as long as it
     // took: unnoticeable where `git status` takes milliseconds, and a
     // repository where it takes a second isn't running it back to back.
+    // ENV_TEST (the test build's define) keeps both rules and shrinks
+    // the waits: a test of them shouldn't sit through the real cooldown.
+    #if ENV_TEST
+    private const uint REFRESH_LATENCY_MS = 20;
+    private const int64 COOLDOWN_FACTOR = 1;
+    private const int64 MAX_COOLDOWN_US = 50 * TimeSpan.MILLISECOND;
+    #else
+    private const uint REFRESH_LATENCY_MS = 400;
     private const int64 COOLDOWN_FACTOR = 10;
     private const int64 MAX_COOLDOWN_US = 5 * TimeSpan.SECOND;
+    #endif
     private const string IGNORE_FILE = ".gitignore";
 
     public WorkspaceContext context { get; set; }

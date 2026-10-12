@@ -6,7 +6,7 @@
  * the text — the selection, or all of it.
  */
 
-private const uint DISPLAY = 117;
+private const uint DISPLAY = 102;
 
 private string write_file (string name, string text) throws Error {
     var folder = DirUtils.make_tmp ("opus-functions-test-XXXXXX");

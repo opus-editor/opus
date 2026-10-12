@@ -7,7 +7,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/escape/multiple_cursors_collapse_to_primary", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 91);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 107);
             opus.new_file ();
             opus.editor_write ("aaaa\nbbbb");
             opus.set_cursors ({ {0, 2}, {1, 2} }); // primary at offset 2, secondary at offset 7
@@ -24,7 +24,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/escape/one_cursor_with_a_selection_collapses_to_the_caret_end", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 91);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 107);
             opus.new_file ();
             opus.editor_write ("aaaa");
             opus.set_cursors ({ {0, 0} });
@@ -44,7 +44,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/escape/one_cursor_no_selection_is_a_no_op", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 91);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 107);
             opus.new_file ();
             opus.editor_write ("hi");
             opus.set_cursors ({ {0, 1} });

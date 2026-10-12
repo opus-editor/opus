@@ -13,7 +13,7 @@ int main (string[] args) {
         assert_nonnull (opus_binary_path);
 
         try {
-            var opus = new SystemTestSession (opus_binary_path, 90);
+            var opus = new SystemTestSession (opus_binary_path, 136);
             opus.new_file ();
             opus.editor_write ("hello");
             opus.assert_editor_text ("hello");

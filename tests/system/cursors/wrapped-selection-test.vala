@@ -46,7 +46,7 @@ private SystemTestSession? wrapped = null;
 /** One Opus for every wrap-on case, launched on first use — same reasoning as wrapped-movement-test's own: the ~1s Broadway takes to allocate the editor is paid once, not per case. Each case opens and closes its own tab. */
 private SystemTestSession wrapped_session () throws Error {
     if (wrapped == null) {
-        wrapped = launch (106, WRAP_ON);
+        wrapped = launch (135, WRAP_ON);
     }
     return wrapped;
 }
@@ -152,7 +152,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_selection/wrap_off_sweep_is_unaffected", () => {
         try {
-            var opus = launch (110, null); // defaults: editor.word_wrap false — its own Opus
+            var opus = launch (137, null); // defaults: editor.word_wrap false — its own Opus
             opus.new_file ();
             opus.editor_write (LONG_LINE);
 

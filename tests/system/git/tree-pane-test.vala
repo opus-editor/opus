@@ -5,7 +5,7 @@
  * keep the selection through a refresh, and page past the first 500.
  */
 
-private const uint DISPLAY = 115;
+private const uint DISPLAY = 127;
 
 private string make_repo () throws Error {
     var root = DirUtils.make_tmp ("opus-tree-pane-test-XXXXXX");

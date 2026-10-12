@@ -5,7 +5,7 @@
  * has it all back. Also what a saved session never records.
  */
 
-private const uint DISPLAY = 112;
+private const uint DISPLAY = 128;
 private const string SAVING = """{ "window.save_session": true }""";
 
 // 200 lines of ten characters each: line N starts at offset (N - 1) * 11.

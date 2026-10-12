@@ -19,7 +19,7 @@ int main (string[] args) {
         try {
             //                                            0123456789
             var path = write_fixture ("settings.json", "{\"a\": 12}");
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 97);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 129);
 
             opus.open_tab (path);
 
@@ -35,7 +35,7 @@ int main (string[] args) {
     Test.add_func ("/system/syntax_highlight/typing_repaints_what_changed", () => {
         try {
             var path = write_fixture ("settings.json", "[true]");
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 97);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 129);
             opus.open_tab (path);
             opus.wait_for_syntax_style (1, "constant.builtin");
             opus.set_cursor_offsets ({ 1 }, { 1 });
@@ -58,7 +58,7 @@ int main (string[] args) {
             //                                        0         1         2
             //                                        0123456789012345678901234567
             var path = write_fixture ("page.html", "<script>const n = 1;</script>");
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 97);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 129);
 
             opus.open_tab (path);
 
@@ -75,7 +75,7 @@ int main (string[] args) {
     Test.add_func ("/system/syntax_highlight/a_file_no_language_claims_stays_plain", () => {
         try {
             var path = write_fixture ("notes.txt", "{\"a\": 12}");
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 97);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 129);
 
             opus.open_tab (path);
 

@@ -11,7 +11,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/toggle_replaces_character_mid_line", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc");
             opus.set_cursors ({ {0, 5} }); // just before "bbbb"
@@ -29,7 +29,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/degrades_to_insert_at_line_end", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("abc\ndef");
             opus.set_cursors ({ {0, 3} }); // end of "abc", right before the newline
@@ -46,7 +46,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/toggle_off_resumes_plain_insert", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("aaaa");
             opus.set_cursors ({ {0, 0} });
@@ -68,7 +68,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/multi_cursor_each_overtypes_independently", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("aaaa\nbbbb");
             opus.set_cursors ({ {0, 1}, {1, 1} });
@@ -85,7 +85,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/paste_single_string_respects_overtype", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb");
             opus.set_cursors ({ {0, 0} });
@@ -108,7 +108,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/overtype/distributed_paste_respects_overtype", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 104);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 117);
             opus.new_file ();
             opus.editor_write ("aaa\nbbb\nccc\ndddd\neeee\nffff");
             opus.set_selections ({ {0, 0, 3}, {1, 0, 3}, {2, 0, 3} }); // "aaa", "bbb", "ccc"

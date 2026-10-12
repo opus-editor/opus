@@ -15,7 +15,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/undo_redo/two_cursors_typing_two_characters_round_trips", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 92);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 120);
             opus.new_file ();
             opus.editor_write ("aaaa\nbbbb\ncccc");
             opus.set_cursors ({ {0, 2}, {1, 2} }); // "aa|aa" / "bb|bb", offsets 2 and 7

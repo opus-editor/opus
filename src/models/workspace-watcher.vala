@@ -12,12 +12,19 @@ public class WorkspaceWatcher : Object {
   // How long the first structural change of a burst (a checkout, an
   // unpacked archive) waits for its rescan, so the rest of the burst
   // rides along. Never extended, same as EVENT_LATENCY_MS below.
-  private const uint RESCAN_LATENCY_MS = 400;
   // A burst (a build, a checkout) is reported as one batch per window
   // rather than once per event — every report makes a consumer re-read a
   // directory. Opened by the first event and never extended, so a steady
-  // stream still gets through.
+  // stream still gets through. ENV_TEST (the test library's own define,
+  // src/meson.build) keeps the batching and shrinks the waits: a test
+  // of the batching shouldn't sit through half a second of it.
+  #if ENV_TEST
+  private const uint RESCAN_LATENCY_MS = 20;
+  private const uint EVENT_LATENCY_MS = 5;
+  #else
+  private const uint RESCAN_LATENCY_MS = 400;
   private const uint EVENT_LATENCY_MS = 100;
+  #endif
   private const string GIT_DIRECTORY = ".git";
   private const string IGNORE_FILE = ".gitignore";
 

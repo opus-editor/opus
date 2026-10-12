@@ -7,7 +7,7 @@
  * pane refreshes asynchronously, debounced.
  */
 
-private const uint DISPLAY = 114;
+private const uint DISPLAY = 126;
 
 private string make_repo () throws Error {
     var root = DirUtils.make_tmp ("opus-staging-pane-test-XXXXXX");

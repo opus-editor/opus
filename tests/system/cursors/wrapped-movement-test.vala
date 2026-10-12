@@ -35,7 +35,7 @@ private SystemTestSession? wrapped = null;
  */
 private SystemTestSession wrapped_session () throws Error {
     if (wrapped == null) {
-        wrapped = launch (107, WRAP_ON);
+        wrapped = launch (134, WRAP_ON);
     }
     return wrapped;
 }
@@ -192,7 +192,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/wrapped_movement/with_wrap_off_down_still_moves_by_paragraph", () => {
         try {
-            var opus = launch (109, null); // defaults: editor.word_wrap false — its own Opus, nothing to wait for
+            var opus = launch (138, null); // defaults: editor.word_wrap false — its own Opus, nothing to wait for
             opus.new_file ();
             opus.editor_write (three_paragraphs ());
             opus.set_cursors ({ {0, 4} });

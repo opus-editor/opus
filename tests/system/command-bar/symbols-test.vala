@@ -5,7 +5,7 @@
  * folder open, which Ctrl+P no longer needs.
  */
 
-private const uint DISPLAY = 109;
+private const uint DISPLAY = 104;
 
 private const string HINT_WITHOUT_FOLDER = "Open a folder to search files\n: Go to line\n# Go to symbol\n> Run commands";
 private const string HINT_WITH_FOLDER = "Search files\n: Go to line\n# Go to symbol\n> Run commands";

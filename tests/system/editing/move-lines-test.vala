@@ -13,7 +13,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/move_lines/alt_down_moves_the_current_line_down", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 103);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 115);
             opus.new_file ();
             opus.editor_write ("aaa\nbbb\nccc");
             opus.set_cursors ({ {0, 1} }); // 2nd character of "aaa"
@@ -30,7 +30,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/move_lines/alt_up_moves_the_current_line_up", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 103);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 115);
             opus.new_file ();
             opus.editor_write ("aaa\nbbb\nccc");
             opus.set_cursors ({ {1, 1} }); // 2nd character of "bbb"
@@ -47,7 +47,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/move_lines/alt_down_on_the_last_line_is_a_no_op", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 103);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 115);
             opus.new_file ();
             opus.editor_write ("aaa\nbbb");
             opus.set_cursors ({ {1, 1} }); // 2nd character of "bbb", the last line

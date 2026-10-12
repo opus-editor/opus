@@ -10,7 +10,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/select_next_match/ctrl_d_selects_each_next_occurrence_then_stops", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 97);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 109);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc\naaaa dddd aaaa");
             opus.set_cursors ({ {0, 0} });

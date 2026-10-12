@@ -13,7 +13,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/word_undo/three_words_typed_in_a_row_undo_one_word_at_a_time", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 94);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 121);
             opus.new_file ();
 
             opus.type ("asdasd asdasd asdasd");

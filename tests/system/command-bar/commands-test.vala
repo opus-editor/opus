@@ -5,7 +5,7 @@
  * and the other two do what their shortcuts do.
  */
 
-private const uint DISPLAY = 107;
+private const uint DISPLAY = 101;
 
 /** A folder holding only a 2-space .editorconfig, so Enter's indentation is the same on every machine. */
 private string make_folder () throws Error {

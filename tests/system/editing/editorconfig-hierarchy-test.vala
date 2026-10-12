@@ -4,7 +4,7 @@
  * to the editor's default.
  */
 
-private const uint DISPLAY = 121;
+private const uint DISPLAY = 112;
 
 private string make_folder (string sub_editorconfig) throws Error {
     var folder = DirUtils.make_tmp ("opus-editorconfig-hierarchy-test-XXXXXX");

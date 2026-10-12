@@ -608,10 +608,11 @@ smoke_test = executable(
   ['support/smoke-test.vala'],
   dependencies: [opus_system_test_dep],
 )
-# is_parallel: false — each of these spawns real broadwayd/Opus
-# processes; running several at once fought over CPU/process-spawn
-# time badly enough to time out during development, so they get their
-# own exclusive slot instead of racing model tests or each other.
+# The system tests run in parallel like the rest: every binary has
+# its own Broadway display (so its own httpd port, 8080 + N) and its
+# own OPUS_APP_ID, so two Opus instances never meet on the session bus
+# — see SystemTestSession. A scenario that times out under load is a
+# scenario waiting too briefly, not a reason to serialize the suite.
 test(
   'smoke',
   smoke_test,
@@ -623,8 +624,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 escape_test = executable(
@@ -643,8 +643,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 undo_redo_test = executable(
@@ -663,8 +662,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 cursor_merge_test = executable(
@@ -683,8 +681,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 word_undo_test = executable(
@@ -703,8 +700,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 word_jump_test = executable(
@@ -723,8 +719,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 select_next_match_test = executable(
@@ -743,8 +738,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 select_all_test = executable(
@@ -763,8 +757,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 reopen_closed_tab_test = executable(
@@ -779,8 +772,7 @@ test(
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 save_session_test = executable(
@@ -796,7 +788,6 @@ test(
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
   timeout: 120,
-  is_parallel: false,
 )
 
 git_diff_pane_test = executable(
@@ -816,7 +807,6 @@ test(
   ],
   depends: opus_grammar_modules,
   timeout: 180,
-  is_parallel: false,
 )
 
 git_tree_pane_test = executable(
@@ -836,7 +826,6 @@ test(
   ],
   depends: opus_grammar_modules,
   timeout: 180,
-  is_parallel: false,
 )
 
 git_staging_pane_test = executable(
@@ -856,7 +845,6 @@ test(
   ],
   depends: opus_grammar_modules,
   timeout: 180,
-  is_parallel: false,
 )
 
 switch_tab_test = executable(
@@ -876,7 +864,6 @@ test(
   ],
   depends: opus_grammar_modules,
   timeout: 90,
-  is_parallel: false,
 )
 
 close_tab_test = executable(
@@ -895,8 +882,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 cut_paste_test = executable(
@@ -915,8 +901,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 add_cursor_vertical_test = executable(
@@ -935,8 +920,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 tab_backspace_test = executable(
@@ -955,8 +939,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 enter_indent_test = executable(
@@ -975,8 +958,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 move_lines_test = executable(
@@ -995,8 +977,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 overtype_test = executable(
@@ -1015,8 +996,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 find_wrap_test = executable(
@@ -1035,8 +1015,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 find_in_files_tab_test = executable(
@@ -1051,8 +1030,7 @@ test(
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 wrapped_movement_test = executable(
@@ -1071,8 +1049,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 wrapped_selection_test = executable(
@@ -1091,8 +1068,7 @@ test(
     # here) and the justfile's identical env var for `just run`.
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 # src/lib/fuzzy-finder/ tests — built against opus_fuzzy_finder_sources
@@ -1196,8 +1172,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 syntax_highlight_test = executable(
@@ -1216,8 +1191,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 syntax_theme_languages_test = executable(
@@ -1236,8 +1210,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 editing_word_wrap_test = executable(
@@ -1256,8 +1229,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 editing_line_endings_test = executable(
@@ -1276,8 +1248,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 editing_on_save_test = executable(
@@ -1296,8 +1267,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 editing_editorconfig_hierarchy_test = executable(
@@ -1316,8 +1286,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 command_bar_commands_test = executable(
@@ -1336,8 +1305,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 command_bar_functions_test = executable(
@@ -1357,8 +1325,7 @@ test(
     'OPUS_FUNCTIONS_DIR=' + meson.project_source_root() / 'tests' / 'system' / 'command-bar' / 'functions',
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 command_bar_symbols_test = executable(
@@ -1377,8 +1344,7 @@ test(
     'OPUS_THEMES_DIR=' + opus_test_themes_dir,
   ],
   depends: opus_grammar_modules,
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )
 
 command_bar_open_file_test = executable(
@@ -1393,6 +1359,5 @@ test(
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
   ],
-  timeout: 60,
-  is_parallel: false,
+  timeout: 30,
 )

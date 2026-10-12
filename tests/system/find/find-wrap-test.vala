@@ -14,7 +14,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/find_wrap/next_match_wraps_from_last_occurrence_to_first", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 105);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 124);
             opus.new_file ();
             opus.editor_write ("aaa aaa aaa\naaa bbb aaa");
             // Caret at the buffer's very end — same as just having typed
@@ -47,7 +47,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/find_wrap/previous_match_wraps_from_first_occurrence_to_last", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 105);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 124);
             opus.new_file ();
             opus.editor_write ("aaa aaa aaa\naaa bbb aaa");
             opus.set_cursors ({ {1, 11} });

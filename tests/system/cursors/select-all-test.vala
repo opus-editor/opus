@@ -11,7 +11,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/select_all/ctrl_a_selects_everything_with_the_caret_at_the_end", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 98);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 108);
             opus.new_file ();
             opus.editor_write ("aaaa bbbb cccc");
 

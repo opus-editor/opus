@@ -12,7 +12,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/add_cursor_vertical/shift_alt_down_adds_a_cursor_below_at_the_same_column", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 100);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 105);
             opus.new_file ();
             opus.editor_write ("abc\ndefg\nhi");
             opus.set_cursors ({ {0, 1} }); // column 1 on line 0
@@ -29,7 +29,7 @@ int main (string[] args) {
 
     Test.add_func ("/system/add_cursor_vertical/shift_alt_up_adds_a_cursor_above_at_the_same_column", () => {
         try {
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 100);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 105);
             opus.new_file ();
             opus.editor_write ("abc\ndefg\nhi");
             opus.set_cursors ({ {1, 1} }); // column 1 on line 1 ("defg"), offset 5

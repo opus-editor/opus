@@ -5,7 +5,7 @@
  * Also the preview rule and that a closed tab is really gone.
  */
 
-private const uint DISPLAY = 113;
+private const uint DISPLAY = 133;
 
 private string long_text () {
     var text = new StringBuilder ();
