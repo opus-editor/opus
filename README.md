@@ -15,6 +15,10 @@ native with GTK4 and Libadwaita, in Vala.
   <img src="assets/preview.png" alt="preview"/>
 </p>
 
+<p align="center">
+  <img src="assets/preview-2.png" alt="preview-git"/>
+</p>
+
 ## Features
 
 - Syntax highlighting
@@ -24,7 +28,8 @@ native with GTK4 and Libadwaita, in Vala.
 - Find and Replace, in the file or across the folder
 - Fuzzy file finder (Ctrl+P)
 - File tree and tabs tinted by git status
-- Git change bars in the gutter
+- Local and regional git change bars
+- Stage, diff, resolve conflicts and browse the commit graph in a dedicated Git view
 
 ## Supported languages
 
