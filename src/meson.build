@@ -62,6 +62,8 @@ opus_model_sources = files(
   'models/functions/registry.vala',
   'models/functions/executor.vala',
   'models/functions/native/reindent.vala',
+  'models/functions/native/trim-trailing-whitespace.vala',
+  'models/functions/native/insert-final-newline.vala',
   'models/git-diff/hunk.vala',
   'models/git-diff/bases.vala',
   'models/git-diff/i-base-provider.vala',

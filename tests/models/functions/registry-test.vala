@@ -39,7 +39,16 @@ private void test_the_native_catalog_and_the_packages_share_one_list () {
 
     var listed = names (registry_over ({ root }).for_language ("lua"));
 
-    assert_cmpstrv (listed, { "Reindent", "Uppercase" });
+    assert_cmpstrv (listed, { "Reindent", "Trim trailing whitespace", "Uppercase" });
+}
+
+private void test_a_hidden_function_is_found_by_id_but_never_listed () {
+    var registry = registry_over ({ make_tmp_dir () });
+
+    var function = registry.by_id ("insert-final-newline");
+
+    assert_nonnull (function);
+    assert_false ("Insert final newline" in names (registry.for_language (null)));
 }
 
 private void test_nothing_is_read_before_reload () {
@@ -57,7 +66,7 @@ private void test_a_later_directory_overrides_an_earlier_package_of_the_same_id 
 
     var listed = names (registry_over ({ bundled, user }).for_language (null));
 
-    assert_cmpstrv (listed, { "My Uppercase", "Reindent" });
+    assert_cmpstrv (listed, { "My Uppercase", "Reindent", "Trim trailing whitespace" });
 }
 
 private void test_a_language_folder_lists_its_functions_for_that_language_only () {
@@ -66,9 +75,9 @@ private void test_a_language_folder_lists_its_functions_for_that_language_only (
 
     var registry = registry_over ({ root });
 
-    assert_cmpstrv (names (registry.for_language ("lua")), { "Reindent", "Sort requires" });
-    assert_cmpstrv (names (registry.for_language ("ruby")), { "Reindent" });
-    assert_cmpstrv (names (registry.for_language (null)), { "Reindent" });
+    assert_cmpstrv (names (registry.for_language ("lua")), { "Reindent", "Sort requires", "Trim trailing whitespace" });
+    assert_cmpstrv (names (registry.for_language ("ruby")), { "Reindent", "Trim trailing whitespace" });
+    assert_cmpstrv (names (registry.for_language (null)), { "Reindent", "Trim trailing whitespace" });
 }
 
 private void test_the_manifests_languages_add_to_the_folders () {
@@ -88,7 +97,7 @@ private void test_a_folder_that_is_neither_a_function_nor_a_language_is_skipped 
 
     var listed = names (registry_over ({ root }).for_language (null));
 
-    assert_cmpstrv (listed, { "Reindent", "Uppercase" });
+    assert_cmpstrv (listed, { "Reindent", "Trim trailing whitespace", "Uppercase" });
 }
 
 private void test_a_broken_manifest_does_not_take_the_others_down () {
@@ -103,7 +112,7 @@ private void test_a_broken_manifest_does_not_take_the_others_down () {
 
     var listed = names (registry_over ({ root }).for_language (null));
 
-    assert_cmpstrv (listed, { "Reindent", "Uppercase" });
+    assert_cmpstrv (listed, { "Reindent", "Trim trailing whitespace", "Uppercase" });
 }
 
 private void test_reload_sees_a_package_added_since () {
@@ -119,6 +128,7 @@ private void test_reload_sees_a_package_added_since () {
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/functions/registry/the_native_catalog_and_the_packages_share_one_list", test_the_native_catalog_and_the_packages_share_one_list);
+    Test.add_func ("/models/functions/registry/a_hidden_function_is_found_by_id_but_never_listed", test_a_hidden_function_is_found_by_id_but_never_listed);
     Test.add_func ("/models/functions/registry/nothing_is_read_before_reload", test_nothing_is_read_before_reload);
     Test.add_func ("/models/functions/registry/a_later_directory_overrides_an_earlier_package_of_the_same_id", test_a_later_directory_overrides_an_earlier_package_of_the_same_id);
     Test.add_func ("/models/functions/registry/a_language_folder_lists_its_functions_for_that_language_only", test_a_language_folder_lists_its_functions_for_that_language_only);

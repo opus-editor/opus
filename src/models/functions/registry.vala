@@ -41,7 +41,7 @@ namespace Functions {
     public GenericArray<Function> for_language (string? language) {
       var listed = new GenericArray<Function> ();
       foreach (var function in functions) {
-        if (function.applies_to (language)) {
+        if (!function.hidden && function.applies_to (language)) {
           listed.add (function);
         }
       }

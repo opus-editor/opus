@@ -103,6 +103,24 @@ public class EditorConfig : Object {
     return int.parse (indent_size);
   }
 
+  /** `trim_trailing_whitespace` for `relative_path`: true, false, or null when no matching section sets it. */
+  public bool? trim_trailing_whitespace_for (string relative_path) {
+    return boolean_for (relative_path, "trim_trailing_whitespace");
+  }
+
+  /** `insert_final_newline` for `relative_path`: true, false, or null when no matching section sets it. */
+  public bool? insert_final_newline_for (string relative_path) {
+    return boolean_for (relative_path, "insert_final_newline");
+  }
+
+  private bool? boolean_for (string relative_path, string key) {
+    switch (resolve_property (relative_path, key)) {
+      case "true": return true;
+      case "false": return false;
+      default: return null;
+    }
+  }
+
   /** "lf" or "crlf" for `relative_path`, null when no matching section sets `end_of_line` or it is something else ("cr", which nothing supports). */
   public Document.LineEnding? end_of_line_for (string relative_path) {
     switch (resolve_property (relative_path, "end_of_line")) {

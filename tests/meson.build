@@ -1135,7 +1135,7 @@ test('lua-sandbox', lua_sandbox_test)
 
 # src/models/functions/ — the manifest, the registry and the executor
 # are plain; Reindent runs over the bundled languages' real grammars.
-foreach name : ['manifest', 'registry', 'executor']
+foreach name : ['manifest', 'registry', 'executor', 'trim-trailing-whitespace', 'insert-final-newline']
   functions_test = executable(
     'functions-' + name + '-test',
     ['models/functions' / name + '-test.vala'],
@@ -1268,6 +1268,26 @@ editing_line_endings_test = executable(
 test(
   'editing-line-endings',
   editing_line_endings_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
+editing_on_save_test = executable(
+  'editing-on-save-test',
+  ['system/editing/on-save-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'editing-on-save',
+  editing_on_save_test,
   env: [
     'OPUS_BINARY_PATH=' + opus_exe.full_path(),
     'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',

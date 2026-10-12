@@ -6,9 +6,23 @@ is selected, `File > Name` over the whole document. Opus ships a few
 (Uppercase, Lowercase, Kebab Case, Pascal Case and Snake Case over a
 selection; Reindent over the file — redone from the syntax, so it refuses a
 file with a syntax error, and languages where indentation is the
-syntax: Python, YAML, Markdown, Just);
+syntax: Python, YAML, Markdown, Just; Trim trailing whitespace, which
+spares what lies before a cursor);
 yours are folders in your own functions directory, each a manifest and
 a Lua script.
+
+Functions can also run on every save, in order, by id:
+
+```json
+"editor.on_save": ["trim-trailing-whitespace", "insert-final-newline"]
+```
+
+in `settings.json`, or inside a `"language.<name>": { … }` block for
+one language's files. `insert-final-newline` exists for this alone and
+isn't listed. A folder's `.editorconfig` has the last word on those
+two: `trim_trailing_whitespace` and `insert_final_newline`, `true` or
+`false`, add or remove them for the files they match. A function that
+fails is skipped; the save goes out regardless.
 
 | What | Where |
 |---|---|

@@ -83,8 +83,51 @@ private void test_a_failing_function_hands_its_error_back () {
     assert_cmpstr (message, CompareOperator.EQ, "main.lua:3: boom");
 }
 
+private TextEdit[] edits_for (string text, string output) {
+    try {
+        return Functions.Executor.edits_for (Functions.Input.of_document (text), { output });
+    } catch (Functions.FunctionError e) {
+        error (e.message);
+    }
+}
+
+private void test_lines_that_still_line_up_give_one_edit_per_changed_line () {
+    var edits = edits_for ("a  \nb\nc \n", "a\nb\nc\n");
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].start_offset, CompareOperator.EQ, 0);
+    assert_cmpint (edits[0].end_offset, CompareOperator.EQ, 3);
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "a");
+    assert_cmpint (edits[1].start_offset, CompareOperator.EQ, 6);
+    assert_cmpint (edits[1].end_offset, CompareOperator.EQ, 8);
+    assert_cmpstr (edits[1].new_text, CompareOperator.EQ, "c");
+}
+
+private void test_a_changed_line_count_gives_the_one_span_between_the_common_head_and_tail () {
+    var edits = edits_for ("a\nb", "a\nb\n");
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].start_offset, CompareOperator.EQ, 3);
+    assert_cmpint (edits[0].end_offset, CompareOperator.EQ, 3);
+    assert_cmpstr (edits[0].old_text, CompareOperator.EQ, "");
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "\n");
+}
+
+private void test_the_span_edit_counts_in_characters_not_bytes () {
+    var edits = edits_for ("ação\nx", "ação!\nx\ny");
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].start_offset, CompareOperator.EQ, 4);
+    assert_cmpint (edits[0].end_offset, CompareOperator.EQ, 6);
+    assert_cmpstr (edits[0].old_text, CompareOperator.EQ, "\nx");
+    assert_cmpstr (edits[0].new_text, CompareOperator.EQ, "!\nx\ny");
+}
+
 void main (string[] args) {
     Test.init (ref args);
+    Test.add_func ("/models/functions/executor/lines_that_still_line_up_give_one_edit_per_changed_line", test_lines_that_still_line_up_give_one_edit_per_changed_line);
+    Test.add_func ("/models/functions/executor/a_changed_line_count_gives_the_one_span_between_the_common_head_and_tail", test_a_changed_line_count_gives_the_one_span_between_the_common_head_and_tail);
+    Test.add_func ("/models/functions/executor/the_span_edit_counts_in_characters_not_bytes", test_the_span_edit_counts_in_characters_not_bytes);
     Test.add_func ("/models/functions/executor/each_changed_segment_becomes_one_edit_in_place", test_each_changed_segment_becomes_one_edit_in_place);
     Test.add_func ("/models/functions/executor/the_whole_document_is_one_segment", test_the_whole_document_is_one_segment);
     Test.add_func ("/models/functions/executor/the_wrong_number_of_strings_is_a_bad_output", test_the_wrong_number_of_strings_is_a_bad_output);

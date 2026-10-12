@@ -38,7 +38,7 @@ int main (string[] args) {
 
             opus.open_commands ();
 
-            assert_cmpstrv (opus.wait_for_command_bar_items (), { "set-language", "toggle-word-wrap", "reload-functions", "user-settings", "function:document:only-lua", "function:document:reindent", "function:document:shout" });
+            assert_cmpstrv (opus.wait_for_command_bar_items (), { "set-language", "toggle-word-wrap", "reload-functions", "user-settings", "function:document:only-lua", "function:document:reindent", "function:document:shout", "function:document:trim-trailing-whitespace" });
             opus.close ();
         } catch (Error e) {
             error (e.message);
@@ -52,7 +52,7 @@ int main (string[] args) {
 
             opus.open_commands ();
 
-            assert_cmpstrv (opus.wait_for_command_bar_items (), { "set-language", "toggle-word-wrap", "reload-functions", "user-settings", "function:document:reindent", "function:document:shout" });
+            assert_cmpstrv (opus.wait_for_command_bar_items (), { "set-language", "toggle-word-wrap", "reload-functions", "user-settings", "function:document:reindent", "function:document:shout", "function:document:trim-trailing-whitespace" });
             opus.close ();
         } catch (Error e) {
             error (e.message);

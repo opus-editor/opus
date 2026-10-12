@@ -99,18 +99,46 @@ public class UserSettings : Object {
    * `[markdown]` blocks, by the name Opus's own languages go by.
    */
   public bool word_wrap_for (string? language) {
-    if (language == null) {
-      return word_wrap;
-    }
-    var block = root.get_member ("language." + language);
-    if (block == null || block.get_node_type () != Json.NodeType.OBJECT) {
-      return word_wrap;
-    }
-    var node = block.get_object ().get_member ("editor.word_wrap");
+    var node = language_block (language)?.get_member ("editor.word_wrap");
     if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
       return word_wrap;
     }
     return node.get_boolean ();
+  }
+
+  /**
+   * The ids of the functions run over a file right before it is saved,
+   * in order (`"editor.on_save": ["trim-trailing-whitespace", …]`): a
+   * `language.<name>` block's own list when it has one, else the plain
+   * key's; none with neither. The folder's .editorconfig adds or removes
+   * its own two on top (see EditorView.EditorPane.TabDocument).
+   */
+  public string[] on_save_for (string? language) {
+    return read_string_list (language_block (language), "editor.on_save") ?? read_string_list (root, "editor.on_save") ?? new string[0];
+  }
+
+  /** The `"language.<name>": { … }` object, null without one. */
+  private Json.Object? language_block (string? language) {
+    if (language == null) {
+      return null;
+    }
+    var block = root.get_member ("language." + language);
+    return block != null && block.get_node_type () == Json.NodeType.OBJECT ? block.get_object () : null;
+  }
+
+  /** `key`'s array of strings in `object`, the non-strings left out; null without an array. */
+  private static string[]? read_string_list (Json.Object? object, string key) {
+    var node = object?.get_member (key);
+    if (node == null || node.get_node_type () != Json.NodeType.ARRAY) {
+      return null;
+    }
+    string[] list = {};
+    foreach (var element in node.get_array ().get_elements ()) {
+      if (element.get_node_type () == Json.NodeType.VALUE && element.get_value_type () == typeof (string)) {
+        list += element.get_string ();
+      }
+    }
+    return list;
   }
 
   /** The syntax theme the editor wears while the app is light — a folder under a `themes/syntax` directory, by its name (`github`); its manifest picks the light file. */
@@ -193,6 +221,7 @@ public class UserSettings : Object {
   "editor.line_height": 1,
   "editor.letter_spacing": 0,
   "editor.word_wrap": false,
+  "editor.on_save": [],
   "editor.theme_light": "%s",
   "editor.theme_dark": "%s",
   "git.changes_sort": "path"

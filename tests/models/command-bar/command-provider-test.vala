@@ -72,16 +72,16 @@ int main (string[] args) {
     Test.add_func ("/command-bar/command-provider/the-functions-follow-the-commands-as-file-rows", () => {
         var scenario = new FunctionScenario ();
 
-        assert_cmpstrv (scenario.open (), { "user-settings", "function:document:reindent", "function:document:shout" });
+        assert_cmpstrv (scenario.open (), { "user-settings", "function:document:reindent", "function:document:shout", "function:document:trim-trailing-whitespace" });
     });
 
     Test.add_func ("/command-bar/command-provider/a-selection-puts-the-selection-rows-before-the-file-ones", () => {
         var scenario = new FunctionScenario ();
         scenario.has_selection = true;
 
-        assert_cmpstrv (scenario.open (), { "user-settings", "function:selection:shout", "function:selection:trim", "function:document:reindent", "function:document:shout" });
+        assert_cmpstrv (scenario.open (), { "user-settings", "function:selection:shout", "function:selection:trim", "function:selection:trim-trailing-whitespace", "function:document:reindent", "function:document:shout", "function:document:trim-trailing-whitespace" });
         assert_cmpstr (scenario.picker.items[1].label, CompareOperator.EQ, "Selection > Shout");
-        assert_cmpstr (scenario.picker.items[4].label, CompareOperator.EQ, "File > Shout");
+        assert_cmpstr (scenario.picker.items[5].label, CompareOperator.EQ, "File > Shout");
     });
 
     Test.add_func ("/command-bar/command-provider/without-a-document-only-the-commands-show", () => {

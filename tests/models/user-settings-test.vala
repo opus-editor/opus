@@ -304,6 +304,45 @@ private void test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_
     remove_temp_config_dir (config_dir);
 }
 
+private void test_on_save_reads_the_list_in_order () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.on_save": ["trim-trailing-whitespace", "insert-final-newline"] }""");
+    var settings = new UserSettings (config_dir);
+
+    var ids = settings.on_save_for (null);
+
+    assert_cmpstrv (ids, { "trim-trailing-whitespace", "insert-final-newline" });
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_on_save_for_a_language_is_its_blocks_own_list () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.on_save": ["trim-trailing-whitespace"], "language.markdown": { "editor.on_save": [] } }""");
+    var settings = new UserSettings (config_dir);
+
+    var ids = settings.on_save_for ("markdown");
+
+    assert_cmpint (ids.length, CompareOperator.EQ, 0);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_on_save_without_the_key_is_empty () {
+    string config_dir = make_temp_config_dir ();
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpint (settings.on_save_for ("ruby").length, CompareOperator.EQ, 0);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_on_save_skips_entries_that_are_not_strings () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.on_save": ["trim-trailing-whitespace", 3, null] }""");
+    var settings = new UserSettings (config_dir);
+
+    assert_cmpstrv (settings.on_save_for (null), { "trim-trailing-whitespace" });
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_setting_word_wrap_reads_back_right_away () {
     string config_dir = make_temp_config_dir ();
     var settings = new UserSettings (config_dir);
@@ -496,6 +535,10 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_without_a_block_is_the_plain_key", test_word_wrap_for_a_language_without_a_block_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_no_language_is_the_plain_key", test_word_wrap_for_no_language_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key", test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key);
+    Test.add_func ("/models/user-settings/on_save_reads_the_list_in_order", test_on_save_reads_the_list_in_order);
+    Test.add_func ("/models/user-settings/on_save_for_a_language_is_its_blocks_own_list", test_on_save_for_a_language_is_its_blocks_own_list);
+    Test.add_func ("/models/user-settings/on_save_without_the_key_is_empty", test_on_save_without_the_key_is_empty);
+    Test.add_func ("/models/user-settings/on_save_skips_entries_that_are_not_strings", test_on_save_skips_entries_that_are_not_strings);
     Test.add_func ("/models/user-settings/changes_sort_defaults_to_path", test_changes_sort_defaults_to_path);
     Test.add_func ("/models/user-settings/changes_sort_is_read_from_the_file", test_changes_sort_is_read_from_the_file);
     Test.add_func ("/models/user-settings/changes_sort_of_the_wrong_type_falls_back_to_path", test_changes_sort_of_the_wrong_type_falls_back_to_path);

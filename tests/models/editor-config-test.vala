@@ -108,6 +108,21 @@ indent_size = 2
     assert_cmpint (config.indent_size_for ("main.vala"), CompareOperator.EQ, 2);
 }
 
+private void test_the_save_switches_resolve_true_false_and_unset () {
+    var config = EditorConfig.parse ("""
+[*]
+trim_trailing_whitespace = true
+[*.md]
+trim_trailing_whitespace = false
+insert_final_newline = true
+""");
+
+    assert_true (config.trim_trailing_whitespace_for ("main.vala") == true);
+    assert_true (config.trim_trailing_whitespace_for ("notes.md") == false);
+    assert_true (config.insert_final_newline_for ("notes.md") == true);
+    assert_true (config.insert_final_newline_for ("main.vala") == null);
+}
+
 private void test_end_of_line_resolves_lf_and_crlf () {
     var config = EditorConfig.parse ("""
 [*]
@@ -202,6 +217,7 @@ int main (string[] args) {
     Test.add_func ("/models/editor-config/no_matching_section_is_null", test_no_matching_section_is_null);
     Test.add_func ("/models/editor-config/later_section_wins_when_both_match_the_same_path", test_later_section_wins_when_both_match_the_same_path);
     Test.add_func ("/models/editor-config/comments_and_blank_lines_are_ignored", test_comments_and_blank_lines_are_ignored);
+    Test.add_func ("/models/editor-config/the_save_switches_resolve_true_false_and_unset", test_the_save_switches_resolve_true_false_and_unset);
     Test.add_func ("/models/editor-config/end_of_line_resolves_lf_and_crlf", test_end_of_line_resolves_lf_and_crlf);
     Test.add_func ("/models/editor-config/end_of_line_unset_or_unsupported_is_null", test_end_of_line_unset_or_unsupported_is_null);
     Test.add_func ("/models/editor-config/indent_style_space_resolves_to_insert_spaces_true", test_indent_style_space_resolves_to_insert_spaces_true);

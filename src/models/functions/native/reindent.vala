@@ -3,6 +3,9 @@ namespace Functions.Native {
   public GenericArray<Function> catalog () {
     var functions = new GenericArray<Function> ();
     functions.add (new Function ("reindent", _("Reindent"), _("Every line's indentation redone from the syntax"), Scope.DOCUMENT, {}, new Reindent ()));
+    functions.add (new Function ("trim-trailing-whitespace", _("Trim trailing whitespace"), _("The blanks at the end of every line, gone"), Scope.BOTH, {}, new TrimTrailingWhitespace ()));
+    // Only ever worth running on save: nothing to pick from a list.
+    functions.add (new Function ("insert-final-newline", _("Insert final newline"), _("A newline at the end of the file, when it lacks one"), Scope.DOCUMENT, {}, new InsertFinalNewline ()) { hidden = true });
     return functions;
   }
 

@@ -398,6 +398,7 @@ namespace EditorView.EditorPane {
       var old_uri = document.uri;
       var old_pathname = document.pathname;
       // Watching the new path before the write: its own event is the one to swallow.
+      run_save_functions (new_path);
       apply_end_of_line (new_path);
       file_watcher.watch (new_path);
       file_watcher.mark_own_write ();
@@ -451,6 +452,7 @@ namespace EditorView.EditorPane {
         return true;
       }
 
+      run_save_functions (document.pathname);
       apply_end_of_line (document.pathname);
       file_watcher.mark_own_write ();
       try {
@@ -615,6 +617,71 @@ namespace EditorView.EditorPane {
     }
 
     /** `path`, relative to the workspace root — `path` itself if it's somehow outside it. */
+    /**
+     * `editor.on_save`, with the folder's .editorconfig switching its
+     * own two on or off for `path`, run over the text as ordinary edits:
+     * undoable, and the buffer matches the disk afterwards. On the main
+     * thread, synchronously — a save can't go out before them. One that
+     * fails is skipped and logged: a save never waits on a function.
+     */
+    private void run_save_functions (string path) {
+      if (editor == null || !document.readable) {
+        return;
+      }
+      var registry = Functions.Registry.instance;
+      if (registry == null) {
+        return;
+      }
+      if (!registry.loaded) {
+        registry.reload ();
+      }
+      foreach (var id in save_function_ids (path)) {
+        var function = registry.by_id (id);
+        if (function == null) {
+          Logger.warn ("editor.on_save: no function \"%s\"".printf (id));
+          continue;
+        }
+        var input = Functions.Input.of_document (editor.get_text ());
+        input.language = editor.language_name ?? "";
+        input.path = path;
+        input.insert_spaces = editor.insert_spaces;
+        input.indent_size = editor.indent_size;
+        try {
+          var edits = Functions.Executor.edits_for (input, function.runner.run (input));
+          if (edits.length > 0) {
+            editor.apply_external_edits (edits);
+          }
+        } catch (Functions.FunctionError e) {
+          Logger.warn ("editor.on_save: %s skipped: %s".printf (function.name, e.message));
+        }
+      }
+    }
+
+    private string[] save_function_ids (string path) {
+      var ids = user_settings.on_save_for (editor.language_name);
+      var relative = relative_path (path);
+      ids = switched (ids, "trim-trailing-whitespace", editor_config?.trim_trailing_whitespace_for (relative));
+      ids = switched (ids, "insert-final-newline", editor_config?.insert_final_newline_for (relative));
+      return ids;
+    }
+
+    /** `ids` with `id` taken out, and put back at the end when `on` — the .editorconfig's word over the settings'; null leaves the list alone. */
+    private static string[] switched (string[] ids, string id, bool? on) {
+      if (on == null) {
+        return ids;
+      }
+      string[] result = {};
+      foreach (var existing in ids) {
+        if (existing != id) {
+          result += existing;
+        }
+      }
+      if (on) {
+        result += id;
+      }
+      return result;
+    }
+
     /** The .editorconfig's `end_of_line` for `path`, when it has one, becomes the document's — at save time, so a config loaded after the tab opened still counts. */
     private void apply_end_of_line (string path) {
       var line_ending = editor_config?.end_of_line_for (relative_path (path));

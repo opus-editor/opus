@@ -58,6 +58,8 @@ namespace Functions {
     public Scope input { get; private set; }
     public string[] languages { get; private set; }
     public IRunner runner { get; private set; }
+    /** Kept out of the `>` list; still found by id, for `editor.on_save`. */
+    public bool hidden { get; set; default = false; }
 
     public Function (string id, string name, string description, Scope input, string[] languages, IRunner runner) {
       this.id = id;
