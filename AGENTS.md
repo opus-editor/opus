@@ -74,10 +74,11 @@ src/
   lib/        generic infra, independent of Opus's own domain — see src/lib/AGENTS.md
   plugins/    libpeas plugins, one directory each — see src/plugins/AGENTS.md
   styles/     .css loaded by resource — see src/views/AGENTS.md
+  themes/     bundled editor themes, one JSON file each — the same file a
+              user drops in their own themes directory
+  functions/  bundled functions, one folder each — see docs/FUNCTIONS.md
   views/      see src/views/AGENTS.md
 data/         .desktop file, GResource XML, icons
-themes/       bundled editor themes, one JSON file each — the same file a
-              user drops in their own themes directory
 languages/    bundled language packages, one directory each: language.json
               + queries/*.scm — the same shape a user's own package has
               (see docs/LANGUAGE_PACKAGES.md)

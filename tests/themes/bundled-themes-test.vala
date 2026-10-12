@@ -1,4 +1,4 @@
-// Guards themes/ itself rather than a Model: every bundled theme must
+// Guards src/themes/ itself rather than a Model: every bundled theme must
 // load, and the two the editor wears by default must be among them.
 // OPUS_THEMES_DIR is set by tests/meson.build.
 

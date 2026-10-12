@@ -4,7 +4,7 @@ Converts a built VS Code color theme into an Opus theme.
 
 Usage: tools/port-vscode-theme.py <vscode-theme.json> <opus-theme-name>
 
-Writes themes/<opus-theme-name>.json; the name may hold a folder
+Writes src/themes/<opus-theme-name>.json; the name may hold a folder
 (github/theme-light). A VS Code theme colors TextMate
 scopes; Opus colors the capture names its highlight queries use
 (Helix's). SYNTAX below says which TextMate scope each capture name
@@ -128,7 +128,7 @@ lines = ["{", '  "syntax": {']
 lines.append(",\n".join(f"    {json.dumps(key)}: {json.dumps(value)}".replace('{"', '{ "').replace("}", " }") for key, value in syntax.items()))
 lines += ["  }", "}"]
 
-path = os.path.join(REPO_ROOT, "themes", sys.argv[2] + ".json")
+path = os.path.join(REPO_ROOT, "src", "themes", sys.argv[2] + ".json")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w") as file:

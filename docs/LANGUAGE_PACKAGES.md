@@ -115,7 +115,7 @@ with the conventions of the Helix editor — most of Helix's
 The names after `@` are what the theme colors. They are dotted and can
 be as specific as you like: a theme that defines `keyword` but not
 `keyword.control.return` paints the latter as `keyword`. The names
-bundled themes define are listed in `themes/github/theme-light.json`.
+bundled themes define are listed in `src/themes/github/theme-light.json`.
 
 A theme can name its colors once, under `palette`, and use the names
 wherever a color goes:

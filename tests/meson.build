@@ -271,7 +271,7 @@ bundled_themes_test = executable(
 test(
   'bundled-themes',
   bundled_themes_test,
-  env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'themes'],
+  env: ['OPUS_THEMES_DIR=' + meson.project_source_root() / 'src' / 'themes'],
 )
 
 theme_test = executable(

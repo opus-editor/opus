@@ -276,8 +276,10 @@ opus_sources = files(
 # g_module_symbol) can actually resolve an embedded plugin's own
 # Embedded= entry point — see GIT_STATUS_PLUGIN_PLAN.md's own
 # "libpeas 2 is the native answer" section.
-# The bundled functions (src/functions/), read at runtime like the
-# language packages — see BuildInfo.FUNCTIONS_DIR.
+# The bundled editor themes (src/themes/, see src/models/theme.vala for
+# the format) and functions (src/functions/), read at runtime like the
+# language packages — see BuildInfo.THEMES_DIR/FUNCTIONS_DIR.
+install_subdir('themes', install_dir: get_option('datadir') / 'opus')
 install_subdir('functions', install_dir: get_option('datadir') / 'opus')
 
 opus_exe = executable(
