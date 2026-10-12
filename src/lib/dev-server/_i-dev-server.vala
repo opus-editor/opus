@@ -110,6 +110,9 @@ namespace Opus.Dev {
     /** The 1-based first line showing in the editor. */
     public abstract int get_top_line () throws DBusError, IOError;
 
+    /** Whether the active editor wraps lines right now (its own Alt+W override, else editor.word_wrap). */
+    public abstract bool get_word_wrap () throws DBusError, IOError;
+
     /** A single click in the explorer — opens `path` as a preview tab, the one that the next preview replaces. */
     public abstract void open_preview_tab (string path) throws DBusError, IOError;
 

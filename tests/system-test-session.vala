@@ -275,6 +275,7 @@ public class SystemTestSession : Object {
     public string syntax_style_at (int offset) throws Error { return editor_text.syntax_style_at (offset); }
     public void wait_for_syntax_style (int offset, string expected) throws Error { editor_text.wait_for_syntax_style (offset, expected); }
     public int top_line () throws Error { return editor_text.top_line (); }
+    public bool word_wrap () throws Error { return editor_text.word_wrap (); }
 
     // --- SystemTestCursors ---
     public void set_cursors (int[,] pairs) throws Error { cursors.set_cursors (pairs); }

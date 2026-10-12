@@ -92,6 +92,27 @@ public class UserSettings : Object {
     }
   }
 
+  /**
+   * `editor.word_wrap` for files highlighted as `language` (a package
+   * name): a `"language.<name>": { "editor.word_wrap": … }` block's
+   * own value when the file has one, else the plain key. VS Code's
+   * `[markdown]` blocks, by the name Opus's own languages go by.
+   */
+  public bool word_wrap_for (string? language) {
+    if (language == null) {
+      return word_wrap;
+    }
+    var block = root.get_member ("language." + language);
+    if (block == null || block.get_node_type () != Json.NodeType.OBJECT) {
+      return word_wrap;
+    }
+    var node = block.get_object ().get_member ("editor.word_wrap");
+    if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
+      return word_wrap;
+    }
+    return node.get_boolean ();
+  }
+
   /** The syntax theme the editor wears while the app is light — a folder under a `themes/syntax` directory, by its name (`github`); its manifest picks the light file. */
   public string theme_light {
     owned get { return read_string ("editor.theme_light") ?? DEFAULT_THEME_LIGHT; }

@@ -214,23 +214,47 @@ int main (string[] args) {
         }
     });
 
-    Test.add_func ("/system/commands/toggle_word_wrap_turns_word_wrap_on", () => {
+    Test.add_func ("/system/commands/toggle_word_wrap_wraps_the_active_document", () => {
         try {
+            var folder = make_folder ();
+            var a = Path.build_filename (folder, "a.rb");
+            FileUtils.set_contents (a, "a\n");
             var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY);
+            opus.open_tab (a);
+            assert_false (opus.word_wrap ());
             opus.open_commands ();
             opus.command_bar_type (">toggle word wrap");
 
             opus.command_bar_accept ();
 
-            // The command writes settings.json; what it wrote is the one thing a test can see of it.
+            assert_true (opus.word_wrap ());
+            opus.close ();
+        } catch (Error e) {
+            error ("unexpected error: %s", e.message);
+        }
+    });
+
+    Test.add_func ("/system/commands/toggle_word_wrap_is_the_documents_own_not_the_settings", () => {
+        try {
+            var folder = make_folder ();
+            var a = Path.build_filename (folder, "a.rb");
+            var b = Path.build_filename (folder, "b.rb");
+            FileUtils.set_contents (a, "a\n");
+            FileUtils.set_contents (b, "b\n");
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY);
+            opus.open_tab (a);
+            opus.open_commands ();
+            opus.command_bar_type (">toggle word wrap");
+            opus.command_bar_accept ();
+
+            opus.open_tab (b);
+
+            assert_false (opus.word_wrap ());
             string settings = "";
-            int64 deadline = get_monotonic_time () + 5 * 1000 * 1000;
-            while (!settings.replace (" ", "").contains ("\"editor.word_wrap\":true") && get_monotonic_time () < deadline) {
-                Thread.usleep (50 * 1000);
+            if (FileUtils.test (settings_path (), FileTest.EXISTS)) {
                 FileUtils.get_contents (settings_path (), out settings);
             }
-            assert_true (settings.replace (" ", "").contains ("\"editor.word_wrap\":true"));
-
+            assert_false (settings.replace (" ", "").contains ("\"editor.word_wrap\":true"));
             opus.close ();
         } catch (Error e) {
             error ("unexpected error: %s", e.message);

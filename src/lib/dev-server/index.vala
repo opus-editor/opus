@@ -202,6 +202,10 @@ namespace Opus.Dev {
       return active_editor ().top_line;
     }
 
+    public bool get_word_wrap () throws DBusError, IOError {
+      return active_editor ().word_wrap;
+    }
+
     public void open_preview_tab (string path) throws DBusError, IOError {
       try {
         current_editor_pane ().open (path, false);

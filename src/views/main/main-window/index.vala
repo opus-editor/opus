@@ -629,14 +629,9 @@ public class MainWindow : Object {
     }
   }
 
-  /** Alt+W — flips editor.word_wrap for every open editor right away and writes it to settings.json, same as editing the file by hand with its tab open (see on_settings_tab_opened()'s own doc comment), just without needing that tab at all. */
+  /** Alt+W — flips wrapping for the active document only, as its own override over editor.word_wrap; settings.json stays the default for every other tab. Nothing happens without a document. */
   private void toggle_word_wrap () {
-    user_settings.word_wrap = !user_settings.word_wrap;
-    try {
-      user_settings.save ();
-    } catch (Error e) {
-      show_error (_("Couldn’t update settings: %s").printf (e.message));
-    }
+    editor_pane.active_document?.code_editor?.toggle_word_wrap ();
   }
 
   /**

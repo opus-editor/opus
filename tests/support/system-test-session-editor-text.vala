@@ -63,6 +63,11 @@ public class SystemTestEditorText : Object {
         return call ("GetTopLine").get_child_value (0).get_int32 ();
     }
 
+    /** Whether the active editor wraps lines right now. */
+    public bool word_wrap () throws Error {
+        return call ("GetWordWrap").get_child_value (0).get_boolean ();
+    }
+
     public void wait_for_syntax_style (int offset, string expected) throws Error {
         int64 deadline = get_monotonic_time () + WAIT_TIMEOUT_USEC;
         while (syntax_style_at (offset) != expected) {

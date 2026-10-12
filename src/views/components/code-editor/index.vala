@@ -366,6 +366,10 @@ public class CodeEditor : Object {
    * null) needs the old rule gone, not just left uncontested by a new
    * one that doesn't mention it.
    *
+   * `word_wrap_override`, when set, wins over the setting: Alt+W's own
+   * state for this one document, VS Code's transient wordWrapOverride
+   * (toggleWordWrap.ts) — gone with the tab, never written to settings.
+   *
    * `wrap_mode`, not VS Code's full `wordWrap` enum: GTK's own wrap is
    * always tied to the real widget width (`Gtk.WrapMode` has no
    * "wrap at a fixed column" option at all — checked gtkenums.h), so
@@ -386,7 +390,27 @@ public class CodeEditor : Object {
       font_provider = GlobalCss.install_from_string (css);
       installed_font_css = css;
     }
-    text_view.wrap_mode = settings.word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
+    apply_word_wrap ();
+  }
+
+  /** Synchronous, so a tab never paints a frame in the wrong mode: set_text() and set_language_override() run it before the main loop gets to draw. */
+  private void apply_word_wrap () {
+    text_view.wrap_mode = word_wrap ? Gtk.WrapMode.WORD_CHAR : Gtk.WrapMode.NONE;
+  }
+
+  private bool has_word_wrap_override = false;
+  private bool word_wrap_override = false;
+
+  /** Whether lines wrap right now: the document's own override when Alt+W set one, else `editor.word_wrap` for its language (UserSettings.word_wrap_for). */
+  public bool word_wrap {
+    get { return has_word_wrap_override ? word_wrap_override : settings.word_wrap_for (language_name); }
+  }
+
+  /** Alt+W: flips wrapping for this document only, as an override that lives as long as the tab does. */
+  public void toggle_word_wrap () {
+    word_wrap_override = !word_wrap;
+    has_word_wrap_override = true;
+    apply_word_wrap ();
   }
 
   /**
@@ -436,6 +460,7 @@ public class CodeEditor : Object {
     language_path = path;
     this.language_override = language_override;
     syntax_highlighter.set_language (language_for (text));
+    apply_word_wrap ();
     cursors.load_text (text);
     conflicts.schedule_scan ();
   }
@@ -452,6 +477,7 @@ public class CodeEditor : Object {
   public void set_language_override (string? language_override) {
     this.language_override = language_override;
     apply_language ();
+    apply_word_wrap ();
   }
 
   /** A package was installed, edited or finished building while this text was showing — or the language was just set by hand. */

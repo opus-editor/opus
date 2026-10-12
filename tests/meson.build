@@ -1240,6 +1240,26 @@ test(
   is_parallel: false,
 )
 
+editing_word_wrap_test = executable(
+  'editing-word-wrap-test',
+  ['system/editing/word-wrap-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'editing-word-wrap',
+  editing_word_wrap_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+  is_parallel: false,
+)
+
 command_bar_commands_test = executable(
   'command-bar-commands-test',
   ['system/command-bar/commands-test.vala'],

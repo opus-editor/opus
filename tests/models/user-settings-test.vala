@@ -260,6 +260,50 @@ private void test_falls_back_per_key_when_a_value_has_the_wrong_type () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_word_wrap_for_a_language_reads_its_block () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.word_wrap": false, "language.markdown": { "editor.word_wrap": true } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool wraps = settings.word_wrap_for ("markdown");
+
+    assert_true (wraps);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_word_wrap_for_a_language_without_a_block_is_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.word_wrap": true, "language.markdown": { "editor.word_wrap": false } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool wraps = settings.word_wrap_for ("ruby");
+
+    assert_true (wraps);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_word_wrap_for_no_language_is_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.word_wrap": true }""");
+    var settings = new UserSettings (config_dir);
+
+    bool wraps = settings.word_wrap_for (null);
+
+    assert_true (wraps);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.word_wrap": false, "language.markdown": { "editor.word_wrap": "yes" } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool wraps = settings.word_wrap_for ("markdown");
+
+    assert_false (wraps);
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_setting_word_wrap_reads_back_right_away () {
     string config_dir = make_temp_config_dir ();
     var settings = new UserSettings (config_dir);
@@ -448,6 +492,10 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/the_themes_default_to_the_bundled_github_pair", test_the_themes_default_to_the_bundled_github_pair);
     Test.add_func ("/models/user-settings/the_themes_are_read_from_the_file", test_the_themes_are_read_from_the_file);
     Test.add_func ("/models/user-settings/a_theme_of_the_wrong_type_falls_back_to_the_default", test_a_theme_of_the_wrong_type_falls_back_to_the_default);
+    Test.add_func ("/models/user-settings/word_wrap_for_a_language_reads_its_block", test_word_wrap_for_a_language_reads_its_block);
+    Test.add_func ("/models/user-settings/word_wrap_for_a_language_without_a_block_is_the_plain_key", test_word_wrap_for_a_language_without_a_block_is_the_plain_key);
+    Test.add_func ("/models/user-settings/word_wrap_for_no_language_is_the_plain_key", test_word_wrap_for_no_language_is_the_plain_key);
+    Test.add_func ("/models/user-settings/word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key", test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key);
     Test.add_func ("/models/user-settings/changes_sort_defaults_to_path", test_changes_sort_defaults_to_path);
     Test.add_func ("/models/user-settings/changes_sort_is_read_from_the_file", test_changes_sort_is_read_from_the_file);
     Test.add_func ("/models/user-settings/changes_sort_of_the_wrong_type_falls_back_to_path", test_changes_sort_of_the_wrong_type_falls_back_to_path);
