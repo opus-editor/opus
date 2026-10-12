@@ -1,34 +1,10 @@
-/* Adwaita's own default control radius (a plain Gtk.Entry/Gtk.Button,
- * _entries.scss/_buttons.scss) — it ships no custom property for this
- * itself, just the literal 9px repeated across its own selectors, so
- * this is ours: one place to change it, instead of each call site
- * hardcoding the number again. */
-:root {
-  --control-radius: 9px;
-}
-
-/* Adwaita ships no general-purpose "sm" size class for buttons/entries
- * (checked its own stylesheet, ~/Downloads/libadwaita: .compact/.small
- * exist, but scoped to ViewSwitcherBar and tabbutton's own indicator
- * label specifically) — same explicit-override approach tab-bar.css's
- * own .tab-close-button already uses. Default entry padding is 0 9px at
- * min-height 34px, default button 5px 10px at min-height 32px with a
- * 9px border-radius (_entries.scss/_buttons.scss) — cut down to a
- * smaller, secondary-chrome size; border-radius follows the height back
- * down too (same ~0.28 ratio as the default 9px/32px), not just left at
- * its default 9px, which reads as too round once the box itself is this
- * much shorter.
- *
- * Loaded once, app-wide, from MainWindow's own install_css() — not
- * scoped to whichever view first happens to use it (tab-find-results.css's
- * own instance is created lazily, only after a first Find in Files
- * search) — so it's available to every domain from app start, the same
- * "shared across domains" reasoning views/components/ already applies
- * to widget classes (src/views/AGENTS.md). */
+/* A compact entry/toggle: the .btn-sm height (base.css) with an
+ * entry's own side padding, for the controls that sit in a .linked row
+ * with a text field. */
 .compact-control {
   min-height: 24px;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 
 /* .linked normally squares off its own children's touching inner
@@ -69,7 +45,7 @@
  * the pair reads as one continuous control at rest; :hover/:active
  * still darken normally, only the resting :checked fill is touched. */
 .linked > .compact-control:checked {
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  background-color: var(--fill-strong);
 }
 
 /* A narrower, "web input"-styled text field — transparent background
@@ -82,7 +58,7 @@
 .outline-input {
   background-color: transparent;
   border: 1px solid alpha(currentColor, 0.2);
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-height: 24px;
   padding: 2px 8px;
 }
@@ -107,7 +83,7 @@
  * Gtk.Text carrying the class directly. */
 .outline-input-disabled,
 .outline-input:disabled {
-  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  background-color: var(--fill);
 }
 
 /* A real Gtk.Entry dims its placeholder via a real GTK theme rule scoped

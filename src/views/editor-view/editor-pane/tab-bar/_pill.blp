@@ -15,18 +15,15 @@ Gtk.Box pill {
   hexpand: false;
 
   Gtk.Label title_label {
+    styles ["ms-250", "mt-200", "mb-200"]
     use-markup: true;
     xalign: 0;
-    margin-start: 10;
-    margin-top: 8;
-    margin-bottom: 8;
   }
 
   Gtk.Button close_button {
     icon-name: "window-close-symbolic";
-    css-classes: ["flat", "circular", "tab-close-button"];
+    css-classes: ["btn-sm", "btn-icon", "flat", "circular", "tab-close-button", "me-100"];
     tooltip-text: _("Close tab");
     valign: center;
-    margin-end: 4;
   }
 }

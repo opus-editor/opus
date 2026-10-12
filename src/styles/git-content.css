@@ -4,15 +4,12 @@
 .git-breadcrumb {
   min-height: 20px; /* +12 from padding */
   padding: 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--opus-window-border) 60%, transparent);
+  border-bottom: var(--hairline);
 }
 .git-breadcrumb .crumb {
-  min-height: 20px;
-  padding: 0 4px;
   opacity: 0.6;
   font-weight: normal;
   line-height: 0.8;
-  border-radius: 6px;
 }
 .git-breadcrumb .crumb.current {
   font-weight: bold;
@@ -23,12 +20,9 @@
 }
 
 .git-breadcrumb button.crumb-action {
-  min-height: 20px;
   min-width: 20px;
-  padding: 0 4px;
 }
 
 .git-breadcrumb .crumb-separator {
-  opacity: 0.4;
-  -gtk-icon-size: 12px;
+  -gtk-icon-size: var(--icon-size-sm);
 }

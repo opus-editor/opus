@@ -39,13 +39,14 @@ namespace GitView {
 
     private static Gtk.Widget pill (GitTree.Ref git_ref, string lane_class) {
       var pill = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+      pill.add_css_class ("chip");
       pill.add_css_class ("ref-pill");
       pill.add_css_class (lane_class);
       pill.add_css_class (kind_class (git_ref));
       pill.append (new Gtk.Image.from_icon_name (kind_icon (git_ref)));
       pill.append (new Gtk.Label (git_ref.name) { ellipsize = Pango.EllipsizeMode.END, max_width_chars = 18 });
       if (git_ref.is_head) {
-        pill.add_css_class ("current");
+        pill.add_css_class ("chip-solid");
         pill.append (new Gtk.Image.from_icon_name ("object-select-symbolic"));
       }
       pill.tooltip_text = git_ref.name;
@@ -54,6 +55,7 @@ namespace GitView {
 
     private static Gtk.Widget overflow_pill (GenericArray<GitTree.Ref> refs, uint from, string lane_class) {
       var pill = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+      pill.add_css_class ("chip");
       pill.add_css_class ("ref-pill");
       pill.add_css_class (lane_class);
       pill.add_css_class ("overflow");

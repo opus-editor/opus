@@ -35,35 +35,22 @@ columnview.tree-pane > header > button {
  * same hue the graph cell draws the dot with — except a tag, always in
  * the warning yellow, since it never belongs to a lane the way a branch
  * does. Local vs remote is told by the icon, not the color. */
-.ref-pill.lane-0 { --pill-color: var(--opus-graph-lane-0); }
-.ref-pill.lane-1 { --pill-color: var(--opus-graph-lane-1); }
-.ref-pill.lane-2 { --pill-color: var(--opus-graph-lane-2); }
-.ref-pill.lane-3 { --pill-color: var(--opus-graph-lane-3); }
-.ref-pill.lane-4 { --pill-color: var(--opus-graph-lane-4); }
-.ref-pill.lane-5 { --pill-color: var(--opus-graph-lane-5); }
-.ref-pill.lane-6 { --pill-color: var(--opus-graph-lane-6); }
-.ref-pill.lane-7 { --pill-color: var(--opus-graph-lane-7); }
-.ref-pill {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background-color: color-mix(in srgb, var(--pill-color) 25%, transparent);
-  color: color-mix(in srgb, var(--pill-color) 25%, currentColor);
-}
+.ref-pill.lane-0 { --chip-color: var(--opus-graph-lane-0); }
+.ref-pill.lane-1 { --chip-color: var(--opus-graph-lane-1); }
+.ref-pill.lane-2 { --chip-color: var(--opus-graph-lane-2); }
+.ref-pill.lane-3 { --chip-color: var(--opus-graph-lane-3); }
+.ref-pill.lane-4 { --chip-color: var(--opus-graph-lane-4); }
+.ref-pill.lane-5 { --chip-color: var(--opus-graph-lane-5); }
+.ref-pill.lane-6 { --chip-color: var(--opus-graph-lane-6); }
+.ref-pill.lane-7 { --chip-color: var(--opus-graph-lane-7); }
 .ref-pill.tag {
-  --pill-color: var(--opus-git-modified);
-}
-/* Text in the window's own background: dark on the light lane tones
- * of the dark set, light on the deep tones of the light set — white
- * alone washed out on the pastels. */
-.ref-pill.current {
-  background-color: var(--pill-color);
-  color: var(--opus-window-background);
+  --chip-color: var(--opus-git-modified);
 }
 .ref-pill.overflow {
   opacity: 0.7;
 }
 .ref-pill image {
-  -gtk-icon-size: 12px;
+  -gtk-icon-size: var(--icon-size-sm);
 }
 
 .wip-count {

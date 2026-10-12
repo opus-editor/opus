@@ -92,6 +92,7 @@ namespace GitView {
         return;
       }
       var back = new Gtk.Button.with_label (_("History")) { has_frame = false };
+      back.add_css_class ("btn-xs");
       back.add_css_class ("crumb");
       back.clicked.connect (show_tree);
       breadcrumb.append (back);
@@ -105,6 +106,7 @@ namespace GitView {
     /** Flat, pushed to the right end; insensitive when the file is not on disk (deleted, or only in a commit). */
     private Gtk.Widget open_button () {
       var button = new Gtk.Button.from_icon_name ("file-open-symbolic") { has_frame = false, halign = Gtk.Align.END, hexpand = true, valign = Gtk.Align.CENTER };
+      button.add_css_class ("btn-xs");
       button.add_css_class ("crumb-action");
       button.tooltip_text = _("Open File");
       button.sensitive = FileUtils.test (shown_path, FileTest.IS_REGULAR);
@@ -114,6 +116,7 @@ namespace GitView {
 
     private static Gtk.Widget crumb_label (string text, bool current) {
       var label = new Gtk.Label (text) { ellipsize = Pango.EllipsizeMode.MIDDLE };
+      label.add_css_class ("btn-xs");
       label.add_css_class ("crumb");
       if (current) {
         label.add_css_class ("current");
@@ -123,6 +126,7 @@ namespace GitView {
 
     private static Gtk.Widget separator () {
       var chevron = new Gtk.Image.from_icon_name ("chevron-right-symbolic");
+      chevron.add_css_class ("faint");
       chevron.add_css_class ("crumb-separator");
       return chevron;
     }

@@ -7,19 +7,6 @@
   font-weight: normal;
 }
 
-.subsection-more-button {
-  min-width: 23px;
-  min-height: 23px;
-  padding: 0;
-  border-radius: 6px;
-}
-
-.subsection-button {
-  min-width: 23px;
-  min-height: 23px;
-  padding: 0 6px;
-  border-radius: 6px;
-}
 /* Different fix than .commit-button's own, and a separate rule: libadwaita's
  * `buttoncontent > box > label { font-weight: bold; }` (_buttons.scss) sets
  * this directly on Adw.ButtonContent's own internal label, not inherited
@@ -68,15 +55,15 @@
  * Only on this node itself, not its own `text` child too — both paint,
  * so stacking the same translucent value on both double-counts it. */
 .commit-message-view {
-  /* Same --control-radius (common.css) every other real Gtk.Entry/
+  /* Same --radius-control (base.css) every other real Gtk.Entry/
    * Gtk.Button already carries. */
-  border-radius: var(--control-radius);
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: var(--radius-control);
+  background-color: var(--fill-strong);
 }
 
 /* HistoryPane's own read-only message: plain text on the sidebar's own
  * background, edge to edge, no input chrome — framed only by a hairline
  * above and below. Both nodes paint, so only the view itself is styled. */
 .history-message-view {
-  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  background-color: var(--fill-weak);
 }

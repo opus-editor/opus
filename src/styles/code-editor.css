@@ -91,10 +91,10 @@ textview.code-editor > text > selection {
  * actions as plain buttons. */
 .conflict-toolbar {
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background-color: var(--opus-popover-background);
   color: var(--opus-popover-foreground);
-  box-shadow: 0 2px 12px rgb(0 0 6 / 30%), 0 0 0 1px color-mix(in srgb, var(--opus-window-border) 60%, transparent);
+  box-shadow: 0 2px 12px rgb(0 0 6 / 30%), 0 0 0 1px var(--hairline-color);
 }
 /* libadwaita bolds every button label by default; these read as plain actions. */
 .conflict-toolbar button label {
