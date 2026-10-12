@@ -16,6 +16,10 @@ namespace BuildInfo {
   [CCode (cname = "OPUS_THEMES_DIR")]
   public extern const string THEMES_DIR;
 
+  /** Where `ninja install` put the bundled functions (src/functions/). */
+  [CCode (cname = "OPUS_FUNCTIONS_DIR")]
+  public extern const string FUNCTIONS_DIR;
+
   /** Where `ninja install` put their compiled grammars. */
   [CCode (cname = "OPUS_GRAMMARS_DIR")]
   public extern const string GRAMMARS_DIR;

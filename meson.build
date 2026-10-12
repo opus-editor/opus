@@ -34,6 +34,16 @@ tree_sitter_dep = declare_dependency(
   ],
 )
 
+# Functions (src/models/functions/) run the user's transform scripts in
+# Lua 5.4, built from the pinned subproject — the GNOME runtime ships no
+# Lua, and a static copy keeps the sandbox identical everywhere.
+lua_dep = declare_dependency(
+  dependencies: [
+    subproject('lua').get_variable('lua_dep'),
+    meson.get_compiler('vala').find_library('lua', dirs: meson.project_source_root() / 'vapi'),
+  ],
+)
+
 gnome = import('gnome')
 i18n = import('i18n')
 
@@ -62,6 +72,7 @@ add_project_arguments(
   # The install dirs languages/meson.build uses — see src/build-info.vala.
   '-DOPUS_LANGUAGES_DIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'opus' / 'languages'),
   '-DOPUS_THEMES_DIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'opus' / 'themes'),
+  '-DOPUS_FUNCTIONS_DIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'opus' / 'functions'),
   '-DOPUS_GRAMMARS_DIR="@0@"'.format(get_option('prefix') / get_option('libdir') / 'opus' / 'grammars'),
   '-Wno-discarded-qualifiers', # glib's g_once_init_enter() macro (used by every Vala-generated get_type()) discards volatile
   '-Wno-unused-variable', # valac always emits a *_properties array, even for classes with zero GObject properties
