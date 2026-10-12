@@ -186,6 +186,33 @@ int main (string[] args) {
         assert_false (FileUtils.test (Path.build_filename (root, "b.txt"), FileTest.EXISTS));
     }));
 
+    Test.add_func ("/system/git/discarding_only_deleted_files_asks_to_restore_them", () => run (false, (root, opus) => {
+        commit_file (root, "a.txt", "a\n", "add a.txt");
+        commit_file (root, "b.txt", "b\n", "add b.txt");
+        FileUtils.remove (Path.build_filename (root, "a.txt"));
+        FileUtils.remove (Path.build_filename (root, "b.txt"));
+        opus.wait_for_git_changes ("unstaged", { "D a.txt", "D b.txt" });
+
+        opus.git_discard_all ();
+        assert_cmpstr (opus.wait_for_dialog (), CompareOperator.EQ, "Restore all 2 files?");
+        opus.respond_to_dialog ("confirm");
+
+        opus.wait_for_git_changes ("unstaged", {});
+        assert_cmpstr (read_file (root, "a.txt"), CompareOperator.EQ, "a\n");
+    }));
+
+    Test.add_func ("/system/git/discarding_only_untracked_files_asks_to_delete_them", () => run (false, (root, opus) => {
+        write_file (root, "new.txt", "new\n");
+        opus.wait_for_git_changes ("unstaged", { "U new.txt" });
+
+        opus.git_discard_all ();
+        assert_cmpstr (opus.wait_for_dialog (), CompareOperator.EQ, "Delete the untracked file “new.txt”?");
+        opus.respond_to_dialog ("cancel");
+
+        Thread.usleep (500 * 1000);
+        assert_true (FileUtils.test (Path.build_filename (root, "new.txt"), FileTest.EXISTS));
+    }));
+
     Test.add_func ("/system/git/a_git_failure_shows_as_a_toast_and_changes_nothing", () => run (false, (root, opus) => {
         write_file (root, "a.txt", "new\n");
         opus.wait_for_git_changes ("unstaged", { "U a.txt" });

@@ -580,21 +580,44 @@ namespace GitView {
       });
     }
 
-    /** VS Code's own git.clean/git.cleanAll (extensions/git/src/commands.ts) always confirm first, no matter how many files — same here, one shared dialog for both the selected-files and the all-files call, same wording either way. A no-op with nothing to discard or no folder linked. */
+    /**
+     * VS Code's own git.clean/git.cleanAll (extensions/git/src/commands.ts)
+     * always confirm first, no matter how many files — same here, one
+     * dialog for both the selected-files and the all-files call. The
+     * words follow what the discard does, as VS Code's do: files deleted
+     * from disk come back (a restore, nothing lost), untracked ones are
+     * deleted for good, anything else has its edits thrown away. A
+     * no-op with nothing to discard or no folder linked.
+     */
     private async void confirm_and_discard (GenericArray<GitScope.Change> changes) {
       var path = root_path;
       if (path == null || changes.length == 0) {
         return;
       }
-      var heading = changes.length == 1
-        ? _("Discard changes in “%s”?").printf (Path.get_basename (changes[0].path))
-        : _("Discard changes in %d files?").printf (changes.length);
-      var confirmed = yield Dialogs.confirm_destructive (
-        widget,
-        heading,
-        _("This can't be undone. Your changes will be permanently lost."),
-        _("Discard Changes")
-      );
+      var name = Path.get_basename (changes[0].path);
+      bool confirmed;
+      if (all_of_kind (changes, GitScope.ChangeKind.DELETED)) {
+        confirmed = yield Dialogs.confirm (
+          widget,
+          changes.length == 1 ? _("Restore “%s”?").printf (name) : _("Restore all %d files?").printf (changes.length),
+          _("The files come back as they are in the last commit."),
+          changes.length == 1 ? _("Restore File") : _("Restore All %d Files").printf (changes.length)
+        );
+      } else if (all_of_kind (changes, GitScope.ChangeKind.UNTRACKED)) {
+        confirmed = yield Dialogs.confirm_destructive (
+          widget,
+          changes.length == 1 ? _("Delete the untracked file “%s”?").printf (name) : _("Delete the %d untracked files?").printf (changes.length),
+          _("This can't be undone. The files will be permanently lost."),
+          changes.length == 1 ? _("Delete File") : _("Delete All %d Files").printf (changes.length)
+        );
+      } else {
+        confirmed = yield Dialogs.confirm_destructive (
+          widget,
+          changes.length == 1 ? _("Discard changes in “%s”?").printf (name) : _("Discard changes in %d files?").printf (changes.length),
+          _("This can't be undone. Your changes will be permanently lost."),
+          _("Discard Changes")
+        );
+      }
       if (!confirmed) {
         return;
       }
@@ -605,6 +628,15 @@ namespace GitView {
       }
       yield refresh_working_tree ();
       repository_changed ();
+    }
+
+    private static bool all_of_kind (GenericArray<GitScope.Change> changes, GitScope.ChangeKind kind) {
+      for (uint i = 0; i < changes.length; i++) {
+        if (changes[i].kind != kind) {
+          return false;
+        }
+      }
+      return true;
     }
 
     /** NOT_AVAILABLE's own message is already the one line a user needs, so it goes out as the summary itself, with no log behind it. */
