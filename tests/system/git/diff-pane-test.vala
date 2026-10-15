@@ -3,8 +3,8 @@
  * the staging lists or a double-click in a commit's files puts the
  * file's inline diff under the breadcrumb, with old/new numbers and
  * +/- markers; placeholders for what can't be diffed; a live diff
- * follows a stage; and a conflicted file opens in the editor with its
- * Accept buttons.
+ * follows a stage; a conflicted file opens in the editor with its
+ * Accept buttons; and Find searches the diff in front.
  */
 
 private const uint DISPLAY = 125;
@@ -195,6 +195,21 @@ int main (string[] args) {
 
         opus.wait_for_diff_lines ({ "1|1| |one", "0|2|+|two" });
         assert_cmpstr (opus.git_breadcrumb (), CompareOperator.EQ, "History / %s / a.txt".printf (second));
+    }));
+
+    Test.add_func ("/system/diff/find_searches_the_diff_in_front", () => run ((root) => {
+        commit_file (root, "a.txt", "one\n", "first");
+        commit_file (root, "a.txt", "one\ntwo\n", "second");
+    }, (root, opus) => {
+        opus.wait_for_tree_row_count (2);
+        opus.tree_select (git_read (root, { "rev-parse", "--short", "HEAD" }));
+        opus.wait_for_history_files ({ "M a.txt" });
+        opus.history_open_file ("a.txt");
+        opus.wait_for_diff_lines ({ "1|1| |one", "0|2|+|two" });
+
+        opus.search_set_text ("two");
+
+        opus.assert_search_position (1, 1);
     }));
 
     Test.add_func ("/system/diff/a_binary_file_gets_a_placeholder", () => run ((root) => {

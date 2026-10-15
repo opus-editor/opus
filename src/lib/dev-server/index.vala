@@ -18,9 +18,10 @@ namespace Opus.Dev {
    * only entry points (active_content, set_active_content(), the cursor
    * pair, save_path()) exist only because this needed to reach them from
    * outside, not because the real UI needed them — the pane forwards each
-   * to the active document tab; key_press()/select_all() and the search_*
-   * methods reach the real CodeEditor the same way (`code_editor`/
-   * `search_editor`). Nothing
+   * to the active document tab; key_press()/select_all() reach the real
+   * CodeEditor the same way (`code_editor`), the search_* methods through
+   * MainWindow's own `search_editor` (the editor in front, git view
+   * included). Nothing
    * here holds business logic of its own, and nothing outside this file/
    * DEBUG-gated call site knows this class exists — deleting it wouldn't
    * change anything else in the app.
@@ -56,7 +57,7 @@ namespace Opus.Dev {
 
     public void add_session (MainWindow window) {
       windows.add (window);
-      window.editor_pane.search_position_changed.connect ((position, count) => {
+      window.search_position_changed.connect ((position, count) => {
         last_search_position = position;
         last_search_count = count;
       });
@@ -164,9 +165,9 @@ namespace Opus.Dev {
     }
 
     private CodeEditor search_editor () throws DBusError {
-      var editor = current_editor_pane ().search_editor;
+      var editor = current_window ().search_editor;
       if (editor == null) {
-        throw new DBusError.FAILED ("The active tab has no text search");
+        throw new DBusError.FAILED ("Nothing in front has a text search");
       }
       return editor;
     }

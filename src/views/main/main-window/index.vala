@@ -75,6 +75,19 @@ public class MainWindow : Object {
   /** The window's own EditorPaneWidget, exposed directly — Opus.Dev.DevServer's own way to add/remove this window from its per-window list (App wires this at construction/close), same reasoning as EditorPaneWidget's own public `code_editor`. */
   public EditorView.EditorPaneWidget editor_pane { get; private set; }
 
+  // The window's one Find query: every document tab's editor and the
+  // git view's diff share it, so the FindBar's term follows the user
+  // across tabs and views alike, and closing the bar clears it everywhere.
+  private GtkSource.SearchSettings search_settings = new GtkSource.SearchSettings ();
+
+  /** The editor the FindBar acts on: the git view's diff while that view is in front, else the editor pane's active tab's — null with neither. Opus.Dev.DevServer drives the search through this too. */
+  public CodeEditor? search_editor {
+    get { return current_view_name == "git" ? git_content.search_editor : editor_pane.search_editor; }
+  }
+
+  /** `search_editor`'s own search_position_changed, whichever editor that is right now — for Opus.Dev.DevServer. */
+  public signal void search_position_changed (int position, int count);
+
   // search_position_changed's own (position, count) doesn't say whether
   // count == 0 means "no search text" or "search text with zero
   // matches" — find_bar.set_match_info() needs that distinction, so
@@ -200,7 +213,8 @@ public class MainWindow : Object {
     history_pane = new GitView.HistoryPane (user_settings);
     history_pane.back_requested.connect (tree_pane.clear_selection);
     tree_pane.row_selected.connect (on_tree_row_selected);
-    git_content = new GitView.Content (tree_pane.widget, user_settings);
+    git_content = new GitView.Content (tree_pane.widget, user_settings, search_settings);
+    git_content.search_editor_changed.connect (on_search_editor_changed);
     git_pane.open_diff_requested.connect ((request) => git_content.show_diff (request, "WIP"));
     git_pane.open_file_requested.connect (open_file_in_editor);
     git_content.open_file_requested.connect (open_file_in_editor);
@@ -211,7 +225,10 @@ public class MainWindow : Object {
     toast_overlay = (Adw.ToastOverlay) builder.get_object ("toast_overlay");
     view_stack = (Adw.ViewStack) builder.get_object ("view_stack");
     sidebar.show (view_stack.visible_child_name);
-    view_stack.notify["visible-child-name"].connect (() => sidebar.show (view_stack.visible_child_name));
+    view_stack.notify["visible-child-name"].connect (() => {
+      sidebar.show (view_stack.visible_child_name);
+      on_search_editor_changed ();
+    });
     sidebar_resize_handle = (Gtk.Box) builder.get_object ("sidebar_resize_handle");
     content_bin = (Adw.Bin) builder.get_object ("content_bin");
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
@@ -222,11 +239,11 @@ public class MainWindow : Object {
     view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
     command_bar_bin = (Adw.Bin) builder.get_object ("command_bar_bin");
 
-    editor_pane = new EditorView.EditorPaneWidget (root_path, user_settings);
+    editor_pane = new EditorView.EditorPaneWidget (root_path, user_settings, search_settings);
     // Set once — editor_pane.widget's own child already toggles itself
     // between its real content and its own empty state as tabs open/close.
     content_bin.child = editor_pane.widget;
-    editor_pane.has_open_tabs_changed.connect (on_has_open_tabs_changed);
+    editor_pane.has_open_tabs_changed.connect (() => on_search_editor_changed ());
     editor_pane.active_state_changed.connect ((path, dirty) => set_active_state (path != null, dirty));
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
     editor_pane.tab_opened.connect (on_settings_tab_opened);
@@ -268,13 +285,23 @@ public class MainWindow : Object {
     register_global_panel (find_bar);
     find_bar.search_changed.connect (on_search_changed);
     find_bar.search_options_changed.connect (on_search_options_changed);
-    find_bar.search_next_requested.connect (() => editor_pane.search_editor?.search_next ());
-    find_bar.search_previous_requested.connect (() => editor_pane.search_editor?.search_previous ());
+    find_bar.search_next_requested.connect (() => search_editor?.search_next ());
+    find_bar.search_previous_requested.connect (() => search_editor?.search_previous ());
     find_bar.select_all_requested.connect (on_select_all_requested);
     find_bar.replace_requested.connect (on_replace_requested);
     find_bar.replace_all_requested.connect (on_replace_all_requested);
     find_bar.closed.connect (on_search_bar_closed);
-    editor_pane.search_position_changed.connect (on_search_position_changed);
+    // Both editors search the shared query; only the one in front reports.
+    editor_pane.search_position_changed.connect ((position, count) => {
+      if (current_view_name != "git") {
+        on_search_position_changed (position, count);
+      }
+    });
+    git_content.search_position_changed.connect ((position, count) => {
+      if (current_view_name == "git") {
+        on_search_position_changed (position, count);
+      }
+    });
 
     find_in_files_bar = new EditorView.FindInFilesBar ();
     register_global_panel (find_in_files_bar);
@@ -1074,8 +1101,8 @@ public class MainWindow : Object {
   }
 
   /**
-   * Ctrl+F — already gated on there being an open tab at all (see
-   * on_key_pressed). Seeds the Find entry from the editor's own current
+   * Ctrl+F — already gated on there being an editor to search at all
+   * (see on_key_pressed). Seeds the Find entry from the editor's own current
    * (primary) selection first, same as most editors' own real Ctrl+F,
    * but only when the editor genuinely had focus at the moment it was
    * pressed — read into `selected` before find_bar.show_find() below
@@ -1088,7 +1115,7 @@ public class MainWindow : Object {
    * show_find(), not before — see its own doc comment.
    */
   private void open_find () {
-    var editor = editor_pane.search_editor;
+    var editor = search_editor;
     string selected = editor != null && editor.has_focus ? editor.primary_selection_text : "";
 
     set_active_bottom_panel (find_bar);
@@ -1185,7 +1212,7 @@ public class MainWindow : Object {
 
   /** "Replace" — replaces only the current match, then advances to the next one. A no-op if there's no current match right now (or no tab to search). */
   private void on_replace_requested () {
-    var editor = editor_pane.search_editor;
+    var editor = search_editor;
     var edit = editor?.compute_replace_current_match (find_bar.replace_text);
     if (edit == null) {
       return;
@@ -1197,7 +1224,7 @@ public class MainWindow : Object {
 
   /** "Replace All" — replaces every live match as one undo step; the user's own cursor/selection just shifts to stay at its own logical position. A no-op with no matches (or no tab to search). */
   private void on_replace_all_requested () {
-    var editor = editor_pane.search_editor;
+    var editor = search_editor;
     if (editor == null) {
       return;
     }
@@ -1213,17 +1240,18 @@ public class MainWindow : Object {
 
   private void on_search_changed (string text) {
     has_search_text = text != "";
-    editor_pane.search_editor?.set_search_text (text);
+    search_editor?.set_search_text (text);
   }
 
   private void on_search_options_changed () {
-    editor_pane.search_editor?.set_search_options (
+    search_editor?.set_search_options (
       find_bar.regex_enabled, find_bar.case_sensitive_enabled, find_bar.whole_word_enabled
     );
   }
 
   private void on_search_position_changed (int position, int count) {
     find_bar.set_match_info (position, count, has_search_text);
+    search_position_changed (position, count);
   }
 
   /**
@@ -1235,11 +1263,11 @@ public class MainWindow : Object {
    * select_last_match()'s own grab in the case it already handled.
    * search_editor is null once the last open tab closes while the bar is
    * still open (close() is called directly then, see
-   * on_has_open_tabs_changed()) — nothing to focus in that case.
+   * on_search_editor_changed()) — nothing to focus in that case.
    */
   private void on_search_bar_closed () {
     clear_active_bottom_panel (find_bar);
-    var editor = editor_pane.search_editor;
+    var editor = search_editor;
     if (editor == null) {
       return;
     }
@@ -1266,7 +1294,7 @@ public class MainWindow : Object {
    * actually finds something to hand off).
    */
   private void on_select_all_requested () {
-    var editor = editor_pane.search_editor;
+    var editor = search_editor;
     if (editor != null) {
       editor.select_last_match ();
       editor.select_all_occurrences ();
@@ -1274,14 +1302,21 @@ public class MainWindow : Object {
     find_bar.close ();
   }
 
-  // editor_pane.widget already swaps its own content for its own empty
-  // state internally — nothing left to do here besides closing the
-  // search bar once there's nothing left for it to search.
-  private void on_has_open_tabs_changed (bool has_tabs) {
-    if (!has_tabs) {
-      find_bar.close ();
-    }
+  /**
+   * The view switched, the editor pane's tabs came or went (its widget
+   * already swaps in its own empty state by itself), or the git view's
+   * diff did: the FindBar follows the editor in front now, which
+   * re-announces its position the way a tab does on activation — or
+   * closes, with no editor left to search.
+   */
+  private void on_search_editor_changed () {
     update_find_menu ();
+    var editor = search_editor;
+    if (editor == null) {
+      find_bar.close ();
+      return;
+    }
+    editor.announce_search_position ();
   }
 
   /** Registers `panel` for the window-wide "Escape closes it, even without focus" behavior — see IGlobalPanel's own doc comment. */
@@ -1559,9 +1594,10 @@ public class MainWindow : Object {
           if (has_linked_folder) {
             open_find_in_files ();
           }
-        } else if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH)) {
-          // Gated here, not inside open_find(): a tab FindBar can't act
-          // on (or none at all) means there's nothing to show it for.
+        } else if (search_editor != null) {
+          // Gated here, not inside open_find(): no editor to search (a
+          // tab FindBar can't act on, none at all, the git view's tree)
+          // means there's nothing to show it for.
           open_find ();
         }
         return true;
@@ -1573,16 +1609,24 @@ public class MainWindow : Object {
     }
   }
 
+  /** Whether FindBar's replace mode applies: an editor to search that can be written to — a diff, or a file that couldn't be read, is read-only. */
+  private bool can_replace {
+    get {
+      var editor = search_editor;
+      return editor != null && !editor.read_only;
+    }
+  }
+
   /**
    * Ctrl+H: the tab's own inline replace if it has one, else FindBar's
-   * replace mode for a text tab, else nothing. Only the keybinding routes
-   * through here — the Find menu's own "Replace…" item is FindBar-only
-   * by design (see build_find_menu()).
+   * replace mode for a writable editor, else nothing. Only the keybinding
+   * routes through here — the Find menu's own "Replace…" item is
+   * FindBar-only by design (see build_find_menu()).
    */
   private void on_replace_shortcut () {
     if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.INLINE_REPLACE)) {
       editor_pane.open_replace ();
-    } else if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH)) {
+    } else if (can_replace) {
       set_active_bottom_panel (find_bar);
       find_bar.show_replace ();
     }
@@ -1720,17 +1764,17 @@ public class MainWindow : Object {
   }
 
   /**
-   * Find…/Replace… both open FindBar, so both only make sense against a
-   * tab FindBar can act on — disabled (not hidden, same sensitive-not-
+   * Find…/Replace… both open FindBar, so both only make sense against an
+   * editor FindBar can act on — disabled (not hidden, same sensitive-not-
    * visible split as Save's own "nothing to save yet") otherwise, no
-   * open tab included. Find in Files only ever makes sense with
+   * open tab included; Replace… only against one that can be written to.
+   * Find in Files only ever makes sense with
    * something to search across, so its whole group (separator included)
    * is hidden without a linked folder, not just disabled.
    */
   private void update_find_menu () {
-    bool can_search = editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.TEXT_SEARCH);
-    find_item.sensitive = can_search;
-    replace_item.sensitive = can_search;
+    find_item.sensitive = search_editor != null;
+    replace_item.sensitive = can_replace;
     find_in_files_separator.visible = has_linked_folder;
     find_in_files_item.visible = has_linked_folder;
   }

@@ -21,8 +21,20 @@ namespace GitView {
     /** The "Open File" button: the diff's file (absolute, the right-hand name), to open in the editor. */
     public signal void open_file_requested (string path);
 
-    public Content (Gtk.Widget tree_widget, UserSettings user_settings) {
-      diff_pane = new DiffPane (user_settings);
+    /** Re-emitted from the diff — see DiffPane.search_position_changed. */
+    public signal void search_position_changed (int position, int count);
+
+    /** `search_editor` may be another now: the tree or a diff took the main area, or a diff became a placeholder (or back). */
+    public signal void search_editor_changed ();
+
+    /** The diff's editor while a diff shows, else null — see DiffPane.search_editor. */
+    public CodeEditor? search_editor { get { return showing == "diff" ? diff_pane.search_editor : null; } }
+
+    /** `search_settings` is the window's one Find query, shared with the editor pane's tabs. */
+    public Content (Gtk.Widget tree_widget, UserSettings user_settings, GtkSource.SearchSettings search_settings) {
+      diff_pane = new DiffPane (user_settings, search_settings);
+      diff_pane.search_position_changed.connect ((position, count) => search_position_changed (position, count));
+      diff_pane.notify["mode"].connect (() => search_editor_changed ());
       breadcrumb.add_css_class ("git-breadcrumb");
       stack.add_named (tree_widget, "tree");
       stack.add_named (diff_pane.widget, "diff");
@@ -45,6 +57,7 @@ namespace GitView {
     public void show_tree () {
       stack.visible_child_name = "tree";
       rebuild_breadcrumb ();
+      search_editor_changed ();
     }
 
     /** `middle` is the commit's short hash, or "WIP" for the working tree. */
@@ -55,6 +68,7 @@ namespace GitView {
       diff_pane.show (request);
       stack.visible_child_name = "diff";
       rebuild_breadcrumb ();
+      search_editor_changed ();
     }
 
     /** Re-reads the diff on screen if a side of it is the working tree or the index. */

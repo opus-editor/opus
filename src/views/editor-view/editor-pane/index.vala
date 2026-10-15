@@ -43,8 +43,8 @@ namespace EditorView {
     private FileSettings.Registry? file_settings = null;
     private FileDecoration.Registry? decorations = null;
     private GitDiff.IBaseProvider? diff_base_provider = null;
-    // One Find query for every document tab's editor: the FindBar's term follows the user from tab to tab.
-    private GtkSource.SearchSettings search_settings = new GtkSource.SearchSettings ();
+    // The window's one Find query (MainWindow's), shared by every document tab's editor: the FindBar's term follows the user from tab to tab.
+    private GtkSource.SearchSettings search_settings;
 
     // Created lazily (first search only) — most windows never run one.
     private EditorPane.TabFindResults? tab_find_results = null;
@@ -88,10 +88,10 @@ namespace EditorView {
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
     public signal void reveal_in_sidebar_requested (string path);
 
-    public EditorPaneWidget (string root_path, UserSettings user_settings) {
+    public EditorPaneWidget (string root_path, UserSettings user_settings, GtkSource.SearchSettings search_settings) {
       this.root_path = root_path;
       this.user_settings = user_settings;
-      search_settings.set_wrap_around (true);
+      this.search_settings = search_settings;
 
       tab_bar = new EditorPane.TabBar ();
       stack = new Gtk.Stack () { vexpand = true, transition_type = Gtk.StackTransitionType.NONE, hhomogeneous = false, vhomogeneous = false };

@@ -22,8 +22,13 @@ namespace GitView {
     // A load still in flight when a newer one starts lands on nothing.
     private int generation = 0;
 
-    public DiffPane (UserSettings user_settings) {
-      code_editor = new CodeEditor (user_settings);
+    /** Re-emitted from the editor — the FindBar's "N of M" while this diff is what it searches. */
+    public signal void search_position_changed (int position, int count);
+
+    /** `search_settings` is the window's one Find query, shared with the editor pane's tabs. */
+    public DiffPane (UserSettings user_settings, GtkSource.SearchSettings search_settings) {
+      code_editor = new CodeEditor (user_settings, search_settings);
+      code_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
       stack.add_named (code_editor.widget, "diff");
       stack.add_named (placeholder, "placeholder");
     }
@@ -32,6 +37,9 @@ namespace GitView {
 
     /** What is showing, null before the first show(). */
     public GitDiff.Request? shown_request { get { return request; } }
+
+    /** The editor the FindBar acts on — null while a placeholder shows. Searchable, never replaceable: a diff is read-only. */
+    public CodeEditor? search_editor { get { return mode == "placeholder" ? null : code_editor; } }
 
     public void show (GitDiff.Request request) {
       this.request = request;
