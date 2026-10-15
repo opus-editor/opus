@@ -295,6 +295,7 @@ public class CodeEditor : Object {
     }
     shown_diff = null;
     text_view.set_row_bands ("diff", new GenericArray<CodeEditorSourceView.RowBand> ());
+    scrollbar.set_hunks ({});
     show_line_numbers = true;
     set_text (text, path);
   }
@@ -304,9 +305,10 @@ public class CodeEditor : Object {
     text_view.queue_draw ();
   }
 
-  /** One band per run of added or removed lines, painted from CodeEditorDiffGutter's swatches. */
+  /** One band per run of added or removed lines, painted from CodeEditorDiffGutter's swatches — and the same runs as hunks for the scrollbar's bars, which nothing else feeds in diff mode. */
   private void paint_diff_rows () {
     var bands = new GenericArray<CodeEditorSourceView.RowBand> ();
+    GitDiff.Hunk[] hunks = {};
     int run_start = -1;
     GitDiff.LineKind run_kind = GitDiff.LineKind.CONTEXT;
     for (uint i = 0; i <= shown_diff.lines.length; i++) {
@@ -316,11 +318,13 @@ public class CodeEditor : Object {
       }
       if (run_kind != GitDiff.LineKind.CONTEXT) {
         bands.add (new CodeEditorSourceView.RowBand (run_start, (int) i - 1, run_kind == GitDiff.LineKind.ADDED ? diff_gutter.added_swatch : diff_gutter.removed_swatch));
+        hunks += new GitDiff.Hunk (run_start, (int) i - run_start, run_kind == GitDiff.LineKind.ADDED ? GitDiff.HunkKind.ADDED : GitDiff.HunkKind.REMOVED, true);
       }
       run_start = (int) i;
       run_kind = kind;
     }
     text_view.set_row_bands ("diff", bands);
+    scrollbar.set_hunks (hunks);
   }
 
   /**
