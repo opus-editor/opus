@@ -1,0 +1,6 @@
+{
+  "syntax": {
+    "string": { "foreground": "#032f62" },
+    "variable": { "foreground": "#e36209" }
+  }
+}

@@ -36,6 +36,9 @@ public class SystemTestSession : Object {
     private const uint READY_POLL_INTERVAL_MSEC = 50;
 
     private Subprocess broadway_process;
+
+    /** This session's own settings.json — the file Opus reads its settings from, under the throwaway XDG_CONFIG_HOME the constructor sets. */
+    public string settings_path { get; private set; }
     private Subprocess process;
     private DBusProxy proxy;
 
@@ -110,6 +113,7 @@ public class SystemTestSession : Object {
         // directory instead of the developer's real ~/.config/opus.
         var config_home = Path.build_filename (Environment.get_tmp_dir (), "opus-test-config-%u".printf (broadway_display_num));
         launcher.setenv ("XDG_CONFIG_HOME", config_home, true);
+        settings_path = Path.build_filename (config_home, "opus", "settings.json");
         reset_settings_json (config_home, settings_json);
         var data_home = Path.build_filename (Environment.get_tmp_dir (), "opus-test-data-%u".printf (broadway_display_num));
         launcher.setenv ("XDG_DATA_HOME", data_home, true);
@@ -221,6 +225,17 @@ public class SystemTestSession : Object {
      * this class's doc comment on the dynamic D-Bus proxy for the same
      * reasoning).
      */
+    /**
+     * Rewrites this session's settings.json while Opus runs. It takes
+     * effect only while the file is open as a tab — MainWindow arms its
+     * live-reload watch in on_settings_tab_opened() — so open_tab
+     * (settings_path) first. Written over, never removed first: a
+     * DELETED event would have the reload read a file that isn't there.
+     */
+    public void write_settings_json (string contents) throws Error {
+        FileUtils.set_contents (settings_path, contents);
+    }
+
     private static void reset_settings_json (string config_home, string? contents) throws Error {
         var settings_path = Path.build_filename (config_home, "opus", "settings.json");
         FileUtils.remove (settings_path);

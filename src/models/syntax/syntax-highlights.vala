@@ -5,7 +5,10 @@ namespace Syntax {
     public uint32 start_column;
     public uint32 end_row;
     public uint32 end_column;
-    /** Owned by the LoadedLanguage the span came from. */
+    /** The capture that won here and the language of its layer — what the text is, whatever the theme. Owned by the LoadedLanguage the span came from. */
+    public unowned string capture;
+    public unowned string language;
+    /** The theme key `capture` resolves to right now. Owned by the same LoadedLanguage. */
     public unowned string style;
   }
 
@@ -14,6 +17,8 @@ namespace Syntax {
     public TreeSitter.Point end;
     public int depth;
     public uint16 pattern;
+    public unowned string capture;
+    public unowned string language;
     public unowned string style;
   }
 
@@ -73,23 +78,22 @@ namespace Syntax {
 
     private void add_match (LoadedLanguage language, TreeSitter.QueryMatch match, TreeSitter.Range[] ranges, int depth) {
       foreach (var query_capture in match.captures) {
-        unowned string? style = language.highlight_styles[query_capture.index];
-        if (style == null) {
+        if (language.highlight_styles[query_capture.index] == null) {
           continue;
         }
         var start = later (query_capture.node.start_point (), range_start);
         var end = earlier (query_capture.node.end_point (), range_end);
         if (ranges.length == 0) {
-          add_capture (start, end, depth, match.pattern_index, style);
+          add_capture (start, end, depth, match.pattern_index, language, query_capture.index);
           continue;
         }
         foreach (var range in ranges) {
-          add_capture (later (start, range.start_point), earlier (end, range.end_point), depth, match.pattern_index, style);
+          add_capture (later (start, range.start_point), earlier (end, range.end_point), depth, match.pattern_index, language, query_capture.index);
         }
       }
     }
 
-    private void add_capture (TreeSitter.Point start, TreeSitter.Point end, int depth, uint16 pattern, string style) {
+    private void add_capture (TreeSitter.Point start, TreeSitter.Point end, int depth, uint16 pattern, LoadedLanguage language, uint32 index) {
       if (compare (start, end) >= 0) {
         return;
       }
@@ -98,7 +102,9 @@ namespace Syntax {
       capture.end = end;
       capture.depth = depth;
       capture.pattern = pattern;
-      capture.style = style;
+      capture.capture = language.highlight_captures[index];
+      capture.language = language.package.name;
+      capture.style = language.highlight_styles[index];
       captures.add (capture);
     }
 
@@ -133,6 +139,8 @@ namespace Syntax {
             start_column = from.column,
             end_row = boundary.row,
             end_column = boundary.column,
+            capture = winner.capture,
+            language = winner.language,
             style = winner.style,
           };
         }

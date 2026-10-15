@@ -11,9 +11,13 @@ namespace EditorView.EditorPane {
     private GtkSource.Buffer target;
     private SyntaxTags tags;
 
+    /** The theme moved a capture between styled and unstyled (see SyntaxTags.repaint_needed): paint each block again. A theme that only recolors restyles the tags in place and never gets here. */
+    public signal void repaint_needed ();
+
     public TabFindResultsLanguageHighlighter (GtkSource.Buffer target) {
       this.target = target;
       tags = new SyntaxTags (target);
+      tags.repaint_needed.connect (() => repaint_needed ());
     }
 
     /**
@@ -43,10 +47,7 @@ namespace EditorView.EditorPane {
      * it.
      */
     private void paint (Syntax.HighlightSpan span, int[] line_start_offsets) {
-      var tag = tags.tag_for (span.style);
-      if (tag == null) {
-        return;
-      }
+      var tag = tags.tag_for (span.capture, span.language);
       for (uint32 row = span.start_row; row <= span.end_row && row < line_start_offsets.length; row++) {
         Gtk.TextIter line_start;
         target.get_iter_at_offset (out line_start, line_start_offsets[row]);

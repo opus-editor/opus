@@ -20,6 +20,9 @@ namespace Syntax {
     public QueryPredicates highlight_predicates { get; private set; }
 
     internal TreeSitter.Query highlights;
+    // Indexed by capture id. Every HighlightSpan points at one of these
+    // without copying it, so they have to live as long as the language.
+    internal string[] highlight_captures;
     // Indexed by capture id — null for a capture no style key covers.
     internal string?[] highlight_styles;
     // Indexed by capture id: whether the capture marks literal text, a
@@ -83,6 +86,7 @@ namespace Syntax {
         language.grammar = grammars.load (package.grammar);
         language.highlights = QuerySource.compile (language.grammar, highlights_source);
         language.highlight_predicates = new QueryPredicates (language.highlights);
+        language.read_capture_names ();
         language.find_literal_captures ();
       } catch (GrammarError e) {
         if (e is GrammarError.NOT_FOUND) {
@@ -123,11 +127,18 @@ namespace Syntax {
       }
     }
 
-    private void find_literal_captures () {
-      highlight_literal_captures = new bool[highlights.capture_count ()];
-      for (uint32 id = 0; id < highlight_literal_captures.length; id++) {
+    private void read_capture_names () {
+      highlight_captures = new string[highlights.capture_count ()];
+      for (uint32 id = 0; id < highlight_captures.length; id++) {
         uint32 length;
-        unowned string name = highlights.capture_name_for_id (id, out length);
+        highlight_captures[id] = highlights.capture_name_for_id (id, out length);
+      }
+    }
+
+    private void find_literal_captures () {
+      highlight_literal_captures = new bool[highlight_captures.length];
+      for (uint32 id = 0; id < highlight_literal_captures.length; id++) {
+        unowned string name = highlight_captures[id];
         highlight_literal_captures[id] = name == "string" || name.has_prefix ("string.")
           || name == "comment" || name.has_prefix ("comment.");
       }
@@ -230,14 +241,29 @@ namespace Syntax {
       }
     }
 
-    /** Done once per theme, not per highlighted token: a query has a few dozen captures, a file has thousands of tokens. */
-    internal void resolve_styles (CaptureStyles styles) {
-      var resolved = new string?[highlights.capture_count ()];
+    /**
+     * Done once per theme, not per highlighted token: a query has a few
+     * dozen captures, a file has thousands of tokens. Says whether a
+     * capture moved between styled and unstyled — the one change that
+     * can move a span's boundary or its winner (see Languages.set_style_keys).
+     */
+    internal bool resolve_styles (CaptureStyles styles) {
+      var resolved = new string?[highlight_captures.length];
       for (uint32 id = 0; id < resolved.length; id++) {
-        uint32 length;
-        resolved[id] = styles.resolve (highlights.capture_name_for_id (id, out length), package.name);
+        resolved[id] = styles.resolve (highlight_captures[id], package.name);
       }
+      bool coverage_changed = highlight_styles != null && coverage_differs (highlight_styles, resolved);
       highlight_styles = resolved;
+      return coverage_changed;
+    }
+
+    private static bool coverage_differs (string?[] before, string?[] after) {
+      for (int id = 0; id < before.length; id++) {
+        if ((before[id] == null) != (after[id] == null)) {
+          return true;
+        }
+      }
+      return false;
     }
 
   }

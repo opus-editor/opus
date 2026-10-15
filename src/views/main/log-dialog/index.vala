@@ -16,7 +16,7 @@
  */
 public class LogDialog : Object {
   private const string COMMAND_PREFIX = "$ ";
-  private const string COMMAND_STYLE_KEY = "string";
+  private const string COMMAND_CAPTURE = "string";
 
   private LogDialog () {}
 
@@ -30,7 +30,6 @@ public class LogDialog : Object {
 
     var syntax_tags = new SyntaxTags (editor.buffer);
     paint_command_line (editor.buffer, syntax_tags);
-    syntax_tags.restyled.connect (() => paint_command_line (editor.buffer, syntax_tags));
 
     var toolbar_view = new Adw.ToolbarView () {
       top_bar_style = Adw.ToolbarStyle.FLAT,
@@ -63,9 +62,6 @@ public class LogDialog : Object {
     if (!buffer.get_text (start, end, false).has_prefix (COMMAND_PREFIX)) {
       return;
     }
-    var tag = syntax_tags.tag_for (COMMAND_STYLE_KEY);
-    if (tag != null) {
-      buffer.apply_tag (tag, start, end);
-    }
+    buffer.apply_tag (syntax_tags.tag_for (COMMAND_CAPTURE), start, end);
   }
 }

@@ -18,11 +18,15 @@ public class EditorTheme : Object {
   /** Adwaita's own scheme for the current mode. */
   public GtkSource.StyleScheme? scheme { get; private set; }
 
-  /** `theme` and `scheme` are different now, and Syntax.Languages already resolves captures against the new theme. */
+  /** `theme` and `scheme` are different now, Syntax.Languages already resolves captures against the new theme, and `styled_captures_changed` says whether painted text is still right. */
   public signal void changed ();
 
   private UserSettings settings;
   private string[] theme_directories;
+
+  /** Whether the last change moved a capture between styled and unstyled (see Syntax.Languages.set_style_keys) — what tells SyntaxTags that restyling in place isn't enough. */
+  public bool styled_captures_changed { get; private set; }
+
   // What the last reload loaded — a mode as well as a name, since
   // nothing stops settings.json naming one theme for both modes.
   private string? loaded_name;
@@ -51,7 +55,7 @@ public class EditorTheme : Object {
     theme = load (name, dark);
     apply_editor_foreground ();
     scheme = GtkSource.StyleSchemeManager.get_default ().get_scheme (dark ? "Adwaita-dark" : "Adwaita");
-    Syntax.Languages.instance.set_style_keys (theme.style_keys ());
+    styled_captures_changed = Syntax.Languages.instance.set_style_keys (theme.style_keys ());
     changed ();
   }
 

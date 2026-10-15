@@ -514,6 +514,25 @@ private void test_a_capture_is_painted_with_the_style_key_it_resolves_to () {
     assert_cmpstrv (described (spans), { "0:1-0:2 constant" });
 }
 
+private void test_a_span_names_the_capture_it_came_from () {
+    var document = new Syntax.SyntaxDocument (json_with ("(number) @constant.numeric", { "constant" }));
+    document.set_text ("[1]");
+
+    var spans = document.highlights (0, 0);
+
+    assert_cmpstr (spans[0].capture, CompareOperator.EQ, "constant.numeric");
+}
+
+private void test_a_span_names_the_language_of_its_layer () {
+    var document = json_embedding_css ("((string_content) @injection.content (#set! injection.language \"css\"))");
+    document.set_text ("[\"a{color:red}\"]");
+
+    var spans = document.highlights (0, 0);
+
+    assert_cmpstr (spans[0].language, CompareOperator.EQ, "json");
+    assert_cmpstr (spans[1].language, CompareOperator.EQ, "css");
+}
+
 private void test_a_capture_no_style_key_covers_is_not_painted () {
     var document = new Syntax.SyntaxDocument (json_with ("(number) @number\n(string) @string", { "string" }));
     document.set_text ("[1, \"a\"]");
@@ -897,6 +916,8 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/a_predicate_decides_which_matches_are_symbols", test_a_predicate_decides_which_matches_are_symbols);
     Test.add_func ("/models/syntax/syntax-document/the_directives_for_documentation_comments_are_accepted", test_the_directives_for_documentation_comments_are_accepted);
     Test.add_func ("/models/syntax/syntax-document/a_text_with_no_definition_has_no_symbols", test_a_text_with_no_definition_has_no_symbols);
+    Test.add_func ("/models/syntax/syntax-document/a_span_names_the_capture_it_came_from", test_a_span_names_the_capture_it_came_from);
+    Test.add_func ("/models/syntax/syntax-document/a_span_names_the_language_of_its_layer", test_a_span_names_the_language_of_its_layer);
     Test.add_func ("/models/syntax/syntax-document/a_language_with_a_tags_query_lists_symbols", test_a_language_with_a_tags_query_lists_symbols);
     Test.add_func ("/models/syntax/syntax-document/a_language_with_no_tags_query_does_not_list_symbols", test_a_language_with_no_tags_query_does_not_list_symbols);
     Test.add_func ("/models/syntax/syntax-document/symbols_follow_the_text_as_it_changes", test_symbols_follow_the_text_as_it_changes);

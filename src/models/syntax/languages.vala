@@ -51,17 +51,28 @@ namespace Syntax {
     }
 
     /**
-     * Swaps the styles captures resolve against — a theme change.
-     * Reaches the languages already loaded too, so anything painted
-     * before this has to be painted again to pick the new styles up.
+     * Swaps the styles captures resolve against — a theme change — and
+     * says whether what is painted has to be painted again. It doesn't
+     * unless a capture of a loaded language moved between styled and
+     * unstyled: the collector drops unstyled captures before picking the
+     * winner at each position, so with the same set styled the same
+     * spans come out, each naming the same capture — only the key it
+     * resolves to is new, and a tag can take that up in place.
      */
-    public void set_style_keys (string[] style_keys) {
+    public bool set_style_keys (string[] style_keys) {
       styles = new CaptureStyles (style_keys);
+      bool repaint = false;
       foreach (var language in loaded.get_values ()) {
         if (language != null) {
-          language.resolve_styles (styles);
+          repaint |= language.resolve_styles (styles);
         }
       }
+      return repaint;
+    }
+
+    /** The key the current theme gives `capture` in `language` — what a tag painted by identity asks after a theme change. Null for a capture left unstyled. */
+    public string? resolve_style (string capture, string? language = null) {
+      return styles.resolve (capture, language);
     }
 
     /** The language of the file at `path`, ready to use — null when no package claims the file or the one that does can't be loaded. */

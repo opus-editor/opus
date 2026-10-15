@@ -101,11 +101,16 @@ namespace EditorView.EditorPane {
     private Gtk.CssProvider? replace_row_provider = null;
 
     // Whichever of these two is non-null drives render() — kept around
-    // so a theme change alone (no new search) can re-render with fresh
-    // colors, same reasoning as CodeEditorSearch's own apply_theme_colors().
+    // so a Replace All can reconcile what is shown in place
+    // (see apply_replace_outcome()).
     private FindInFilesResult? last_result = null;
     private FindInFilesQuery? last_error_query = null;
     private string? last_error_message = null;
+
+    // The blocks render() painted as their file's language, kept so a
+    // theme change repaints just those (paint_syntax()) — the text and
+    // the navigation tags have nothing to do with the theme.
+    private GenericArray<PendingHighlight> last_highlights = new GenericArray<PendingHighlight> ();
 
     // The most recently run search, re-issued as-is when the context
     // lines control changes so adjusting it re-searches without the
@@ -233,6 +238,7 @@ namespace EditorView.EditorPane {
       root.append (code_editor.widget);
 
       language_highlighter = new TabFindResultsLanguageHighlighter (results_buffer);
+      language_highlighter.repaint_needed.connect (paint_syntax);
       install_css ();
 
       filename_tag = new Gtk.TextTag (null);
@@ -246,9 +252,20 @@ namespace EditorView.EditorPane {
 
       // EditorTheme's own change, not Adw.StyleManager's "dark" directly:
       // it fires for a light/dark switch too, and only once the theme
-      // for the new mode is the one in effect.
+      // for the new mode is the one in effect. The colors read back from
+      // CSS wait a main-loop turn, as CodeEditorSearch's own do: the
+      // window flips its `dark` class in the same emission, and the
+      // cascade has settled by then. Not before the editor is mapped
+      // either: until then nothing has styled it.
       var style_manager = Adw.StyleManager.get_default ();
-      EditorTheme.instance.changed.connect (() => apply_style_scheme (style_manager.dark));
+      EditorTheme.instance.changed.connect (() => {
+        apply_style_scheme (style_manager.dark);
+        Idle.add (() => {
+          apply_palette_colors (style_manager.dark);
+          return Source.REMOVE;
+        });
+      });
+      code_editor.widget.map.connect (() => apply_palette_colors (style_manager.dark));
       apply_style_scheme (style_manager.dark);
     }
 
@@ -585,7 +602,10 @@ namespace EditorView.EditorPane {
       );
 
       filename_tag.weight = Pango.Weight.BOLD;
+    }
 
+    /** The tag colors that come off the settled CSS cascade — see the constructor for when this runs. */
+    private void apply_palette_colors (bool dark) {
       // Dims toward the pane's own real (theme-resolved) text color,
       // rather than a hardcoded gray, so it reads correctly in both
       // light and dark without its own light/dark branch.
@@ -595,11 +615,6 @@ namespace EditorView.EditorPane {
 
       // The same tint in-file Find paints its matches with.
       match_highlight_tag.background_rgba = code_editor.palette.search_match ();
-
-      // Re-render with the new colors if there's anything currently shown.
-      if (last_result != null || last_error_message != null) {
-        render ();
-      }
     }
 
     /**
@@ -638,6 +653,7 @@ namespace EditorView.EditorPane {
         results_buffer.tag_table.remove (tag);
       }
       nav_tags = new GenericArray<Gtk.TextTag> ();
+      last_highlights = new GenericArray<PendingHighlight> ();
 
       if (last_error_message != null) {
         header_label.label = last_error_query.text;
@@ -657,7 +673,6 @@ namespace EditorView.EditorPane {
       var structural_ranges = new GenericArray<TagRange> ();
       var match_ranges = new GenericArray<TagRange> ();
       var nav_ranges = new GenericArray<TagRange> ();
-      var pending_highlights = new GenericArray<PendingHighlight> ();
       int offset = 0;
 
       if (replace_summary_skipped_paths != null) {
@@ -716,7 +731,7 @@ namespace EditorView.EditorPane {
           highlight_request.path = file.path;
           highlight_request.snippet = string.joinv ("\n", block.lines);
           highlight_request.line_start_offsets = line_start_offsets;
-          pending_highlights.add (highlight_request);
+          last_highlights.add (highlight_request);
 
           foreach (var match in block.matches) {
             var line_index = match.line_number - block.start_line;
@@ -749,9 +764,7 @@ namespace EditorView.EditorPane {
       foreach (var range in structural_ranges) {
         apply_range (range);
       }
-      foreach (var request in pending_highlights) {
-        language_highlighter.highlight (request.path, request.snippet, request.line_start_offsets);
-      }
+      paint_syntax ();
       foreach (var range in match_ranges) {
         apply_range (range);
       }
@@ -763,6 +776,13 @@ namespace EditorView.EditorPane {
       // tag — this is about matches, not per-file language, so it stays
       // here, not in the highlighter.
       match_highlight_tag.set_priority (results_buffer.tag_table.get_size () - 1);
+    }
+
+    /** Each block as its file's language, over the text render() last built — on its own so a theme that changes which captures are styled repaints without rebuilding. */
+    private void paint_syntax () {
+      foreach (var request in last_highlights) {
+        language_highlighter.highlight (request.path, request.snippet, request.line_start_offsets);
+      }
     }
 
     /**

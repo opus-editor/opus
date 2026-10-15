@@ -1,0 +1,6 @@
+{
+  "syntax": {
+    "constant": { "foreground": "#005cc5" },
+    "string": { "foreground": "#032f62" }
+  }
+}

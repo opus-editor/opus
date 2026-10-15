@@ -43,7 +43,7 @@ public class CodeEditorSyntaxHighlighter : Object {
     this.text_view = text_view;
     buffer = text_view.buffer;
     tags = new SyntaxTags (buffer);
-    tags.restyled.connect (() => {
+    tags.repaint_needed.connect (() => {
       painted_first = NONE;
       painted_last = NONE;
       schedule_refresh ();
@@ -234,10 +234,7 @@ public class CodeEditorSyntaxHighlighter : Object {
     tags.clear (start, end);
 
     foreach (var span in document.highlights (first, last)) {
-      var tag = tags.tag_for (span.style);
-      if (tag == null) {
-        continue;
-      }
+      var tag = tags.tag_for (span.capture, span.language);
       Gtk.TextIter span_start;
       Gtk.TextIter span_end;
       buffer.get_iter_at_line_index (out span_start, (int) span.start_row, (int) span.start_column);

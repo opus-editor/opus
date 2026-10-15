@@ -89,6 +89,63 @@ private void test_new_style_keys_reach_a_language_already_loaded () {
     assert_cmpstr (spans[0].style, CompareOperator.EQ, "constant");
 }
 
+private const string JSON_MANIFEST = """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""";
+private const string STRINGS_AND_NUMBERS = "(string) @string\n(number) @constant.numeric";
+
+private void test_set_style_keys_reports_a_capture_of_a_loaded_language_gaining_a_style () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", JSON_MANIFEST, STRINGS_AND_NUMBERS);
+    var languages = languages_over (directory);
+    languages.detect ("/project/a.json");
+
+    bool repaint = languages.set_style_keys ({ "string", "constant" });
+
+    assert_true (repaint);
+}
+
+private void test_set_style_keys_reports_a_capture_losing_its_style () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", JSON_MANIFEST, STRINGS_AND_NUMBERS);
+    var languages = languages_over (directory);
+    languages.detect ("/project/a.json");
+
+    bool repaint = languages.set_style_keys ({});
+
+    assert_true (repaint);
+}
+
+private void test_set_style_keys_reports_nothing_when_only_the_key_a_capture_resolves_to_changes () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", JSON_MANIFEST, STRINGS_AND_NUMBERS);
+    var languages = languages_over (directory);
+    languages.set_style_keys ({ "string", "constant" });
+    languages.detect ("/project/a.json");
+
+    bool repaint = languages.set_style_keys ({ "string", "constant.numeric" });
+
+    assert_false (repaint);
+}
+
+private void test_set_style_keys_reports_nothing_with_no_language_loaded () {
+    string directory = new_languages_directory ();
+    add_package (directory, "json", JSON_MANIFEST, STRINGS_AND_NUMBERS);
+    var languages = languages_over (directory);
+
+    bool repaint = languages.set_style_keys ({ "constant" });
+
+    assert_false (repaint);
+}
+
+private void test_resolve_style_answers_with_the_current_keys_for_the_language () {
+    string directory = new_languages_directory ();
+    var languages = languages_over (directory);
+    languages.set_style_keys ({ "constant", Syntax.CaptureStyles.language_key ("json", "constant") });
+
+    var key = languages.resolve_style ("constant.numeric", "json");
+
+    assert_cmpstr (key, CompareOperator.EQ, Syntax.CaptureStyles.language_key ("json", "constant"));
+}
+
 private void test_new_style_keys_apply_to_a_language_loaded_afterwards () {
     string directory = new_languages_directory ();
     add_package (directory, "json", """{ "name": "json", "file-types": ["json"], "grammar": { "repository": "r", "rev": "abc" } }""", "(string) @string\n(number) @constant.numeric");
@@ -293,6 +350,11 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/languages/a_language_that_cannot_be_loaded_is_no_language", test_a_language_that_cannot_be_loaded_is_no_language);
     Test.add_func ("/models/syntax/languages/new_style_keys_reach_a_language_already_loaded", test_new_style_keys_reach_a_language_already_loaded);
     Test.add_func ("/models/syntax/languages/new_style_keys_apply_to_a_language_loaded_afterwards", test_new_style_keys_apply_to_a_language_loaded_afterwards);
+    Test.add_func ("/models/syntax/languages/set_style_keys_reports_a_capture_of_a_loaded_language_gaining_a_style", test_set_style_keys_reports_a_capture_of_a_loaded_language_gaining_a_style);
+    Test.add_func ("/models/syntax/languages/set_style_keys_reports_a_capture_losing_its_style", test_set_style_keys_reports_a_capture_losing_its_style);
+    Test.add_func ("/models/syntax/languages/set_style_keys_reports_nothing_when_only_the_key_a_capture_resolves_to_changes", test_set_style_keys_reports_nothing_when_only_the_key_a_capture_resolves_to_changes);
+    Test.add_func ("/models/syntax/languages/set_style_keys_reports_nothing_with_no_language_loaded", test_set_style_keys_reports_nothing_with_no_language_loaded);
+    Test.add_func ("/models/syntax/languages/resolve_style_answers_with_the_current_keys_for_the_language", test_resolve_style_answers_with_the_current_keys_for_the_language);
     Test.add_func ("/models/syntax/languages/reload_reads_an_edited_package_again", test_reload_reads_an_edited_package_again);
     Test.add_func ("/models/syntax/languages/reload_finds_a_package_added_since", test_reload_finds_a_package_added_since);
     Test.add_func ("/models/syntax/languages/reload_announces_the_change", test_reload_announces_the_change);
