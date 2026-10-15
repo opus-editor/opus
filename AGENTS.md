@@ -61,7 +61,10 @@ gdbus call --session --dest io.github.opus_editor.Opus --object-path /io/github/
 ```
 
 `gdbus introspect` lists every method; same `--define=DEBUG` gate as
-Logging.
+Logging. A `just run` instance owns `io.github.opus_editor.Opus.Devel`
+instead (see the justfile), and GApplication derives the object path
+from the id, so for it use `--dest io.github.opus_editor.Opus.Devel
+--object-path /io/github/opus_editor/Opus/Devel/Dev`.
 
 ## Structure
 

@@ -405,6 +405,7 @@
     <file alias="symbols/folders/folder.svg" compressed="true">icons/symbols/folders/folder.svg</file>
     <file alias="symbols/symbol-icon-theme.json" compressed="true">icons/symbols/symbol-icon-theme.json</file>
     <!-- END generated -->
+    <file alias="scalable/apps/io.github.opus_editor.Opus.Devel.svg" compressed="true">icons/scalable/apps/io.github.opus_editor.Opus.Devel.svg</file>
     <file alias="scalable/actions/opus-git-symbolic.svg" compressed="true">icons/scalable/actions/opus-git-symbolic.svg</file>
     <file alias="scalable/actions/opus-code-symbolic.svg" compressed="true">icons/scalable/actions/opus-code-symbolic.svg</file>
     <file alias="scalable/actions/opus-chevron-right-symbolic.svg" compressed="true">icons/scalable/actions/opus-chevron-right-symbolic.svg</file>

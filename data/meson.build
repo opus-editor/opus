@@ -118,9 +118,11 @@ install_data(
 
 # The app icon the launcher and the shell show — looked up by app id in
 # the hicolor theme, so the file name is the app id (the desktop file's
-# own Icon= line). The icons under icons/scalable/actions and
-# icons/symbols are a different thing: resources compiled into the
-# binary above, never installed.
+# own Icon= line). The icons under icons/scalable and icons/symbols are
+# a different thing: resources compiled into the binary above, never
+# installed — among them the .Devel app icon a `just run` instance
+# (see the justfile) names as its window icon, found there because
+# GtkApplication searches <resource_base_path>/icons.
 install_data(
   'icons/hicolor/scalable/apps/io.github.opus_editor.Opus.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',

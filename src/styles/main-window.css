@@ -24,6 +24,12 @@ tooltip.background {
 .opus-header {
   background-color: var(--opus-headerbar-background);
 }
+/* libadwaita paints its devel stripes on the toolbar view's top bar;
+ * the opaque opus-header above it hides them, so they go on it too. */
+window.devel .opus-header {
+  background-image: cross-fade(5% -gtk-recolor(url("resource:///org/gnome/Adwaita/styles/assets/devel-symbolic.svg")), image(transparent));
+  background-repeat: repeat-x;
+}
 .opus-sidebar {
   background-color: var(--opus-sidebar-background);
 }

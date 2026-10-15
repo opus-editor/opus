@@ -29,6 +29,9 @@ public class App : Adw.Application {
 
   public App (string app_id) {
     Object (application_id: app_id, flags: ApplicationFlags.HANDLES_COMMAND_LINE);
+    // GApplication derives this from the id; the bundled icons and .ui
+    // files live under the real one whatever id this process runs as.
+    resource_base_path = "/io/github/opus_editor/Opus";
     settings = new GLib.Settings ("io.github.opus_editor.Opus");
     #if DEBUG
     dev_server = new Opus.Dev.DevServer ();

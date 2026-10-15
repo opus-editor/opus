@@ -345,6 +345,11 @@ public class MainWindow : Object {
     update_theme_class (style_manager.dark);
 
     window.application = app;
+    #if DEBUG
+    // Libadwaita's striped header bar, so a development build is never
+    // mistaken for the installed Opus — same gate as Logger/DevServer.
+    window.add_css_class ("devel");
+    #endif
     // No folder is linked at construction — the sidebar has nothing
     // to show until link_folder() gives it one ("Open Folder…", or
     // main.vala linking one right after construction when launched

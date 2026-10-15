@@ -13,6 +13,10 @@ test: build
     meson test -C out/native
 
 # Run the app, optionally against a folder: `just run ~/some/project`.
+# OPUS_APP_ID gives this build its own id on the session bus — under the
+# real one, GApplication's single-instance rule would hand the launch
+# off to an installed Opus that happens to be open, and this tree's
+# binary would never run at all.
 # GSETTINGS_SCHEMA_DIR points GLib.Settings at the schema data/meson.build
 # already compiles into the build dir (gnome.compile_schemas), so this
 # works without `ninja install` — GLib.Settings would otherwise abort at
@@ -20,7 +24,7 @@ test: build
 # The others do the same for the bundled languages and themes: packages
 # and themes straight from the source tree, grammars from the build dir.
 run *ARGS: build
-    GSETTINGS_SCHEMA_DIR=out/native/data OPUS_LANGUAGES_DIR=languages OPUS_GRAMMARS_DIR=out/native/languages OPUS_THEMES_DIR=src/themes OPUS_FUNCTIONS_DIR=src/functions ./out/native/src/opus {{ARGS}}
+    OPUS_APP_ID=io.github.opus_editor.Opus.Devel GSETTINGS_SCHEMA_DIR=out/native/data OPUS_LANGUAGES_DIR=languages OPUS_GRAMMARS_DIR=out/native/languages OPUS_THEMES_DIR=src/themes OPUS_FUNCTIONS_DIR=src/functions ./out/native/src/opus {{ARGS}}
 
 # Opens the app sized to exactly match the window in assets/preview.png
 # (1080x720 — the image itself is 1202x842, padded by its drop shadow),

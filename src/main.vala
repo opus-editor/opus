@@ -1,6 +1,7 @@
 /**
  * The app id itself is overridable via OPUS_APP_ID — unset for every real
- * launch (the normal "io.github.opus_editor.Opus" applies), set by
+ * launch (the normal "io.github.opus_editor.Opus" applies), set to
+ * "io.github.opus_editor.Opus.Devel" by `just run` and by
  * SystemTestSession to a value unique to that one test run. Without this,
  * a system test's own freshly-spawned process would find
  * "io.github.opus_editor.Opus" already owned by any real Opus window the
