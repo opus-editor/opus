@@ -1,0 +1,20 @@
+/* TextArea's chrome is the scrolled window's, the one node that stays
+ * the box's own size — the text view inside it is as tall as its text
+ * and scrolls out of sight, corners first. No css-name "entry" on the
+ * view to borrow Gtk.Entry's stylesheet: that would stack its real
+ * padding on top of the view's own margins instead of replacing them.
+ * The fill is the one libadwaita gives its own entries and buttons
+ * (_buttons.scss): currentColor at 10%, a translucent overlay that
+ * follows the text color in both modes — painted once, so the view and
+ * its `text` child (both paint a background of their own) go
+ * transparent. */
+.text-area-box {
+  /* Same --radius-control (base.css) every other real Gtk.Entry/
+   * Gtk.Button already carries. */
+  border-radius: var(--radius-control);
+  background-color: var(--fill-strong);
+}
+.text-area-view,
+.text-area-view > text {
+  background-color: transparent;
+}

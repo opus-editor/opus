@@ -241,7 +241,7 @@ namespace Opus.Dev {
     /** The diff placeholder's title ("Binary file", …), "" while a real diff shows. */
     public abstract string git_diff_placeholder () throws DBusError, IOError;
 
-    /** The Conflicts list's "Solve All" button. */
+    /** Every conflicted file opened in the editor — StagingPane.solve_all(). */
     public abstract void git_solve_all () throws DBusError, IOError;
 
     /** The header switcher's current page: "editor" or "git". */

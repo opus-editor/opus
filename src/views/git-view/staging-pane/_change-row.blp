@@ -24,6 +24,30 @@ Gtk.Box row {
     opacity: 0.75;
   }
 
+  // Inline actions, on the row under the pointer or the one last selected
+  // (staging-pane.css's own .change-row-actions). Which of the two show
+  // depends on the row's section — ChangeRow.set_section(); HistoryPane's
+  // rows never get one and keep the whole box hidden.
+  Gtk.Box actions {
+    styles ["change-row-actions"]
+    orientation: horizontal;
+    spacing: 2;
+    valign: center;
+    visible: false;
+
+    Gtk.Button stage_button {
+      styles ["btn-xs", "btn-icon", "flat"]
+      icon-name: "opus-add-symbolic";
+      tooltip-text: _("Stage Changes");
+    }
+
+    Gtk.Button unstage_button {
+      styles ["btn-xs", "btn-icon", "flat"]
+      icon-name: "opus-remove-symbolic";
+      tooltip-text: _("Unstage Changes");
+    }
+  }
+
   // The status letters (A/M/D/R/C/T/U, or git's own two-letter code for
   // a conflict — UU, DU, … — each letter in its own color) instead of
   // ExplorerPaneTreeRow's own colored dot. "monospace" is GTK's own

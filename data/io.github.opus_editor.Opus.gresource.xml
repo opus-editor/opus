@@ -10,9 +10,11 @@
     <file compressed="true">editor-view/find-bar/index.ui</file>
     <file compressed="true">editor-view/find-in-files-bar/index.ui</file>
     <file compressed="true">git-view/staging-pane/_change-row.ui</file>
+    <file compressed="true">git-view/staging-pane/_group-row.ui</file>
     <file compressed="true">git-view/staging-pane/index.ui</file>
     <file compressed="true">git-view/history-pane/index.ui</file>
     <file compressed="true">components/search-input.ui</file>
+    <file compressed="true">components/text-area.ui</file>
     <file compressed="true">main/main-window/index.ui</file>
     <file compressed="true">main/command-bar/index.ui</file>
     <file compressed="true">main/command-bar/_row.ui</file>
@@ -30,6 +32,7 @@
     <file compressed="true">styles/code-editor.css</file>
     <file compressed="true">styles/command-bar.css</file>
     <file compressed="true">styles/staging-pane.css</file>
+    <file compressed="true">styles/text-area.css</file>
     <file compressed="true">styles/log-dialog.css</file>
     <file compressed="true">styles/tree-pane.css</file>
     <file compressed="true">styles/git-content.css</file>
@@ -410,6 +413,9 @@
     <file alias="scalable/actions/opus-code-symbolic.svg" compressed="true">icons/scalable/actions/opus-code-symbolic.svg</file>
     <file alias="scalable/actions/opus-chevron-right-symbolic.svg" compressed="true">icons/scalable/actions/opus-chevron-right-symbolic.svg</file>
     <file alias="scalable/actions/opus-chevron-down-symbolic.svg" compressed="true">icons/scalable/actions/opus-chevron-down-symbolic.svg</file>
+    <file alias="scalable/actions/opus-add-symbolic.svg" compressed="true">icons/scalable/actions/opus-add-symbolic.svg</file>
+    <file alias="scalable/actions/opus-remove-symbolic.svg" compressed="true">icons/scalable/actions/opus-remove-symbolic.svg</file>
+    <file alias="scalable/actions/opus-undo-symbolic.svg" compressed="true">icons/scalable/actions/opus-undo-symbolic.svg</file>
     <file alias="scalable/actions/opus-regex-symbolic.svg" compressed="true">icons/scalable/actions/opus-regex-symbolic.svg</file>
     <file alias="scalable/actions/opus-case-sensitive-symbolic.svg" compressed="true">icons/scalable/actions/opus-case-sensitive-symbolic.svg</file>
     <file alias="scalable/actions/opus-whole-word-symbolic.svg" compressed="true">icons/scalable/actions/opus-whole-word-symbolic.svg</file>
@@ -425,8 +431,6 @@
     <file alias="scalable/actions/opus-tag-symbolic.svg" compressed="true">icons/scalable/actions/opus-tag-symbolic.svg</file>
     <file alias="scalable/actions/opus-search-symbolic.svg" compressed="true">icons/scalable/actions/opus-search-symbolic.svg</file>
     <file alias="scalable/actions/opus-content-lines-symbolic.svg" compressed="true">icons/scalable/actions/opus-content-lines-symbolic.svg</file>
-    <file alias="scalable/actions/opus-stage-symbolic.svg" compressed="true">icons/scalable/actions/opus-stage-symbolic.svg</file>
-    <file alias="scalable/actions/opus-unstage-symbolic.svg" compressed="true">icons/scalable/actions/opus-unstage-symbolic.svg</file>
     <file alias="scalable/actions/opus-close-symbolic.svg" compressed="true">icons/scalable/actions/opus-close-symbolic.svg</file>
     <file alias="scalable/actions/opus-notes-symbolic.svg" compressed="true">icons/scalable/actions/opus-notes-symbolic.svg</file>
     <file alias="scalable/actions/opus-file-open-symbolic.svg" compressed="true">icons/scalable/actions/opus-file-open-symbolic.svg</file>

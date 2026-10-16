@@ -1,28 +1,18 @@
 /**
- * The Git activity's sidebar content: a header (folder name, branch, a
- * "..." menu button) identical in shape to ExplorerPane's own, then
- * Unstaged Changes and Staged Changes — each a real ChangeList, from
- * GitScope.WorkingTree's own unstaged/staged — splitting the remaining
- * space evenly, then a Commit button sized to itself. Stage All/Unstage All
- * (GitScope.Stage.add_async()/unstage_async() over that list's own
- * all_changes(), not selected_changes() — they ignore selection
- * entirely; a refusal from git surfaces through operation_failed),
- * and each stays insensitive without anything in its own list at all
- * (ChangeList.has_items). A row's own double-click
- * (ChangeList's own item_activated) instead acts on just that one row,
- * and Enter with a selection (selection_activated) acts on the current
- * selection — three different scopes, see ChangeList's own doc comment
- * for why double-click/Enter needed splitting into two signals to tell
- * them apart at all.
+ * The Git activity's sidebar content: a header (folder name, branch)
+ * identical in shape to ExplorerPane's own, then one ChangeTree —
+ * Staged, Conflicts and Unstaged (GitScope.WorkingTree's own staged/
+ * conflicts/unstaged) as collapsible rows over their changes — and a
+ * Commit box sized to itself. A row's double-click (ChangeTree's
+ * item_activated) stages or unstages just that row; Enter
+ * (selection_activated) acts on the current selection, group by group;
+ * a refusal from git surfaces through operation_failed.
  *
- * Conflicts (GitScope.WorkingTree.conflicts) get a third list above
- * the other two, shown only while there are any — VS Code's own "Merge
- * Changes" group: no discard, but a "…" menu (Accept all current/
- * incoming), a right-click menu per row by its kind (GitScope.Resolve's
- * actions), and staging per row — a double-click, Enter — that asks
- * first about files still carrying markers or deleted on one side
- * (stage_conflicts()). "Solve All" opens every conflicted file in the
- * editor, where CodeEditorConflicts offers each block its Accept buttons. While a merge/rebase/cherry-pick/revert is
+ * A right-click (show_context_menu()) acts on the selection, one
+ * section at a time: Staged first, then Unstaged, then Conflicts.
+ * Conflicts — VS Code's own "Merge Changes" group — is only in the
+ * tree while there are any; staging one asks first about files still
+ * carrying markers or deleted on one side (stage_conflicts()). While a merge/rebase/cherry-pick/revert is
  * parked (WorkingTree.operation) the commit box is prefilled with
  * git's own prepared message, the commit button reads "Merge" or
  * "Continue" (GitScope.Operation.commit()/resume()), and an Abort
@@ -34,14 +24,11 @@
  * set_branch_provider() updating what the header and commit button show.
  * Between windows it does — see close().
  *
- * Both lists' own sort order follows UserSettings.changes_sort
+ * The tree's sort order follows UserSettings.changes_sort
  * ("name"/"path"/"status", VS Code's own `scm.defaultViewSortKey`),
- * re-applied live on every settings.json change.
- *
- * Each row's status letter (ChangeRow's own decoration_letter, see its
- * doc comment) follows the user's real editor.font_family too, via
- * apply_decoration_font() — re-applied on the same settings.json change
- * as changes_sort above.
+ * re-applied live on every settings.json change; each row's status
+ * letter (ChangeRow's own decoration_letter) follows the user's real
+ * editor.font_family the same way, via apply_decoration_font().
  *
  * Live, not just on-link/on-action: set_workspace_context() (wired by
  * MainWindow the same places as GitBranch.IProvider/set_branch_provider())
@@ -65,23 +52,12 @@ namespace GitView {
     private Gtk.Box root_box;
     private Gtk.Label root_label;
     private Gtk.Label branch_label;
-    private Gtk.Button stage_more_button;
-    private Gtk.Button stage_button;
-    private Gtk.Button unstage_button;
-    private Gtk.TextView commit_message_view;
-    private Gtk.Label commit_message_placeholder;
+    private TextArea commit_message_area;
     private Gtk.Label commit_label;
     private Gtk.Button commit_button;
     private Gtk.Button abort_button;
-    private Gtk.Box conflicts_box;
-    private Gtk.Button conflicts_more_button;
-    private Gtk.ScrolledWindow conflicts_scrolled;
-    private Gtk.ScrolledWindow unstaged_scrolled;
-    private Gtk.ScrolledWindow staged_scrolled;
-    private Gtk.Button conflicts_solve_button;
-    private ChangeList conflicts_list = new ChangeList ();
-    private ChangeList unstaged_list = new ChangeList ();
-    private ChangeList staged_list = new ChangeList ();
+    private Gtk.ScrolledWindow changes_scrolled;
+    private ChangeTree changes = new ChangeTree ();
     private GitScope.OperationKind operation = GitScope.OperationKind.NONE;
     // What apply_operation() last put in the commit box itself — so it can tell its own text from the user's.
     private string prefilled_message = "";
@@ -94,8 +70,8 @@ namespace GitView {
     public string operation_name { owned get { return operation == GitScope.OperationKind.NONE ? "none" : operation.subcommand (); } }
     public bool commit_enabled { get { return commit_button.sensitive; } }
     public string commit_message {
-        owned get { return commit_message_view.buffer.text; }
-        set { commit_message_view.buffer.text = value; }
+        owned get { return commit_message_area.text; }
+        set { commit_message_area.text = value; }
     }
 
     private GitBranch.IProvider? branch_provider = null;
@@ -118,10 +94,10 @@ namespace GitView {
     /** git refused (or isn't there) for something the user just asked for — `summary` is the one-line verdict, `log` git's own words, null when the summary already is the whole story (no git to run at all). A signal, not a toast of its own: a toast belongs to the window, so MainWindow shows it (and its "View Log"). */
     public signal void operation_failed (string summary, string? log);
 
-    /** Exactly one row got selected in Unstaged or Staged: its diff, as a preview tab — MainWindow opens it. */
+    /** Exactly one change got selected, under Unstaged or Staged: its diff, as a preview tab — MainWindow opens it. */
     public signal void open_diff_requested (GitDiff.Request request);
 
-    /** Exactly one row got selected in Conflicts: the file itself, to resolve by hand — MainWindow opens it. */
+    /** Exactly one change got selected, under Conflicts: the file itself, to resolve by hand — MainWindow opens it. */
     public signal void open_file_requested (string path);
 
     /** Something here just changed the repository — a stage, discard, resolution, commit or abort went through (or failed after touching it). The history view can't learn of a commit from the file watcher, which never looks inside `.git`, so MainWindow relays this to it. */
@@ -134,69 +110,39 @@ namespace GitView {
       root_box = (Gtk.Box) builder.get_object ("root_box");
       root_label = (Gtk.Label) builder.get_object ("root_label");
       branch_label = (Gtk.Label) builder.get_object ("branch_label");
-      stage_more_button = (Gtk.Button) builder.get_object ("stage_more_button");
-      stage_more_button.clicked.connect (() => show_discard_menu ());
-      stage_button = (Gtk.Button) builder.get_object ("stage_button");
-      unstage_button = (Gtk.Button) builder.get_object ("unstage_button");
-      commit_message_view = (Gtk.TextView) builder.get_object ("commit_message_view");
-      commit_message_placeholder = (Gtk.Label) builder.get_object ("commit_message_placeholder");
-      commit_message_view.buffer.changed.connect (update_commit_message_placeholder);
-      commit_message_view.buffer.changed.connect (update_commit_button_sensitivity);
+      changes_scrolled = (Gtk.ScrolledWindow) builder.get_object ("changes_scrolled");
+      commit_message_area = new TextArea () { placeholder = _("Commit message") };
+      commit_message_area.add_css_class ("mt-150");
+      commit_message_area.add_css_class ("ms-150");
+      commit_message_area.add_css_class ("me-150");
+      root_box.insert_child_after (commit_message_area, changes_scrolled);
+      commit_message_area.changed.connect (update_commit_button_sensitivity);
       commit_label = (Gtk.Label) builder.get_object ("commit_label");
       commit_button = (Gtk.Button) builder.get_object ("commit_button");
       commit_button.clicked.connect (() => commit.begin ());
       abort_button = (Gtk.Button) builder.get_object ("abort_button");
       abort_button.clicked.connect (() => confirm_and_abort.begin ());
-      conflicts_box = (Gtk.Box) builder.get_object ("conflicts_box");
-      conflicts_more_button = (Gtk.Button) builder.get_object ("conflicts_more_button");
-      conflicts_more_button.clicked.connect (() => show_conflicts_menu ());
-      conflicts_solve_button = (Gtk.Button) builder.get_object ("conflicts_solve_button");
-      conflicts_solve_button.clicked.connect (solve_all);
-      conflicts_scrolled = (Gtk.ScrolledWindow) builder.get_object ("conflicts_scrolled");
-      conflicts_scrolled.child = conflicts_list.widget;
-      conflicts_list.context_menu_requested.connect (show_conflict_row_menu);
-      conflicts_list.item_activated.connect ((change) => stage_conflicts.begin (single (change)));
-      conflicts_list.selection_activated.connect (() => stage_conflicts.begin (conflicts_list.selected_changes ()));
-      unstaged_scrolled = (Gtk.ScrolledWindow) builder.get_object ("unstaged_scrolled");
-      unstaged_scrolled.child = unstaged_list.widget;
-      staged_scrolled = (Gtk.ScrolledWindow) builder.get_object ("staged_scrolled");
-      staged_scrolled.child = staged_list.widget;
+      changes_scrolled.child = changes.widget;
+      changes.context_menu_requested.connect (show_context_menu);
+      // A double-click acts on just the row clicked; Enter (with a
+      // selection) acts on the whole current selection — see
+      // ChangeTree's own doc comment for why those are two signals.
+      changes.item_activated.connect (activate_change);
+      changes.action_requested.connect (run_action);
+      changes.group_action_requested.connect (run_group_action);
+      changes.selection_activated.connect (activate_selection);
+      changes.selection_changed.connect (open_selected);
       update_branch_ui ();
 
-      conflicts_list.set_sort_key (user_settings.changes_sort);
-      unstaged_list.set_sort_key (user_settings.changes_sort);
-      staged_list.set_sort_key (user_settings.changes_sort);
+      changes.set_sort_key (user_settings.changes_sort);
       // Live-reload, same as every other editor.*/window.* setting —
       // MainWindow.on_settings_file_changed() is what actually calls
       // user_settings.reload() when settings.json's own tab is open.
       settings_handler = user_settings.changed.connect (() => {
-        conflicts_list.set_sort_key (user_settings.changes_sort);
-        unstaged_list.set_sort_key (user_settings.changes_sort);
-        staged_list.set_sort_key (user_settings.changes_sort);
+        changes.set_sort_key (user_settings.changes_sort);
         apply_decoration_font ();
       });
       apply_decoration_font ();
-
-      // Both buttons start sensitive: false in the Blueprint —
-      // update_list_button_sensitivity() (called from refresh_working_tree())
-      // keeps that in sync with has_items across every folder switch/refresh.
-      stage_button.clicked.connect (() => stage.begin (unstaged_list.all_changes ()));
-      unstage_button.clicked.connect (() => unstage.begin (staged_list.all_changes ()));
-      // A double-click acts on just the row clicked; Enter (with a
-      // selection) acts on the whole current selection — see
-      // ChangeList's own doc comment for why those are two signals.
-      unstaged_list.item_activated.connect ((change) => stage.begin (single (change)));
-      staged_list.item_activated.connect ((change) => unstage.begin (single (change)));
-      unstaged_list.selection_activated.connect (() => stage.begin (unstaged_list.selected_changes ()));
-      staged_list.selection_activated.connect (() => unstage.begin (staged_list.selected_changes ()));
-      unstaged_list.selection_changed.connect (() => request_diff (unstaged_list, "unstaged"));
-      staged_list.selection_changed.connect (() => request_diff (staged_list, "staged"));
-      conflicts_list.selection_changed.connect (() => {
-        var selected = conflicts_list.selected_changes ();
-        if (selected.length == 1) {
-          open_file_requested (selected[0].path);
-        }
-      });
 
       GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/staging-pane.css");
     }
@@ -234,13 +180,11 @@ namespace GitView {
       int generation = ++status_generation;
       var path = root_path;
       if (path == null) {
-        conflicts_list.set_changes (new GenericArray<GitScope.Change> (), "");
-        unstaged_list.set_changes (new GenericArray<GitScope.Change> (), "");
-        staged_list.set_changes (new GenericArray<GitScope.Change> (), "");
-        conflicts_box.visible = false;
+        changes.set_changes ("staged", new GenericArray<GitScope.Change> (), "");
+        changes.set_changes ("conflicts", new GenericArray<GitScope.Change> (), "");
+        changes.set_changes ("unstaged", new GenericArray<GitScope.Change> (), "");
         apply_operation (GitScope.OperationKind.NONE, "");
         update_commit_button_sensitivity ();
-        update_list_button_sensitivity ();
         return;
       }
 
@@ -253,13 +197,64 @@ namespace GitView {
         return; // superseded by a later set_root_path() while this was in flight
       }
 
-      conflicts_list.set_changes (tree != null ? tree.conflicts : new GenericArray<GitScope.Change> (), path);
-      unstaged_list.set_changes (tree != null ? tree.unstaged : new GenericArray<GitScope.Change> (), path);
-      staged_list.set_changes (tree != null ? tree.staged : new GenericArray<GitScope.Change> (), path);
-      conflicts_box.visible = conflicts_list.has_items;
+      changes.set_changes ("staged", tree != null ? tree.staged : new GenericArray<GitScope.Change> (), path);
+      changes.set_changes ("conflicts", tree != null ? tree.conflicts : new GenericArray<GitScope.Change> (), path);
+      changes.set_changes ("unstaged", tree != null ? tree.unstaged : new GenericArray<GitScope.Change> (), path);
       apply_operation (tree != null ? tree.operation : GitScope.OperationKind.NONE, tree != null ? tree.prepared_message : "");
       update_commit_button_sensitivity ();
-      update_list_button_sensitivity ();
+    }
+
+    /** A double-click on one change: what its section does with it. */
+    private void activate_change (GitScope.Change change, string section) {
+      switch (section) {
+        case "conflicts": stage_conflicts.begin (single (change)); break;
+        case "unstaged": stage.begin (single (change)); break;
+        default: unstage.begin (single (change)); break;
+      }
+    }
+
+    /** A row's own inline button, over that row or the selection it is part of (ChangeTree.action_requested): stage (asking a conflict's questions first) or unstage. */
+    private void run_action (string action, GenericArray<GitScope.Change> targets, string section) {
+      if (action != "stage") {
+        unstage.begin (targets);
+      } else if (section == "conflicts") {
+        stage_conflicts.begin (targets);
+      } else {
+        stage.begin (targets);
+      }
+    }
+
+    /** A group row's own button: the whole section staged or unstaged, or discarded behind its confirmation. */
+    private void run_group_action (string action, string section) {
+      switch (action) {
+        case "stage-all": stage.begin (changes.all_changes (section)); break;
+        case "unstage-all": unstage.begin (changes.all_changes (section)); break;
+        default: confirm_and_discard.begin (changes.all_changes (section)); break;
+      }
+    }
+
+    /** Enter: the selection, section by section — each a no-op with nothing selected under it. */
+    private void activate_selection () {
+      stage_conflicts.begin (changes.selected_changes ("conflicts"));
+      stage.begin (changes.selected_changes ("unstaged"));
+      unstage.begin (changes.selected_changes ("staged"));
+    }
+
+    /** One selected change opens its diff as a preview (the file itself, for a conflict); several, or none, open nothing. */
+    private void open_selected () {
+      var conflicts = changes.selected_changes ("conflicts");
+      var unstaged = changes.selected_changes ("unstaged");
+      var staged = changes.selected_changes ("staged");
+      if (root_path == null || conflicts.length + unstaged.length + staged.length != 1) {
+        return;
+      }
+      if (conflicts.length == 1) {
+        open_file_requested (conflicts[0].path);
+      } else if (unstaged.length == 1) {
+        open_diff_requested (GitDiff.Request.for_working_change (root_path, unstaged[0], "unstaged"));
+      } else {
+        open_diff_requested (GitDiff.Request.for_working_change (root_path, staged[0], "staged"));
+      }
     }
 
     /**
@@ -270,16 +265,15 @@ namespace GitView {
      * never overwritten in either direction.
      */
     private void apply_operation (GitScope.OperationKind kind, string prepared_message) {
-      var buffer = commit_message_view.buffer;
       if (kind != operation) {
         if (kind == GitScope.OperationKind.NONE) {
-          if (buffer.text == prefilled_message) {
-            buffer.text = "";
+          if (commit_message_area.text == prefilled_message) {
+            commit_message_area.text = "";
           }
           prefilled_message = "";
         } else {
-          if (buffer.text == "" || buffer.text == prefilled_message) {
-            buffer.text = prepared_message;
+          if (commit_message_area.text == "" || commit_message_area.text == prefilled_message) {
+            commit_message_area.text = prepared_message;
           }
           prefilled_message = prepared_message;
         }
@@ -325,10 +319,10 @@ namespace GitView {
       });
     }
 
-    /** `git add`s `changes` as they currently are — Stage All (every row), a double-click (just that row), or Enter (the current selection) all funnel through this. A no-op with no folder linked. */
+    /** `git add`s `changes` as they currently are — a double-click (just that row), Enter (the current selection) or the debug surface's stage_all() all funnel through this. A no-op with nothing to stage or no folder linked. */
     private async void stage (GenericArray<GitScope.Change> changes) {
       var path = root_path;
-      if (path == null) {
+      if (path == null || changes.length == 0) {
         return;
       }
       try {
@@ -340,10 +334,10 @@ namespace GitView {
       repository_changed ();
     }
 
-    /** `changes` dropped back out of the index — same three callers, same no-op condition, as stage(). */
+    /** `changes` dropped back out of the index — same callers, same no-op condition, as stage(). */
     private async void unstage (GenericArray<GitScope.Change> changes) {
       var path = root_path;
-      if (path == null) {
+      if (path == null || changes.length == 0) {
         return;
       }
       try {
@@ -361,7 +355,7 @@ namespace GitView {
       if (path == null) {
         return;
       }
-      var message = commit_message_view.buffer.text;
+      var message = commit_message_area.text;
       bool plain = operation == GitScope.OperationKind.NONE || operation == GitScope.OperationKind.MERGE;
       try {
         if (plain) {
@@ -369,7 +363,7 @@ namespace GitView {
         } else {
           yield GitScope.Operation.resume_async (path, operation, message);
         }
-        commit_message_view.buffer.text = "";
+        commit_message_area.text = "";
         prefilled_message = "";
       } catch (GitScope.CommandError e) {
         report_failure (plain ? _("Couldn’t commit the changes") : _("Couldn’t continue the %s").printf (operation.subcommand ()), e);
@@ -402,36 +396,57 @@ namespace GitView {
       repository_changed ();
     }
 
-    /** conflicts_more_button's own "…" menu — whole-side resolution for every text conflict at once; files one side deleted have no "side" to take and are left to Stage All's own questions. */
-    private void show_conflicts_menu () {
-      var text_conflicts = text_conflicts_of (conflicts_list.all_changes ());
-      ContextMenu.popup_at (conflicts_more_button, 0, conflicts_more_button.get_height (), (popover, box) => {
-        box.append (ContextMenu.item (_("Accept all current"), () => accept_side.begin (text_conflicts, true), popover, null, text_conflicts.length > 0));
-        box.append (ContextMenu.item (_("Accept all incoming"), () => accept_side.begin (text_conflicts, false), popover, null, text_conflicts.length > 0));
+    /** The right-click menu, for the selection's highest-priority section — Staged, then Unstaged, then Conflicts — and only its rows. Nothing with no change selected. */
+    private void show_context_menu (double x, double y) {
+      foreach (var section in new string[] { "staged", "unstaged", "conflicts" }) {
+        var selected = changes.selected_changes (section);
+        if (selected.length > 0) {
+          show_section_menu (section, selected, x, y);
+          return;
+        }
+      }
+    }
+
+    private void show_section_menu (string section, GenericArray<GitScope.Change> selected, double x, double y) {
+      ContextMenu.popup_at (changes.widget, x, y, (popover, box) => {
+        switch (section) {
+          case "staged":
+            box.append (ContextMenu.item (_("Unstage Changes"), () => unstage.begin (selected), popover));
+            break;
+          case "unstaged":
+            box.append (ContextMenu.item (_("Stage Changes"), () => stage.begin (selected), popover));
+            box.append (ContextMenu.item (_("Discard Changes"), () => confirm_and_discard.begin (selected), popover));
+            break;
+          default:
+            // HEAD's side of every conflict, staged (GitScope.Resolve.accept_ours)
+            // — only a file with both sides still there has that side to take.
+            var text_conflicts = text_conflicts_of (selected);
+            box.append (ContextMenu.item (_("Stage Changes"), () => stage_conflicts.begin (selected), popover));
+            box.append (ContextMenu.item (_("Revert to HEAD"), () => accept_side.begin (text_conflicts, true), popover, null, text_conflicts.length == selected.length));
+            break;
+        }
+        box.append (ContextMenu.separator ());
+        box.append (ContextMenu.item (_("Open in Editor"), () => open_in_editor (selected), popover));
       });
     }
 
-    /** Right-click on one conflict row: the actions its kind allows, VS Code's own wording. */
-    private void show_conflict_row_menu (GitScope.Change? change, double x, double y) {
-      if (change == null) {
-        return;
-      }
-      ContextMenu.popup_at (conflicts_list.widget, x, y, (popover, box) => {
-        switch (change.kind) {
-          case GitScope.ChangeKind.DELETED_BY_THEM:
-            box.append (ContextMenu.item (_("Keep Our Version"), () => keep_or_remove.begin (single (change), true), popover));
-            box.append (ContextMenu.item (_("Delete File"), () => keep_or_remove.begin (single (change), false), popover));
-            break;
-          case GitScope.ChangeKind.DELETED_BY_US:
-            box.append (ContextMenu.item (_("Keep Their Version"), () => keep_or_remove.begin (single (change), true), popover));
-            box.append (ContextMenu.item (_("Delete File"), () => keep_or_remove.begin (single (change), false), popover));
-            break;
-          default:
-            box.append (ContextMenu.item (_("Accept current"), () => accept_side.begin (single (change), true), popover));
-            box.append (ContextMenu.item (_("Accept incoming"), () => accept_side.begin (single (change), false), popover));
-            break;
+    /** Each selected file in a tab — except one deleted from disk, which has nothing to open. */
+    private void open_in_editor (GenericArray<GitScope.Change> selected) {
+      for (uint i = 0; i < selected.length; i++) {
+        if (selected[i].kind != GitScope.ChangeKind.DELETED) {
+          open_file_requested (selected[i].path);
         }
-      });
+      }
+    }
+
+    private static GenericArray<GitScope.Change> text_conflicts_of (GenericArray<GitScope.Change> changes) {
+      var result = new GenericArray<GitScope.Change> ();
+      for (uint i = 0; i < changes.length; i++) {
+        if (changes[i].kind == GitScope.ChangeKind.CONFLICT) {
+          result.add (changes[i]);
+        }
+      }
+      return result;
     }
 
     private async void accept_side (GenericArray<GitScope.Change> changes, bool ours) {
@@ -444,24 +459,6 @@ namespace GitView {
           yield GitScope.Resolve.accept_ours_async (path, paths_of (changes));
         } else {
           yield GitScope.Resolve.accept_theirs_async (path, paths_of (changes));
-        }
-      } catch (GitScope.CommandError e) {
-        report_failure (_("Couldn’t resolve the conflicts"), e);
-      }
-      yield refresh_working_tree ();
-      repository_changed ();
-    }
-
-    private async void keep_or_remove (GenericArray<GitScope.Change> changes, bool keep) {
-      var path = root_path;
-      if (path == null || changes.length == 0) {
-        return;
-      }
-      try {
-        if (keep) {
-          yield GitScope.Resolve.keep_async (path, paths_of (changes));
-        } else {
-          yield GitScope.Resolve.remove_async (path, paths_of (changes));
         }
       } catch (GitScope.CommandError e) {
         report_failure (_("Couldn’t resolve the conflicts"), e);
@@ -547,43 +544,15 @@ namespace GitView {
       return yield Dialogs.confirm (widget, heading, _("The conflict markers will be staged as they are."), _("Yes"));
     }
 
-    private static GenericArray<GitScope.Change> text_conflicts_of (GenericArray<GitScope.Change> changes) {
-      var result = new GenericArray<GitScope.Change> ();
-      for (uint i = 0; i < changes.length; i++) {
-        if (changes[i].kind == GitScope.ChangeKind.CONFLICT) {
-          result.add (changes[i]);
-        }
-      }
-      return result;
-    }
-
-    /** One selected row opens its diff as a preview; several, or none, open nothing. */
-    private void request_diff (ChangeList list, string section) {
-      var selected = list.selected_changes ();
-      if (root_path == null || selected.length != 1) {
-        return;
-      }
-      open_diff_requested (GitDiff.Request.for_working_change (root_path, selected[0], section));
-    }
-
     private static GenericArray<GitScope.Change> single (GitScope.Change change) {
       var changes = new GenericArray<GitScope.Change> ();
       changes.add (change);
       return changes;
     }
 
-    /** stage_more_button's own "…" menu — see its doc comment on the Blueprint side. */
-    private void show_discard_menu () {
-      ContextMenu.popup_at (stage_more_button, 0, stage_more_button.get_height (), (popover, box) => {
-        box.append (ContextMenu.item (_("Discard changes on selected files"), () => confirm_and_discard.begin (unstaged_list.selected_changes ()), popover, null, unstaged_list.has_selection));
-        box.append (ContextMenu.item (_("Discard all changes"), () => confirm_and_discard.begin (unstaged_list.all_changes ()), popover, null, unstaged_list.has_items));
-      });
-    }
-
     /**
      * VS Code's own git.clean/git.cleanAll (extensions/git/src/commands.ts)
-     * always confirm first, no matter how many files — same here, one
-     * dialog for both the selected-files and the all-files call. The
+     * always confirm first, no matter how many files — same here. The
      * words follow what the discard does, as VS Code's do: files deleted
      * from disk come back (a restore, nothing lost), untracked ones are
      * deleted for good, anything else has its edits thrown away. A
@@ -660,9 +629,9 @@ namespace GitView {
     /** Each row as "<code> <relative path>" in list order — "M src/a.vala", "UU b.txt". */
     public string[] list_changes (string section) {
       string[] rows = {};
-      var changes = list_for (section).all_changes ();
-      for (uint i = 0; i < changes.length; i++) {
-        var change = changes[i];
+      var listed = changes.all_changes (section);
+      for (uint i = 0; i < listed.length; i++) {
+        var change = listed[i];
         var code = change.kind.is_conflict () ? change.conflict_code : change.kind.code ();
         rows += "%s %s".printf (code, change.path.substring (root_path.length + 1));
       }
@@ -670,25 +639,20 @@ namespace GitView {
     }
 
     public void stage_all () {
-      stage.begin (unstaged_list.all_changes ());
+      stage.begin (changes.all_changes ("unstaged"));
     }
 
     public void unstage_all () {
-      unstage.begin (staged_list.all_changes ());
+      unstage.begin (changes.all_changes ("staged"));
     }
 
     public void discard_all () {
-      confirm_and_discard.begin (unstaged_list.all_changes ());
+      confirm_and_discard.begin (changes.all_changes ("unstaged"));
     }
 
     /** A double-click on `path`'s row in `section`. */
     public void activate_row (string section, string path) throws Error {
-      var change = find_change (section, path);
-      switch (section) {
-        case "conflicts": stage_conflicts.begin (single (change)); break;
-        case "unstaged": stage.begin (single (change)); break;
-        default: unstage.begin (single (change)); break;
-      }
+      activate_change (find_change (section, path), section);
     }
 
     public void accept_current (string path) throws Error {
@@ -699,17 +663,17 @@ namespace GitView {
       accept_side.begin (single (find_change ("conflicts", path)), false);
     }
 
-    /** The Conflicts list's "Solve All": every conflicted file opened in the editor, to resolve block by block. */
+    /** Every conflicted file opened in the editor, to resolve block by block. */
     public void solve_all () {
-      var changes = conflicts_list.all_changes ();
-      for (uint i = 0; i < changes.length; i++) {
-        open_file_requested (changes[i].path);
+      var conflicts = changes.all_changes ("conflicts");
+      for (uint i = 0; i < conflicts.length; i++) {
+        open_file_requested (conflicts[i].path);
       }
     }
 
     /** A single click on `path`'s row in `section` — selects it alone, which opens its diff (or the file, for a conflict). */
     public void select_row (string section, string path) throws Error {
-      if (!list_for (section).select_path (Path.build_filename (root_path, path))) {
+      if (!changes.select_path (section, Path.build_filename (root_path, path))) {
         throw new IOError.NOT_FOUND ("No “%s” row in %s".printf (path, section));
       }
     }
@@ -722,19 +686,11 @@ namespace GitView {
       confirm_and_abort.begin ();
     }
 
-    private ChangeList list_for (string section) {
-      switch (section) {
-        case "conflicts": return conflicts_list;
-        case "unstaged": return unstaged_list;
-        default: return staged_list;
-      }
-    }
-
     private GitScope.Change find_change (string section, string path) throws Error {
-      var changes = list_for (section).all_changes ();
-      for (uint i = 0; i < changes.length; i++) {
-        if (changes[i].path == Path.build_filename (root_path, path)) {
-          return changes[i];
+      var listed = changes.all_changes (section);
+      for (uint i = 0; i < listed.length; i++) {
+        if (listed[i].path == Path.build_filename (root_path, path)) {
+          return listed[i];
         }
       }
       throw new IOError.NOT_FOUND ("No “%s” row in %s".printf (path, section));
@@ -787,24 +743,12 @@ namespace GitView {
       update_branch_ui ();
     }
 
-    /** Gtk.TextView has no native placeholder-text — commit_message_placeholder is a plain overlaid Gtk.Label, visible only while the buffer is genuinely empty. */
-    private void update_commit_message_placeholder () {
-      commit_message_placeholder.visible = commit_message_view.buffer.text == "";
-    }
-
     /** commit_button stays insensitive until "ready to commit" holds in full: a message actually typed, no conflict left (git would refuse that commit anyway), and something staged — except for a merge, whose commit git accepts with the index equal to HEAD (every conflict taken as "ours" leaves exactly that). Called on every buffer change and every refresh_working_tree(). */
     private void update_commit_button_sensitivity () {
       bool needs_staged = operation != GitScope.OperationKind.MERGE;
-      commit_button.sensitive = commit_message_view.buffer.text != ""
-        && !conflicts_list.has_items
-        && (staged_list.has_items || !needs_staged);
-    }
-
-    /** Stage All/Unstage All stay insensitive with nothing in their own list at all — they act on the whole list, so selection doesn't factor in. */
-    private void update_list_button_sensitivity () {
-      conflicts_solve_button.sensitive = conflicts_list.has_items;
-      stage_button.sensitive = unstaged_list.has_items;
-      unstage_button.sensitive = staged_list.has_items;
+      commit_button.sensitive = commit_message_area.text != ""
+        && !changes.has_items ("conflicts")
+        && (changes.has_items ("staged") || !needs_staged);
     }
 
     private void update_branch_ui () {

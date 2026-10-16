@@ -1,17 +1,3 @@
-// The gtk4 vapi types Gtk.TreeListModel's constructor create_func as taking
-// a GLib.Object item, but the real C typedef takes an untyped gpointer —
-// generating a GCC incompatible-pointer-types warning on every build. This
-// raw binding matches the actual C signature exactly, sidestepping the vapi
-// entirely instead of living with the warning.
-[CCode (cname = "GtkTreeListModelCreateModelFunc", has_target = false)]
-private delegate GLib.ListModel? RawCreateModelFunc (void* item, void* user_data);
-
-[CCode (cname = "gtk_tree_list_model_new")]
-private extern static Gtk.TreeListModel tree_list_model_new_raw (
-  owned GLib.ListModel root, bool passthrough, bool autoexpand,
-  RawCreateModelFunc create_func, void* user_data, GLib.DestroyNotify? user_destroy
-);
-
 namespace EditorView {
   /**
    * Gtk-backed facade for the sidebar's file tree: a Gtk.ListView over a

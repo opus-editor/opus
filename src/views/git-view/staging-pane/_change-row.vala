@@ -13,8 +13,11 @@
  * instead of a dot's background (see staging-pane.css's own
  * .change-decoration-letter rules, and StagingPane's own
  * apply_decoration_font() for why it's a Gtk.Label, not a plain
- * Gtk.Box, in the first place). Recycled by the list view's factory,
- * same as ExplorerPaneTreeRow.
+ * Gtk.Box, in the first place). In ChangeTree, inline actions sit left
+ * of the letters — stage under Unstaged and Conflicts, unstage under
+ * Staged (set_section()) — shown only on the hovered or
+ * last-selected row (set_actions_shown()). Recycled by the list view's
+ * factory, same as ExplorerPaneTreeRow.
  */
 namespace GitView {
   public class ChangeRow : Object {
@@ -23,12 +26,18 @@ namespace GitView {
     private Gtk.Label label;
     private Gtk.Label decoration_letter;
     private Gtk.Label decoration_letter_2;
+    private Gtk.Box actions;
+    private Gtk.Button stage_button;
+    private Gtk.Button unstage_button;
     private IconTheme icon_theme;
 
     public Gtk.Widget widget { get { return box; } }
 
-    /** What bind() last showed — ChangeList's own right-click hit test reads it back off the row under the pointer. */
+    /** What bind() last showed — ChangeTree's own right-click hit test reads it back off the row under the pointer. */
     public GitScope.Change? bound_change { get; private set; default = null; }
+
+    /** One of the inline actions was clicked for bound_change — "stage" or "unstage". */
+    public signal void action_requested (string action, GitScope.Change change);
 
     public ChangeRow (IconTheme icon_theme) {
       this.icon_theme = icon_theme;
@@ -39,6 +48,27 @@ namespace GitView {
       label = (Gtk.Label) builder.get_object ("label");
       decoration_letter = (Gtk.Label) builder.get_object ("decoration_letter");
       decoration_letter_2 = (Gtk.Label) builder.get_object ("decoration_letter_2");
+      actions = (Gtk.Box) builder.get_object ("actions");
+      stage_button = (Gtk.Button) builder.get_object ("stage_button");
+      unstage_button = (Gtk.Button) builder.get_object ("unstage_button");
+      stage_button.clicked.connect (() => action_requested ("stage", bound_change));
+      unstage_button.clicked.connect (() => action_requested ("unstage", bound_change));
+    }
+
+    /** Which inline actions this row offers — "staged"/"conflicts"/"unstaged", or null for none at all. */
+    public void set_section (string? section) {
+      actions.visible = section != null;
+      stage_button.visible = section == "unstaged" || section == "conflicts";
+      unstage_button.visible = section == "staged";
+    }
+
+    /** Keeps the actions visible without the pointer over the row — the last-selected one. */
+    public void set_actions_shown (bool shown) {
+      if (shown) {
+        box.add_css_class ("actions-shown");
+      } else {
+        box.remove_css_class ("actions-shown");
+      }
     }
 
     /** `root_path` strips down to the relative path the tooltip and the dimmed directory part both show — change.path itself stays absolute (GitScope.Change's own doc comment). */

@@ -1,0 +1,47 @@
+using Gtk 4.0;
+
+// One top-level object, parented onto the TextArea in code (see
+// search-input.blp for why not a wrapping box of its own). The view sits
+// in a Gtk.Viewport rather than being the scrolled window's own
+// scrollable: a text view measures no smaller than its text, so the
+// viewport always allocates it whole and it never scrolls by itself —
+// and its own adjustment, unlike a scrolled window's, never animates, so
+// a new line cannot slide the text up before the box has grown. Past
+// max-lines the viewport scrolls, and TextArea keeps the cursor in view
+// itself (keep_cursor_visible()).
+//
+// Gtk.TextView has no placeholder of its own: placeholder_label is a
+// plain overlaid Gtk.Label, hidden in code while there is text, with
+// can-target: false so it never takes a click meant for the view. The
+// view's margins (8px, every side) match the label's own margin-top/
+// margin-start, so the empty cursor and the placeholder's first letter
+// land in the same spot.
+Gtk.Overlay overlay {
+  Gtk.ScrolledWindow scrolled {
+    styles ["text-area-box"]
+    height-request: 72;
+    hscrollbar-policy: never;
+    propagate-natural-height: true;
+
+    Gtk.Viewport {
+      scroll-to-focus: false;
+
+      Gtk.TextView view {
+        styles ["text-area-view"]
+        wrap-mode: word_char;
+        top-margin: 8;
+        bottom-margin: 8;
+        left-margin: 8;
+        right-margin: 8;
+      }
+    }
+  }
+
+  [overlay]
+  Gtk.Label placeholder_label {
+    styles ["dim-label", "mt-200", "ms-200"]
+    halign: start;
+    valign: start;
+    can-target: false;
+  }
+}

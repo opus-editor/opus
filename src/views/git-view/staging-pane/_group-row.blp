@@ -1,0 +1,71 @@
+using Gtk 4.0;
+
+// A ChangeGroup's own row in ChangeTree: the expander that collapses the
+// changes under it, the section's title and how many it holds — both
+// set in code (ChangeGroupRow.bind()) — and, on hover, the section's
+// whole-group actions (which show is bind()'s too). Same shape as ExplorerPaneTreeRow's own row (editor-view/
+// explorer-pane/_tree-row.blp), so the chevron lands where the
+// explorer's folders put theirs.
+Gtk.Box row {
+  styles ["ms-200", "me-200"]
+  orientation: horizontal;
+
+  Gtk.TreeExpander expander {
+    hexpand: true;
+
+    child: Gtk.Box {
+      orientation: horizontal;
+      spacing: 6;
+
+      Gtk.Label title {
+        styles ["change-group-title"]
+        xalign: 0;
+      }
+
+      Gtk.Label count {
+        styles ["dim-label"]
+        xalign: 0;
+      }
+
+      Gtk.Box actions {
+        styles ["change-row-actions"]
+        orientation: horizontal;
+        spacing: 2;
+        halign: end;
+        hexpand: true;
+        valign: center;
+
+        // Confirmed first, always — see StagingPane.confirm_and_discard().
+        Gtk.Button discard_all_button {
+          styles ["btn-xs", "btn-icon", "flat"]
+          icon-name: "opus-undo-symbolic";
+          tooltip-text: _("Discard all changes");
+          visible: false;
+        }
+
+        Gtk.Button stage_all_button {
+          styles ["btn-xs", "btn-icon", "flat"]
+          icon-name: "opus-add-symbolic";
+          tooltip-text: _("Stage all changes");
+          visible: false;
+        }
+
+        Gtk.Button unstage_all_button {
+          styles ["btn-xs", "btn-icon", "flat"]
+          icon-name: "opus-remove-symbolic";
+          tooltip-text: _("Unstage all changes");
+          visible: false;
+        }
+      }
+
+      // The width of a change row's status letter (_change-row.blp's
+      // decoration_letter, same classes), so the actions above end in
+      // the same column as a change row's own.
+      Gtk.Label {
+        styles ["change-decoration-letter", "monospace"]
+        width-chars: 1;
+        can-target: false;
+      }
+    };
+  }
+}

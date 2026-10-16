@@ -202,6 +202,7 @@ opus_lib_sources = opus_logger_sources + opus_host_command_sources + opus_fuzzy_
 
 opus_gtk_view_sources = files(
   'views/lib/dialogs.vala',
+  'views/lib/tree-list-model.vala',
   'views/lib/drag-icons.vala',
   'views/lib/editor-theme.vala',
   'views/lib/syntax-tags.vala',
@@ -211,6 +212,7 @@ opus_gtk_view_sources = files(
   'views/lib/file-drag/index.vala',
   'views/components/context-menu.vala',
   'views/components/search-input.vala',
+  'views/components/text-area.vala',
   'views/components/code-editor/_change-gutter.vala',
   'views/components/code-editor/_scrollbar.vala',
   'views/components/code-editor/_diff-gutter.vala',
@@ -255,7 +257,11 @@ opus_gtk_view_sources = files(
   'views/editor-view/find-bar/index.vala',
   'views/editor-view/find-in-files-bar/index.vala',
   'views/git-view/staging-pane/_change-row.vala',
+  'views/git-view/staging-pane/_change-store.vala',
   'views/git-view/staging-pane/_change-list.vala',
+  'views/git-view/staging-pane/_change-group.vala',
+  'views/git-view/staging-pane/_group-row.vala',
+  'views/git-view/staging-pane/_change-tree.vala',
   'views/git-view/staging-pane/index.vala',
   'views/git-view/tree-pane/_item.vala',
   'views/git-view/tree-pane/_palette.vala',
