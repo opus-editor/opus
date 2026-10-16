@@ -107,6 +107,15 @@ listview.data-table row:focus {
 listview.data-table.file-tree-list:not(:focus-within) row:selected:not(:hover) {
   background-color: transparent;
 }
+/* Every sidebar pane's header (explorer, staging, history): the same
+ * 46px as the tab bar beside it, so the rows below them start level —
+ * GTK's min-height is the content box, so the padding is on top of it. */
+.sidebar-pane-header {
+  min-height: 30px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 .file-tree-root-label {
   font-weight: bold;
 }

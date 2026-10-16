@@ -102,14 +102,14 @@ textview.code-editor > text > selection {
 }
 
 /* CodeEditorScrollbar's marks: a hunk's git hue at the gutter's own
- * opacity, read back through the git-* class the way .change-gutter does. */
-editor-scrollbar.git-added {
+ * opacity, read back off its swatch children the way CodeEditorPalette's are. */
+editor-scrollbar > .git-added {
   color: color-mix(in srgb, var(--opus-git-added) var(--opus-gutter-git-opacity), transparent);
 }
-editor-scrollbar.git-modified {
+editor-scrollbar > .git-modified {
   color: color-mix(in srgb, var(--opus-git-modified) var(--opus-gutter-git-opacity), transparent);
 }
-editor-scrollbar.git-removed {
+editor-scrollbar > .git-removed {
   color: color-mix(in srgb, var(--opus-git-removed) var(--opus-gutter-git-opacity), transparent);
 }
 

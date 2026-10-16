@@ -15,7 +15,15 @@ public class CodeEditorScrollbar : Gtk.Widget {
   private const int SLIDER_W = 3;
   private const float DIMMED_ALPHA_FACTOR = 0.5f;
 
+  private const string[] TONES = { "git-added", "git-modified", "git-removed" };
+
   private Gtk.Scrollbar scrollbar;
+  // The hunk colors, each off a zero-drawing child carrying its git-*
+  // class (code-editor.css) — CodeEditorPalette's swatches. Never a
+  // class toggled on this widget itself during snapshot(): that swaps
+  // its style while GTK still holds the old one to draw the outline
+  // after, and the old one can be freed by then.
+  private Gtk.Box[] swatches = {};
   private CodeEditorSourceView view;
   private GitDiff.Hunk[] hunks = {};
   private ulong buffer_handler;
@@ -34,6 +42,13 @@ public class CodeEditorScrollbar : Gtk.Widget {
     scrollbar.add_css_class ("overlay-indicator");
     scrollbar.set_parent (this);
 
+    foreach (var tone in TONES) {
+      var swatch = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false };
+      swatch.add_css_class (tone);
+      swatch.set_parent (this);
+      swatches += swatch;
+    }
+
     var motion = new Gtk.EventControllerMotion ();
     motion.enter.connect (() => scrollbar.add_css_class ("hovering"));
     motion.leave.connect (() => scrollbar.remove_css_class ("hovering"));
@@ -45,6 +60,9 @@ public class CodeEditorScrollbar : Gtk.Widget {
 
   public override void dispose () {
     scrollbar.unparent ();
+    foreach (var swatch in swatches) {
+      swatch.unparent ();
+    }
     base.dispose ();
   }
 
@@ -70,9 +88,9 @@ public class CodeEditorScrollbar : Gtk.Widget {
       double bottom_margin = ratio * view.bottom_margin + SCROLLBAR_V_MARGIN;
       double line_height = (height - top_margin - bottom_margin) / total_lines;
 
-      var added = resolve ("git-added");
-      var modified = resolve ("git-modified");
-      var removed = resolve ("git-removed");
+      var added = swatches[0].get_color ();
+      var modified = swatches[1].get_color ();
+      var removed = swatches[2].get_color ();
       foreach (var hunk in hunks) {
         int start_y = (int) (top_margin + hunk.current_start * line_height);
         int end_y = (int) (top_margin + (hunk.current_start + hunk.current_count) * line_height);
@@ -92,13 +110,5 @@ public class CodeEditorScrollbar : Gtk.Widget {
     var rect = Graphene.Rect ();
     rect.init (0, start_y, chunk_width, chunk_height);
     snapshot.append_color (color, rect);
-  }
-
-  /** The `editor-scrollbar.git-*` rules (code-editor.css) as real colors — the class toggled on, the resolved `color` read back, the class off again; the same way CodeEditorChangeGutter resolves its own. */
-  private Gdk.RGBA resolve (string tone_class) {
-    add_css_class (tone_class);
-    var color = get_color ();
-    remove_css_class (tone_class);
-    return color;
   }
 }

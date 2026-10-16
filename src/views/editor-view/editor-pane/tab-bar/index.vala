@@ -59,7 +59,12 @@ namespace EditorView.EditorPane {
       overlay = (Gtk.Overlay) builder.get_object ("overlay");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
       row = new TabBarRow ();
-      scrolled_window.child = row;
+      // Our own viewport, not the one GtkScrolledWindow would wrap the
+      // row in: its scroll-to-focus follows the window's focus widget
+      // while the bar still counts as focus-within — a tab's close
+      // button focused, then a click in the sidebar, animated the bar
+      // to the far left.
+      scrolled_window.child = new Gtk.Viewport (null, null) { scroll_to_focus = false, child = row };
       fade_start = (Gtk.Widget) builder.get_object ("fade_start");
       fade_end = (Gtk.Widget) builder.get_object ("fade_end");
 
@@ -148,6 +153,7 @@ namespace EditorView.EditorPane {
       // A newly-appended permanent tab may have just pushed an existing
       // preview tab out of the last position.
       enforce_preview_is_last ();
+      update_single_tab ();
     }
 
     public void remove_tab (string path) {
@@ -163,6 +169,16 @@ namespace EditorView.EditorPane {
       }
       if (preview_path == path) {
         preview_path = null;
+      }
+      update_single_tab ();
+    }
+
+    /** Same class libadwaita's AdwTabBox sets on itself with one tab: the stylesheet drops the lone tab's "selected" fill, there being nothing to select it against. */
+    private void update_single_tab () {
+      if (pills.size () == 1) {
+        row.add_css_class ("single-tab");
+      } else {
+        row.remove_css_class ("single-tab");
       }
     }
 
@@ -220,14 +236,24 @@ namespace EditorView.EditorPane {
      */
     private void scroll_into_view (Gtk.Widget child) {
       Idle.add (() => {
-        Graphene.Rect bounds;
+        // Bounds come in the row's content-box coordinates, the
+        // adjustment spans its border box: the row's padding (its border
+        // box measured against itself starts at minus the padding) goes
+        // on each side, so an edge tab lands flush with the bar's edge
+        // and under no fade.
+        Graphene.Rect bounds, row_box;
         if (!child.compute_bounds (row, out bounds)) {
+          return false;
+        }
+        if (!row.compute_bounds (row, out row_box)) {
           return false;
         }
 
         var adjustment = scrolled_window.get_hadjustment ();
+        var inset_start = -row_box.origin.x;
+        var inset_end = row_box.origin.x + row_box.get_width () - row.get_width ();
         var child_start = bounds.origin.x;
-        var child_end = child_start + bounds.get_width ();
+        var child_end = inset_start + child_start + bounds.get_width () + inset_end;
         var page_start = adjustment.value;
         var page_end = page_start + adjustment.page_size;
 

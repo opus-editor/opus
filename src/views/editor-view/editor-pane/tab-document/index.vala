@@ -621,6 +621,10 @@ namespace EditorView.EditorPane {
      */
     public static int char_offset_of_line_column (string content, int line, int column) {
       var lines = content.split ("\n");
+      // g_strsplit gives an empty vector for "", not one empty line.
+      if (lines.length == 0) {
+        return 0;
+      }
       int line_index = (line - 1).clamp (0, lines.length - 1);
       int offset = 0;
       for (int i = 0; i < line_index; i++) {

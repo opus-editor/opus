@@ -4,9 +4,12 @@ Gtk.Box root_box {
   orientation: vertical;
 
   Gtk.Box root_header_box {
+    styles ["sidebar-pane-header"]
+
     Gtk.Box {
-      styles ["mt-200", "me-150", "ms-300", "mb-200"]
+      styles ["me-150", "ms-300"]
       orientation: vertical;
+      valign: center;
       hexpand: true;
 
       Gtk.Label root_label {
@@ -25,8 +28,9 @@ Gtk.Box root_box {
     }
 
     Gtk.Box {
-      styles ["mt-200", "me-150", "mb-200"]
+      styles ["me-150"]
       orientation: vertical;
+      valign: center;
       margin-start: 0;
 
       Gtk.Button more_button {

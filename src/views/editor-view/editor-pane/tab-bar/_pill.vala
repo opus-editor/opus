@@ -52,6 +52,9 @@ namespace EditorView.EditorPane {
 
       var click = new Gtk.GestureClick ();
       click.pressed.connect ((n_press, x, y) => {
+        if (hits_close_button (x, y)) {
+          return;
+        }
         if (n_press == 1) {
           selected ();
         } else if (n_press == 2) {
@@ -66,6 +69,16 @@ namespace EditorView.EditorPane {
       box.add_controller (right_click);
 
       close_button.clicked.connect (() => close_requested ());
+    }
+
+    /**
+     * A press on the close button reaches this pill's own gesture too
+     * (GtkButton only claims the sequence on release), and selecting the
+     * tab on the way to closing it would steal the active tab's place.
+     */
+    private bool hits_close_button (double x, double y) {
+      var target = box.pick (x, y, Gtk.PickFlags.DEFAULT);
+      return target != null && (target == close_button || target.is_ancestor (close_button));
     }
 
     /** `folder_name` is the file's immediate parent directory name, or "" if it has none. */

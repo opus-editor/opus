@@ -1,5 +1,5 @@
 .tab-bar {
-  min-height: 32px;
+  min-height: 46px;
 }
 
 .tab-bar-fade {
@@ -19,7 +19,7 @@
  * fill below: a drag icon has no window behind it to tint, so the ghost
  * needs a solid color of its own. */
 dnd .tab-pill.tab-drag-ghost {
-  border-radius: var(--radius);
+  border-radius: var(--radius-control);
   background-color: var(--opus-tab-drag-ghost);
 }
 
@@ -41,31 +41,46 @@ dnd .tab-pill.tab-drag-ghost {
   box-shadow: none;
 }
 
-/* libadwaita's own `tabbar tab` rules (_tab-view.scss), scaled from its
- * 46px bar (34px tab, 9px radius) down to this 32px one: a 24px tab with
- * 4px of air, and the radius following the height (9 × 24/34 ≈ 6px) so
- * the shorter tab doesn't read rounder. The fills are its exact mixes. */
+/* libadwaita's own `tabbar tab` rules (_tab-view.scss), as they are: a
+ * 34px tab (26px + 4px of padding) with 6px of air and its 9px radius,
+ * in a 46px bar — its own has one more pixel for a bottom shade line we
+ * don't draw. The selected fill is its exact mix; hover gets no fill of
+ * its own. */
 .tab-row {
-  padding: 4px;
+  padding: 6px 5px;
+}
+
+/* Between two idle tabs (TabBarRow), as libadwaita's `tabbox > separator`,
+ * a touch shorter than its 3px margins give. */
+.tab-row > separator {
+  margin-top: 7px;
+  margin-bottom: 7px;
+  transition: opacity 150ms ease-in-out;
+}
+
+.tab-row > separator.hidden {
+  opacity: 0;
 }
 
 .tab-pill {
-  min-height: 24px;
-  padding: 2px 6px;
-  border-radius: var(--radius);
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: var(--radius-control);
   transition: background 150ms ease-in-out;
 }
 
-.tab-pill:hover {
-  background-color: color-mix(in srgb, currentColor 7%, transparent);
+/* Inactive tabs read dimmer than the active one, on top of the fills. */
+.tab-pill:not(.active) {
+  opacity: 0.6;
 }
 
 .tab-pill.active {
   background-color: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.tab-pill.active:hover {
-  background-color: color-mix(in srgb, currentColor 13%, transparent);
+/* A lone tab has nothing to be "the selected one" against. */
+.tab-row.single-tab .tab-pill {
+  background: none;
 }
 
 /* Close button only shows on the active tab or on hover, not on every
