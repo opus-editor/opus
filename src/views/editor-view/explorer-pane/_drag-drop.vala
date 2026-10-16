@@ -157,6 +157,7 @@ namespace EditorView {
       if (payload == null) {
         return false;
       }
+      payload.accepted = true;
 
       var target = tree.node_at (x, y);
       var target_path = drag_target_path (target);

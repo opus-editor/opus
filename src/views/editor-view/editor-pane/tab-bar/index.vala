@@ -11,7 +11,7 @@ namespace EditorView.EditorPane {
     private const double SCROLL_STEP_PX = 40;
 
     private Gtk.Overlay overlay;
-    private Gtk.Box box;
+    private TabBarRow row;
     private Gtk.ScrolledWindow scrolled_window;
     private Gtk.Widget fade_start;
     private Gtk.Widget fade_end;
@@ -51,11 +51,15 @@ namespace EditorView.EditorPane {
     /** A tab was dragged to another place in the row. */
     public signal void reordered ();
 
+    /** A tab was dragged out and let go outside every window of ours (the desktop, another app) — the AdwTabView gesture for "give it a window of its own". */
+    public signal void detach_requested (string path);
+
     public TabBar () {
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/editor-view/editor-pane/tab-bar/index.ui");
       overlay = (Gtk.Overlay) builder.get_object ("overlay");
-      box = (Gtk.Box) builder.get_object ("box");
       scrolled_window = (Gtk.ScrolledWindow) builder.get_object ("scrolled_window");
+      row = new TabBarRow ();
+      scrolled_window.child = row;
       fade_start = (Gtk.Widget) builder.get_object ("fade_start");
       fade_end = (Gtk.Widget) builder.get_object ("fade_end");
 
@@ -77,9 +81,9 @@ namespace EditorView.EditorPane {
 
       // Double-clicking the empty stretch of the row (past the last
       // tab, or the whole row with none open) is a quick "New File" —
-      // on the outermost widget, not `box` itself, since a Gtk.Box with
-      // no hexpand only sizes to its own children and wouldn't cover
-      // the empty space to their right at all.
+      // on the outermost widget, not `row` itself, since the row only
+      // sizes to its own pills and wouldn't cover the empty space to
+      // their right at all.
       var new_file_click = new Gtk.GestureClick ();
       new_file_click.set_button (Gdk.BUTTON_PRIMARY);
       new_file_click.pressed.connect ((n_press, x, y) => {
@@ -96,11 +100,11 @@ namespace EditorView.EditorPane {
       GlobalCss.install_from_resource ("/io/github/opus_editor/Opus/styles/tab-bar.css");
     }
 
-    /** Whether `(x, y)` (in `overlay`'s own coordinates) lands outside every pill — walks up from whatever's actually under the point looking for one whose direct parent is `box` (a pill's own root widget); reaching `box` itself first means the background was hit instead. */
+    /** Whether `(x, y)` (in `overlay`'s own coordinates) lands outside every pill — walks up from whatever's actually under the point looking for one whose direct parent is `row` (a pill's own root widget); reaching `row` itself first means the background was hit instead. */
     private bool click_is_on_empty_area (double x, double y) {
       Gtk.Widget? picked = overlay.pick (x, y, Gtk.PickFlags.DEFAULT);
-      while (picked != null && picked != box) {
-        if (picked.get_parent () == box) {
+      while (picked != null && picked != row) {
+        if (picked.get_parent () == row) {
           return false;
         }
         picked = picked.get_parent ();
@@ -135,7 +139,7 @@ namespace EditorView.EditorPane {
       pill.context_menu_requested.connect ((x, y) => with_current_path (pill, (current) => show_context_menu (current, pill, x, y)));
 
       pills[path] = pill;
-      box.append (pill.widget);
+      row.append (pill.widget);
       if (preview) {
         preview_path = path;
       }
@@ -152,7 +156,7 @@ namespace EditorView.EditorPane {
         return;
       }
 
-      box.remove (pill.widget);
+      row.remove (pill.widget);
       pills.remove (path);
       if (active_pill == pill) {
         active_pill = null;
@@ -165,13 +169,13 @@ namespace EditorView.EditorPane {
     /**
      * The rightmost open tab's path, or null if none are open — `pills`
      * is a plain HashTable with no ordering of its own, so this walks
-     * `box`'s real widget children instead, the actual visual left-to-
+     * `row`'s real widget children instead, the actual visual left-to-
      * right order (drag-reordering included). Lets a caller closing the
      * active tab fall back to some other one without tracking order
      * itself.
      */
     public string? last_tab_path () {
-      var last_child = box.get_last_child ();
+      var last_child = row.get_last_child ();
       if (last_child == null) {
         return null;
       }
@@ -187,7 +191,7 @@ namespace EditorView.EditorPane {
     /** Every tab's path, left to right — the row's own order, drag-reordering included. */
     public string[] paths_in_order () {
       string[] paths = {};
-      for (var child = box.get_first_child (); child != null; child = child.get_next_sibling ()) {
+      for (var child = row.get_first_child (); child != null; child = child.get_next_sibling ()) {
         foreach (var path in pills.get_keys ()) {
           if (pills[path].widget == child) {
             paths += path;
@@ -217,7 +221,7 @@ namespace EditorView.EditorPane {
     private void scroll_into_view (Gtk.Widget child) {
       Idle.add (() => {
         Graphene.Rect bounds;
-        if (!child.compute_bounds (box, out bounds)) {
+        if (!child.compute_bounds (row, out bounds)) {
           return false;
         }
 
@@ -350,15 +354,16 @@ namespace EditorView.EditorPane {
     }
 
     /**
-     * Lets `pill` be dragged to reorder it within the row, or onto
-     * EditorView.FileTree's own sidebar (see FileDrag.make_source()'s own
-     * comment). Real Gtk.DragSource, not a hand-rolled gesture: the
-     * payload carries its own distinct GType (FileDragPayload) instead
-     * of plain text, so nothing else in GTK declares interest in it and
-     * it's never offered anywhere it shouldn't be. Reordering within
-     * this row is just this row's own Gtk.DropTarget (see
-     * setup_reorder_drop_target() below) accepting the very same
-     * payload a plain pill drag produces.
+     * Lets `pill` be dragged: to reorder it within the row (this row's
+     * own Gtk.DropTarget, setup_reorder_drop_target(), accepting the very
+     * same payload — TabBarRow slides the others out of its way), onto
+     * EditorView.FileTree's sidebar (see FileDrag.make_source()'s own
+     * comment), or outside every window of ours, into a window of its
+     * own (detach_requested). Real Gtk.DragSource, not a hand-rolled
+     * gesture: the payload carries its own distinct GType
+     * (FileDragPayload) instead of plain text, so nothing else in GTK
+     * declares interest in it and it's never offered anywhere it
+     * shouldn't be.
      */
     private void setup_drag_source (TabBarPill pill) {
       var source = FileDrag.make_source (pill.widget, (x, y) => {
@@ -369,7 +374,7 @@ namespace EditorView.EditorPane {
 
         // A live Gtk.WidgetPaintable of `pill.widget` itself would
         // carry over whatever it's currently rendering (e.g. an
-        // inactive tab's dimmed look) into the drag icon, with no
+        // inactive tab's plain look) into the drag icon, with no
         // clean way to override that on the paintable copy — a fresh,
         // throwaway pill, always shown as if active, is what GTK's
         // own native tab drag (and libadwaita's own AdwTabBox) uses
@@ -383,18 +388,14 @@ namespace EditorView.EditorPane {
         // the real pill's own current size.
         ghost.widget.set_size_request (pill.widget.get_width (), pill.widget.get_height ());
         return new FileDragCandidate ({ path }, pill.widget, ghost.widget);
-      });
+      }, (dropped) => with_current_path (pill, (current) => detach_requested (current)));
 
-      // The real pill stays right where it is — still in `box`, still
-      // swapping position as reorder_towards runs below — just
+      // The real pill stays right where it is — still in `row`, still
+      // sliding between slots as reorder_towards runs below — just
       // invisible, so the row shows an empty "hole" moving between tabs
       // instead of doubling up with the drag icon floating above it.
       source.drag_begin.connect ((drag) => pill.widget.add_css_class ("dragging"));
       source.drag_end.connect ((drag, delete_data) => pill.widget.remove_css_class ("dragging"));
-      source.drag_cancel.connect ((drag, reason) => {
-        pill.widget.remove_css_class ("dragging");
-        return false; // let GTK play its own default "snap back" animation
-      });
     }
 
     /** `pill`'s current path — looked up by identity rather than captured at add_tab() time, since rename_tab() re-keys a pill without touching anything that captured its old key. Null only for a pill that's no longer in the row at all. */
@@ -442,20 +443,24 @@ namespace EditorView.EditorPane {
       });
       drop_target.drop.connect ((value, x, y) => {
         var payload = value.get_object () as FileDragPayload;
-        return payload != null && pills.contains (payload.path);
+        if (payload == null || !pills.contains (payload.path)) {
+          return false;
+        }
+        payload.accepted = true;
+        return true;
       });
-      box.add_controller (drop_target);
+      row.add_controller (drop_target);
     }
 
-    /** Moves `dragged_path`'s pill next to whichever pill is under `(box_x, box_y)` (already in `box`'s own coordinates), before or after it. */
+    /** Moves `dragged_path`'s pill next to whichever pill is under `(box_x, box_y)` (already in `row`'s own coordinates), before or after it. */
     private void reorder_towards (string dragged_path, double box_x, double box_y) {
       var dragged_pill = pills[dragged_path];
       if (dragged_pill == null) {
         return;
       }
 
-      var target = box.pick (box_x, box_y, Gtk.PickFlags.DEFAULT);
-      while (target != null && target.get_parent () != box) {
+      var target = row.pick (box_x, box_y, Gtk.PickFlags.DEFAULT);
+      while (target != null && target.get_parent () != row) {
         target = target.get_parent ();
       }
       if (target == null || target == dragged_pill.widget) {
@@ -464,7 +469,7 @@ namespace EditorView.EditorPane {
 
       var box_point = Graphene.Point () { x = (float) box_x, y = (float) box_y };
       Graphene.Point local_point;
-      if (!box.compute_point (target, box_point, out local_point)) {
+      if (!row.compute_point (target, box_point, out local_point)) {
         return;
       }
 
@@ -474,7 +479,7 @@ namespace EditorView.EditorPane {
         return;
       }
 
-      box.reorder_child_after (dragged_pill.widget, sibling);
+      row.reorder_child_after (dragged_pill.widget, sibling);
       enforce_preview_is_last ();
       reordered ();
     }
@@ -486,7 +491,7 @@ namespace EditorView.EditorPane {
       }
 
       var pill = pills[preview_path];
-      if (pill == null || box.get_last_child () == pill.widget) {
+      if (pill == null || row.get_last_child () == pill.widget) {
         return;
       }
 

@@ -7,8 +7,8 @@
  * Deliberately not a live mirror of the dragged pill (e.g. via
  * {@link Gtk.WidgetPaintable}): a mirror reflects whatever the source
  * widget currently renders, live — including, for an inactive tab, the
- * dimmed opacity `_pill.vala` applies via `.tab-pill:not(.active)`, which
- * no per-drag override on the mirror itself can cleanly undo. Built once
+ * absence of the `.tab-pill.active` fill, which no per-drag override on
+ * the mirror itself can cleanly add. Built once
  * from the dragged pill's label/state at drag start and thrown away on
  * drop; never touches the original pill.
  */

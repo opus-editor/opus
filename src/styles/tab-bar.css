@@ -14,11 +14,12 @@
   background: linear-gradient(to left, var(--opus-view-background), transparent);
 }
 
-.tab-drag-ghost {
+/* Scoped to the drag icon's own root (`dnd`, the way libadwaita styles
+ * its `dnd tab`), which also outranks the translucent `.tab-pill.active`
+ * fill below: a drag icon has no window behind it to tint, so the ghost
+ * needs a solid color of its own. */
+dnd .tab-pill.tab-drag-ghost {
   border-radius: var(--radius);
-}
-
-.tab-drag-ghost {
   background-color: var(--opus-tab-drag-ghost);
 }
 
@@ -40,11 +41,31 @@
   box-shadow: none;
 }
 
-/* Dim inactive tabs instead of a second "selected" background color —
- * one so close to the view-switcher's own would be more confusing than
- * clarifying. */
-.tab-pill:not(.active) {
-  opacity: 0.6;
+/* libadwaita's own `tabbar tab` rules (_tab-view.scss), scaled from its
+ * 46px bar (34px tab, 9px radius) down to this 32px one: a 24px tab with
+ * 4px of air, and the radius following the height (9 × 24/34 ≈ 6px) so
+ * the shorter tab doesn't read rounder. The fills are its exact mixes. */
+.tab-row {
+  padding: 4px;
+}
+
+.tab-pill {
+  min-height: 24px;
+  padding: 2px 6px;
+  border-radius: var(--radius);
+  transition: background 150ms ease-in-out;
+}
+
+.tab-pill:hover {
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.tab-pill.active {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.tab-pill.active:hover {
+  background-color: color-mix(in srgb, currentColor 13%, transparent);
 }
 
 /* Close button only shows on the active tab or on hover, not on every

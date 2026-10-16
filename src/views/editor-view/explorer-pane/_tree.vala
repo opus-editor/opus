@@ -244,6 +244,7 @@ namespace EditorView {
       install_css ();
 
       setup_context_menu ();
+      setup_middle_click_open ();
       setup_background_click ();
       setup_repeat_click_toggle ();
     }
@@ -644,6 +645,21 @@ namespace EditorView {
       click.set_button (Gdk.BUTTON_SECONDARY);
       click.pressed.connect ((n_press, x, y) => {
         context_menu_requested (node_at (x, y), x, y);
+      });
+      list_view.add_controller (click);
+    }
+
+    /** Middle-click on a file row opens it as a permanent tab, skipping the preview, and selects the row. Opened before it is selected, since selecting previews, and a preview would evict the preview tab already open. */
+    private void setup_middle_click_open () {
+      var click = new Gtk.GestureClick ();
+      click.set_button (Gdk.BUTTON_MIDDLE);
+      click.pressed.connect ((n_press, x, y) => {
+        var node = node_at (x, y);
+        if (node == null || node.is_directory) {
+          return;
+        }
+        file_activated (node.path, true);
+        select_path (node.path);
       });
       list_view.add_controller (click);
     }

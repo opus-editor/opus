@@ -196,6 +196,14 @@ public class MainWindow : Object {
   /** The window was actually destroyed (not just requested to close, which can be cancelled) — main.vala uses this to release this window. */
   public signal void closed ();
 
+  /** Re-emitted from EditorPaneWidget: a tab dragged out of this window — a new window for it is App's call, like new_window_requested. */
+  public signal bool tab_detach_requested (SessionTab tab, string? unsaved_content);
+
+  /** The folder this window is linked to, or null for a blank/file-only one. */
+  public string? linked_folder {
+    get { return has_linked_folder ? editor_pane.linked_folder_path : null; }
+  }
+
   public MainWindow (Gtk.Application app, GLib.Settings settings, UserSettings user_settings, SessionStore session_store, string root_path) {
     this.settings = settings;
     this.user_settings = user_settings;
@@ -246,6 +254,8 @@ public class MainWindow : Object {
     editor_pane.has_open_tabs_changed.connect (() => on_search_editor_changed ());
     editor_pane.active_state_changed.connect ((path, dirty) => set_active_state (path != null, dirty));
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
+    editor_pane.tab_detach_requested.connect ((tab, unsaved_content) => tab_detach_requested (tab, unsaved_content));
+    setup_inside_drop_target ();
     editor_pane.tab_opened.connect (on_settings_tab_opened);
     editor_pane.tab_closed.connect (on_settings_tab_closed);
     editor_pane.file_tab_closed.connect (closed_tabs.record);
@@ -574,6 +584,42 @@ public class MainWindow : Object {
   /** A saved session's tabs come back into this window, whose folder is already linked — see EditorPane.restore_session(). */
   public void restore_session (SavedSession session) {
     editor_pane.restore_session (session);
+  }
+
+  public void adopt_detached_tab (SessionTab tab, string? unsaved_content) {
+    editor_pane.adopt_detached_tab (tab, unsaved_content);
+  }
+
+  /**
+   * A dragged tab let go anywhere in this window that no real target
+   * took (the editor, a panel, the sidebar's empty space) is taken here,
+   * to no effect: it marks the drop as landing inside a window of ours,
+   * which is what keeps it from counting as the drop outside every
+   * window that gives the tab a window of its own (FileDrag.make_source()).
+   * Only a drag that asked for that is taken; a sidebar file's drag
+   * stays refused here, as before.
+   */
+  private void setup_inside_drop_target () {
+    var target = new Gtk.DropTarget (typeof (FileDragPayload), Gdk.DragAction.MOVE);
+    target.preload = true;
+    target.motion.connect ((x, y) => {
+      var value = target.get_value ();
+      var payload = value == null ? null : value.get_object () as FileDragPayload;
+      if (payload == null || !payload.window_drop) {
+        return 0;
+      }
+      return Gdk.DragAction.MOVE;
+    });
+    target.drop.connect ((value, x, y) => {
+      var payload = value.get_object () as FileDragPayload;
+      if (payload == null || !payload.window_drop) {
+        return false;
+      }
+      payload.accepted = true;
+      return true;
+    });
+    // Same cast as the key controllers above: Adw.ApplicationWindow shadows Gtk.Widget.add_controller().
+    ((Gtk.Widget) window).add_controller (target);
   }
 
   /** "Close Folder" — the opposite of link_folder(): the sidebar goes back to not existing at all, same as a window that never had one linked. Open tabs stay exactly as they are; only the sidebar (and what "Copy Relative Path" resolves against) are affected. */

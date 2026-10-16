@@ -350,7 +350,37 @@ public class App : Adw.Application {
       dev_server.remove_session (window);
       #endif
     });
+    window.tab_detach_requested.connect ((tab, unsaved_content) => detach_tab_into_new_window (window, tab, unsaved_content));
 
     return window;
+  }
+
+  /**
+   * A tab dragged out of `source` and dropped on nothing gets a window
+   * of its own — AdwTabView's own create-window gesture. The new window
+   * is `source`'s kind: linked to the same folder, or file-only. The
+   * saved session is not restored into it the way open_workspace() does:
+   * this window is for that one tab.
+   */
+  private bool detach_tab_into_new_window (MainWindow source, SessionTab tab, string? unsaved_content) {
+    var folder = source.linked_folder;
+    var window = create_window (folder ?? Path.get_dirname (tab.path));
+
+    if (folder == null) {
+      window.new_window_requested.connect (() => open_window (tab.path));
+    } else {
+      try {
+        window.link_folder (folder);
+      } catch (Error e) {
+        Logger.warn ("couldn't link %s for a detached tab: %s".printf (folder, e.message));
+        window.close ();
+        return false;
+      }
+      window.new_window_requested.connect (() => open_workspace (folder));
+    }
+
+    window.adopt_detached_tab (tab, unsaved_content);
+    window.present ();
+    return true;
   }
 }

@@ -30,31 +30,52 @@ public class FileDrag : Object {
    * `preview_widget` when no separate icon widget is given (fine for
    * EditorView.FileTree's own sidebar rows — nothing about a row's current
    * look needs to be overridden for its drag icon).
+   *
+   * `on_window_drop`, if given, fires for a drop outside every window of
+   * this app, told apart by the FileDragRootWindowDrop the drag then
+   * offers alongside the payload (a drop on the desktop or on another
+   * GTK app's bare window reads it, or performs), by a cancel with ERROR
+   * (Wayland's only word for "no one took it", never NO_TARGET), and by
+   * MainWindow's own catch-all target, which marks the payload `accepted`
+   * so a drop inside one of ours doesn't count.
    */
-  public static Gtk.DragSource make_source (Gtk.Widget attach_to, owned FileDragResolver resolve) {
+  public static Gtk.DragSource make_source (Gtk.Widget attach_to, owned FileDragResolver resolve, owned FileDragWindowDrop? on_window_drop = null) {
     var source = new Gtk.DragSource ();
     source.actions = Gdk.DragAction.MOVE;
 
     FileDragCandidate? candidate = null;
+    FileDragPayload? payload = null;
+    FileDragRootWindowDrop? root_drop = null;
+    bool drop_performed = false;
     double press_x = 0;
     double press_y = 0;
     source.prepare.connect ((x, y) => {
       candidate = resolve (x, y);
+      payload = null;
+      root_drop = null;
+      drop_performed = false;
       press_x = x;
       press_y = y;
       if (candidate == null) {
         return null;
       }
 
+      payload = new FileDragPayload (candidate.paths) { window_drop = on_window_drop != null };
       var value = Value (typeof (FileDragPayload));
-      value.set_object (new FileDragPayload (candidate.paths));
-      return new Gdk.ContentProvider.for_value (value);
+      value.set_object (payload);
+      var provider = new Gdk.ContentProvider.for_value (value);
+      if (on_window_drop == null) {
+        return provider;
+      }
+      root_drop = new FileDragRootWindowDrop ();
+      return new Gdk.ContentProvider.union ({ provider, root_drop });
     });
 
     source.drag_begin.connect ((drag) => {
       if (candidate == null) {
         return;
       }
+      drag.drop_performed.connect (() => drop_performed = true);
 
       // The hotspot (where within the icon the pointer stays glued)
       // is computed against preview_widget's own on-screen bounds,
@@ -71,14 +92,48 @@ public class FileDrag : Object {
       }
 
       if (candidate.icon_widget != null) {
-        drag.set_hotspot (hot_x, hot_y);
-        DragIcons.for_drag (drag).child = candidate.icon_widget;
+        show_icon (drag, candidate, hot_x, hot_y);
       } else {
         source.set_icon (new Gtk.WidgetPaintable (candidate.preview_widget), hot_x, hot_y);
       }
     });
 
+    source.drag_end.connect ((drag, delete_data) => {
+      if (on_window_drop == null || payload == null) {
+        return;
+      }
+      if ((drop_performed || root_drop.read) && !payload.accepted) {
+        on_window_drop (candidate);
+      }
+    });
+    source.drag_cancel.connect ((drag, reason) => {
+      if (on_window_drop == null) {
+        return false;
+      }
+      if (reason != Gdk.DragCancelReason.NO_TARGET && reason != Gdk.DragCancelReason.ERROR) {
+        return false;
+      }
+      on_window_drop (candidate);
+      // Handled: GTK then ends the drag as a success, no "snap back".
+      return true;
+    });
+
     attach_to.add_controller (source);
     return source;
+  }
+
+  /** `candidate.icon_widget` as the real widget under the pointer, glued at (`hot_x`, `hot_y`). */
+  private static void show_icon (Gdk.Drag drag, FileDragCandidate candidate, int hot_x, int hot_y) {
+    drag.set_hotspot (hot_x, hot_y);
+    var icon = DragIcons.for_drag (drag);
+    // The icon is its own root, so the theme's variables reach it only
+    // through its own `dark` class (see tools/compile-ui-theme.py) —
+    // set before the child goes in, or its first style is the light
+    // one and the switch to dark plays as a CSS transition.
+    var window = candidate.preview_widget.get_root () as Gtk.Widget;
+    if (window != null && window.has_css_class ("dark")) {
+      icon.add_css_class ("dark");
+    }
+    icon.child = candidate.icon_widget;
   }
 }

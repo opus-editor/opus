@@ -38,14 +38,14 @@ for folder in sorted(os.listdir(UI_THEMES)):
     result = subprocess.run([sys.executable, TOOL, os.path.join(tempfile.gettempdir(), f"opus-{folder}.css"), os.path.join(UI_THEMES, folder), os.path.join(ROOT, "src", "styles")], capture_output=True, text=True)
     check(f"bundled theme {folder} compiles", result.returncode == 0, result.stderr)
 
-# a hex, a palette name and a system name each become a variable, under the mode's selector
+# a hex, a palette name and a system name each become a variable, under the mode's selector — on the window and on a drag icon's own root (`dnd`), which is no descendant of it
 code, _, css = compile_themes(theme("light", {"editor.cursor": "#112233", "view.background": "paper", "git.added": "system.success.text"}, {"paper": "#FFFFFF"}),
                               theme("dark", {"editor.cursor": "#445566", "view.background": "#000000", "git.added": "system.success.text"}))
 check("values compile", code == 0, css)
 check("hex", "--opus-editor-cursor: #112233;" in css, css)
 check("palette name", "--opus-view-background: #ffffff;" in css, css)
 check("system name", "--opus-git-added: var(--success-color);" in css, css)
-check("light selector", "window:not(.dark) {" in css and "window.dark {" in css, css)
+check("mode selectors", "window:not(.dark), dnd:not(.dark) {" in css and "window.dark, dnd.dark {" in css, css)
 check("dark value", "--opus-editor-cursor: #445566;" in css, css)
 # a color of the theme's own repaints the libadwaita variable; a system one does not
 check("libadwaita repointed", "--view-bg-color: var(--opus-view-background);" in css, css)

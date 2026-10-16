@@ -28,3 +28,6 @@ public class FileDragCandidate : Object {
 
 /** Resolves what's being dragged from a point local to whatever widget FileDrag.make_source() was attached to — null means nothing draggable there. */
 public delegate FileDragCandidate? FileDragResolver (double x, double y);
+
+/** `candidate` was let go outside every window of this app: on the desktop, or on another app's window — see FileDrag.make_source(). */
+public delegate void FileDragWindowDrop (FileDragCandidate candidate);

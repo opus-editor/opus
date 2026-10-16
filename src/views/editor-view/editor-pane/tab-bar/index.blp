@@ -2,10 +2,9 @@ using Gtk 4.0;
 
 // Same reasoning as CodeEditor's own index.blp: Gtk.Overlay/
 // Gtk.ScrolledWindow are final, so this loads as a plain widget tree via
-// Gtk.Builder, not a composite template. Every pill is appended into `box`
-// at runtime (see TabBar.add_tab()) — box itself, empty, is still fully
-// static, unlike CodeEditor's source view or EditorView.FileTree's
-// list_view, which need a factory built in code.
+// Gtk.Builder, not a composite template. The row the pills go in is a
+// TabBarRow, built in code (TabBar's constructor) and set as
+// scrolled_window's child.
 Gtk.Overlay overlay {
   styles ["tab-bar"]
 
@@ -17,9 +16,7 @@ Gtk.Overlay overlay {
     hscrollbar-policy: external;
     vscrollbar-policy: never;
 
-    child: Gtk.Box box {
-      styles ["tab-row"]
-    };
+    // The row itself (TabBarRow) is built in code: see TabBar's constructor.
   };
 
   // A thin, click-through strip fading to the window's own background

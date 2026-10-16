@@ -88,6 +88,9 @@ namespace EditorView {
     /** Re-emitted from TabBar's own "Reveal in Sidebar" — whoever composes this alongside ExplorerPane (MainWindow) is the one with a reference to both. */
     public signal void reveal_in_sidebar_requested (string path);
 
+    /** A file tab was dragged out and dropped on nothing: handed over as what a session keeps of it, plus its unsaved text if dirty. Whoever takes it (App, into a new window via adopt_detached_tab()) returns true, and only then does the tab leave here. */
+    public signal bool tab_detach_requested (SessionTab tab, string? unsaved_content);
+
     public EditorPaneWidget (string root_path, UserSettings user_settings, GtkSource.SearchSettings search_settings) {
       this.root_path = root_path;
       this.user_settings = user_settings;
@@ -98,7 +101,6 @@ namespace EditorView {
 
       content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
       content.append (tab_bar.widget);
-      content.append (new Gtk.Separator (Gtk.Orientation.HORIZONTAL) { css_classes = { "content-divider" } });
       content.append (stack);
 
       // Generic on purpose, not "…from the sidebar": a blank/file-only
@@ -131,6 +133,40 @@ namespace EditorView {
       tab_bar.new_file_requested.connect (new_untitled);
       tab_bar.reordered.connect (() => tabs_changed ());
       tab_bar.reveal_in_sidebar_requested.connect ((uri) => reveal_in_sidebar_requested (title_of (uri)));
+      tab_bar.detach_requested.connect (detach_tab);
+    }
+
+    /** Only a tab with a file behind it can go: an untitled one has nothing another window could reopen. Discarded a turn later, not inside the drag's own end signal, which is still running on the pill about to go away. */
+    private void detach_tab (string uri) {
+      var tab = tabs[uri] as EditorPane.TabDocument;
+      var saved = tab?.session_tab ();
+      if (saved == null) {
+        return;
+      }
+      if (!tab_detach_requested (saved, tab.is_dirty ? tab.content : null)) {
+        Logger.warn ("tab detach: no one took %s".printf (uri));
+        return;
+      }
+      Idle.add (() => {
+        tab.discard ();
+        return false;
+      });
+    }
+
+    /** The other side of tab_detach_requested: opens `tab` here the way a restored session would, then puts its unsaved text and cursor back. */
+    public void adopt_detached_tab (SessionTab tab, string? unsaved_content) {
+      var kept = new GenericArray<SessionTab> ();
+      kept.add (tab);
+      restore_session (new SavedSession (root_path, kept, tab.path));
+      if (unsaved_content == null) {
+        return;
+      }
+      var adopted = document_tab_for_title (tab.path);
+      if (adopted == null) {
+        return;
+      }
+      adopted.set_content (unsaved_content);
+      adopted.go_to_line (tab.line, tab.column);
     }
 
     /**

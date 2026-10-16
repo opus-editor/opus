@@ -17,6 +17,12 @@ public class FileDragPayload : Object {
   /** Every path dragged: the explorer's whole selection when the dragged row is part of one. */
   public string[] paths { get; private set; }
 
+  /** Whether this drag asks to know about a drop outside every window of ours (FileDrag.make_source()) — MainWindow's catch-all target takes exactly these, so a drop inside one of ours is told apart from one outside. */
+  public bool window_drop { get; set; default = false; }
+
+  /** Set by whichever of the app's own drop targets took the drop — an in-app drag hands every target this very object. Left false, a drop that still "performed" landed outside every window of ours (see FileDrag.make_source()). */
+  public bool accepted { get; set; default = false; }
+
   public FileDragPayload (string[] paths) {
     this.paths = paths;
     this.path = paths[0];
