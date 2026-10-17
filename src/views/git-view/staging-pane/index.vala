@@ -213,14 +213,18 @@ namespace GitView {
       }
     }
 
-    /** A row's own inline button, over that row or the selection it is part of (ChangeTree.action_requested): stage (asking a conflict's questions first) or unstage. */
+    /** A row's own inline button, over that row or the selection it is part of (ChangeTree.action_requested): stage (asking a conflict's questions first), unstage, or discard behind its confirmation. */
     private void run_action (string action, GenericArray<GitScope.Change> targets, string section) {
-      if (action != "stage") {
-        unstage.begin (targets);
-      } else if (section == "conflicts") {
-        stage_conflicts.begin (targets);
-      } else {
-        stage.begin (targets);
+      switch (action) {
+        case "unstage": unstage.begin (targets); break;
+        case "discard": confirm_and_discard.begin (targets); break;
+        default:
+          if (section == "conflicts") {
+            stage_conflicts.begin (targets);
+          } else {
+            stage.begin (targets);
+          }
+          break;
       }
     }
 

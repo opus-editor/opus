@@ -14,8 +14,8 @@
  * .change-decoration-letter rules, and StagingPane's own
  * apply_decoration_font() for why it's a Gtk.Label, not a plain
  * Gtk.Box, in the first place). In ChangeTree, inline actions sit left
- * of the letters — stage under Unstaged and Conflicts, unstage under
- * Staged (set_section()) — shown only on the hovered or
+ * of the letters — stage under Unstaged and Conflicts, discard under
+ * Unstaged too, unstage under Staged (set_section()) — shown only on the hovered or
  * last-selected row (set_actions_shown()). Recycled by the list view's
  * factory, same as ExplorerPaneTreeRow.
  */
@@ -29,6 +29,7 @@ namespace GitView {
     private Gtk.Box actions;
     private Gtk.Button stage_button;
     private Gtk.Button unstage_button;
+    private Gtk.Button discard_button;
     private IconTheme icon_theme;
 
     public Gtk.Widget widget { get { return box; } }
@@ -36,7 +37,7 @@ namespace GitView {
     /** What bind() last showed — ChangeTree's own right-click hit test reads it back off the row under the pointer. */
     public GitScope.Change? bound_change { get; private set; default = null; }
 
-    /** One of the inline actions was clicked for bound_change — "stage" or "unstage". */
+    /** One of the inline actions was clicked for bound_change — "stage", "unstage" or "discard". */
     public signal void action_requested (string action, GitScope.Change change);
 
     public ChangeRow (IconTheme icon_theme) {
@@ -53,12 +54,15 @@ namespace GitView {
       unstage_button = (Gtk.Button) builder.get_object ("unstage_button");
       stage_button.clicked.connect (() => action_requested ("stage", bound_change));
       unstage_button.clicked.connect (() => action_requested ("unstage", bound_change));
+      discard_button = (Gtk.Button) builder.get_object ("discard_button");
+      discard_button.clicked.connect (() => action_requested ("discard", bound_change));
     }
 
     /** Which inline actions this row offers — "staged"/"conflicts"/"unstaged", or null for none at all. */
     public void set_section (string? section) {
       actions.visible = section != null;
       stage_button.visible = section == "unstaged" || section == "conflicts";
+      discard_button.visible = section == "unstaged";
       unstage_button.visible = section == "staged";
     }
 

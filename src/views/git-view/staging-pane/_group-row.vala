@@ -10,6 +10,7 @@ namespace GitView {
     private Gtk.TreeExpander expander;
     private Gtk.Label title_label;
     private Gtk.Label count_label;
+    private Gtk.Box actions;
     private Gtk.Button stage_all_button;
     private Gtk.Button discard_all_button;
     private Gtk.Button unstage_all_button;
@@ -27,6 +28,7 @@ namespace GitView {
       expander = (Gtk.TreeExpander) builder.get_object ("expander");
       title_label = (Gtk.Label) builder.get_object ("title");
       count_label = (Gtk.Label) builder.get_object ("count");
+      actions = (Gtk.Box) builder.get_object ("actions");
       stage_all_button = (Gtk.Button) builder.get_object ("stage_all_button");
       discard_all_button = (Gtk.Button) builder.get_object ("discard_all_button");
       stage_all_button.clicked.connect (() => action_requested ("stage-all", group.section));
@@ -55,8 +57,11 @@ namespace GitView {
       expander.list_row = null;
     }
 
+    /** The count, and the whole-group actions: nothing to act on in an empty group, so none show. */
     private void update_count () {
-      count_label.label = group.changes.store.get_n_items ().to_string ();
+      var n_items = group.changes.store.get_n_items ();
+      count_label.label = n_items.to_string ();
+      actions.visible = n_items > 0;
     }
   }
 }

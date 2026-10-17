@@ -46,7 +46,7 @@ namespace GitView {
     /** A group row's own action — "stage-all", "unstage-all" or "discard-all" — for every change under `section`. */
     public signal void group_action_requested (string action, string section);
 
-    /** A row's own inline action — "stage" or "unstage" — for `changes`, in `section`: every selected row of that section when the clicked row is among them, just the clicked row otherwise. */
+    /** A row's own inline action — "stage", "unstage" or "discard" — for `changes`, in `section`: every selected row of that section when the clicked row is among them, just the clicked row otherwise. */
     public signal void action_requested (string action, GenericArray<GitScope.Change> changes, string section);
 
     public ChangeTree () {

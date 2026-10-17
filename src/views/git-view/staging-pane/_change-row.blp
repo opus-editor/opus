@@ -25,7 +25,7 @@ Gtk.Box row {
   }
 
   // Inline actions, on the row under the pointer or the one last selected
-  // (staging-pane.css's own .change-row-actions). Which of the two show
+  // (staging-pane.css's own .change-row-actions). Which of the three show
   // depends on the row's section — ChangeRow.set_section(); HistoryPane's
   // rows never get one and keep the whole box hidden.
   Gtk.Box actions {
@@ -34,6 +34,13 @@ Gtk.Box row {
     spacing: 2;
     valign: center;
     visible: false;
+
+    // Confirmed first, always — see StagingPane.confirm_and_discard().
+    Gtk.Button discard_button {
+      styles ["btn-xs", "btn-icon", "flat"]
+      icon-name: "opus-undo-symbolic";
+      tooltip-text: _("Discard changes…");
+    }
 
     Gtk.Button stage_button {
       styles ["btn-xs", "btn-icon", "flat"]
