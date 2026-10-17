@@ -19,6 +19,10 @@ native with GTK4 and Libadwaita, in Vala.
   <img src="assets/preview-2.png" alt="preview-git"/>
 </p>
 
+<p align="center">
+  <img src="assets/preview-3.png" alt="preview-git"/>
+</p>
+
 ## Features
 
 - Syntax highlighting
