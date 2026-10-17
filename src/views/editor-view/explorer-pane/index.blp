@@ -9,6 +9,9 @@ Gtk.Box root_box {
     Gtk.Box {
       styles ["me-150", "ms-300"]
       orientation: vertical;
+      // A hair between the two lines, and the 30px that lands the pair
+      // dead center in the header's own 30 — see .sidebar-pane-header.
+      spacing: 1;
       valign: center;
       hexpand: true;
 
