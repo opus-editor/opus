@@ -28,11 +28,10 @@ tooltip.background {
   background-color: var(--opus-sidebar-background);
 }
 /* libadwaita gives every list view the "view" text color, not the
- * sidebar's; the lists in the sidebar take the sidebar's own, at the
- * opacity the theme sets for them. */
+ * sidebar's; the lists in the sidebar take the sidebar's own. */
 .opus-sidebar listview,
 .opus-sidebar columnview {
-  color: color-mix(in srgb, var(--opus-sidebar-foreground) var(--opus-sidebar-list-opacity), transparent);
+  color: var(--opus-sidebar-foreground);
 }
 .opus-main {
   background-color: var(--opus-view-background);

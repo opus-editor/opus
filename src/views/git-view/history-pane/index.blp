@@ -1,5 +1,4 @@
 using Gtk 4.0;
-using Adw 1;
 
 // Same header shape as StagingPane's own (git-view/staging-pane/index.blp),
 // reusing its file-tree-root-label/file-tree-branch-label classes — the
@@ -48,28 +47,31 @@ Gtk.Box root_box {
     }
   }
 
-  // The commit's message, read-only — not styled as an input like the
-  // box StagingPane types into: a plain block of text edge to edge,
-  // using the whole sidebar width (see staging-pane.css's own
-  // .history-message-view), with a hairline above and below.
-  Gtk.ScrolledWindow {
-    height-request: 160;
-    hscrollbar-policy: never;
+  // The commit's subject as a heading, the same shape as "Files" below,
+  // and a "Read more" link under it while the message has a body.
+  Gtk.Box {
+    orientation: vertical;
 
-    Gtk.TextView message_view {
-      styles ["history-message-view"]
-      editable: false;
-      cursor-visible: false;
+    Gtk.Label subject_label {
+      styles ["heading", "commit-subject", "mt-150", "ms-300", "me-150"]
+      label: "";
+      halign: start;
+      xalign: 0;
+      wrap: true;
       wrap-mode: word_char;
-      top-margin: 10;
-      bottom-margin: 10;
-      left-margin: 12;
-      right-margin: 12;
+    }
+
+    Gtk.Label read_more_label {
+      styles ["ms-300", "me-150", "mt-100"]
+      label: _("<a href=\"more\">Read more</a>");
+      use-markup: true;
+      halign: start;
+      visible: false;
     }
   }
 
   Gtk.Box {
-    styles ["mt-400", "mb-200"]
+    styles ["mt-200", "mb-200"]
     orientation: horizontal;
 
     Gtk.Label {

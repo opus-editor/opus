@@ -119,6 +119,8 @@ listview.data-table.file-tree-list:not(:focus-within) row:selected:not(:hover) {
   min-height: 30px;
   padding-top: 8px;
   padding-bottom: 8px;
+  /* The theme's own shade for a pane's header, apart from the sidebar's text (sidebar.foreground). */
+  color: var(--opus-sidebar-header-foreground);
 }
 
 .file-tree-root-label {

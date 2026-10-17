@@ -11,7 +11,7 @@
 namespace GitView {
   public class Content : Object {
     private Gtk.Box root = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-    private Gtk.Box breadcrumb = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+    private Gtk.Box breadcrumb = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 2);
     private Gtk.Stack stack = new Gtk.Stack ();
     private DiffPane diff_pane;
     private string middle_crumb = "";
@@ -105,9 +105,9 @@ namespace GitView {
         breadcrumb.append (crumb_label (_("History"), true));
         return;
       }
-      var back = new Gtk.Button.with_label (_("History")) { has_frame = false };
-      back.add_css_class ("btn-xs");
+      var back = new Gtk.Button.with_label (_("History")) { has_frame = false, valign = Gtk.Align.CENTER };
       back.add_css_class ("crumb");
+      back.add_css_class ("dimmed");
       back.clicked.connect (show_tree);
       breadcrumb.append (back);
       breadcrumb.append (separator ());
@@ -120,7 +120,6 @@ namespace GitView {
     /** Flat, pushed to the right end; insensitive when the file is not on disk (deleted, or only in a commit). */
     private Gtk.Widget open_button () {
       var button = new Gtk.Button.from_icon_name ("opus-file-open-symbolic") { has_frame = false, halign = Gtk.Align.END, hexpand = true, valign = Gtk.Align.CENTER };
-      button.add_css_class ("btn-xs");
       button.add_css_class ("crumb-action");
       button.tooltip_text = _("Open File");
       button.sensitive = FileUtils.test (shown_path, FileTest.IS_REGULAR);
@@ -128,12 +127,12 @@ namespace GitView {
       return button;
     }
 
+    /** A crumb that is not a way anywhere: the same shape as the clickable ones, in the regular weight; dimmed unless it is where we are. */
     private static Gtk.Widget crumb_label (string text, bool current) {
-      var label = new Gtk.Label (text) { ellipsize = Pango.EllipsizeMode.MIDDLE };
-      label.add_css_class ("btn-xs");
+      var label = new Gtk.Label (text) { ellipsize = Pango.EllipsizeMode.MIDDLE, valign = Gtk.Align.CENTER };
       label.add_css_class ("crumb");
-      if (current) {
-        label.add_css_class ("current");
+      if (!current) {
+        label.add_css_class ("dimmed");
       }
       return label;
     }

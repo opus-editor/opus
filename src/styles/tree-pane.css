@@ -29,6 +29,17 @@ columnview.tree-pane > header > button {
   text-transform: uppercase;
   opacity: 0.7;
 }
+/* Clicking a column heading sorts nothing here, so it gets no hover or
+ * press look: libadwaita lifts the heading's `box` from 40% to 70% and
+ * then to full on those; it stays at its resting 40%. */
+columnview.tree-pane > header > button:hover,
+columnview.tree-pane > header > button:active {
+  background: none;
+}
+columnview.tree-pane > header > button:hover > box,
+columnview.tree-pane > header > button:active > box {
+  color: color-mix(in srgb, currentColor 40%, transparent);
+}
 
 /* A ref pill: a small rounded chip in its row's lane color — the
  * `lane-N` class TreePaneRefCell sets from the row's node color, the

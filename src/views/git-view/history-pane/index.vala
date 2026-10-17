@@ -1,9 +1,10 @@
 /**
  * The Git activity's sidebar while a commit (or stash) is selected in
- * the tree: the same shape as StagingPane — header, message box, one
- * list — read-only. "Commit: <short hash>" and the author with the date
- * up top, the message in the box StagingPane types into, and the files
- * the commit changed (GitTree.CommitFiles) as a ChangeList. The close
+ * the tree: the same shape as StagingPane — header, one list —
+ * read-only. "Commit: <short hash>" and the author with the date up
+ * top, the subject as a heading (with a "Read more" link while there is
+ * a body), and the files the commit changed (GitTree.CommitFiles) as a
+ * ChangeList. The close
  * button, and selecting the WIP row, go back to StagingPane
  * (back_requested, handled by MainWindow). Selecting a file row shows
  * that file's diff in the commit (open_diff_requested), the same single
@@ -14,7 +15,8 @@ namespace GitView {
     private Gtk.Box root_box;
     private Gtk.Label commit_label;
     private Gtk.Label author_label;
-    private Gtk.TextView message_view;
+    private Gtk.Label subject_label;
+    private Gtk.Label read_more_label;
     private ChangeList files = new ChangeList ();
     private string? root_path = null;
     // Same guard as TreePane.generation: the files of a commit selected earlier must not land over a later one.
@@ -27,13 +29,17 @@ namespace GitView {
     public signal void open_diff_requested (GitDiff.Request request);
 
     private GitTree.Commit? shown_commit = null;
+    private UserSettings user_settings;
 
     public HistoryPane (UserSettings user_settings) {
+      this.user_settings = user_settings;
       var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/git-view/history-pane/index.ui");
       root_box = (Gtk.Box) builder.get_object ("root_box");
       commit_label = (Gtk.Label) builder.get_object ("commit_label");
       author_label = (Gtk.Label) builder.get_object ("author_label");
-      message_view = (Gtk.TextView) builder.get_object ("message_view");
+      subject_label = (Gtk.Label) builder.get_object ("subject_label");
+      read_more_label = (Gtk.Label) builder.get_object ("read_more_label");
+      read_more_label.activate_link.connect (show_message);
       ((Gtk.Button) builder.get_object ("close_button")).clicked.connect (() => back_requested ());
       ((Gtk.ScrolledWindow) builder.get_object ("files_scrolled")).child = files.widget;
       files.item_activated.connect (request_diff);
@@ -63,12 +69,21 @@ namespace GitView {
         commit_label.tooltip_text = commit.hash;
         author_label.label = "%s · %s".printf (commit.author, commit.date_label);
       }
-      message_view.buffer.text = commit.message;
+      subject_label.label = commit.subject;
+      read_more_label.visible = commit.body != "";
       load_files.begin (root_path, commit);
     }
 
     public void close () {
       generation++;
+    }
+
+    /** "Read more": the whole message, subject and body, in the same read-only sheet the error toasts' "View Log" opens. Handled here, so GTK never tries to open the link's href as a URI. */
+    private bool show_message () {
+      if (shown_commit != null) {
+        LogDialog.show (root_box, user_settings, commit_label.label, shown_commit.message);
+      }
+      return true;
     }
 
     /** One file picked (a click, or a double-click): its diff in this commit, under the breadcrumb. */
