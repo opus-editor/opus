@@ -1,5 +1,5 @@
 .tab-bar {
-  min-height: 46px;
+  min-height: 42px;
 }
 
 .tab-bar-fade {
@@ -41,13 +41,13 @@ dnd .tab-pill.tab-drag-ghost {
   box-shadow: none;
 }
 
-/* libadwaita's own `tabbar tab` rules (_tab-view.scss), as they are: a
- * 34px tab (26px + 4px of padding) with 6px of air and its 9px radius,
- * in a 46px bar — its own has one more pixel for a bottom shade line we
- * don't draw. The selected fill is its exact mix; hover gets no fill of
- * its own. */
+/* libadwaita's own `tabbar tab` rules (_tab-view.scss), but 2px
+ * tighter above and below: a 34px tab (26px + 4px of padding) with 4px
+ * of air and its 9px radius, in a 42px bar — its own gives 6px in 46,
+ * plus one more pixel for a bottom shade line we don't draw. The
+ * selected fill is its exact mix; hover gets no fill of its own. */
 .tab-row {
-  padding: 6px 5px;
+  padding: 4px 5px;
 }
 
 /* Between two idle tabs (TabBarRow), as libadwaita's `tabbox > separator`,

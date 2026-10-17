@@ -111,14 +111,14 @@ listview.data-table.file-tree-list:not(:focus-within) row:selected:not(:hover) {
  * is the least air the content ever gets, whatever the UI font; the
  * min-height is only a floor (the content box — GTK's min-height sits
  * inside the padding), so that at the default font the header is the
- * same 46px as the tab bar beside it and the rows below them start
+ * same 42px as the tab bar beside it and the rows below them start
  * level. The content is centered in whatever is left; the labels' own
  * spacing keeps that remainder even for the default font, so GTK's
  * integer rounding leaves no stray pixel. */
 .sidebar-pane-header {
   min-height: 30px;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 6px;
+  padding-bottom: 6px;
   /* The theme's own shade for a pane's header, apart from the sidebar's text (sidebar.foreground). */
   color: var(--opus-sidebar-header-foreground);
 }

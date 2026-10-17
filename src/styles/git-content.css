@@ -1,10 +1,10 @@
-/* GitView.Content's breadcrumb over the tree/diff: the tab bar's 46px,
+/* GitView.Content's breadcrumb over the tree/diff: the tab bar's 42px,
  * laid out the way Nautilus's path bar is — every crumb the shape of a
  * flat 28px button that fills only on hover, the clickable ones bold,
  * the "Open File" button at the end the same shape as its "…" menu. */
 .git-breadcrumb {
-  min-height: 34px; /* 46 with the padding */
-  padding: 6px;
+  min-height: 34px; /* 42 with the padding */
+  padding: 4px 6px;
   border-bottom: var(--hairline);
 }
 .git-breadcrumb .crumb {
