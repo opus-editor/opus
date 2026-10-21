@@ -154,6 +154,11 @@ namespace GitView {
       return code_editor.describe_diff_lines ();
     }
 
+    /** See CodeEditor.describe_diff_word_changes — empty unless a diff shows. */
+    public string[] describe_word_changes () {
+      return mode == "diff" ? code_editor.describe_diff_word_changes () : new string[0];
+    }
+
     /** The placeholder's title, "" while the diff itself shows. */
     public string placeholder_title {
       owned get { return stack.visible_child_name == "placeholder" ? placeholder.title : ""; }

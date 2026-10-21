@@ -267,7 +267,28 @@ public class CodeEditor : Object {
       text.append (diff.lines[i].text);
     }
     set_text (text.str, path);
+    diff_gutter.apply_word_tags ();
     paint_diff_rows ();
+  }
+
+  /** Each diff line with words marked, as "<line index>|<start>-<end>,<start>-<end>" in character offsets — for the debug D-Bus surface; empty when not in diff mode. */
+  public string[] describe_diff_word_changes () {
+    string[] out = {};
+    if (shown_diff == null) {
+      return out;
+    }
+    for (uint i = 0; i < shown_diff.lines.length; i++) {
+      var line = shown_diff.lines[i];
+      if (line.word_changes.length == 0) {
+        continue;
+      }
+      string[] ranges = {};
+      foreach (var range in line.word_changes) {
+        ranges += "%d-%d".printf (range.start, range.end);
+      }
+      out += "%u|%s".printf (i, string.joinv (",", ranges));
+    }
+    return out;
   }
 
   /** Each diff line as "<old>|<new>|<marker>|<text>" — for the debug D-Bus surface; empty when not in diff mode. */
@@ -298,8 +319,11 @@ public class CodeEditor : Object {
     set_text (text, path);
   }
 
-  /** A theme change: the bands read their swatches when painted, so a repaint is all it takes. */
+  /** A theme change: the bands read their swatches when painted, so a repaint is all it takes; the word tags cache theirs. */
   private void apply_diff_colors () {
+    if (diff_gutter != null) {
+      diff_gutter.refresh_colors ();
+    }
     text_view.queue_draw ();
   }
 

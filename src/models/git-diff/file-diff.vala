@@ -11,6 +11,8 @@ namespace GitDiff {
     public int old_number { get; construct; }
     public int new_number { get; construct; }
     public string text { get; construct; }
+    /** What changed inside this line against its pair on the other side (GitDiff.WordDiff) — empty for context, and for a change with no line-by-line pair. */
+    public CharRange[] word_changes = {};
 
     public DiffLine (LineKind kind, int old_number, int new_number, string text) {
       Object (kind: kind, old_number: old_number, new_number: new_number, text: text);
@@ -26,6 +28,10 @@ namespace GitDiff {
    * algorithm — same "git is the oracle" reasoning as GitDiff.Engine.
    */
   public class FileDiff : Object {
+    // Zed's own bound (MAX_WORD_DIFF_LINE_COUNT): a bigger run of changed
+    // lines is a rewrite, and marking words inside it says nothing.
+    private const int MAX_WORD_DIFF_LINE_COUNT = 5;
+
     public GenericArray<DiffLine> lines = new GenericArray<DiffLine> ();
     public int added_count = 0;
     public int removed_count = 0;
@@ -152,7 +158,33 @@ namespace GitDiff {
         }
         diff.lines.add (previous);
       }
+      mark_word_changes (diff);
       return diff;
+    }
+
+    /** A run of N removed lines straight into N added ones, N small, pairs line by line; everything else keeps only its row tint — the same rule as Zed. */
+    private static void mark_word_changes (FileDiff diff) {
+      uint i = 0;
+      while (i < diff.lines.length) {
+        uint removed = run_length (diff, i, LineKind.REMOVED);
+        uint added = run_length (diff, i + removed, LineKind.ADDED);
+        if (removed > 0 && removed == added && removed <= MAX_WORD_DIFF_LINE_COUNT) {
+          for (uint k = 0; k < removed; k++) {
+            var old_line = diff.lines[i + k];
+            var new_line = diff.lines[i + removed + k];
+            WordDiff.compute (old_line.text, new_line.text, out old_line.word_changes, out new_line.word_changes);
+          }
+        }
+        i += uint.max (1, removed + added);
+      }
+    }
+
+    private static uint run_length (FileDiff diff, uint from, LineKind kind) {
+      uint n = 0;
+      while (from + n < diff.lines.length && diff.lines[from + n].kind == kind) {
+        n++;
+      }
+      return n;
     }
 
     /** "@@ -oldStart[,oldCount] +newStart[,newCount] @@" — same shape GitDiff.Engine parses, with the old start kept too. */

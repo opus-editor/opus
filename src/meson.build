@@ -75,6 +75,7 @@ opus_model_sources = files(
   'models/git-diff/sides.vala',
   'models/git-diff/blob.vala',
   'models/git-diff/file-diff.vala',
+  'models/git-diff/word-diff.vala',
   'models/git-diff/conflict-parser.vala',
   'models/i-display-rows.vala',
   'models/i-workspace-extension.vala',

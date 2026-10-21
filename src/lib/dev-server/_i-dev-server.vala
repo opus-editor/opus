@@ -235,6 +235,9 @@ namespace Opus.Dev {
     /** The diff on screen, each line "<old>|<new>|<marker>|<text>"; empty while a placeholder shows or no diff is open. */
     public abstract string[] git_diff_lines () throws DBusError, IOError;
 
+    /** The diff's lines with words marked inside, each "<line index>|<start>-<end>,…" in character offsets; empty when no diff shows or nothing is marked. */
+    public abstract string[] git_diff_word_changes () throws DBusError, IOError;
+
     /** How the diff area shows the file: "diff", "plain" (one side only) or "placeholder". */
     public abstract string git_diff_mode () throws DBusError, IOError;
 

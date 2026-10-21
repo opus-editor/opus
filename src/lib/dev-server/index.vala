@@ -419,6 +419,10 @@ namespace Opus.Dev {
       return current_window ().git_content.describe_diff_lines ();
     }
 
+    public string[] git_diff_word_changes () throws DBusError, IOError {
+      return current_window ().git_content.describe_diff_word_changes ();
+    }
+
     public string git_diff_mode () throws DBusError, IOError {
       return current_window ().git_content.diff_mode;
     }

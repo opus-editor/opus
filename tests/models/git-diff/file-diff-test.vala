@@ -9,8 +9,61 @@ private string describe (GitDiff.FileDiff diff) {
     return out.str;
 }
 
+/** Every line with words marked, "<index>:<start>-<end>,..." joined by spaces — "" when nothing is. */
+private string describe_words (GitDiff.FileDiff diff) {
+    string[] marked = {};
+    for (uint i = 0; i < diff.lines.length; i++) {
+        string[] ranges = {};
+        foreach (var range in diff.lines[i].word_changes) {
+            ranges += "%d-%d".printf (range.start, range.end);
+        }
+        if (ranges.length > 0) {
+            marked += "%u:%s".printf (i, string.joinv (",", ranges));
+        }
+    }
+    return string.joinv (" ", marked);
+}
+
 int main (string[] args) {
     Test.init (ref args);
+
+    Test.add_func ("/git-diff-file-diff/a-removed-line-followed-by-an-added-one-pairs-their-words", () => {
+        var diff = GitDiff.FileDiff.parse_unified ("@@ -1,2 +1,2 @@\n a\n-the old word\n+the new word\n");
+
+        assert_cmpstr (describe_words (diff), CompareOperator.EQ, "1:4-7 2:4-7");
+    });
+
+    Test.add_func ("/git-diff-file-diff/a-run-of-equal-length-pairs-line-by-line", () => {
+        var diff = GitDiff.FileDiff.parse_unified ("@@ -1,2 +1,2 @@\n-x = 1\n-y = 2\n+x = 3\n+y = 4\n");
+
+        assert_cmpstr (describe_words (diff), CompareOperator.EQ, "0:4-5 1:4-5 2:4-5 3:4-5");
+    });
+
+    Test.add_func ("/git-diff-file-diff/unequal-runs-mark-no-words", () => {
+        var diff = GitDiff.FileDiff.parse_unified ("@@ -1,1 +1,2 @@\n-one\n+one\n+two\n");
+
+        assert_cmpstr (describe_words (diff), CompareOperator.EQ, "");
+    });
+
+    Test.add_func ("/git-diff-file-diff/a-run-over-five-lines-marks-no-words", () => {
+        var text = new StringBuilder ("@@ -1,6 +1,6 @@\n");
+        for (int i = 1; i <= 6; i++) {
+            text.append ("-a %d\n".printf (i));
+        }
+        for (int i = 1; i <= 6; i++) {
+            text.append ("+b %d\n".printf (i));
+        }
+
+        var diff = GitDiff.FileDiff.parse_unified (text.str);
+
+        assert_cmpstr (describe_words (diff), CompareOperator.EQ, "");
+    });
+
+    Test.add_func ("/git-diff-file-diff/pure-additions-and-removals-mark-no-words", () => {
+        var diff = GitDiff.FileDiff.parse_unified ("@@ -1,2 +1,2 @@\n-gone\n a\n+new\n");
+
+        assert_cmpstr (describe_words (diff), CompareOperator.EQ, "");
+    });
 
     Test.add_func ("/git-diff-file-diff/numbers-context-added-and-removed-lines", () => {
         try {

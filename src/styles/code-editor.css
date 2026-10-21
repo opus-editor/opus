@@ -44,26 +44,24 @@ textview.code-editor > text > selection {
 }
 
 /* CodeEditorDiffGutter's own columns and row tints (CodeEditor.show_diff()).
- * The marker column toggles git-* on itself to read a color back, like
- * .change-gutter above; the two *-line classes sit on zero-sized swatch
- * overlays, read back as the paragraph background of added/removed rows
- * — a light wash of the same tokens over the view background. */
+ * The two *-line classes sit on zero-sized swatch overlays, read back as
+ * the paragraph background of added/removed rows — a light wash of the
+ * same tokens over the view background. */
 .diff-gutter {
   opacity: 0.75;
-}
-.diff-gutter.git-added {
-  color: var(--opus-git-added);
-  opacity: 1;
-}
-.diff-gutter.git-removed {
-  color: var(--opus-git-removed);
-  opacity: 1;
 }
 .diff-added-line {
   color: var(--opus-diff-added-background);
 }
 .diff-removed-line {
   color: var(--opus-diff-removed-background);
+}
+/* The words that changed inside a line pair, stronger, over the row tint. */
+.diff-added-word {
+  color: var(--opus-diff-added-word-background);
+}
+.diff-removed-word {
+  color: var(--opus-diff-removed-word-background);
 }
 
 /* CodeEditorConflicts' own tints, read off zero-sized swatch overlays the

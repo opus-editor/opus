@@ -2,11 +2,16 @@
  * The gutter of an inline diff: the old line number, the new one, and a
  * `+`/`-` marker — three GtkSource.GutterRendererText columns answering
  * per buffer line out of a GitDiff.FileDiff, in place of GtkSourceView's
- * own number column (CodeEditor.show_diff() turns that off). Colors are
- * read back from CSS the way CodeEditorChangeGutter reads its own: the
- * marker column toggles `git-added`/`git-removed` on itself, and the
- * line backgrounds come off two zero-sized swatch overlays on the text
- * view carrying `diff-added-line`/`diff-removed-line` (code-editor.css).
+ * own number column (CodeEditor.show_diff() turns that off), all three
+ * in the gutter's own plain text. Colors are read back from CSS the way
+ * CodeEditorChangeGutter reads its own: the line backgrounds come off
+ * two zero-sized swatch overlays on the text view carrying
+ * `diff-added-line`/`diff-removed-line` (code-editor.css).
+ * The words that changed inside a line pair (GitDiff.DiffLine.word_changes)
+ * are two Gtk.TextTags over the row tint, colored off two more swatches
+ * (`diff-added-word`/`diff-removed-word`) — a tag's background can't be
+ * read from CSS at paint time the way a band's is, so refresh_colors()
+ * re-reads them whenever the theme does.
  */
 public class CodeEditorDiffGutter : Object {
   private const int XPAD = 4;
@@ -17,12 +22,24 @@ public class CodeEditorDiffGutter : Object {
   /** The swatches the added/removed row bands are painted from (`diff-added-line`/`diff-removed-line`, code-editor.css). */
   public Gtk.Widget added_swatch { get; private set; default = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false }; }
   public Gtk.Widget removed_swatch { get; private set; default = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false }; }
+  private Gtk.Widget added_word_swatch = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false };
+  private Gtk.Widget removed_word_swatch = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0) { can_target = false };
+  private Gtk.TextTag added_word_tag = new Gtk.TextTag ("diff-added-word") { background_set = true };
+  private Gtk.TextTag removed_word_tag = new Gtk.TextTag ("diff-removed-word") { background_set = true };
+  private Gtk.TextBuffer buffer;
   private GitDiff.FileDiff? diff = null;
 
   public CodeEditorDiffGutter (GtkSource.View text_view) {
-    old_numbers = new CodeEditorDiffGutterColumn (this, (line) => line.old_number > 0 ? line.old_number.to_string () : "", false);
-    new_numbers = new CodeEditorDiffGutterColumn (this, (line) => line.new_number > 0 ? line.new_number.to_string () : "", false);
-    markers = new CodeEditorDiffGutterColumn (this, (line) => line.kind == GitDiff.LineKind.ADDED ? "+" : line.kind == GitDiff.LineKind.REMOVED ? "-" : "", true);
+    buffer = text_view.buffer;
+    buffer.tag_table.add (added_word_tag);
+    buffer.tag_table.add (removed_word_tag);
+    added_word_swatch.add_css_class ("diff-added-word");
+    removed_word_swatch.add_css_class ("diff-removed-word");
+    text_view.add_overlay (added_word_swatch, 0, 0);
+    text_view.add_overlay (removed_word_swatch, 0, 0);
+    old_numbers = new CodeEditorDiffGutterColumn (this, (line) => line.old_number > 0 ? line.old_number.to_string () : "");
+    new_numbers = new CodeEditorDiffGutterColumn (this, (line) => line.new_number > 0 ? line.new_number.to_string () : "");
+    markers = new CodeEditorDiffGutterColumn (this, (line) => line.kind == GitDiff.LineKind.ADDED ? "+" : line.kind == GitDiff.LineKind.REMOVED ? "-" : "");
     added_swatch.add_css_class ("diff-added-line");
     removed_swatch.add_css_class ("diff-removed-line");
     text_view.add_overlay (added_swatch, 0, 0);
@@ -62,23 +79,42 @@ public class CodeEditorDiffGutter : Object {
     return diff != null && line < diff.lines.length ? diff.lines[line] : null;
   }
 
+  /** Tags each line's word_changes — once the diff's text is in the buffer, which set_diff() runs ahead of. Replacing the text drops the tags again, so nothing clears them. */
+  public void apply_word_tags () {
+    if (diff == null) {
+      return;
+    }
+    refresh_colors ();
+    for (uint line = 0; line < diff.lines.length; line++) {
+      var diff_line = diff.lines[line];
+      var tag = diff_line.kind == GitDiff.LineKind.ADDED ? added_word_tag : removed_word_tag;
+      foreach (var range in diff_line.word_changes) {
+        Gtk.TextIter start;
+        Gtk.TextIter end;
+        buffer.get_iter_at_line_offset (out start, (int) line, range.start);
+        buffer.get_iter_at_line_offset (out end, (int) line, range.end);
+        buffer.apply_tag (tag, start, end);
+      }
+    }
+  }
 
+  /** The tags' colors, read off their swatches now — on a theme change the band repaints itself, a tag has to be told. */
+  public void refresh_colors () {
+    added_word_tag.background_rgba = added_word_swatch.get_color ();
+    removed_word_tag.background_rgba = removed_word_swatch.get_color ();
+  }
 }
 
-/** One column of CodeEditorDiffGutter. `cell_text` says what a diff line shows here; a `colored` column paints added/removed cells in the git tones. */
+/** One column of CodeEditorDiffGutter. `cell_text` says what a diff line shows here. */
 public class CodeEditorDiffGutterColumn : GtkSource.GutterRendererText {
   public delegate string CellText (GitDiff.DiffLine line);
 
   private unowned CodeEditorDiffGutter owner;
   private CellText cell_text;
-  private bool colored;
-  private Gdk.RGBA color_added;
-  private Gdk.RGBA color_removed;
 
-  public CodeEditorDiffGutterColumn (CodeEditorDiffGutter owner, owned CellText cell_text, bool colored) {
+  public CodeEditorDiffGutterColumn (CodeEditorDiffGutter owner, owned CellText cell_text) {
     this.owner = owner;
     this.cell_text = (owned) cell_text;
-    this.colored = colored;
     add_css_class ("diff-gutter");
     xpad = 4;
     xalign = 1.0f;
@@ -104,40 +140,10 @@ public class CodeEditorDiffGutterColumn : GtkSource.GutterRendererText {
         return Source.REMOVE;
       });
     }
-    if (colored) {
-      color_added = resolve ("git-added");
-      color_removed = resolve ("git-removed");
-    }
-  }
-
-  private Gdk.RGBA resolve (string tone_class) {
-    add_css_class (tone_class);
-    var color = get_color ();
-    remove_css_class (tone_class);
-    return color;
   }
 
   public override void query_data (GLib.Object lines, uint line) {
     var diff_line = owner.line_at (line);
-    if (diff_line == null) {
-      set_text ("", -1);
-      return;
-    }
-    var text = cell_text (diff_line);
-    if (!colored || diff_line.kind == GitDiff.LineKind.CONTEXT) {
-      set_text (text, -1);
-      return;
-    }
-    var color = diff_line.kind == GitDiff.LineKind.ADDED ? color_added : color_removed;
-    set_markup ("<span foreground=\"%s\" weight=\"bold\">%s</span>".printf (hex (color), Markup.escape_text (text)), -1);
-  }
-
-  /** Pango wants "#rrggbb"; a mixed CSS color can come back a hair outside 0..1, so each channel is clamped. */
-  private static string hex (Gdk.RGBA color) {
-    return "#%02x%02x%02x".printf (channel (color.red), channel (color.green), channel (color.blue));
-  }
-
-  private static int channel (float value) {
-    return ((int) (value * 255 + 0.5f)).clamp (0, 255);
+    set_text (diff_line == null ? "" : cell_text (diff_line), -1);
   }
 }

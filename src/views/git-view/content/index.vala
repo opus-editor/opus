@@ -88,6 +88,10 @@ namespace GitView {
       return diff_pane.describe_lines ();
     }
 
+    public string[] describe_diff_word_changes () {
+      return diff_pane.describe_word_changes ();
+    }
+
     /** "diff", "plain" or "placeholder". */
     public string diff_mode {
       owned get { return diff_pane.mode; }

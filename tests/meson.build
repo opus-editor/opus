@@ -408,6 +408,13 @@ git_diff_file_diff_test = executable(
 )
 test('git-diff-file-diff', git_diff_file_diff_test)
 
+git_diff_word_diff_test = executable(
+  'git-diff-word-diff-test',
+  ['models/git-diff/word-diff-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('git-diff-word-diff', git_diff_word_diff_test)
+
 git_diff_blob_test = executable(
   'git-diff-blob-test',
   ['models/git-diff/blob-test.vala'],
