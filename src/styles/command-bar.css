@@ -28,7 +28,7 @@ popover.command-bar-results > contents {
 }
 
 .command-bar-list > row {
-  padding: 3px 10px;
+  padding: 6px 10px;
 }
 
 /* A section header is the list's own widget, never part of a row — no
