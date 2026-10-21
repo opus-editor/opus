@@ -73,7 +73,7 @@ public class CodeEditorSourceView : GtkSource.View, IDisplayRows {
   private uint blink_timeout_id = 0;
   private uint overscroll_idle_id = 0;
   private int? drop_indicator_offset = null;
-  private int indent_size = 4; // matches EditorView.EditorPane.TabDocument.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
+  private int indent_size = 4; // matches FileSettings.Values.DEFAULT_INDENT_SIZE, overwritten by set_indent_size() once a document's actually loaded
   private CodeEditorSelections selections;
 
   /** The columns to draw a ruler at, ascending; the first one's margin is tinted to the right edge. */

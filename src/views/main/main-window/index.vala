@@ -522,6 +522,7 @@ public class MainWindow : Object {
     branch_providers = new_branch_providers;
     editor_pane.set_decorations (new_decorations);
     editor_pane.set_file_settings (new_file_settings);
+    git_content.set_file_settings (new_file_settings);
 
     recent_files = new CommandBar.RecentFiles ();
     file_provider = new CommandBar.FileProvider (new_workspace_context, recent_files);
@@ -696,6 +697,7 @@ public class MainWindow : Object {
     workspace_watcher = null;
     editor_pane.set_decorations (null);
     editor_pane.set_file_settings (null);
+    git_content.set_file_settings (null);
     editor_pane.set_diff_base_provider (null);
     git_pane.set_workspace_context (null);
     tree_pane.set_workspace_context (null);

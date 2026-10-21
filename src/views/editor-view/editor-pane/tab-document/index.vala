@@ -17,13 +17,6 @@
  */
 namespace EditorView.EditorPane {
   public class TabDocument : Object, ITab {
-    // No `.editorconfig`, or none of its sections match a given file —
-    // VS Code's own default `tabSize`, and a reasonable one on its own.
-    private const int DEFAULT_INDENT_SIZE = 4;
-    // Matches current native behavior — Tab only switches to inserting
-    // spaces once a file's own .editorconfig explicitly says so.
-    private const bool DEFAULT_INSERT_SPACES = false;
-
     // How many of these exist right now — Opus.Dev.DevServer's own way to
     // see a closed tab that was never taken apart.
     public static int live_count = 0;
@@ -101,8 +94,8 @@ namespace EditorView.EditorPane {
 
     private void apply_indent () {
       var settings = file_settings_for ();
-      int indent_size = settings.indent_size ?? DEFAULT_INDENT_SIZE;
-      editor.set_indent (indent_size, settings.insert_spaces ?? DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
+      int indent_size = settings.indent_size ?? FileSettings.Values.DEFAULT_INDENT_SIZE;
+      editor.set_indent (indent_size, settings.insert_spaces ?? FileSettings.Values.DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
       editor.set_max_line_length (settings.max_line_length ?? 0);
     }
 

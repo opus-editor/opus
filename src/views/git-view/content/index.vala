@@ -71,6 +71,11 @@ namespace GitView {
       search_editor_changed ();
     }
 
+    /** See DiffPane.set_file_settings. */
+    public void set_file_settings (FileSettings.Registry? registry) {
+      diff_pane.set_file_settings (registry);
+    }
+
     /** Re-reads the diff on screen if a side of it is the working tree or the index. */
     public void reload_live_diff () {
       var request = diff_pane.shown_request;

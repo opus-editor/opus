@@ -17,6 +17,7 @@ namespace GitView {
     private Adw.StatusPage placeholder = new Adw.StatusPage ();
     private CodeEditor code_editor;
     private GitDiff.Request? request = null;
+    private FileSettings.Registry? file_settings = null;
     /** "diff", "plain" or "placeholder" — what the stack shows, for the debug D-Bus surface. */
     public string mode { get; private set; default = "diff"; }
     // A load still in flight when a newer one starts lands on nothing.
@@ -40,6 +41,11 @@ namespace GitView {
 
     /** The editor the FindBar acts on — null while a placeholder shows. Searchable, never replaceable: a diff is read-only. */
     public CodeEditor? search_editor { get { return mode == "placeholder" ? null : code_editor; } }
+
+    /** The folder's per-file settings — the diff's indent guides follow the file's own indentation, the same as its tab would. */
+    public void set_file_settings (FileSettings.Registry? registry) {
+      file_settings = registry;
+    }
 
     public void show (GitDiff.Request request) {
       this.request = request;
@@ -87,6 +93,7 @@ namespace GitView {
         show_placeholder (reason_title (blocked.status), reason_body (blocked.status));
         return;
       }
+      apply_indent (current.path);
       if (current.left.kind == GitDiff.SideKind.EMPTY || current.right.kind == GitDiff.SideKind.EMPTY) {
         code_editor.show_plain_text (current.left.kind == GitDiff.SideKind.EMPTY ? right_blob.text : left_blob.text, current.path);
         mode = "plain";
@@ -95,6 +102,12 @@ namespace GitView {
         mode = "diff";
       }
       stack.visible_child_name = "diff";
+    }
+
+    private void apply_indent (string path) {
+      var settings = file_settings?.settings_for (path) ?? new FileSettings.Values ();
+      int indent_size = settings.indent_size ?? FileSettings.Values.DEFAULT_INDENT_SIZE;
+      code_editor.set_indent (indent_size, settings.insert_spaces ?? FileSettings.Values.DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
     }
 
     private void show_placeholder (string title, string body) {

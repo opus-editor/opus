@@ -1,6 +1,13 @@
 namespace FileSettings {
   /** What a provider has to say about one file — a null field is nothing to say, and the host's own default stands. */
   public class Values : Object {
+    // No `.editorconfig`, or none of its sections match a given file —
+    // VS Code's own default `tabSize`, and a reasonable one on its own.
+    public const int DEFAULT_INDENT_SIZE = 4;
+    // Matches current native behavior — Tab only switches to inserting
+    // spaces once a file's own .editorconfig explicitly says so.
+    public const bool DEFAULT_INSERT_SPACES = false;
+
     public int? indent_size = null;
     /** How wide a literal tab renders; defaults to the indent size when nothing says. */
     public int? tab_width = null;

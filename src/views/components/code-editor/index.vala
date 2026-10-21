@@ -248,7 +248,6 @@ public class CodeEditor : Object {
   public void show_diff (GitDiff.FileDiff diff, string path) {
     read_only = true;
     show_line_numbers = false;
-    show_indent_guides = false;
     var gutter = text_view.get_gutter (Gtk.TextWindowType.LEFT);
     if (diff_gutter == null) {
       gutter.remove (change_gutter);
@@ -288,7 +287,6 @@ public class CodeEditor : Object {
   /** A file with only one side (new, or deleted) is no diff: the text as it is, read-only, with the native line numbers — the way VS Code opens an untracked file plainly rather than as all-added. */
   public void show_plain_text (string text, string path) {
     read_only = true;
-    show_indent_guides = false;
     if (diff_gutter_attached) {
       diff_gutter.detach (text_view.get_gutter (Gtk.TextWindowType.LEFT));
       diff_gutter_attached = false;
