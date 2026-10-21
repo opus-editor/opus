@@ -67,6 +67,7 @@
     "popover.background": "popover",
     "popover.foreground": "ink",
     "sidebar.background": "sidebar",
+    "sidebar.border": "transparent",
     "sidebar.foreground": "ink@85%",
     "sidebar.header.foreground": "ink",
     "sidebar.git.opacity": "50%",

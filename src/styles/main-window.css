@@ -24,9 +24,11 @@ tooltip.background {
 .opus-header {
   background-color: var(--opus-headerbar-background);
 }
-.opus-sidebar {
-  background-color: var(--opus-sidebar-background);
-}
+/* No background of its own: libadwaita's .sidebar-pane (the split
+ * view's bin around this) already paints --sidebar-bg-color, which the
+ * theme re-points to its sidebar.background, plus the 1px border toward
+ * the content (--sidebar-border-color, the theme's sidebar.border) — a
+ * background here would cover that border. */
 /* libadwaita gives every list view the "view" text color, not the
  * sidebar's; the lists in the sidebar take the sidebar's own. */
 .opus-sidebar listview,
