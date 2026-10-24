@@ -29,12 +29,23 @@ branch).
 
 ## Release (owner)
 
+The work ships from a `release/X.Y.Z` branch — the one it was done on,
+or a feature branch renamed once it is the release.
+
 ```sh
-just release X.Y.Z
+git push -u origin release/X.Y.Z
+just ci
+just release
 ```
 
-Bumps the version, runs `just ci`, fast-forwards `main`, pushes the
-tag. GitHub builds `Opus.flatpak` and attaches it to the release.
+`just release` takes the version from the branch name and refuses any
+other branch, or a head `just ci` hasn't signed. It commits the version
+into `meson.build`, the metainfo and the README and signs that commit
+without a second run of the suite, having checked that nothing else
+changed since the tested one; pushes the branch straight onto `main`,
+so a `main` someone moved meanwhile refuses it before anything is
+touched; pushes the tag, and deletes the branch. GitHub builds
+`Opus.flatpak` and attaches it to the release.
 
 ## One-time setup
 

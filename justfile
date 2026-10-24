@@ -89,36 +89,50 @@ ci:
       flatpak run org.flatpak.Builder --force-clean --ccache --state-dir=out/flatpak/state out/flatpak/app-ci build/.ci.json
     gh signoff
 
-# Cuts version X.Y.Z from main — see docs/DEVELOPMENT_WORKFLOW.md. Bumps
-# meson.build, the metainfo and the README on a release branch, runs `just ci` on
-# it, fast-forwards main, and pushes the tag that makes GitHub build
-# and attach Opus.flatpak.
-# Cut version X.Y.Z: bump, `just ci`, fast-forward main, push the tag.
-release version:
+# Takes the version from the branch name and refuses any other branch,
+# or a head `just ci` hasn't signed. Puts the version into meson.build,
+# the metainfo and the README as one more commit, signed without a
+# second run of the suite: the recipe checks that nothing but those
+# three files changed since the tested commit. main is advanced by
+# pushing the branch straight onto it, so the server's own fast-forward
+# check decides — a main someone moved meanwhile refuses the push and
+# nothing has been touched yet. Then the tag, which GitHub builds the
+# Flatpak off, and the branch goes. Run again after a failure and the
+# version bump is kept, not redone.
+# Ship the version the branch is named for: from release/X.Y.Z, after `just ci`.
+release:
     #!/usr/bin/env bash
     set -euo pipefail
-    v='{{version}}'
-    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "release: version must be X.Y.Z, got '$v'" >&2; exit 1; }
-    [ "$(git branch --show-current)" = main ] || { echo "release: run from main" >&2; exit 1; }
+    branch="$(git branch --show-current)"
+    [[ "$branch" =~ ^release/([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "release: run from a release/X.Y.Z branch, not '$branch'" >&2; exit 1; }
+    v="${BASH_REMATCH[1]}"
+    files=(meson.build data/io.github.opus_editor.Opus.metainfo.xml README.md)
     [ -z "$(git status --porcelain)" ] || { echo "release: the tree must be clean" >&2; exit 1; }
     git fetch -q origin
-    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "release: main is not in sync with origin/main" >&2; exit 1; }
     ! git rev-parse -q --verify "refs/tags/v$v" >/dev/null || { echo "release: tag v$v already exists" >&2; exit 1; }
-    git checkout -q -b "release/$v"
-    sed -i "s/^  version: '[^']*',/  version: '$v',/" meson.build
-    sed -i "s|<releases>|<releases>\n    <release version=\"$v\" date=\"$(date -I)\"/>|" data/io.github.opus_editor.Opus.metainfo.xml
-    sed -i -E "s|(<b id=\"app-version\">)[^<]*(</b>)|\\1$v\\2|" README.md
-    git add meson.build data/io.github.opus_editor.Opus.metainfo.xml README.md
-    git commit -q -m "chore: release $v"
-    git push -q -u origin "release/$v"
-    just ci
-    git checkout -q main
-    git merge -q --ff-only "release/$v"
-    git push -q
+    [ "$(git merge-base origin/main HEAD)" = "$(git rev-parse origin/main)" ] || { echo "release: $branch is behind main — rebase it first" >&2; exit 1; }
+    if [ "$(git log -1 --format=%s)" = "chore: release $v" ]; then
+      tested="$(git rev-parse HEAD~1)"
+    else
+      tested="$(git rev-parse HEAD)"
+      git branch -r --contains "$tested" | grep -q . || { echo "release: push first — just ci signs the commit at GitHub" >&2; exit 1; }
+      sed -i "s/^  version: '[^']*',/  version: '$v',/" meson.build
+      sed -i "s|<releases>|<releases>\n    <release version=\"$v\" date=\"$(date -I)\"/>|" data/io.github.opus_editor.Opus.metainfo.xml
+      sed -i -E "s|(<b id=\"app-version\">)[^<]*(</b>)|\\1$v\\2|" README.md
+      git add "${files[@]}"
+      git commit -q -m "chore: release $v"
+    fi
+    gh signoff status --commit "$tested" | grep -q '✓' || { echo "release: run just ci first — $tested isn't signed" >&2; exit 1; }
+    [ "$(git diff --name-only "$tested" HEAD | sort | tr '\n' ' ')" = "$(printf '%s\n' "${files[@]}" | sort | tr '\n' ' ')" ] || { echo "release: more than the version changed since the tested commit $tested" >&2; exit 1; }
+    git push -q -u origin "$branch"
+    gh signoff
+    git push -q origin "$branch:main" || { echo "release: main moved while this ran — rebase $branch onto it, just ci, and run again" >&2; exit 1; }
     git tag "v$v"
     git push -q origin "v$v"
-    git branch -q -d "release/$v"
-    git push -q origin --delete "release/$v"
+    git checkout -q main
+    git pull -q --ff-only
+    git branch -q -d "$branch"
+    git push -q origin --delete "$branch"
     echo "v$v tagged — GitHub is building the release: https://github.com/opus-editor/opus/actions"
 
 # Remove every generated file.
