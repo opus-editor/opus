@@ -45,6 +45,7 @@ private Syntax.SyntaxDocument json_embedding_css (string json_injections) {
         DirUtils.create_with_parents (Path.build_filename (directory, "css", "queries"), 0700);
         FileUtils.set_contents (Path.build_filename (directory, "css", "language.json"), """{ "name": "css", "injection-regex": "^(css|style)$", "grammar": { "repository": "r", "rev": "abc" } }""");
         FileUtils.set_contents (Path.build_filename (directory, "css", "queries", "highlights.scm"), "(property_name) @property\n(plain_value) @value");
+        FileUtils.set_contents (Path.build_filename (directory, "css", "queries", "indents.scm"), "(block) @indent\n\"}\" @outdent");
     } catch (FileError e) {
         error ("%s", e.message);
     }
@@ -320,6 +321,19 @@ private void test_a_closer_with_more_typed_after_it_closes_nothing () {
     bool closes = closes_at (document, "[\n  [\n  ],<|>\n]", out levels);
 
     assert_false (closes);
+}
+
+private void test_a_closer_typed_inside_an_injection_outdents_before_its_row_is_painted_again () {
+    var document = json_embedding_css ("((object) @injection.content (#set! injection.language \"css\") (#set! injection.include-children))");
+    document.set_text ("[\n  {\n  \n]");
+    document.highlights (0, 3);
+    document.set_text ("[\n  {\n  }\n]");
+
+    int levels;
+    bool closes = document.outdent_change ("[\n  {\n  }".length, "[\n".length, out levels);
+
+    assert_true (closes);
+    assert_cmpint (levels, CompareOperator.EQ, 0);
 }
 
 /** JSON large enough that a parse of it is asked whether to go on many times over: one number per row. */
@@ -901,6 +915,7 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/syntax-document/a_closer_typed_first_on_its_line_comes_out_to_its_opener", test_a_closer_typed_first_on_its_line_comes_out_to_its_opener);
     Test.add_func ("/models/syntax/syntax-document/a_closer_that_is_not_first_on_its_line_closes_nothing", test_a_closer_that_is_not_first_on_its_line_closes_nothing);
     Test.add_func ("/models/syntax/syntax-document/a_closer_with_more_typed_after_it_closes_nothing", test_a_closer_with_more_typed_after_it_closes_nothing);
+    Test.add_func ("/models/syntax/syntax-document/a_closer_typed_inside_an_injection_outdents_before_its_row_is_painted_again", test_a_closer_typed_inside_an_injection_outdents_before_its_row_is_painted_again);
     Test.add_func ("/models/syntax/syntax-document/a_definition_is_a_symbol_with_its_name_and_kind", test_a_definition_is_a_symbol_with_its_name_and_kind);
     Test.add_func ("/models/syntax/syntax-document/a_symbol_is_where_its_name_is", test_a_symbol_is_where_its_name_is);
     Test.add_func ("/models/syntax/syntax-document/a_symbols_column_counts_characters_not_bytes", test_a_symbols_column_counts_characters_not_bytes);

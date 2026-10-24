@@ -288,6 +288,7 @@ namespace Syntax {
       if (halted) {
         return null;
       }
+      inject_at (position);
       Layer? innermost = null;
       foreach (var layer in layers) {
         innermost = deeper_of (innermost, layer, position, at_end_too);
@@ -315,6 +316,26 @@ namespace Syntax {
         }
       }
       return false;
+    }
+
+    /**
+     * Parses the on-demand injections covering `position`, as painting
+     * its row would. The indent of a character just typed is asked
+     * about before the edit's row is painted again, and the edit threw
+     * the layers of the text before out: without this the style sheet
+     * inside `<style>` would be read as the page around it.
+     */
+    private void inject_at (uint32 position) {
+      uint32 row = 0;
+      for (uint32 i = 0; i < position; i++) {
+        if (text[i] == '\n') {
+          row++;
+        }
+      }
+      var hosts = layers.copy ((layer) => layer);
+      for (int i = 0; i < hosts.length; i++) {
+        add_injected_in_rows (hosts[i], row, row, hosts);
+      }
     }
 
     private void add_injected_in_rows (Layer host, uint32 first_row, uint32 last_row, GenericArray<Layer> visible) {
