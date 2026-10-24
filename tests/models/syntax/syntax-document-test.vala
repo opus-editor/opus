@@ -1,13 +1,13 @@
 // Runs against the bundled JSON grammar — OPUS_GRAMMARS_DIR is set by
 // tests/meson.build.
 
-/** A JSON language whose highlights query is `highlights_query`, painted by a theme defining `style_keys`. */
-private Syntax.LoadedLanguage json_with (string highlights_query, string[] style_keys) {
+/** A JSON language whose highlights query is `highlights_query`, painted by a theme defining `style_keys`; `manifest_keys` go into its language.json, after `name`. */
+private Syntax.LoadedLanguage json_with (string highlights_query, string[] style_keys, string manifest_keys = "") {
     string languages = Path.build_filename (Environment.get_tmp_dir (), "opus-syntax-document-test-%u".printf (Random.next_int ()));
     string queries = Path.build_filename (languages, "json", "queries");
     DirUtils.create_with_parents (queries, 0700);
     try {
-        FileUtils.set_contents (Path.build_filename (languages, "json", "language.json"), """{ "name": "json", "grammar": { "repository": "r", "rev": "abc" } }""");
+        FileUtils.set_contents (Path.build_filename (languages, "json", "language.json"), """{ "name": "json", """ + manifest_keys + """ "grammar": { "repository": "r", "rev": "abc" } }""");
         FileUtils.set_contents (Path.build_filename (queries, "highlights.scm"), highlights_query);
         var registry = new Syntax.LanguageRegistry ({ languages });
         return Syntax.LoadedLanguage.load (
@@ -35,7 +35,7 @@ private string[] described (Syntax.HighlightSpan[] spans) {
  * JSON strings painted "string" and CSS property names and values
  * painted "property" and "value".
  */
-private Syntax.SyntaxDocument json_embedding_css (string json_injections) {
+private Syntax.SyntaxDocument json_embedding_css (string json_injections, string css_manifest_keys = """ "pairs": [{ "open": "{", "close": "}" }], """) {
     string directory = Path.build_filename (Environment.get_tmp_dir (), "opus-syntax-document-test-%u".printf (Random.next_int ()));
     try {
         DirUtils.create_with_parents (Path.build_filename (directory, "json", "queries"), 0700);
@@ -43,7 +43,7 @@ private Syntax.SyntaxDocument json_embedding_css (string json_injections) {
         FileUtils.set_contents (Path.build_filename (directory, "json", "queries", "highlights.scm"), "(string) @string");
         FileUtils.set_contents (Path.build_filename (directory, "json", "queries", "injections.scm"), json_injections);
         DirUtils.create_with_parents (Path.build_filename (directory, "css", "queries"), 0700);
-        FileUtils.set_contents (Path.build_filename (directory, "css", "language.json"), """{ "name": "css", "injection-regex": "^(css|style)$", "grammar": { "repository": "r", "rev": "abc" } }""");
+        FileUtils.set_contents (Path.build_filename (directory, "css", "language.json"), """{ "name": "css", "injection-regex": "^(css|style)$", """ + css_manifest_keys + """ "grammar": { "repository": "r", "rev": "abc" } }""");
         FileUtils.set_contents (Path.build_filename (directory, "css", "queries", "highlights.scm"), "(property_name) @property\n(plain_value) @value");
         FileUtils.set_contents (Path.build_filename (directory, "css", "queries", "indents.scm"), "(block) @indent\n\"}\" @outdent");
     } catch (FileError e) {

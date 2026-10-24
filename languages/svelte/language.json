@@ -5,6 +5,15 @@
     "svelte"
   ],
   "injection-regex": "svelte",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "<", "close": ">", "not-in": ["string", "comment"], "auto-close": false },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string"] },
+    { "open": "<!--", "close": "-->", "not-in": ["comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/themixednuts/tree-sitter-htmlx",
     "rev": "c9b9cc35709fff494a3a9e41cd9471b633649e45",

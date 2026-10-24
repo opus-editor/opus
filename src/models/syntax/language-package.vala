@@ -52,6 +52,10 @@ namespace Syntax {
     public Regex? injection_regex { get; private set; }
     /** Null for a package that only lends its queries to others through `; inherits:`. */
     public GrammarSource? grammar { get; private set; }
+    /** The manifest's `pairs` and `auto-close-before`; {@link PairSet.defaults} when it declares none. */
+    public PairSet pairs { get; private set; }
+    /** Whether the manifest says what its pairs are — a language that doesn't lends nothing to the text it is injected into. */
+    public bool declares_pairs { get; private set; }
 
     private LanguagePackage () {}
 
@@ -77,6 +81,8 @@ namespace Syntax {
       package.shebangs = string_array (root, "shebangs");
       package.injection_regex = injection_regex_of (root);
       package.grammar = grammar_of (root, package.name);
+      package.pairs = pairs_of (root);
+      package.declares_pairs = root.has_member ("pairs");
       package.read_file_types (root);
       return package;
     }
@@ -155,6 +161,31 @@ namespace Syntax {
       );
     }
 
+    private static PairSet pairs_of (Json.Object root) throws PackageError {
+      var auto_close_before = optional_string (root, "auto-close-before");
+      if (!root.has_member ("pairs")) {
+        return auto_close_before == null ? PairSet.defaults () : new PairSet (PairSet.defaults ().pairs, auto_close_before);
+      }
+      BracketPair[] pairs = {};
+      foreach (var node in array_member (root, "pairs")) {
+        if (node.get_node_type () != Json.NodeType.OBJECT) {
+          throw new PackageError.INVALID ("\"pairs\" entries must be objects");
+        }
+        pairs += pair_of (node.get_object ());
+      }
+      return new PairSet (pairs, auto_close_before ?? PairSet.DEFAULT_AUTO_CLOSE_BEFORE);
+    }
+
+    private static BracketPair pair_of (Json.Object entry) throws PackageError {
+      return new BracketPair (
+        required_string (entry, "open"),
+        required_string (entry, "close"),
+        string_array (entry, "not-in"),
+        optional_bool (entry, "auto-close") ?? true,
+        optional_bool (entry, "surround") ?? true
+      );
+    }
+
     private static string required_string (Json.Object object, string key) throws PackageError {
       var value = optional_string (object, key);
       if (value == null || value == "") {
@@ -172,6 +203,17 @@ namespace Syntax {
         throw new PackageError.INVALID ("\"%s\" must be a string", key);
       }
       return node.get_string ();
+    }
+
+    private static bool? optional_bool (Json.Object object, string key) throws PackageError {
+      if (!object.has_member (key)) {
+        return null;
+      }
+      var node = object.get_member (key);
+      if (node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
+        throw new PackageError.INVALID ("\"%s\" must be true or false", key);
+      }
+      return node.get_boolean ();
     }
 
     private static string[] string_array (Json.Object object, string key) throws PackageError {

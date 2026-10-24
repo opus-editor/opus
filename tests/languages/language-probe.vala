@@ -75,6 +75,32 @@ namespace LanguageProbe {
     }
 
     /**
+     * The text after `typed` is pressed at the cursor, with `<|>` where
+     * the caret lands — auto-close with every switch on, deciding from
+     * the package's own `pairs` and the syntax at the cursor.
+     */
+    public string type (string file_name, string marked, unichar typed) {
+        int offset;
+        var text = without_cursor (marked, out offset);
+        // Held until the edit is computed: the scope answers belong to the document.
+        var held = document (file_name, text);
+        var auto_close = new AutoClose (AutoCloseSettings.all_on (), (at, of_character) => held.scope_at (at, of_character));
+        var cursors = new CursorCollection ();
+        cursors.set_cursors ({ new Cursor (offset) });
+
+        Cursor[] to_remove;
+        var edits = cursors.compute_typing_edits (typed, false, text, auto_close, out to_remove);
+        var result = text;
+        for (int i = edits.length - 1; i >= 0; i--) {
+            var edit = edits[i].edit;
+            result = result.substring (0, result.index_of_nth_char (edit.start_offset)) + edit.new_text + result.substring (result.index_of_nth_char (edit.end_offset));
+        }
+        cursors.apply_edit_results (edits, to_remove);
+        int caret = result.index_of_nth_char (cursors.primary.position_offset);
+        return result.substring (0, caret) + CURSOR + result.substring (caret);
+    }
+
+    /**
      * What the `#` list would show for `text`, a line per symbol in
      * the order of the file: `name: kind`, or `name: kind · container`
      * for one defined inside another.

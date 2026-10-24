@@ -700,6 +700,56 @@ private void test_reload_keeps_the_last_values_when_the_file_is_gone () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_auto_close_for_defaults_to_everything_on () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{}");
+    var settings = new UserSettings (config_dir);
+
+    var auto_close = settings.auto_close_for (null);
+
+    assert_true (auto_close.brackets);
+    assert_true (auto_close.quotes);
+    assert_true (auto_close.surround_selection);
+    assert_true (auto_close.track_inserted_pairs);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_auto_close_for_reads_each_switch () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.auto_close.brackets": false, "editor.auto_close.quotes": false, "editor.auto_close.surround_selection": false, "editor.auto_close.track_inserted_pairs": false }""");
+    var settings = new UserSettings (config_dir);
+
+    var auto_close = settings.auto_close_for (null);
+
+    assert_false (auto_close.brackets);
+    assert_false (auto_close.quotes);
+    assert_false (auto_close.surround_selection);
+    assert_false (auto_close.track_inserted_pairs);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_auto_close_for_a_language_reads_its_block_over_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.auto_close.quotes": false, "language.markdown": { "editor.auto_close.brackets": false } }""");
+    var settings = new UserSettings (config_dir);
+
+    var auto_close = settings.auto_close_for ("markdown");
+
+    assert_false (auto_close.brackets);
+    assert_false (auto_close.quotes);
+    assert_true (auto_close.surround_selection);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_auto_close_for_falls_back_from_a_value_of_the_wrong_type () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.auto_close.brackets": "no" }""");
+    var settings = new UserSettings (config_dir);
+
+    assert_true (settings.auto_close_for (null).brackets);
+    remove_temp_config_dir (config_dir);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/user-settings/path_is_settings_json_under_an_opus_subdirectory", test_path_is_settings_json_under_an_opus_subdirectory);
@@ -755,5 +805,9 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/changes_sort_defaults_to_path", test_changes_sort_defaults_to_path);
     Test.add_func ("/models/user-settings/changes_sort_is_read_from_the_file", test_changes_sort_is_read_from_the_file);
     Test.add_func ("/models/user-settings/changes_sort_of_the_wrong_type_falls_back_to_path", test_changes_sort_of_the_wrong_type_falls_back_to_path);
+    Test.add_func ("/models/user-settings/auto_close_for_defaults_to_everything_on", test_auto_close_for_defaults_to_everything_on);
+    Test.add_func ("/models/user-settings/auto_close_for_reads_each_switch", test_auto_close_for_reads_each_switch);
+    Test.add_func ("/models/user-settings/auto_close_for_a_language_reads_its_block_over_the_plain_key", test_auto_close_for_a_language_reads_its_block_over_the_plain_key);
+    Test.add_func ("/models/user-settings/auto_close_for_falls_back_from_a_value_of_the_wrong_type", test_auto_close_for_falls_back_from_a_value_of_the_wrong_type);
     return Test.run ();
 }

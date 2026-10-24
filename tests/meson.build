@@ -98,6 +98,13 @@ opus_syntax_test_env = [
   'OPUS_TEST_GRAMMAR_REPOSITORY=' + meson.project_source_root() / 'subprojects' / 'tree-sitter-json',
 ]
 
+syntax_bracket_pair_test = executable(
+  'syntax-bracket-pair-test',
+  ['models/syntax/bracket-pair-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('syntax-bracket-pair', syntax_bracket_pair_test)
+
 syntax_capture_styles_test = executable(
   'syntax-capture-styles-test',
   ['models/syntax/capture-styles-test.vala'],
@@ -582,6 +589,20 @@ replace_pattern_test = executable(
   dependencies: [opus_model_test_dep],
 )
 test('replace-pattern', replace_pattern_test)
+
+auto_close_test = executable(
+  'auto-close-test',
+  ['models/auto-close-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('auto-close', auto_close_test)
+
+inserted_pairs_test = executable(
+  'inserted-pairs-test',
+  ['models/inserted-pairs-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('inserted-pairs', inserted_pairs_test)
 
 user_settings_test = executable(
   'user-settings-test',
@@ -1176,6 +1197,29 @@ test(
   functions_builtins_test,
   env: ['OPUS_FUNCTIONS_DIR=' + meson.project_source_root() / 'src' / 'functions'],
 )
+
+# Auto-close brackets/quotes (docs/AUTO_CLOSE.md), one binary per
+# ability so a failure names what broke; each owns a display, 140 to 145.
+foreach ability : ['pairs', 'cursors', 'memory', 'quotes', 'surround', 'languages']
+  auto_close_ability_test = executable(
+    'auto-close-' + ability + '-test',
+    ['system/auto-close' / ability + '-test.vala'],
+    dependencies: [opus_system_test_dep],
+  )
+  test(
+    'auto-close-' + ability,
+    auto_close_ability_test,
+    env: [
+      'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+      'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+      'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+      'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+      'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+    ],
+    depends: opus_grammar_modules,
+    timeout: 60,
+  )
+endforeach
 
 smart_indent_test = executable(
   'smart-indent-test',

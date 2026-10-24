@@ -134,9 +134,28 @@ public class UserSettings : Object {
    * On with neither.
    */
   public bool auto_indent_for (string? language) {
-    var node = language_block (language)?.get_member ("editor.auto_indent");
+    return bool_for (language, "editor.auto_indent", true);
+  }
+
+  /**
+   * The `editor.auto_close.*` switches for files highlighted as
+   * `language` (see docs/AUTO_CLOSE.md), each a `language.<name>`
+   * block's own value first. All on with nothing set.
+   */
+  public AutoCloseSettings auto_close_for (string? language) {
+    return new AutoCloseSettings (
+      bool_for (language, "editor.auto_close.brackets", true),
+      bool_for (language, "editor.auto_close.quotes", true),
+      bool_for (language, "editor.auto_close.surround_selection", true),
+      bool_for (language, "editor.auto_close.track_inserted_pairs", true)
+    );
+  }
+
+  /** A boolean `key`: the `language.<name>` block's own value when it has one, else the plain key, else `fallback`. */
+  private bool bool_for (string? language, string key, bool fallback) {
+    var node = language_block (language)?.get_member (key);
     if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
-      return read_bool ("editor.auto_indent", true);
+      return read_bool (key, fallback);
     }
     return node.get_boolean ();
   }
@@ -317,6 +336,10 @@ public class UserSettings : Object {
   /** The keys in alphabetical order, a `language.<name>` block last — one, to show that any key can be set per language. */
   private static string default_content () {
     return """{
+  "editor.auto_close.brackets": true,
+  "editor.auto_close.quotes": true,
+  "editor.auto_close.surround_selection": true,
+  "editor.auto_close.track_inserted_pairs": true,
   "editor.auto_indent": true,
   "editor.font_family": null,
   "editor.font_ligatures": false,

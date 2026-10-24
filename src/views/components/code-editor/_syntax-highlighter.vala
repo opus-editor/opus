@@ -103,6 +103,15 @@ public class CodeEditorSyntaxHighlighter : Object {
     return trees_are_current () && document.outdent_change (offset, reference_offset, out levels);
   }
 
+  /** What the syntax says about character `offset` — see Syntax.SyntaxDocument.scope_at. Null with no language; the language alone, no captures, while a huge file is still being parsed. */
+  public Syntax.Scope? scope_at (int offset, bool of_character) {
+    if (document == null) {
+      return null;
+    }
+    trees_are_current ();
+    return document.scope_at (offset, of_character);
+  }
+
   /** Whether the text's language has a way to list symbols at all. */
   public bool lists_symbols {
     get { return document != null && document.lists_symbols; }

@@ -12,6 +12,15 @@
     "ts-node"
   ],
   "injection-regex": "(ts|typescript)",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string", "comment"] },
+    { "open": "`", "close": "`", "not-in": ["string"] },
+    { "open": "/*", "close": " */", "not-in": ["string", "comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/tree-sitter/tree-sitter-typescript",
     "rev": "75b3874edb2dc714fb1fd77a32013d0f8699989f",

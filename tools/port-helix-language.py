@@ -119,10 +119,30 @@ def manifest_for(name):
     return manifest
 
 
+def with_opus_keys(path, manifest):
+    """`pairs` and `auto-close-before` are Opus's own, not Helix's: an import keeps what the manifest already says, before `grammar` as the docs show them."""
+    if not os.path.exists(path):
+        return manifest
+    with open(path) as file:
+        existing = json.load(file)
+    kept = {key: existing[key] for key in ("pairs", "auto-close-before") if key in existing}
+    if not kept:
+        return manifest
+    result = {key: value for key, value in manifest.items() if key != "grammar"}
+    result.update(kept)
+    if "grammar" in manifest:
+        result["grammar"] = manifest["grammar"]
+    return result
+
+
 def dump(manifest):
     text = json.dumps(manifest, indent=2, ensure_ascii=False)
     # One glob per line, like the extensions around it.
-    return re.sub(r'\{\s*\n\s*"glob": ("(?:[^"\\]|\\.)*")\s*\n\s*\}', r'{ "glob": \1 }', text) + "\n"
+    text = re.sub(r'\{\s*\n\s*"glob": ("(?:[^"\\]|\\.)*")\s*\n\s*\}', r'{ "glob": \1 }', text)
+    # And one pair per line.
+    text = re.sub(r'"not-in": \[\s*((?:"[^"]*",?\s*)+)\]', lambda m: '"not-in": [' + ", ".join(re.findall(r'"[^"]*"', m.group(1))) + "]", text)
+    text = re.sub(r'\{\n((?:\s+"(?:open|close|not-in|auto-close|surround)": [^\n]+\n)+)\s*\}', lambda m: "{ " + re.sub(r"\s*\n\s*", " ", m.group(1).strip()) + " }", text)
+    return text + "\n"
 
 
 def maintained_here(path):
@@ -140,8 +160,10 @@ for name in sys.argv[2:]:
 
     package = os.path.join(REPO_ROOT, "languages", name)
     os.makedirs(os.path.join(package, "queries"), exist_ok=True)
-    with open(os.path.join(package, "language.json"), "w") as file:
-        file.write(dump(manifest_for(name)))
+    manifest_path = os.path.join(package, "language.json")
+    manifest = with_opus_keys(manifest_path, manifest_for(name))
+    with open(manifest_path, "w") as file:
+        file.write(dump(manifest))
 
     for query in QUERIES:
         source = os.path.join(queries_source, f"{query}.scm")

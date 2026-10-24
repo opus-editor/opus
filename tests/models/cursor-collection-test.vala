@@ -1257,6 +1257,212 @@ private void test_overtype_distributed_paste_clamps_at_the_next_cursors_own_star
     assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "WXYZ123"); // the full pasted text still lands — only how much gets eaten is capped
 }
 
+private TaggedTextEdit insertion_at (Cursor cursor, string new_text) {
+    var edit = new TextEdit ();
+    edit.start_offset = cursor.position_offset;
+    edit.end_offset = cursor.position_offset;
+    edit.old_text = "";
+    edit.new_text = new_text;
+    var tagged = new TaggedTextEdit ();
+    tagged.edit = edit;
+    tagged.cursor = cursor;
+    return tagged;
+}
+
+private void test_an_edit_lands_its_cursor_after_the_new_text_unless_told_otherwise () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (2);
+    cc.set_cursors ({ cursor });
+
+    cc.apply_edit_results ({ insertion_at (cursor, "()") }, {});
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 4);
+    assert_true (cc.primary.is_empty);
+}
+
+private void test_an_edit_can_land_its_cursor_inside_the_new_text () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (2);
+    cc.set_cursors ({ cursor });
+    var tagged = insertion_at (cursor, "()");
+    tagged.caret_in_new_text = 1;
+
+    cc.apply_edit_results ({ tagged }, {});
+
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 3);
+    assert_true (cc.primary.is_empty);
+}
+
+private void test_an_edit_can_leave_a_selection_over_part_of_the_new_text () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (2);
+    cc.set_cursors ({ cursor });
+    var tagged = insertion_at (cursor, "(foo)");
+    tagged.anchor_in_new_text = 1;
+    tagged.caret_in_new_text = 4;
+
+    cc.apply_edit_results ({ tagged }, {});
+
+    assert_cmpint (cc.primary.anchor_offset, CompareOperator.EQ, 3);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 6);
+}
+
+private void test_a_cursor_placed_inside_new_text_is_still_shifted_by_earlier_edits () {
+    var cc = new CursorCollection ();
+    var first = new Cursor (0);
+    var second = new Cursor (2);
+    cc.set_cursors ({ first, second });
+    var a = insertion_at (first, "()");
+    a.caret_in_new_text = 1;
+    var b = insertion_at (second, "()");
+    b.caret_in_new_text = 1;
+
+    cc.apply_edit_results ({ a, b }, {});
+
+    assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 1);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 5);
+}
+
+private void test_an_edit_that_closed_a_pair_is_remembered_where_it_landed () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (2);
+    cc.set_cursors ({ cursor });
+    var tagged = insertion_at (cursor, "()");
+    tagged.caret_in_new_text = 1;
+    tagged.closed_pair = new Syntax.BracketPair ("(", ")", {}, true, true);
+
+    cc.apply_edit_results ({ tagged }, {});
+
+    var entry = cc.inserted_pairs.closing_at (3);
+    assert_nonnull (entry);
+    assert_cmpint (entry.open_offset, CompareOperator.EQ, 2);
+}
+
+private void test_a_remembered_pair_follows_later_edits_and_outside_ones () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (0);
+    cc.set_cursors ({ cursor });
+    var opened = insertion_at (cursor, "()");
+    opened.caret_in_new_text = 1;
+    opened.closed_pair = new Syntax.BracketPair ("(", ")", {}, true, true);
+    cc.apply_edit_results ({ opened }, {});
+
+    Cursor[] to_remove;
+    var typed = cc.compute_edits (EditIntent.INSERT, "ab", "()", out to_remove);
+    cc.apply_edit_results (typed, to_remove);
+    var prefix = new TextEdit ();
+    prefix.start_offset = 0;
+    prefix.end_offset = 0;
+    prefix.old_text = "";
+    prefix.new_text = "x = ";
+    cc.shift_for_external_edits ({ prefix });
+
+    var entry = cc.inserted_pairs.closing_at (7);
+    assert_nonnull (entry);
+    assert_cmpint (entry.open_offset, CompareOperator.EQ, 4);
+}
+
+private void test_a_remembered_pair_is_forgotten_once_every_cursor_left_it () {
+    var cc = new CursorCollection ();
+    var cursor = new Cursor (0);
+    cc.set_cursors ({ cursor });
+    var opened = insertion_at (cursor, "()");
+    opened.caret_in_new_text = 1;
+    opened.closed_pair = new Syntax.BracketPair ("(", ")", {}, true, true);
+    cc.apply_edit_results ({ opened }, {});
+
+    cc.forget_stale_inserted_pairs ("()");
+    bool still_there_inside = cc.inserted_pairs.count == 1;
+    cc.move (CursorMoveOp.RIGHT, false, "()");
+    cc.forget_stale_inserted_pairs ("()");
+
+    assert_true (still_there_inside);
+    assert_cmpint (cc.inserted_pairs.count, CompareOperator.EQ, 0);
+}
+
+private void test_typing_without_auto_close_is_a_plain_insert () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_typing_edits ('(', false, "ab", null, out to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "(");
+    assert_cmpint (edits[0].caret_in_new_text, CompareOperator.EQ, -1);
+}
+
+private void test_each_cursor_decides_on_its_own_context_when_typing () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1), new Cursor (3) });
+    var auto_close = new AutoClose (AutoCloseSettings.all_on (), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_typing_edits ('(', false, "a  bc", auto_close, out to_remove);
+    cc.apply_edit_results (edits, to_remove);
+
+    // "a  bc" -> "a()  (bc": the first cursor closes before a space, the second is plain before a word
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "()");
+    assert_cmpstr (edits[1].edit.new_text, CompareOperator.EQ, "(");
+    assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 6);
+}
+
+private void test_skipping_a_closer_moves_no_other_cursor () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1), new Cursor (4) });
+    cc.inserted_pairs.remember (0, 1, new Syntax.BracketPair ("(", ")", {}, true, true));
+    var auto_close = new AutoClose (AutoCloseSettings.all_on (), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_typing_edits (')', false, "() x", auto_close, out to_remove);
+    cc.apply_edit_results (edits, to_remove);
+
+    assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 5);
+}
+
+private void test_backspace_without_auto_close_keeps_its_indent_stops () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (4) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, "    x", out to_remove);
+
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 2);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 4);
+}
+
+private void test_two_cursors_whose_pair_deletes_overlap_keep_only_the_first () {
+    var cc = new CursorCollection ();
+    var inside = new Cursor (1);
+    var after = new Cursor (2);
+    cc.set_cursors ({ inside, after });
+    var auto_close = new AutoClose (new AutoCloseSettings (true, true, true, false), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, "()", out to_remove, auto_close);
+    cc.apply_edit_results (edits, to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 1);
+    assert_cmpint (edits[0].edit.start_offset, CompareOperator.EQ, 0);
+    assert_cmpint (edits[0].edit.end_offset, CompareOperator.EQ, 2);
+    assert_cmpint (cc.count, CompareOperator.EQ, 1);
+    assert_cmpint (cc.primary.position_offset, CompareOperator.EQ, 0);
+}
+
+private void test_two_cursors_whose_edits_merely_touch_both_survive () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1), new Cursor (2) });
+    var auto_close = new AutoClose (new AutoCloseSettings (true, true, true, false), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_backspace_edits (2, "(ab", out to_remove, auto_close);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpint (to_remove.length, CompareOperator.EQ, 0);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/cursor-collection/default_state_is_a_single_collapsed_cursor_at_start", test_default_state_is_a_single_collapsed_cursor_at_start);
@@ -1342,5 +1548,18 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/overtype_selection_with_multi_character_replacement_eats_one_extra_character_past_its_end", test_overtype_selection_with_multi_character_replacement_eats_one_extra_character_past_its_end);
     Test.add_func ("/models/cursor-collection/overtype_selection_with_a_single_character_replacement_eats_nothing_extra", test_overtype_selection_with_a_single_character_replacement_eats_nothing_extra);
     Test.add_func ("/models/cursor-collection/overtype_distributed_paste_clamps_at_the_next_cursors_own_start", test_overtype_distributed_paste_clamps_at_the_next_cursors_own_start);
+    Test.add_func ("/models/cursor-collection/an_edit_lands_its_cursor_after_the_new_text_unless_told_otherwise", test_an_edit_lands_its_cursor_after_the_new_text_unless_told_otherwise);
+    Test.add_func ("/models/cursor-collection/an_edit_can_land_its_cursor_inside_the_new_text", test_an_edit_can_land_its_cursor_inside_the_new_text);
+    Test.add_func ("/models/cursor-collection/an_edit_can_leave_a_selection_over_part_of_the_new_text", test_an_edit_can_leave_a_selection_over_part_of_the_new_text);
+    Test.add_func ("/models/cursor-collection/a_cursor_placed_inside_new_text_is_still_shifted_by_earlier_edits", test_a_cursor_placed_inside_new_text_is_still_shifted_by_earlier_edits);
+    Test.add_func ("/models/cursor-collection/an_edit_that_closed_a_pair_is_remembered_where_it_landed", test_an_edit_that_closed_a_pair_is_remembered_where_it_landed);
+    Test.add_func ("/models/cursor-collection/a_remembered_pair_follows_later_edits_and_outside_ones", test_a_remembered_pair_follows_later_edits_and_outside_ones);
+    Test.add_func ("/models/cursor-collection/a_remembered_pair_is_forgotten_once_every_cursor_left_it", test_a_remembered_pair_is_forgotten_once_every_cursor_left_it);
+    Test.add_func ("/models/cursor-collection/typing_without_auto_close_is_a_plain_insert", test_typing_without_auto_close_is_a_plain_insert);
+    Test.add_func ("/models/cursor-collection/each_cursor_decides_on_its_own_context_when_typing", test_each_cursor_decides_on_its_own_context_when_typing);
+    Test.add_func ("/models/cursor-collection/skipping_a_closer_moves_no_other_cursor", test_skipping_a_closer_moves_no_other_cursor);
+    Test.add_func ("/models/cursor-collection/backspace_without_auto_close_keeps_its_indent_stops", test_backspace_without_auto_close_keeps_its_indent_stops);
+    Test.add_func ("/models/cursor-collection/two_cursors_whose_pair_deletes_overlap_keep_only_the_first", test_two_cursors_whose_pair_deletes_overlap_keep_only_the_first);
+    Test.add_func ("/models/cursor-collection/two_cursors_whose_edits_merely_touch_both_survive", test_two_cursors_whose_edits_merely_touch_both_survive);
     return Test.run ();
 }

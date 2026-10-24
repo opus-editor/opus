@@ -51,6 +51,8 @@ public class CodeEditorCursors : Object {
 
   private IndentChangeFunc? indent_change;
   private OutdentChangeFunc? outdent_change;
+  /** What a keystroke does beyond inserting itself — null until CodeEditor resolves the settings, and typing is then plain. */
+  private AutoClose? auto_close;
 
   /** Tracks edits GtkSourceView itself makes to the buffer unclaimed by this class (block-indent/outdent over a selection) — see its own doc comment. Also where updating_programmatically actually lives now: the one flag both this class and that one need, toggled here around every buffer write this class makes itself. */
   private CodeEditorNativeEdits native_edits;
@@ -121,6 +123,7 @@ public class CodeEditorCursors : Object {
    */
   public void load_text (string text) {
     cancel_pending_reveal ();
+    cursors.inserted_pairs.clear ();
     native_edits.updating_programmatically = true;
     text_view.buffer.text = text;
     native_edits.updating_programmatically = false;
@@ -232,9 +235,10 @@ public class CodeEditorCursors : Object {
 
   /** One typed character, honoring Session.insert_mode (overtype) — the only command that keeps the space-run bookkeeping typing_kind() needs for undo coalescing. */
   public void type_char (unichar ch) {
-    var intent = Session.get_default ().insert_mode ? EditIntent.OVERTYPE : EditIntent.INSERT;
     var kind = typing_kind (ch);
-    apply_edit (intent, ch.to_string (), kind);
+    Cursor[] cursors_to_remove;
+    var tagged_edits = cursors.compute_typing_edits (ch, Session.get_default ().insert_mode, get_text (), auto_close, out cursors_to_remove);
+    apply_tagged_edits (tagged_edits, cursors_to_remove, kind);
     if (!ch.isspace ()) {
       outdent_lines_just_closed (kind);
     }
@@ -259,6 +263,11 @@ public class CodeEditorCursors : Object {
   public void set_indentation (owned IndentChangeFunc? indent_change, owned OutdentChangeFunc? outdent_change) {
     this.indent_change = (owned) indent_change;
     this.outdent_change = (owned) outdent_change;
+  }
+
+  /** The auto-close rules for the text showing (see docs/AUTO_CLOSE.md) — settings and syntax both resolved by CodeEditor, which owns them. */
+  public void set_auto_close (AutoClose? auto_close) {
+    this.auto_close = auto_close;
   }
 
   /** A plain paste — the same text at every cursor, as one non-coalescing step. */
@@ -291,7 +300,7 @@ public class CodeEditorCursors : Object {
   public void backspace () {
     previous_typed_was_space = false;
     Cursor[] cursors_to_remove;
-    var tagged_edits = cursors.compute_backspace_edits (indent_size, get_text (), out cursors_to_remove);
+    var tagged_edits = cursors.compute_backspace_edits (indent_size, get_text (), out cursors_to_remove, auto_close, Session.get_default ().insert_mode);
     apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.DELETING_LEFT);
   }
 
@@ -393,12 +402,37 @@ public class CodeEditorCursors : Object {
     apply_tagged_edits (tagged_edits, cursors_to_remove, kind);
   }
 
+  /**
+   * An edit that changes nothing is an overtype: the keystroke only
+   * moved a cursor past the closer Opus had inserted. Those reposition
+   * their cursors but never reach the buffer or the history — so a
+   * `)` typed over one undoes exactly like a `)` never typed.
+   */
   private void apply_tagged_edits (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove, EditKind kind) {
-    var edits = new TextEdit[tagged_edits.length];
-    for (int i = 0; i < tagged_edits.length; i++) {
-      edits[i] = tagged_edits[i].edit;
+    var changing = new GenericArray<TextEdit> ();
+    foreach (var tagged in tagged_edits) {
+      if (tagged.edit.old_text != tagged.edit.new_text) {
+        changing.add (tagged.edit);
+      }
+    }
+    if (changing.length == 0) {
+      move_cursors_only (tagged_edits, cursors_to_remove);
+      return;
+    }
+    var edits = new TextEdit[changing.length];
+    for (uint i = 0; i < changing.length; i++) {
+      edits[i] = changing[i];
     }
     execute_edit (edits, kind, () => cursors.apply_edit_results (tagged_edits, cursors_to_remove));
+  }
+
+  private void move_cursors_only (TaggedTextEdit[] tagged_edits, Cursor[] cursors_to_remove) {
+    if (!text_view.editable || tagged_edits.length == 0) {
+      return;
+    }
+    cursors.apply_edit_results (tagged_edits, cursors_to_remove);
+    render ();
+    reveal_cursors ();
   }
 
   /**
@@ -456,6 +490,8 @@ public class CodeEditorCursors : Object {
       cloned[i] = restored[i].clone ();
     }
     cursors.set_cursors (cloned);
+    // A pair undo brings back is text like any other.
+    cursors.inserted_pairs.clear ();
 
     render ();
     reveal_cursors ();
@@ -582,7 +618,9 @@ public class CodeEditorCursors : Object {
 
   // ---- Render. ----
 
+  /** Every command ends here, which makes it the one place the remembered pairs are checked against where the cursors came to rest. */
   private void render () {
+    cursors.forget_stale_inserted_pairs (get_text ());
     render_cursors (cursors.snapshot ());
   }
 

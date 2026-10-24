@@ -16,6 +16,15 @@
     "cshtml"
   ],
   "injection-regex": "html",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "<", "close": ">", "not-in": ["string", "comment"], "auto-close": false },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string"] },
+    { "open": "<!--", "close": "-->", "not-in": ["comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/tree-sitter/tree-sitter-html",
     "rev": "73a3947324f6efddf9e17c0ea58d454843590cc0"

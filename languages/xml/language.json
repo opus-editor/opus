@@ -83,6 +83,15 @@
     { "glob": "*.tm[Tt]heme" }
   ],
   "injection-regex": "xml",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "<", "close": ">", "not-in": ["string", "comment"], "auto-close": false },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string"] },
+    { "open": "<!--", "close": "-->", "not-in": ["comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/RenjiSann/tree-sitter-xml",
     "rev": "48a7c2b6fb9d515577e115e6788937e837815651"

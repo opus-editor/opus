@@ -1,4 +1,5 @@
 opus_model_sources = files(
+  'models/auto-close.vala',
   'models/command-bar/item.vala',
   'models/command-bar/picker.vala',
   # Not i-provider.vala/registry.vala: valac writes every target's C files
@@ -23,6 +24,7 @@ opus_model_sources = files(
   'models/closed-tabs.vala',
   'models/document.vala',
   'models/indentation.vala',
+  'models/inserted-pairs.vala',
   'models/edit-history.vala',
   'models/edit-history-entry.vala',
   'models/file-decoration/tone.vala',
@@ -85,6 +87,7 @@ opus_model_sources = files(
   'models/indent-guides.vala',
   'models/replace-pattern.vala',
   'models/selection-snapshot.vala',
+  'models/syntax/bracket-pair.vala',
   'models/syntax/capture-styles.vala',
   'models/syntax/grammar-builder.vala',
   'models/syntax/grammar-loader.vala',
@@ -96,6 +99,7 @@ opus_model_sources = files(
   'models/syntax/loaded-language.vala',
   'models/syntax/query-predicates.vala',
   'models/syntax/query-source.vala',
+  'models/syntax/scope.vala',
   'models/syntax/syntax-document.vala',
   'models/syntax/syntax-highlights.vala',
   'models/syntax/syntax-indents.vala',

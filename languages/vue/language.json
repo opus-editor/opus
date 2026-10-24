@@ -5,6 +5,15 @@
     "vue"
   ],
   "injection-regex": "vue",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "<", "close": ">", "not-in": ["string", "comment"], "auto-close": false },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string"] },
+    { "open": "<!--", "close": "-->", "not-in": ["comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/ikatyang/tree-sitter-vue",
     "rev": "91fe2754796cd8fba5f229505a23fa08f3546c06"

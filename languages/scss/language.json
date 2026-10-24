@@ -5,6 +5,14 @@
     "scss"
   ],
   "injection-regex": "scss",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"", "not-in": ["string"] },
+    { "open": "'", "close": "'", "not-in": ["string", "comment"] },
+    { "open": "/*", "close": " */", "not-in": ["string", "comment"] }
+  ],
   "grammar": {
     "repository": "https://github.com/serenadeai/tree-sitter-scss",
     "rev": "c478c6868648eff49eb04a4df90d703dc45b312a"

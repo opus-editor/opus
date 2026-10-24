@@ -40,6 +40,16 @@ public enum EditIntent {
 public class TaggedTextEdit : Object {
   public TextEdit edit { get; set; }
   public Cursor cursor { get; set; }
+  /**
+   * Where the cursor lands inside `new_text` once the edit is applied,
+   * as offsets from its start — -1 for right after it, where a typed
+   * character leaves the caret. `(|)` is a caret of 1; a selection
+   * wrapped in a pair keeps its anchor and caret one character in.
+   */
+  public int anchor_in_new_text { get; set; default = -1; }
+  public int caret_in_new_text { get; set; default = -1; }
+  /** The pair this edit auto-closed, for {@link CursorCollection.inserted_pairs} to remember; null for any other edit. */
+  public Syntax.BracketPair? closed_pair { get; set; default = null; }
 }
 
 /**
@@ -65,6 +75,9 @@ public class CursorCollection : Object {
   }
 
   public int count { get { return (int) cursors.length; } }
+
+  /** The auto-closed pairs still being typed inside of — see InsertedPairs. */
+  public InsertedPairs inserted_pairs { get; private set; default = new InsertedPairs (); }
   public Cursor primary { get { return cursors[0]; } }
 
   /** Whether any cursor (not just the primary) currently has a non-empty selection — Cut/Copy/Delete's own "is there anything to act on" check, e.g. for CodeEditor's context menu. */
@@ -488,75 +501,109 @@ public class CursorCollection : Object {
     var attempted = new GenericArray<TaggedTextEdit> ();
 
     for (uint i = 0; i < cursors.length; i++) {
-      var cursor = cursors[i];
-      int start;
-      int end;
-      string new_text;
-
-      switch (intent) {
-      case EditIntent.INSERT:
-        if (!cursor.is_empty) {
-          start = cursor.selection_start;
-          end = cursor.selection_end;
-        } else {
-          start = end = cursor.position_offset;
-        }
-        new_text = typed_text;
-        break;
-      case EditIntent.DELETE_LEFT:
-        if (!cursor.is_empty) {
-          start = cursor.selection_start;
-          end = cursor.selection_end;
-        } else if (cursor.position_offset > 0) {
-          start = cursor.position_offset - 1;
-          end = cursor.position_offset;
-        } else {
-          continue; // nothing before the document start
-        }
-        new_text = "";
-        break;
-      case EditIntent.DELETE_RIGHT:
-        if (!cursor.is_empty) {
-          start = cursor.selection_start;
-          end = cursor.selection_end;
-        } else if (cursor.position_offset < chars.length) {
-          start = cursor.position_offset;
-          end = cursor.position_offset + 1;
-        } else {
-          continue; // nothing after the document end
-        }
-        new_text = "";
-        break;
-      case EditIntent.OVERTYPE:
-        if (!cursor.is_empty) {
-          start = cursor.selection_start;
-          int replace_length = int.max (0, typed_text.char_count () - 1);
-          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.selection_end));
-          end = overtype_end (chars, cursor.selection_end, replace_length, limit);
-        } else {
-          start = cursor.position_offset;
-          int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.position_offset));
-          end = overtype_end (chars, cursor.position_offset, typed_text.char_count (), limit);
-        }
-        new_text = typed_text;
-        break;
-      default:
-        continue;
+      var tagged = plain_edit (cursors[i], intent, typed_text, chars);
+      if (tagged != null) {
+        attempted.add (tagged);
       }
-
-      var edit = new TextEdit ();
-      edit.start_offset = start;
-      edit.end_offset = end;
-      edit.old_text = chars_to_string (chars, start, end);
-      edit.new_text = new_text;
-
-      var tagged = new TaggedTextEdit ();
-      tagged.edit = edit;
-      tagged.cursor = cursor;
-      attempted.add (tagged);
     }
 
     return finalize_edits (attempted, out cursors_to_remove);
+  }
+
+  /**
+   * One typed character — {@link compute_edits} with INSERT or
+   * OVERTYPE, except that `auto_close`, when given, gets the first word
+   * at each cursor: closing the pair the character opens, skipping the
+   * closer already there, or wrapping the selection. Paste never comes
+   * through here, so it never auto-closes.
+   */
+  public TaggedTextEdit[] compute_typing_edits (unichar typed, bool overtype_mode, string text, AutoClose? auto_close, out Cursor[] cursors_to_remove) {
+    var chars = to_chars (text);
+    var attempted = new GenericArray<TaggedTextEdit> ();
+    var intent = overtype_mode ? EditIntent.OVERTYPE : EditIntent.INSERT;
+    var typed_text = typed.to_string ();
+
+    for (uint i = 0; i < cursors.length; i++) {
+      var cursor = cursors[i];
+      var tagged = auto_close == null ? null : auto_close.typing_edit (chars, cursor, typed, overtype_mode, inserted_pairs);
+      if (tagged == null) {
+        tagged = plain_edit (cursor, intent, typed_text, chars);
+      }
+      if (tagged != null) {
+        attempted.add (tagged);
+      }
+    }
+
+    return finalize_edits (attempted, out cursors_to_remove);
+  }
+
+  /** One cursor's edit for `intent`, null when the cursor has nothing to do (DELETE_LEFT at the start of the text, say). */
+  private TaggedTextEdit? plain_edit (Cursor cursor, EditIntent intent, string typed_text, unichar[] chars) {
+    int start;
+    int end;
+    string new_text;
+
+    switch (intent) {
+    case EditIntent.INSERT:
+      if (!cursor.is_empty) {
+        start = cursor.selection_start;
+        end = cursor.selection_end;
+      } else {
+        start = end = cursor.position_offset;
+      }
+      new_text = typed_text;
+      break;
+    case EditIntent.DELETE_LEFT:
+      if (!cursor.is_empty) {
+        start = cursor.selection_start;
+        end = cursor.selection_end;
+      } else if (cursor.position_offset > 0) {
+        start = cursor.position_offset - 1;
+        end = cursor.position_offset;
+      } else {
+        return null; // nothing before the document start
+      }
+      new_text = "";
+      break;
+    case EditIntent.DELETE_RIGHT:
+      if (!cursor.is_empty) {
+        start = cursor.selection_start;
+        end = cursor.selection_end;
+      } else if (cursor.position_offset < chars.length) {
+        start = cursor.position_offset;
+        end = cursor.position_offset + 1;
+      } else {
+        return null; // nothing after the document end
+      }
+      new_text = "";
+      break;
+    case EditIntent.OVERTYPE:
+      if (!cursor.is_empty) {
+        start = cursor.selection_start;
+        int replace_length = int.max (0, typed_text.char_count () - 1);
+        int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.selection_end));
+        end = overtype_end (chars, cursor.selection_end, replace_length, limit);
+      } else {
+        start = cursor.position_offset;
+        int limit = int.min (chars.length, closest_following_cursor_start (cursor, cursor.position_offset));
+        end = overtype_end (chars, cursor.position_offset, typed_text.char_count (), limit);
+      }
+      new_text = typed_text;
+      break;
+    default:
+      return null;
+    }
+
+    var edit = new TextEdit ();
+    edit.start_offset = start;
+    edit.end_offset = end;
+    edit.old_text = chars_to_string (chars, start, end);
+    edit.new_text = new_text;
+
+    var tagged = new TaggedTextEdit ();
+    tagged.edit = edit;
+    tagged.cursor = cursor;
+    return tagged;
   }
 
   /**
@@ -774,7 +821,7 @@ public class CursorCollection : Object {
    * the whitespace wasn't already stop-aligned to begin with). Outside
    * leading whitespace, still exactly one character, unchanged.
    */
-  public TaggedTextEdit[] compute_backspace_edits (int indent_size, string text, out Cursor[] cursors_to_remove) {
+  public TaggedTextEdit[] compute_backspace_edits (int indent_size, string text, out Cursor[] cursors_to_remove, AutoClose? auto_close = null, bool overtype_mode = false) {
     var chars = to_chars (text);
     var attempted = new GenericArray<TaggedTextEdit> ();
 
@@ -783,6 +830,11 @@ public class CursorCollection : Object {
       int start;
       int end;
 
+      var paired = auto_close == null ? null : auto_close.backspace_edit (chars, cursor, overtype_mode, inserted_pairs);
+      if (paired != null) {
+        attempted.add (paired);
+        continue;
+      }
       if (!cursor.is_empty) {
         start = cursor.selection_start;
         end = cursor.selection_end;
@@ -1073,26 +1125,35 @@ public class CursorCollection : Object {
     return finalize_edits (attempted, out cursors_to_remove);
   }
 
+  /**
+   * The edits in text order, minus any that overlaps the one before
+   * it — its cursor goes in `cursors_to_remove`. normalize() keeps
+   * cursors at least a character apart, so plain typing never
+   * collides: only an edit reaching past its own cursor, like the
+   * pair delete of `(|)|`, can. Touching is not overlapping.
+   */
   private TaggedTextEdit[] finalize_edits (GenericArray<TaggedTextEdit> attempted, out Cursor[] cursors_to_remove) {
     stable_sort_edits_by_start (attempted);
 
-    // normalize() already keeps every pair of cursors at least one
-    // character apart, and each edit above is either a cursor's own
-    // pre-existing (already non-overlapping) selection, an
-    // at-most-one-character extension of a collapsed cursor, or an
-    // EditIntent.OVERTYPE extension explicitly clamped (via
-    // overtype_end()'s own `limit` parameter) to never reach past the
-    // next cursor's own start — so two cursors' edits can at most touch
-    // here, never truly overlap, and nothing needs to be dropped.
-    // `cursors_to_remove` stays part of the contract for when a future
-    // edit intent (e.g. auto-closing a bracket, or any other command
-    // that can produce more than one edit per cursor) makes a real
-    // collision possible, and needs this same resolution restored.
-    cursors_to_remove = new Cursor[0];
+    var kept = new GenericArray<TaggedTextEdit> ();
+    var dropped = new GenericArray<Cursor> ();
+    int reach = -1;
+    foreach (var tagged in attempted) {
+      if (tagged.edit.start_offset < reach) {
+        dropped.add (tagged.cursor);
+        continue;
+      }
+      kept.add (tagged);
+      reach = tagged.edit.end_offset;
+    }
 
-    var result = new TaggedTextEdit[attempted.length];
-    for (uint k = 0; k < attempted.length; k++) {
-      result[k] = attempted[k];
+    cursors_to_remove = new Cursor[dropped.length];
+    for (uint k = 0; k < dropped.length; k++) {
+      cursors_to_remove[k] = dropped[k];
+    }
+    var result = new TaggedTextEdit[kept.length];
+    for (uint k = 0; k < kept.length; k++) {
+      result[k] = kept[k];
     }
     return result;
   }
@@ -1114,6 +1175,8 @@ public class CursorCollection : Object {
       delta_before_edit[e] = running;
       running += edits[e].edit.new_text.char_count () - (edits[e].edit.end_offset - edits[e].edit.start_offset);
     }
+
+    remember_closed_pairs (edits, delta_before_edit);
 
     var survivors = new GenericArray<Cursor> ();
     Cursor? new_last_added = last_added_cursor;
@@ -1137,9 +1200,10 @@ public class CursorCollection : Object {
 
       if (own_edit_index >= 0) {
         var tagged = edits[own_edit_index];
-        int new_position = tagged.edit.start_offset + delta_before_edit[own_edit_index] + tagged.edit.new_text.char_count ();
-        cursor.anchor_offset = new_position;
-        cursor.position_offset = new_position;
+        int landing = tagged.edit.start_offset + delta_before_edit[own_edit_index];
+        int end = tagged.edit.new_text.char_count ();
+        cursor.position_offset = landing + (tagged.caret_in_new_text < 0 ? end : tagged.caret_in_new_text);
+        cursor.anchor_offset = tagged.anchor_in_new_text < 0 ? cursor.position_offset : landing + tagged.anchor_in_new_text;
         cursor.anchor_kind = CursorAnchorKind.CHARACTER;
       } else {
         int delta = 0;
@@ -1163,6 +1227,29 @@ public class CursorCollection : Object {
     set_cursors (arr, new_last_added);
   }
 
+  /** Shifts the remembered pairs past this batch, then adds the pairs it auto-closed — in that order, or the batch would move its own closers. */
+  private void remember_closed_pairs (TaggedTextEdit[] edits, int[] delta_before_edit) {
+    var plain = new TextEdit[edits.length];
+    for (int e = 0; e < edits.length; e++) {
+      plain[e] = edits[e].edit;
+    }
+    inserted_pairs.shift (plain);
+
+    for (int e = 0; e < edits.length; e++) {
+      var pair = edits[e].closed_pair;
+      if (pair == null) {
+        continue;
+      }
+      int close_offset = edits[e].edit.start_offset + delta_before_edit[e] + edits[e].caret_in_new_text;
+      inserted_pairs.remember (close_offset - pair.open_chars.length, close_offset, pair);
+    }
+  }
+
+  /** Drops the remembered pairs no cursor is inside any more, or whose text changed under them — once per command, after the cursors settled. */
+  public void forget_stale_inserted_pairs (string text) {
+    inserted_pairs.forget_stale (to_chars (text), snapshot ());
+  }
+
   /**
    * Shifts every cursor by the combined length delta of `edits`
    * landing before it — Find/Replace's own version of
@@ -1175,6 +1262,7 @@ public class CursorCollection : Object {
    * to reach that one branch.
    */
   public void shift_for_external_edits (TextEdit[] edits) {
+    inserted_pairs.shift (edits);
     for (uint i = 0; i < cursors.length; i++) {
       var cursor = cursors[i];
       int delta = 0;

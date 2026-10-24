@@ -423,6 +423,12 @@ public class CodeEditor : Object {
       installed_font_css = css;
     }
     apply_word_wrap ();
+    apply_auto_close ();
+  }
+
+  /** The auto-close switches for the language showing, over the syntax at each cursor — redone with the settings and with the language, like the wrap. */
+  private void apply_auto_close () {
+    cursors.set_auto_close (new AutoClose (settings.auto_close_for (language), (offset, of_character) => syntax_highlighter.scope_at (offset, of_character)));
   }
 
   /** Synchronous, so a tab never paints a frame in the wrong mode: set_text() and set_language_override() run it before the main loop gets to draw. The rulers go with it: the same per-language lookup. */
@@ -501,6 +507,7 @@ public class CodeEditor : Object {
     language = language_name;
     apply_language ();
     apply_word_wrap ();
+    apply_auto_close ();
     cursors.load_text (text);
     conflicts.schedule_scan ();
   }
@@ -518,6 +525,7 @@ public class CodeEditor : Object {
     language = language_name;
     apply_language ();
     apply_word_wrap ();
+    apply_auto_close ();
   }
 
   /** Looked up again on every Syntax.Languages change too: a package installed, edited or finished building while this text was showing. A name no package has leaves the text plain. */

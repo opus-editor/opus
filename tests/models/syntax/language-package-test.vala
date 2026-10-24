@@ -167,6 +167,65 @@ private void test_query_path_finds_an_existing_query_file () {
     assert_null (package.query_path ("injections"));
 }
 
+private void test_a_package_without_pairs_gets_the_defaults () {
+    var package = parse ("""{ "name": "ruby" }""");
+
+    assert_false (package.declares_pairs);
+    assert_cmpint (package.pairs.pairs.length, CompareOperator.EQ, 5);
+    assert_cmpstr (package.pairs.auto_close_before, CompareOperator.EQ, Syntax.PairSet.DEFAULT_AUTO_CLOSE_BEFORE);
+}
+
+private void test_declared_pairs_are_read_in_order_with_their_flags () {
+    var package = parse ("""{ "name": "rust", "pairs": [
+      { "open": "<", "close": ">", "auto-close": false },
+      { "open": "/*", "close": " */", "not-in": ["string", "comment"], "surround": false }
+    ] }""");
+
+    var pairs = package.pairs.pairs;
+    assert_true (package.declares_pairs);
+    assert_cmpint (pairs.length, CompareOperator.EQ, 2);
+    assert_cmpstr (pairs[0].open, CompareOperator.EQ, "<");
+    assert_false (pairs[0].auto_close);
+    assert_true (pairs[0].surround);
+    assert_cmpstr (pairs[1].close, CompareOperator.EQ, " */");
+    assert_cmpstr (string.joinv (",", pairs[1].not_in), CompareOperator.EQ, "string,comment");
+    assert_true (pairs[1].auto_close);
+    assert_false (pairs[1].surround);
+}
+
+private void test_a_pair_s_flags_default_to_on_and_nothing_to_avoid () {
+    var package = parse ("""{ "name": "ruby", "pairs": [{ "open": "(", "close": ")" }] }""");
+
+    var pair = package.pairs.pairs[0];
+    assert_true (pair.auto_close);
+    assert_true (pair.surround);
+    assert_cmpint (pair.not_in.length, CompareOperator.EQ, 0);
+}
+
+private void test_auto_close_before_can_be_set_without_declaring_pairs () {
+    var package = parse ("""{ "name": "ruby", "auto-close-before": ";" }""");
+
+    assert_cmpint (package.pairs.pairs.length, CompareOperator.EQ, 5);
+    assert_cmpstr (package.pairs.auto_close_before, CompareOperator.EQ, ";");
+}
+
+private void test_a_pair_needs_both_its_open_and_its_close () {
+    assert_invalid ("""{ "name": "ruby", "pairs": [{ "open": "(" }] }""");
+    assert_invalid ("""{ "name": "ruby", "pairs": [{ "open": "", "close": ")" }] }""");
+}
+
+private void test_a_pair_must_be_an_object () {
+    assert_invalid ("""{ "name": "ruby", "pairs": ["()"] }""");
+}
+
+private void test_a_pair_s_flags_must_be_booleans () {
+    assert_invalid ("""{ "name": "ruby", "pairs": [{ "open": "(", "close": ")", "auto-close": "no" }] }""");
+}
+
+private void test_auto_close_before_must_be_a_string () {
+    assert_invalid ("""{ "name": "ruby", "auto-close-before": [";"] }""");
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/language-package/a_minimal_manifest_only_needs_a_name", test_a_minimal_manifest_only_needs_a_name);
@@ -192,5 +251,13 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/language-package/a_package_claimed_only_by_a_shebang_opens_files", test_a_package_claimed_only_by_a_shebang_opens_files);
     Test.add_func ("/models/syntax/language-package/a_package_claiming_no_file_does_not_open_files", test_a_package_claiming_no_file_does_not_open_files);
     Test.add_func ("/models/syntax/language-package/a_package_without_a_grammar_does_not_open_files", test_a_package_without_a_grammar_does_not_open_files);
+    Test.add_func ("/models/syntax/language-package/a_package_without_pairs_gets_the_defaults", test_a_package_without_pairs_gets_the_defaults);
+    Test.add_func ("/models/syntax/language-package/declared_pairs_are_read_in_order_with_their_flags", test_declared_pairs_are_read_in_order_with_their_flags);
+    Test.add_func ("/models/syntax/language-package/a_pair_s_flags_default_to_on_and_nothing_to_avoid", test_a_pair_s_flags_default_to_on_and_nothing_to_avoid);
+    Test.add_func ("/models/syntax/language-package/auto_close_before_can_be_set_without_declaring_pairs", test_auto_close_before_can_be_set_without_declaring_pairs);
+    Test.add_func ("/models/syntax/language-package/a_pair_needs_both_its_open_and_its_close", test_a_pair_needs_both_its_open_and_its_close);
+    Test.add_func ("/models/syntax/language-package/a_pair_must_be_an_object", test_a_pair_must_be_an_object);
+    Test.add_func ("/models/syntax/language-package/a_pair_s_flags_must_be_booleans", test_a_pair_s_flags_must_be_booleans);
+    Test.add_func ("/models/syntax/language-package/auto_close_before_must_be_a_string", test_auto_close_before_must_be_a_string);
     Test.run ();
 }

@@ -272,6 +272,75 @@ namespace Syntax {
       return SyntaxSymbols.collect (language, layers[0].tree, text, node_text);
     }
 
+    /**
+     * The innermost language at `char_offset` and what its highlights
+     * call that place — the caret between two characters, or the
+     * character at `char_offset` itself with `of_character`. A caret is
+     * inside a capture strictly between its ends, except a comment's,
+     * whose end still counts: after `// text|` what comes next is still
+     * comment, after `"abc"|` it is code. The captures come from every
+     * layer over the place, not the innermost alone: a C comment is
+     * still a comment inside the `comment` language injected into it.
+     * And the language is the innermost one that declares its pairs —
+     * that same `comment` language has none to offer. The text's own
+     * language with no captures while a parse is halted — its pairs are
+     * known, where its strings are isn't yet. Null before the first
+     * set_text.
+     */
+    public Scope? scope_at (int char_offset, bool of_character) {
+      if (layers.length == 0) {
+        return null;
+      }
+      if (halted) {
+        return new Scope (language.package, {});
+      }
+      uint32 position = byte_of (char_offset);
+      var covering = layers_covering (position, true);
+      var innermost = covering[0];
+      string[] captures = {};
+      foreach (var layer in covering) {
+        if (layer.depth > innermost.depth && layer.language.package.declares_pairs) {
+          innermost = layer;
+        }
+        foreach (var capture in captures_at (layer, position, of_character)) {
+          captures += capture;
+        }
+      }
+      return new Scope (innermost.language.package, captures);
+    }
+
+    private string[] captures_at (Layer layer, uint32 position, bool of_character) {
+      var language = layer.language;
+      var cursor = new TreeSitter.QueryCursor ();
+      cursor.set_byte_range (position > 0 ? position - 1 : 0, position + 1);
+      cursor.exec (language.highlights, layer.tree.root_node ());
+
+      string[] found = {};
+      TreeSitter.QueryMatch match;
+      while (cursor.next_match (out match)) {
+        if (!language.highlight_predicates.accepts (match, node_text)) {
+          continue;
+        }
+        foreach (var capture in match.captures) {
+          unowned string name = language.highlight_captures[capture.index];
+          if (capture_contains (capture.node, position, of_character, name)) {
+            found += name;
+          }
+        }
+      }
+      return found;
+    }
+
+    private static bool capture_contains (TreeSitter.Node node, uint32 position, bool of_character, string capture) {
+      uint32 start = node.start_byte ();
+      uint32 end = node.end_byte ();
+      if (of_character) {
+        return start <= position && position < end;
+      }
+      bool end_counts = capture == "comment" || capture.has_prefix ("comment.");
+      return start < position && (position < end || (end_counts && position == end));
+    }
+
     private uint32 byte_of (int char_offset) {
       return (uint32) text.index_of_nth_char (char_offset);
     }
@@ -288,22 +357,38 @@ namespace Syntax {
       if (halted) {
         return null;
       }
-      inject_at (position);
+      return innermost_layer_at (position, true, at_end_too);
+    }
+
+    /** The deepest layer covering `position` — only among those with an indents query when `needs_indents`. Never null otherwise: the text's own layer covers everything. */
+    private Layer? innermost_layer_at (uint32 position, bool needs_indents, bool at_end_too) {
       Layer? innermost = null;
-      foreach (var layer in layers) {
-        innermost = deeper_of (innermost, layer, position, at_end_too);
-      }
-      foreach (var layer in on_demand.get_values ()) {
-        innermost = deeper_of (innermost, layer, position, at_end_too);
+      foreach (var layer in layers_covering (position, at_end_too)) {
+        if (needs_indents && layer.language.indents == null) {
+          continue;
+        }
+        if (innermost == null || layer.depth > innermost.depth) {
+          innermost = layer;
+        }
       }
       return innermost;
     }
 
-    private static Layer? deeper_of (Layer? current, Layer candidate, uint32 position, bool at_end_too) {
-      if (candidate.language.indents == null || !covers (candidate, position, at_end_too)) {
-        return current;
+    /** Every layer covering `position`, the text's own first. */
+    private GenericArray<Layer> layers_covering (uint32 position, bool at_end_too) {
+      inject_at (position);
+      var found = new GenericArray<Layer> ();
+      foreach (var layer in layers) {
+        if (covers (layer, position, at_end_too)) {
+          found.add (layer);
+        }
       }
-      return current == null || candidate.depth > current.depth ? candidate : current;
+      foreach (var layer in on_demand.get_values ()) {
+        if (covers (layer, position, at_end_too)) {
+          found.add (layer);
+        }
+      }
+      return found;
     }
 
     private static bool covers (Layer layer, uint32 position, bool at_end_too) {

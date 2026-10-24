@@ -1,6 +1,15 @@
 {
   "name": "markdown.inline",
   "injection-regex": "markdown\\.inline",
+  "pairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "`", "close": "`" },
+    { "open": "\"", "close": "\"" },
+    { "open": "*", "close": "*", "auto-close": false },
+    { "open": "_", "close": "_", "auto-close": false }
+  ],
   "grammar": {
     "name": "markdown_inline",
     "repository": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
