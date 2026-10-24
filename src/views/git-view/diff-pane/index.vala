@@ -106,8 +106,7 @@ namespace GitView {
 
     private void apply_indent (string path) {
       var settings = file_settings?.settings_for (path) ?? new FileSettings.Values ();
-      int indent_size = settings.indent_size ?? FileSettings.Values.DEFAULT_INDENT_SIZE;
-      code_editor.set_indent (indent_size, settings.insert_spaces ?? FileSettings.Values.DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
+      code_editor.set_indent (settings.indent_size, settings.insert_spaces, settings.tab_width);
     }
 
     private void show_placeholder (string title, string body) {

@@ -422,6 +422,7 @@ public class CodeEditor : Object {
       installed_font_css = css;
     }
     apply_word_wrap ();
+    apply_indent ();
   }
 
   /** Synchronous, so a tab never paints a frame in the wrong mode: set_text() and set_language_override() run it before the main loop gets to draw. The rulers go with it: the same per-language lookup. */
@@ -508,6 +509,7 @@ public class CodeEditor : Object {
     this.language_override = language_override;
     syntax_highlighter.set_language (language_for (text));
     apply_word_wrap ();
+    apply_indent ();
     cursors.load_text (text);
     conflicts.schedule_scan ();
   }
@@ -525,6 +527,7 @@ public class CodeEditor : Object {
     this.language_override = language_override;
     apply_language ();
     apply_word_wrap ();
+    apply_indent ();
   }
 
   /** A package was installed, edited or finished building while this text was showing — or the language was just set by hand. */
@@ -583,14 +586,31 @@ public class CodeEditor : Object {
     cursors.unbind ();
   }
 
-  /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. Resolved by EditorView.EditorPane.TabDocument from the linked folder's .editorconfig, per file. */
-  /** `tab_width` is how wide a literal tab renders, the indent size unless the folder says otherwise. */
-  public void set_indent (int size, bool insert_spaces, int tab_width = -1) {
-    indent_size = size;
-    this.insert_spaces = insert_spaces;
-    text_view.set_indent_size (size);
-    text_view.tab_width = (uint) (tab_width > 0 ? tab_width : size);
-    cursors.set_indent_config (size, insert_spaces);
+  private int? file_indent_size = null;
+  private bool? file_insert_spaces = null;
+  private int? file_tab_width = null;
+
+  /**
+   * What the file's own .editorconfig says of its indentation, resolved
+   * per file by EditorView.EditorPane.TabDocument — null for each thing
+   * it leaves unsaid. The gaps are `editor.indent_style` and
+   * `editor.indent_size` for the file's language, read again whenever
+   * the language or the settings change.
+   */
+  public void set_indent (int? size, bool? insert_spaces, int? tab_width) {
+    file_indent_size = size;
+    file_insert_spaces = insert_spaces;
+    file_tab_width = tab_width;
+    apply_indent ();
+  }
+
+  /** Columns per indent level — the indent guides, how wide a literal tab renders, and what Tab/Backspace/Enter do — plus whether Tab inserts spaces. A literal tab renders as wide as the indent unless the folder's `tab_width` says otherwise. */
+  private void apply_indent () {
+    indent_size = file_indent_size ?? settings.indent_size_for (language_name);
+    insert_spaces = file_insert_spaces ?? settings.insert_spaces_for (language_name);
+    text_view.set_indent_size (indent_size);
+    text_view.tab_width = (uint) (file_tab_width ?? indent_size);
+    cursors.set_indent_config (indent_size, insert_spaces);
   }
 
   /** The theme's colors for what the view paints itself — what a sibling painting alongside (find results, a line preview) matches. */
@@ -598,7 +618,7 @@ public class CodeEditor : Object {
     get { return text_view.palette; }
   }
 
-  /** As last given to set_indent() — what a function that rewrites indentation follows. */
+  /** As apply_indent() last resolved them — what a function that rewrites indentation follows. */
   public int indent_size { get; private set; default = 2; }
   public bool insert_spaces { get; private set; default = true; }
 

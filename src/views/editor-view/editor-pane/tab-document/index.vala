@@ -94,8 +94,7 @@ namespace EditorView.EditorPane {
 
     private void apply_indent () {
       var settings = file_settings_for ();
-      int indent_size = settings.indent_size ?? FileSettings.Values.DEFAULT_INDENT_SIZE;
-      editor.set_indent (indent_size, settings.insert_spaces ?? FileSettings.Values.DEFAULT_INSERT_SPACES, settings.tab_width ?? indent_size);
+      editor.set_indent (settings.indent_size, settings.insert_spaces, settings.tab_width);
       editor.set_max_line_length (settings.max_line_length ?? 0);
     }
 

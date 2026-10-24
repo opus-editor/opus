@@ -291,6 +291,94 @@ private void test_word_wrap_for_no_language_is_the_plain_key () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_insert_spaces_for_defaults_to_spaces () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{}");
+    var settings = new UserSettings (config_dir);
+
+    bool spaces = settings.insert_spaces_for (null);
+
+    assert_true (spaces);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_insert_spaces_for_the_tab_style_is_false () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_style": "tab" }""");
+    var settings = new UserSettings (config_dir);
+
+    bool spaces = settings.insert_spaces_for (null);
+
+    assert_false (spaces);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_insert_spaces_for_a_language_reads_its_block () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_style": "space", "language.go": { "editor.indent_style": "tab" } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool spaces = settings.insert_spaces_for ("go");
+
+    assert_false (spaces);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_insert_spaces_for_an_unknown_style_in_a_block_is_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_style": "tab", "language.go": { "editor.indent_style": "tabs" } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool spaces = settings.insert_spaces_for ("go");
+
+    assert_false (spaces);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_indent_size_for_defaults_to_four () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{}");
+    var settings = new UserSettings (config_dir);
+
+    int size = settings.indent_size_for (null);
+
+    assert_cmpint (size, CompareOperator.EQ, 4);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_indent_size_for_reads_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_size": 2 }""");
+    var settings = new UserSettings (config_dir);
+
+    int size = settings.indent_size_for ("ruby");
+
+    assert_cmpint (size, CompareOperator.EQ, 2);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_indent_size_for_a_language_reads_its_block () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_size": 2, "language.python": { "editor.indent_size": 4 } }""");
+    var settings = new UserSettings (config_dir);
+
+    int size = settings.indent_size_for ("python");
+
+    assert_cmpint (size, CompareOperator.EQ, 4);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_indent_size_for_a_value_below_one_is_the_plain_key () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.indent_size": 3, "language.python": { "editor.indent_size": 0 } }""");
+    var settings = new UserSettings (config_dir);
+
+    int size = settings.indent_size_for ("python");
+
+    assert_cmpint (size, CompareOperator.EQ, 3);
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{ "editor.word_wrap": false, "language.markdown": { "editor.word_wrap": "yes" } }""");
@@ -586,6 +674,14 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_without_a_block_is_the_plain_key", test_word_wrap_for_a_language_without_a_block_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_no_language_is_the_plain_key", test_word_wrap_for_no_language_is_the_plain_key);
     Test.add_func ("/models/user-settings/word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key", test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key);
+    Test.add_func ("/models/user-settings/insert_spaces_for_defaults_to_spaces", test_insert_spaces_for_defaults_to_spaces);
+    Test.add_func ("/models/user-settings/insert_spaces_for_the_tab_style_is_false", test_insert_spaces_for_the_tab_style_is_false);
+    Test.add_func ("/models/user-settings/insert_spaces_for_a_language_reads_its_block", test_insert_spaces_for_a_language_reads_its_block);
+    Test.add_func ("/models/user-settings/insert_spaces_for_an_unknown_style_in_a_block_is_the_plain_key", test_insert_spaces_for_an_unknown_style_in_a_block_is_the_plain_key);
+    Test.add_func ("/models/user-settings/indent_size_for_defaults_to_four", test_indent_size_for_defaults_to_four);
+    Test.add_func ("/models/user-settings/indent_size_for_reads_the_plain_key", test_indent_size_for_reads_the_plain_key);
+    Test.add_func ("/models/user-settings/indent_size_for_a_language_reads_its_block", test_indent_size_for_a_language_reads_its_block);
+    Test.add_func ("/models/user-settings/indent_size_for_a_value_below_one_is_the_plain_key", test_indent_size_for_a_value_below_one_is_the_plain_key);
     Test.add_func ("/models/user-settings/editorconfig_max_line_length_is_off_unless_asked", test_editorconfig_max_line_length_is_off_unless_asked);
     Test.add_func ("/models/user-settings/rulers_read_the_columns", test_rulers_read_the_columns);
     Test.add_func ("/models/user-settings/rulers_for_a_language_are_its_blocks_own", test_rulers_for_a_language_are_its_blocks_own);

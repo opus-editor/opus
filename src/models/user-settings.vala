@@ -106,6 +106,44 @@ public class UserSettings : Object {
   }
 
   /**
+   * Whether Tab inserts spaces in files highlighted as `language`:
+   * `editor.indent_style`, "space" or "tab", a `language.<name>` block's
+   * own value first. Spaces with neither, VS Code's own default. The
+   * file's .editorconfig has the last word (see EditorView.EditorPane.TabDocument).
+   */
+  public bool insert_spaces_for (string? language) {
+    var style = indent_style_in (language_block (language)) ?? indent_style_in (root);
+    return style != "tab";
+  }
+
+  /** `editor.indent_style` in `object`, "space" or "tab"; null for anything else. */
+  private static string? indent_style_in (Json.Object? object) {
+    var node = object?.get_member ("editor.indent_style");
+    if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (string)) {
+      return null;
+    }
+    unowned string style = node.get_string ();
+    return style == "space" || style == "tab" ? style : null;
+  }
+
+  /**
+   * Columns per indent level in files highlighted as `language`:
+   * `editor.indent_size`, a whole number above zero, a `language.<name>`
+   * block's own value first. 4 with neither, VS Code's own `tabSize`.
+   */
+  public int indent_size_for (string? language) {
+    return indent_size_in (language_block (language)) ?? indent_size_in (root) ?? 4;
+  }
+
+  private static int? indent_size_in (Json.Object? object) {
+    var node = object?.get_member ("editor.indent_size");
+    if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (int64) || node.get_int () <= 0) {
+      return null;
+    }
+    return (int) node.get_int ();
+  }
+
+  /**
    * The ids of the functions run over a file right before it is saved,
    * in order (`"editor.on_save": ["trim-trailing-whitespace", …]`): a
    * `language.<name>` block's own list when it has one, else the plain
@@ -260,6 +298,8 @@ public class UserSettings : Object {
   "editor.line_height": 1,
   "editor.letter_spacing": 0,
   "editor.word_wrap": false,
+  "editor.indent_style": "space",
+  "editor.indent_size": 4,
   "editor.on_save": [],
   "editor.rulers": [],
   "editorconfig.max_line_length": false,

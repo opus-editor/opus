@@ -41,16 +41,15 @@ int main (string[] args) {
         }
     });
 
-    Test.add_func ("/system/tab_backspace/without_indent_style_tab_still_inserts_a_literal_tab_character", () => {
+    Test.add_func ("/system/tab_backspace/without_an_editorconfig_tab_inserts_the_editors_default_of_four_spaces", () => {
         try {
-            // No linked folder at all — same as every other existing
-            // system test — so there's no .editorconfig to find, matching
-            // today's real default (unconfigured) behavior.
+            // No linked folder at all, so there's no .editorconfig to
+            // find, and a fresh settings.json: VS Code's own default.
             var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), 119);
             opus.new_file ();
 
             opus.type_cmd ("tab");
-            opus.assert_editor_text ("\t");
+            opus.assert_editor_text ("    ");
 
             opus.close ();
         } catch (Error e) {

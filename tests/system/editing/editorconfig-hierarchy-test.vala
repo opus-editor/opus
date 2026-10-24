@@ -1,7 +1,7 @@
 /**
  * .editorconfig files up the tree, end to end: a subfolder's own file
  * has the last word over the root's, and `unset` hands a setting back
- * to the editor's default.
+ * to the user's own settings.json.
  */
 
 private const uint DISPLAY = 112;
@@ -34,10 +34,10 @@ int main (string[] args) {
         }
     });
 
-    Test.add_func ("/system/editorconfig_hierarchy/unset_hands_the_setting_back_to_the_editors_default", () => {
+    Test.add_func ("/system/editorconfig_hierarchy/unset_hands_the_setting_back_to_the_users_settings", () => {
         try {
             var folder = make_folder ("[*]\nindent_size = unset\nindent_style = unset\n");
-            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY, folder);
+            var opus = new SystemTestSession (Environment.get_variable ("OPUS_BINARY_PATH"), DISPLAY, folder, """{ "editor.indent_style": "tab" }""");
             opus.open_tab (Path.build_filename (folder, "sub", "a.rb"));
             opus.set_cursors ({ {0, 7} });
 
