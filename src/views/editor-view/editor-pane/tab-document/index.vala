@@ -280,6 +280,25 @@ namespace EditorView.EditorPane {
       editor?.set_language_override (language_name);
     }
 
+    // Picked by hand in the Document Properties panel: the folder's
+    // .editorconfig no longer has a say over it for this tab (see
+    // apply_end_of_line), the same way Alt+W's word wrap outlives
+    // `editor.word_wrap`.
+    private bool line_ending_chosen = false;
+    private bool charset_chosen = false;
+
+    /** The line ending this tab is written out with from here on, over whatever the folder says — a change a save has to make, so the document counts as dirty until then. */
+    public void choose_line_ending (Document.LineEnding line_ending) {
+      document.line_ending = line_ending;
+      line_ending_chosen = true;
+    }
+
+    /** The charset this tab is written out in from here on — see choose_line_ending(). */
+    public void choose_charset (Document.Charset charset) {
+      document.charset = charset;
+      charset_chosen = true;
+    }
+
     /**
      * Replaces the cursor set and renders it — Opus.Dev.DevServer's own
      * SetActiveCursors. `anchors[i]`/`positions[i]` pair up into one
@@ -697,13 +716,13 @@ namespace EditorView.EditorPane {
       return result;
     }
 
-    /** The folder's line ending and charset for `path`, when it has them, become the document's — at save time, so a rule written after the tab opened still counts. */
+    /** The folder's line ending and charset for `path`, when it has them, become the document's — at save time, so a rule written after the tab opened still counts. Not over one the user picked by hand for this tab. */
     private void apply_end_of_line (string path) {
       var settings = file_settings_for (path);
-      if (settings.line_ending != null) {
+      if (settings.line_ending != null && !line_ending_chosen) {
         document.line_ending = settings.line_ending;
       }
-      if (settings.charset != null) {
+      if (settings.charset != null && !charset_chosen) {
         document.charset = settings.charset;
       }
     }

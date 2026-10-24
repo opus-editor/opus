@@ -362,6 +362,68 @@ private void test_save_as_clears_untitled_and_moves_the_document_to_the_new_path
     }
 }
 
+private void test_a_line_ending_picked_by_hand_makes_the_document_dirty () {
+    string path = make_temp_file ("a\nb\n".data);
+    try {
+        var document = Document.load (path);
+
+        document.line_ending = Document.LineEnding.CRLF;
+
+        assert_true (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_saving_a_picked_line_ending_leaves_the_document_clean () {
+    string path = make_temp_file ("a\nb\n".data);
+    try {
+        var document = Document.load (path);
+        document.line_ending = Document.LineEnding.CRLF;
+
+        document.save ();
+
+        assert_false (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_line_ending_put_back_leaves_the_document_clean () {
+    string path = make_temp_file ("a\nb\n".data);
+    try {
+        var document = Document.load (path);
+        document.line_ending = Document.LineEnding.CRLF;
+
+        document.line_ending = Document.LineEnding.LF;
+
+        assert_false (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_charset_picked_by_hand_makes_the_document_dirty () {
+    string path = make_temp_file ("abc".data);
+    try {
+        var document = Document.load (path);
+
+        document.charset = Document.Charset.UTF8_BOM;
+
+        assert_true (document.dirty);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
 private void test_is_deleted_does_not_affect_dirty_on_its_own () {
     // EditorController is the one deciding whether a deleted-outside-Opus
     // tab should even set is_deleted at all — only ever on an already-dirty
@@ -505,6 +567,10 @@ int main (string[] args) {
     Test.add_func ("/models/document/a_file_without_line_ends_is_lf", test_a_file_without_line_ends_is_lf);
     Test.add_func ("/models/document/a_line_ending_set_by_hand_is_what_save_writes", test_a_line_ending_set_by_hand_is_what_save_writes);
     Test.add_func ("/models/document/an_untitled_document_is_lf", test_an_untitled_document_is_lf);
+    Test.add_func ("/models/document/a_line_ending_picked_by_hand_makes_the_document_dirty", test_a_line_ending_picked_by_hand_makes_the_document_dirty);
+    Test.add_func ("/models/document/saving_a_picked_line_ending_leaves_the_document_clean", test_saving_a_picked_line_ending_leaves_the_document_clean);
+    Test.add_func ("/models/document/a_line_ending_put_back_leaves_the_document_clean", test_a_line_ending_put_back_leaves_the_document_clean);
+    Test.add_func ("/models/document/a_charset_picked_by_hand_makes_the_document_dirty", test_a_charset_picked_by_hand_makes_the_document_dirty);
     Test.add_func ("/models/document/a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same", test_a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same);
     Test.add_func ("/models/document/a_utf8_bom_is_detected_dropped_and_written_back", test_a_utf8_bom_is_detected_dropped_and_written_back);
     Test.add_func ("/models/document/a_utf16_bom_wins_over_the_folders_charset", test_a_utf16_bom_wins_over_the_folders_charset);

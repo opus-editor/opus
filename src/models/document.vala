@@ -141,9 +141,14 @@ public class Document : Object {
   public bool is_externally_modified { get; set; default = false; }
 
   private string original_content = "";
+  // What the file on disk was read or last written with: a line ending
+  // or charset picked since is a change a save has to make too.
+  private LineEnding saved_line_ending = LineEnding.LF;
+  private Charset saved_charset = Charset.UTF8;
 
+  /** Whether a save would write anything different from what is on disk: the text, or the line ending or charset it goes out in. */
   public bool dirty {
-    get { return readable && content != original_content; }
+    get { return readable && (content != original_content || line_ending != saved_line_ending || charset != saved_charset); }
   }
 
   /** This document's own multi-cursor state — separate from any other open document's. */
@@ -196,7 +201,7 @@ public class Document : Object {
     if (decoded != null) {
       line_ending = detect_line_ending (decoded);
       content = decoded.replace ("\r\n", "\n");
-      original_content = content;
+      mark_as_on_disk ();
       readable = true;
     } else {
       content = "";
@@ -298,7 +303,7 @@ public class Document : Object {
     }
 
     FileUtils.set_data (pathname, encoded ());
-    original_content = content;
+    mark_as_on_disk ();
     is_deleted = false;
     is_externally_modified = false;
   }
@@ -313,9 +318,16 @@ public class Document : Object {
     uri = uri_for_path (new_path);
     pathname = new_path;
     name = Path.get_basename (new_path);
-    original_content = content;
+    mark_as_on_disk ();
     is_untitled = false;
     is_deleted = false;
     is_externally_modified = false;
+  }
+
+  /** The content, line ending and charset as they now stand are what the file on disk holds. */
+  private void mark_as_on_disk () {
+    original_content = content;
+    saved_line_ending = line_ending;
+    saved_charset = charset;
   }
 }

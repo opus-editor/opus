@@ -100,6 +100,9 @@ public class MainWindow : Object {
 
   private Gtk.MenuButton menu_button;
   private Gtk.ToggleButton sidebar_toggle_button;
+  private Gtk.ToggleButton properties_button;
+  private Adw.OverlaySplitView properties_split_view;
+  private DocumentPanel document_panel;
   private Gtk.Widget close_folder_item;
 
   // Ctrl+P. The registry/router/popover live for the window; the file
@@ -239,6 +242,8 @@ public class MainWindow : Object {
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
     menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
+    properties_button = (Gtk.ToggleButton) builder.get_object ("properties_button");
+    properties_split_view = (Adw.OverlaySplitView) builder.get_object ("properties_split_view");
     title_stack = (Gtk.Stack) builder.get_object ("title_stack");
     view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
     command_bar_bin = (Adw.Bin) builder.get_object ("command_bar_bin");
@@ -252,6 +257,19 @@ public class MainWindow : Object {
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
     editor_pane.tab_detach_requested.connect ((tab, unsaved_content) => tab_detach_requested (tab, unsaved_content));
     setup_inside_drop_target ();
+    document_panel = new DocumentPanel ();
+    ((Adw.Bin) builder.get_object ("properties_bin")).child = document_panel.widget;
+    properties_split_view.bind_property (
+      "show-sidebar", properties_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
+    );
+    document_panel.language_change_requested.connect (open_language_list);
+    document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.code_editor?.set_word_wrap (wrap));
+    // A tab without an override of its own follows `editor.word_wrap` when settings.json is rewritten.
+    user_settings.changed.connect (refresh_document_panel);
+    document_panel.line_ending_chosen.connect ((line_ending) => editor_pane.set_active_line_ending (line_ending));
+    document_panel.charset_chosen.connect ((charset) => editor_pane.set_active_charset (charset));
+    document_panel.location_activated.connect (open_containing_folder);
+    refresh_document_panel ();
     editor_pane.tab_opened.connect (on_settings_tab_opened);
     editor_pane.tab_closed.connect (on_settings_tab_closed);
     editor_pane.file_tab_closed.connect (closed_tabs.record);
@@ -732,6 +750,7 @@ public class MainWindow : Object {
   /** Alt+W — flips wrapping for the active document only, as its own override over editor.word_wrap; settings.json stays the default for every other tab. Nothing happens without a document. */
   private void toggle_word_wrap () {
     editor_pane.active_document?.code_editor?.toggle_word_wrap ();
+    refresh_document_panel ();
   }
 
   /**
@@ -1038,6 +1057,37 @@ public class MainWindow : Object {
     command_router.open_with (language_provider);
   }
 
+  /** The Document Properties panel's "Document Type" row: the Command Bar straight on the language list, where "Set language..." leads. */
+  private void open_language_list () {
+    if (command_router.is_open) {
+      show_language_list ();
+      return;
+    }
+    focus_before_command_bar = window.get_focus ();
+    title_stack.visible_child_name = "command-bar";
+    show_language_list ();
+    command_bar.open ();
+  }
+
+  /** What the Document Properties panel shows: the active document, the title of the language it is highlighted as, and whether its lines wrap. */
+  private void refresh_document_panel () {
+    var editor = editor_pane.code_editor;
+    var language = editor?.language_name == null ? null : Syntax.Languages.instance.by_name (editor.language_name);
+    document_panel.show (editor_pane.active_document?.document, language?.package.title, editor != null && editor.word_wrap);
+  }
+
+  /** The panel's "Location" row: the file manager on the file's folder, the file selected — GNOME Text Editor's own open-folder action. */
+  private void open_containing_folder (string path) {
+    var launcher = new Gtk.FileLauncher (File.new_for_path (path));
+    launcher.open_containing_folder.begin (window, null, (obj, res) => {
+      try {
+        launcher.open_containing_folder.end (res);
+      } catch (Error e) {
+        show_failure_toast (e.message, null);
+      }
+    });
+  }
+
   /** Without this, the view switcher button underneath the entry's own title_stack page picks up focus on its own once that page becomes visible again. Restores focus_before_command_bar (set in open_command_bar()) rather than always the editor — Ctrl+P isn't only ever pressed from there. */
   private void on_command_bar_closed () {
     command_bar.close ();
@@ -1066,6 +1116,7 @@ public class MainWindow : Object {
       on_command_accepted (item.id);
     } else if (provider == language_provider) {
       editor_pane.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
+      refresh_document_panel ();
       editor_pane.code_editor?.grab_focus ();
     } else if (provider == file_provider) {
       int line;
@@ -1847,6 +1898,7 @@ public class MainWindow : Object {
     this.has_active_tab = has_active_tab;
     this.active_is_dirty = dirty;
     update_save_group ();
+    refresh_document_panel ();
     // Switching tabs (e.g. onto/off of Find Results) changes whether
     // Find…/Replace… apply, even when the number of open tabs doesn't.
     update_find_menu ();

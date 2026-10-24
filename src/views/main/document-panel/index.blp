@@ -1,0 +1,50 @@
+using Gtk 4.0;
+using Adw 1;
+
+// GNOME Text Editor's own properties panel (editor-properties-panel.ui),
+// its first group. The combos' models are built in code, for _().
+Adw.PreferencesPage page {
+  Adw.PreferencesGroup {
+    Adw.ActionRow name_row {
+      styles ["property"]
+      title: _("File Name");
+      subtitle-selectable: true;
+    }
+
+    Adw.ActionRow location_row {
+      styles ["property"]
+      title: _("Location");
+      subtitle-selectable: true;
+      subtitle-lines: 1;
+      activatable: true;
+
+      [suffix]
+      Gtk.Image {
+        icon-name: "document-open-symbolic";
+      }
+    }
+
+    Adw.ActionRow language_row {
+      styles ["property"]
+      title: _("Document Type");
+      activatable: true;
+
+      [suffix]
+      Gtk.Image {
+        icon-name: "go-next-symbolic";
+      }
+    }
+
+    Adw.SwitchRow word_wrap_row {
+      title: _("Word Wrap");
+    }
+
+    Adw.ComboRow encoding_row {
+      title: _("Encoding");
+    }
+
+    Adw.ComboRow line_ending_row {
+      title: _("Line Feed");
+    }
+  }
+}

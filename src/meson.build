@@ -233,6 +233,7 @@ opus_gtk_view_sources = files(
   'views/main/_i-global-panel.vala',
   'views/main/_i-sidebar-pane.vala',
   'views/main/sidebar/index.vala',
+  'views/main/document-panel/index.vala',
   'views/main/main-window/index.vala',
   'views/main/log-dialog/index.vala',
   'views/main/command-bar/_section-model.vala',

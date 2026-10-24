@@ -456,7 +456,12 @@ public class CodeEditor : Object {
 
   /** Alt+W: flips wrapping for this document only, as an override that lives as long as the tab does. */
   public void toggle_word_wrap () {
-    word_wrap_override = !word_wrap;
+    set_word_wrap (!word_wrap);
+  }
+
+  /** Wrapping for this document only, as the same override toggle_word_wrap() sets — the Document Properties panel's switch. */
+  public void set_word_wrap (bool wrap) {
+    word_wrap_override = wrap;
     has_word_wrap_override = true;
     apply_word_wrap ();
   }

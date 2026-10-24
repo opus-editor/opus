@@ -505,6 +505,16 @@ namespace EditorView {
       active_document?.set_language (language_name);
     }
 
+    /** The active document's line ending, picked by hand — see TabDocument.choose_line_ending(). A no-op with none active. */
+    public void set_active_line_ending (Document.LineEnding line_ending) {
+      active_document?.choose_line_ending (line_ending);
+    }
+
+    /** The active document's charset, picked by hand — see TabDocument.choose_charset(). A no-op with none active. */
+    public void set_active_charset (Document.Charset charset) {
+      active_document?.choose_charset (charset);
+    }
+
     /** The active document's content, "" with none — Opus.Dev.DevServer's own GetActiveText. */
     public string active_content {
       owned get { return active_document?.content ?? ""; }
