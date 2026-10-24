@@ -37,7 +37,9 @@ public class CodeEditorSyntaxHighlighter : Object {
   // The one contiguous run of rows whose tags match the current text.
   private int painted_first = NONE;
   private int painted_last = NONE;
+  // The idle a long parse goes on in, and the tick callback a repaint waits for.
   private uint refresh_id = 0;
+  private uint tick_id = 0;
 
   public CodeEditorSyntaxHighlighter (GtkSource.View text_view, Gtk.Adjustment vadjustment) {
     this.text_view = text_view;
@@ -65,9 +67,13 @@ public class CodeEditorSyntaxHighlighter : Object {
       Source.remove (refresh_id);
       refresh_id = 0;
     }
+    if (tick_id != 0) {
+      text_view.remove_tick_callback (tick_id);
+      tick_id = 0;
+    }
   }
 
-  /** What the buffer's text is written in — null for none, which leaves it unpainted. Takes effect on the text the buffer holds once this main-loop turn is over, so it can be called right before loading a new one. */
+  /** What the buffer's text is written in — null for none, which leaves it unpainted. Takes effect on the text the buffer holds at the next frame, so it can be called right before loading a new one; on a view not realized yet, right away. */
   public void set_language (Syntax.LoadedLanguage? language) {
     document = language == null ? null : new Syntax.SyntaxDocument (language, Syntax.Languages.instance);
     text_stale = true;
@@ -138,20 +144,40 @@ public class CodeEditorSyntaxHighlighter : Object {
   }
 
   /**
-   * Ahead of GTK's own layout and redraw in the same main-loop turn,
-   * so a keystroke is never drawn once in the wrong color and again
-   * in the right one.
+   * Before GTK next paints the view, in the same frame: a tick
+   * callback, which the frame clock runs in its update phase, ahead of
+   * layout and paint. An idle wouldn't do, whatever its priority: a
+   * click or a keystroke is delivered inside the frame clock's own
+   * cycle, which goes on to lay out and paint without returning to the
+   * main loop, so an idle set from its handler only runs after that
+   * frame — the text drawn once in the wrong colors, then again in the
+   * right ones. A view not realized yet has no frame to wait for and
+   * is painted right away, at its top (see rows_to_show).
    */
   private void schedule_refresh () {
-    if (refresh_id == 0) {
-      refresh_id = Idle.add_full (Priority.HIGH_IDLE, refresh);
+    if (tick_id != 0) {
+      return;
     }
+    if (!text_view.get_realized ()) {
+      refresh_now ();
+      return;
+    }
+    tick_id = text_view.add_tick_callback (() => {
+      tick_id = 0;
+      refresh_now ();
+      return false;
+    });
   }
 
   private bool refresh () {
     refresh_id = 0;
+    refresh_now ();
+    return Source.REMOVE;
+  }
+
+  private void refresh_now () {
     if (document == null) {
-      return Source.REMOVE;
+      return;
     }
 
     bool was_parsing = parsing;
@@ -178,7 +204,6 @@ public class CodeEditorSyntaxHighlighter : Object {
     if (parsing) {
       continue_parsing ();
     }
-    return Source.REMOVE;
   }
 
   /** Behind GTK's own redraw and input handling, unlike schedule_refresh(): the point of slicing is that the window gets a turn between slices. */
@@ -188,15 +213,26 @@ public class CodeEditorSyntaxHighlighter : Object {
     }
   }
 
+  /**
+   * Before the view's first allocation — a tab just opened, its first
+   * frame not drawn yet — the visible rect means nothing, and GTK draws
+   * that frame right after laying out, with no turn for this idle in
+   * between: the top of the text is painted on the guess that this is
+   * where the view opens, so the first frame already has its colors.
+   */
   private void rows_to_show (out int first, out int last) {
+    int last_row = buffer.get_line_count () - 1;
+    if (text_view.get_height () == 0) {
+      first = 0;
+      last = int.min (last_row, MARGIN_ROWS * 3);
+      return;
+    }
     Gdk.Rectangle visible;
     text_view.get_visible_rect (out visible);
     Gtk.TextIter top;
     Gtk.TextIter bottom;
     text_view.get_line_at_y (out top, visible.y, null);
     text_view.get_line_at_y (out bottom, visible.y + visible.height, null);
-
-    int last_row = buffer.get_line_count () - 1;
     first = int.max (0, top.get_line () - MARGIN_ROWS);
     last = int.min (last_row, bottom.get_line () + MARGIN_ROWS);
   }

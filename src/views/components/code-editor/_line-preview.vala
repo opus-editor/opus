@@ -46,8 +46,14 @@ public class CodeEditorLinePreview : Object {
     var background = text_view.palette.search_match ();
     background.alpha *= 0.85f;
     // The paragraph's background, not the text's: it reaches both edges of the view however short the line is.
-    tag.paragraph_background_rgba = background;
+    // Only when it changed: a tag written on every map has GtkTextView lay every visible line out again.
+    if (applied_background == null || !applied_background.equal (background)) {
+      tag.paragraph_background_rgba = background;
+      applied_background = background;
+    }
   }
+
+  private Gdk.RGBA? applied_background = null;
 
   /** Scrolls to the 1-based `line` and tints it. The first call of a preview remembers where the view was. */
   public void show (int line) {

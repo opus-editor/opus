@@ -123,9 +123,23 @@ public class CodeEditorSearch : Object {
   }
 
   /** The two tints come from the theme (editor.search.match / .current), read off CodeEditorPalette's swatches. */
+  // As last written to the tags: a tag written again, even with the
+  // same color, has GtkTextView lay every visible line out anew, and
+  // this runs on every map.
+  private Gdk.RGBA? applied_match = null;
+  private Gdk.RGBA? applied_current = null;
+
   private void apply_theme_colors () {
-    search_match_tag.background_rgba = text_view.palette.search_match ();
-    search_current_match_tag.background_rgba = text_view.palette.search_current ();
+    var match = text_view.palette.search_match ();
+    if (applied_match == null || !applied_match.equal (match)) {
+      search_match_tag.background_rgba = match;
+      applied_match = match;
+    }
+    var current = text_view.palette.search_current ();
+    if (applied_current == null || !applied_current.equal (current)) {
+      search_current_match_tag.background_rgba = current;
+      applied_current = current;
+    }
   }
 
   /** "" clears the search (no match, no highlight) rather than matching everything. Also re-lands on the nearest match from the real caret. */
