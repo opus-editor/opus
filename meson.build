@@ -1,6 +1,6 @@
 project(
   'opus', 'vala', 'c',
-  version: '0.4.1',
+  version: '0.5.0',
   meson_version: '>= 1.0',
 )
 
