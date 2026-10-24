@@ -79,3 +79,12 @@ checkbutton.theme-selector radio {
   min-height: 0;
   padding: 0;
 }
+
+/* Below the window's narrow breakpoint the switcher shows icons alone
+ * (the pages' titles are emptied there, see main-window/index.blp):
+ * libadwaita's wide button box keeps 12px sides and 6px of spacing
+ * for a label that is now empty, so both come down. */
+.opus-header viewswitcher.icons-only button.toggle > stack > box.wide {
+  padding: 2px 8px;
+  border-spacing: 0;
+}

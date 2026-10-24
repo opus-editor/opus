@@ -102,6 +102,7 @@ public class MainWindow : Object {
   private Gtk.ToggleButton sidebar_toggle_button;
   private Gtk.ToggleButton properties_button;
   private Adw.OverlaySplitView properties_split_view;
+  private Adw.BottomSheet properties_sheet;
   private DocumentPanel document_panel;
   private Gtk.Widget close_folder_item;
 
@@ -244,6 +245,10 @@ public class MainWindow : Object {
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
     properties_button = (Gtk.ToggleButton) builder.get_object ("properties_button");
     properties_split_view = (Adw.OverlaySplitView) builder.get_object ("properties_split_view");
+    properties_sheet = (Adw.BottomSheet) builder.get_object ("properties_sheet");
+    var switcher_breakpoint = (Adw.Breakpoint) builder.get_object ("switcher_breakpoint");
+    switcher_breakpoint.apply.connect (() => view_switcher.add_css_class ("icons-only"));
+    switcher_breakpoint.unapply.connect (() => view_switcher.remove_css_class ("icons-only"));
     title_stack = (Gtk.Stack) builder.get_object ("title_stack");
     view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
     command_bar_bin = (Adw.Bin) builder.get_object ("command_bar_bin");
@@ -259,8 +264,13 @@ public class MainWindow : Object {
     setup_inside_drop_target ();
     document_panel = new DocumentPanel (user_settings);
     ((Adw.Bin) builder.get_object ("properties_bin")).child = document_panel.widget;
+    // Both layouts at once, the way GNOME Text Editor binds its own
+    // properties_button: whichever one is active is the one showing.
     properties_split_view.bind_property (
       "show-sidebar", properties_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
+    );
+    properties_sheet.bind_property (
+      "open", properties_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
     );
     document_panel.language_change_requested.connect (open_language_list);
     document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.set_word_wrap (wrap));
@@ -403,7 +413,7 @@ public class MainWindow : Object {
     split_view.bind_property (
       "show-sidebar", sidebar_toggle_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
     );
-    split_view.notify["collapsed"].connect (update_folder_dependent_ui);
+    split_view.notify["collapsed"].connect (on_sidebar_collapsed_changed);
     split_view.notify["show-sidebar"].connect (update_folder_dependent_ui);
 
     // On the window itself, not a specific widget: these need to fire
@@ -1427,6 +1437,7 @@ public class MainWindow : Object {
     }
     active_bottom_panel?.close ();
     search_bar_bin.child = panel.widget;
+    search_bar_bin.visible = true;
     active_bottom_panel = panel;
   }
 
@@ -1434,6 +1445,9 @@ public class MainWindow : Object {
   private void clear_active_bottom_panel (IGlobalPanel panel) {
     if (active_bottom_panel == panel) {
       active_bottom_panel = null;
+      // A closed Gtk.SearchBar still asks for its content's width — more
+      // than libadwaita's 360px window floor — so the slot goes away with it.
+      search_bar_bin.visible = false;
     }
   }
 
@@ -1533,6 +1547,14 @@ public class MainWindow : Object {
     sidebar_width = width.clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
     split_view.min_sidebar_width = sidebar_width;
     split_view.max_sidebar_width = sidebar_width;
+  }
+
+  /** Growing back past the breakpoint: Adw.OverlaySplitView turns show-sidebar on by itself (adw-overlay-split-view.c, set_collapsed), folder or not — with none there is nothing to show, so it goes right back off. */
+  private void on_sidebar_collapsed_changed () {
+    if (!split_view.collapsed) {
+      split_view.show_sidebar = has_linked_folder;
+    }
+    update_folder_dependent_ui ();
   }
 
   /** Ctrl+B — hides the sidebar, or shows it again; sidebar_toggle_button stays on while it is hidden, as the way back by mouse. Nothing without a folder: there is no sidebar to show. */

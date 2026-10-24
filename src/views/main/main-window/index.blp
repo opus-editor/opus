@@ -44,10 +44,22 @@ Adw.ApplicationWindow window {
           // the Command Bar page's own (clamped, hexpand) width for both
           // pages; without this the switcher fills that whole box
           // instead of keeping its natural compact size in the middle.
-          child: Adw.ViewSwitcher view_switcher {
-            stack: view_stack;
-            policy: wide;
-            halign: center;
+          // The clamp only bites below the narrow breakpoint: each wide
+          // button asks for 120px of natural width by code
+          // (adw-view-switcher-button.c, MIN_NAT_BUTTON_WIDTH_WIDE), which
+          // no padding brings down, so with the titles gone the icons are
+          // boxed in from outside instead.
+          child: Adw.Clamp switcher_clamp {
+            // Inert while wide: below its threshold a clamp hands the
+            // child the whole width.
+            maximum-size: 10000;
+            tightening-threshold: 10000;
+
+            child: Adw.ViewSwitcher view_switcher {
+              stack: view_stack;
+              policy: wide;
+              halign: center;
+            };
           };
         }
 
@@ -95,22 +107,60 @@ Adw.ApplicationWindow window {
     // Error toasts (MainWindow.show_failure_toast) float over the whole
     // content area, sidebar included, above the search bar below.
     content: Adw.ToastOverlay toast_overlay {
-      // The Document Properties pane, to the right of everything else —
-      // sidebar and content included, the way GNOME Text Editor's own
-      // split_view wraps its whole window. Filled in code with
-      // DocumentPanel's widget. Hidden until properties_button shows it;
-      // 350 is GNOME Text Editor's own min-sidebar-width for it.
-      child: Adw.OverlaySplitView properties_split_view {
-        sidebar-position: end;
-        show-sidebar: false;
-        enable-show-gesture: false;
-        enable-hide-gesture: false;
-        min-sidebar-width: 350;
-        max-sidebar-width: 350;
+      // The Document Properties pane, around everything else — sidebar
+      // and content included — the way GNOME Text Editor's own
+      // multi_layout wraps its window (editor-window.ui): a split view
+      // to the right while there is room, a bottom sheet once the
+      // breakpoint below switches the layout. The two slots carry the
+      // same two widgets into whichever layout is active.
+      child: Adw.MultiLayoutView properties_layout {
+        Adw.Layout {
+          name: "wide";
 
-        sidebar: Adw.Bin properties_bin {};
+          // Hidden until properties_button shows it; 350 is GNOME Text
+          // Editor's own min-sidebar-width for it.
+          content: Adw.OverlaySplitView properties_split_view {
+            sidebar-position: end;
+            show-sidebar: false;
+            enable-show-gesture: false;
+            enable-hide-gesture: false;
+            min-sidebar-width: 350;
+            max-sidebar-width: 350;
 
-        content: Adw.OverlaySplitView split_view {
+            sidebar: Adw.LayoutSlot {
+              id: "properties";
+            };
+
+            content: Adw.LayoutSlot {
+              id: "content";
+            };
+          };
+        }
+
+        Adw.Layout {
+          name: "narrow";
+
+          content: Adw.BottomSheet properties_sheet {
+            content: Adw.LayoutSlot {
+              id: "content";
+            };
+
+            // A toolbar view, as GNOME Text Editor wraps its own: the
+            // sheet's background and the pane's rows then share a surface.
+            sheet: Adw.ToolbarView {
+              content: Adw.LayoutSlot {
+                id: "properties";
+              };
+            };
+          };
+        }
+
+        // Filled in code with DocumentPanel's widget.
+        [properties]
+        Adw.Bin properties_bin {}
+
+        [content]
+        Adw.OverlaySplitView split_view {
           // Off by default, on only once collapsed (see the breakpoint below)
           // — matches Nautilus's own split_view exactly (checked its source):
           // a swipe shouldn't reveal/hide the sidebar while there's still
@@ -153,7 +203,7 @@ Adw.ApplicationWindow window {
             Adw.ViewStack view_stack {
               vexpand: true;
 
-              Adw.ViewStackPage {
+              Adw.ViewStackPage editor_page {
                 name: "editor";
                 title: _("Editor");
                 icon-name: "opus-code-symbolic";
@@ -169,7 +219,7 @@ Adw.ApplicationWindow window {
                 };
               }
 
-              Adw.ViewStackPage {
+              Adw.ViewStackPage git_page {
                 name: "git";
                 title: _("Git");
                 icon-name: "opus-git-symbolic";
@@ -181,7 +231,7 @@ Adw.ApplicationWindow window {
               }
             }
           };
-        };
+        }
       };
     };
 
@@ -198,7 +248,10 @@ Adw.ApplicationWindow window {
     // instead of stacking two bars visually; bottom-bar-style: raised
     // above is what actually paints that shared background now.
     [bottom]
-    Adw.Bin search_bar_bin {}
+    Adw.Bin search_bar_bin {
+      // Shown only while a panel is open — see MainWindow.set_active_bottom_panel.
+      visible: false;
+    }
   };
 
   // Collapses the sidebar into an overlay once the window gets narrow —
@@ -210,7 +263,27 @@ Adw.ApplicationWindow window {
       split_view.collapsed: true;
       split_view.enable-show-gesture: true;
       split_view.enable-hide-gesture: true;
-      properties_split_view.collapsed: true;
+      properties_layout.layout-name: "narrow";
+    }
+  }
+
+  // Narrower still, the header's switcher keeps its icons alone: the
+  // titles go, the clamp boxes the buttons in, and MainWindow trims
+  // their padding on apply (icons-only). Only the last matching
+  // breakpoint applies (adw-breakpoint-bin.c), so the one above is
+  // repeated here rather than added to.
+  Adw.Breakpoint switcher_breakpoint {
+    condition ("max-width: 480sp")
+
+    setters {
+      split_view.collapsed: true;
+      split_view.enable-show-gesture: true;
+      split_view.enable-hide-gesture: true;
+      properties_layout.layout-name: "narrow";
+      editor_page.title: "";
+      git_page.title: "";
+      switcher_clamp.maximum-size: 96;
+      switcher_clamp.tightening-threshold: 0;
     }
   }
 }
