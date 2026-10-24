@@ -250,11 +250,14 @@ int main (string[] args) {
             opus.open_tab (b);
 
             assert_false (opus.word_wrap ());
-            string settings = "";
+            // The plain key's own line, at the top level's two spaces:
+            // the generated file's language.markdown block turns word
+            // wrap on for Markdown, four spaces in.
             if (FileUtils.test (settings_path (), FileTest.EXISTS)) {
+                string settings;
                 FileUtils.get_contents (settings_path (), out settings);
+                assert_true (settings.contains ("\n  \"editor.word_wrap\": false"));
             }
-            assert_false (settings.replace (" ", "").contains ("\"editor.word_wrap\":true"));
             opus.close ();
         } catch (Error e) {
             error ("unexpected error: %s", e.message);

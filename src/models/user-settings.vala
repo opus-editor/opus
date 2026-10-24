@@ -314,24 +314,28 @@ public class UserSettings : Object {
     return (int) size;
   }
 
+  /** The keys in alphabetical order, a `language.<name>` block last — one, to show that any key can be set per language. */
   private static string default_content () {
     return """{
-  "window.save_session": false,
+  "editor.auto_indent": true,
   "editor.font_family": null,
+  "editor.font_ligatures": false,
   "editor.font_size": %d,
   "editor.font_weight": "normal",
-  "editor.font_ligatures": false,
-  "editor.line_height": 1,
-  "editor.letter_spacing": 0,
-  "editor.word_wrap": false,
-  "editor.indent_style": "space",
   "editor.indent_size": 4,
-  "editor.tab_width": null,
-  "editor.auto_indent": true,
+  "editor.indent_style": "space",
+  "editor.letter_spacing": 0,
+  "editor.line_height": 1,
   "editor.on_save": [],
   "editor.rulers": [],
+  "editor.tab_width": null,
+  "editor.word_wrap": false,
   "editorconfig.max_line_length": false,
-  "git.changes_sort": "path"
+  "git.changes_sort": "path",
+  "window.save_session": false,
+  "language.markdown": {
+    "editor.word_wrap": true
+  }
 }
 """.printf (system_monospace_font_size ());
   }

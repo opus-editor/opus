@@ -56,13 +56,27 @@ private void test_creates_the_file_with_default_content () {
     remove_temp_config_dir (config_dir);
 }
 
-private void test_default_content_lists_save_session_first () {
+private void test_default_content_lists_its_keys_in_order_with_the_language_block_last () {
     string config_dir = make_temp_config_dir ();
 
     new UserSettings (config_dir);
 
-    assert_true (read_settings (config_dir).has_prefix ("{\n  \"window.save_session\": false,\n"));
-
+    var parser = new Json.Parser ();
+    try {
+        parser.load_from_data (read_settings (config_dir));
+    } catch (Error e) {
+        error ("%s", e.message);
+    }
+    var keys = parser.get_root ().get_object ().get_members ();
+    string? previous = null;
+    foreach (var key in keys) {
+        if (key.has_prefix ("language.")) {
+            assert_true (key == keys.last ().data);
+            continue;
+        }
+        assert_true (previous == null || strcmp (previous, key) < 0);
+        previous = key;
+    }
     remove_temp_config_dir (config_dir);
 }
 
@@ -690,7 +704,7 @@ int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/user-settings/path_is_settings_json_under_an_opus_subdirectory", test_path_is_settings_json_under_an_opus_subdirectory);
     Test.add_func ("/models/user-settings/creates_the_file_with_default_content", test_creates_the_file_with_default_content);
-    Test.add_func ("/models/user-settings/default_content_lists_save_session_first", test_default_content_lists_save_session_first);
+    Test.add_func ("/models/user-settings/default_content_lists_its_keys_in_order_with_the_language_block_last", test_default_content_lists_its_keys_in_order_with_the_language_block_last);
     Test.add_func ("/models/user-settings/leaves_an_existing_file_untouched", test_leaves_an_existing_file_untouched);
     Test.add_func ("/models/user-settings/ensure_exists_recreates_a_deleted_file", test_ensure_exists_recreates_a_deleted_file);
     Test.add_func ("/models/user-settings/reads_defaults_from_a_freshly_created_file", test_reads_defaults_from_a_freshly_created_file);
