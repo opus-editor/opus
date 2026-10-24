@@ -133,10 +133,13 @@ public class CodeEditorCursors : Object {
     }
   }
 
-  /** Columns per indent level, and whether Tab inserts that many spaces instead of a literal tab character — a "prop" this component can't derive on its own (comes from the linked folder's .editorconfig, out of scope here). */
-  public void set_indent_config (int indent_size, bool insert_spaces) {
+  private bool auto_indent = true;
+
+  /** Columns per indent level, whether Tab inserts that many spaces instead of a literal tab character, and whether Enter indents at all — "props" this component can't derive on its own (see Indentation.resolve). */
+  public void set_indent_config (int indent_size, bool insert_spaces, bool auto_indent) {
     this.indent_size = indent_size;
     this.insert_spaces = insert_spaces;
+    this.auto_indent = auto_indent;
   }
 
   // ---- Navigation and multi-cursor commands — never touch the buffer. ----
@@ -245,7 +248,7 @@ public class CodeEditorCursors : Object {
    * character and the indentation together.
    */
   private void outdent_lines_just_closed (EditKind kind) {
-    if (outdent_change == null) {
+    if (!auto_indent || outdent_change == null) {
       return;
     }
     var edits = cursors.compute_outdent_edits (insert_spaces, indent_size, get_text (), outdent_change);
@@ -293,6 +296,10 @@ public class CodeEditorCursors : Object {
   }
 
   public void enter () {
+    if (!auto_indent) {
+      insert_text ("\n");
+      return;
+    }
     previous_typed_was_space = false;
     Cursor[] cursors_to_remove;
     var tagged_edits = cursors.compute_enter_edits (insert_spaces, indent_size, get_text (), out cursors_to_remove, indent_change);

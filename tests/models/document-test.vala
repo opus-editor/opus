@@ -555,7 +555,7 @@ private void test_a_document_without_languages_has_no_language () {
 private void test_word_wrap_starts_with_no_override () {
     var document = Document.untitled ("1", "Untitled-1");
 
-    assert_true (document.word_wrap_override == Document.WordWrapOverride.NONE);
+    assert_true (document.word_wrap_override == Document.Override.NONE);
 }
 
 private void test_is_deleted_does_not_affect_dirty_on_its_own () {

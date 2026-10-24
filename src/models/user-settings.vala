@@ -127,16 +127,42 @@ public class UserSettings : Object {
   }
 
   /**
+   * Whether Enter indents at all in files highlighted as `language`
+   * — the new line taking the last one's indentation and what the
+   * syntax adds, and a closer typed pulling its line out:
+   * `editor.auto_indent`, a `language.<name>` block's own value first.
+   * On with neither.
+   */
+  public bool auto_indent_for (string? language) {
+    var node = language_block (language)?.get_member ("editor.auto_indent");
+    if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (bool)) {
+      return read_bool ("editor.auto_indent", true);
+    }
+    return node.get_boolean ();
+  }
+
+  /**
    * Columns per indent level in files highlighted as `language`:
    * `editor.indent_size`, a whole number above zero, a `language.<name>`
    * block's own value first. 4 with neither, VS Code's own `tabSize`.
    */
   public int indent_size_for (string? language) {
-    return indent_size_in (language_block (language)) ?? indent_size_in (root) ?? 4;
+    return whole_number_in (language_block (language), "editor.indent_size") ?? whole_number_in (root, "editor.indent_size") ?? 4;
   }
 
-  private static int? indent_size_in (Json.Object? object) {
-    var node = object?.get_member ("editor.indent_size");
+  /**
+   * How wide a literal tab renders in files highlighted as `language`:
+   * `editor.tab_width`, a whole number above zero, a `language.<name>`
+   * block's own value first. Null with neither — the indent size is
+   * what it then follows (see Indentation.resolve).
+   */
+  public int? tab_width_for (string? language) {
+    return whole_number_in (language_block (language), "editor.tab_width") ?? whole_number_in (root, "editor.tab_width");
+  }
+
+  /** `key` in `object` as a whole number above zero; null for anything else. */
+  private static int? whole_number_in (Json.Object? object, string key) {
+    var node = object?.get_member (key);
     if (node == null || node.get_node_type () != Json.NodeType.VALUE || node.get_value_type () != typeof (int64) || node.get_int () <= 0) {
       return null;
     }
@@ -300,6 +326,8 @@ public class UserSettings : Object {
   "editor.word_wrap": false,
   "editor.indent_style": "space",
   "editor.indent_size": 4,
+  "editor.tab_width": null,
+  "editor.auto_indent": true,
   "editor.on_save": [],
   "editor.rulers": [],
   "editorconfig.max_line_length": false,

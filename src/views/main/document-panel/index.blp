@@ -47,4 +47,36 @@ Adw.PreferencesPage page {
       title: _("Line Feed");
     }
   }
+
+  Adw.PreferencesGroup {
+    Adw.SwitchRow auto_indent_row {
+      title: _("Auto Indent");
+    }
+
+    Adw.ComboRow indent_style_row {
+      title: _("Indent Style");
+    }
+
+    Adw.ActionRow indent_size_row {
+      styles ["property"]
+      title: _("Indent Size");
+      activatable: true;
+
+      [suffix]
+      Gtk.Image {
+        icon-name: "go-next-symbolic";
+      }
+    }
+
+    Adw.ActionRow tab_width_row {
+      styles ["property"]
+      title: _("Tab Width");
+      activatable: true;
+
+      [suffix]
+      Gtk.Image {
+        icon-name: "go-next-symbolic";
+      }
+    }
+  }
 }

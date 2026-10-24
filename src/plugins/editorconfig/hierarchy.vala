@@ -71,10 +71,10 @@ namespace Opus.Plugins.EditorConfig {
       return value == null ? null : (int?) int.parse (value);
     }
 
-    /** `tab_width`, else a numeric `indent_size` (the spec's own default for it) — null without either. */
+    /** `tab_width` as written — null without one. The spec's own default for it, the indent size, is left to whoever resolves the indentation (Indentation.resolve), so that a width the file never set is known as such. */
     public int? tab_width () {
-      var value = properties["tab_width"] ?? properties["indent_size"];
-      return value == null || value == "tab" ? null : (int?) int.parse (value);
+      var value = properties["tab_width"];
+      return value == null ? null : (int?) int.parse (value);
     }
 
     /** `indent_style`: "space" is true, "tab" (or anything else set) false. */

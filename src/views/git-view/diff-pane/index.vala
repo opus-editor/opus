@@ -22,12 +22,14 @@ namespace GitView {
     public string mode { get; private set; default = "diff"; }
     // A load still in flight when a newer one starts lands on nothing.
     private int generation = 0;
+    private UserSettings user_settings;
 
     /** Re-emitted from the editor — the FindBar's "N of M" while this diff is what it searches. */
     public signal void search_position_changed (int position, int count);
 
     /** `search_settings` is the window's one Find query, shared with the editor pane's tabs. */
     public DiffPane (UserSettings user_settings, GtkSource.SearchSettings search_settings) {
+      this.user_settings = user_settings;
       code_editor = new CodeEditor (user_settings, search_settings);
       code_editor.search_position_changed.connect ((position, count) => search_position_changed (position, count));
       stack.add_named (code_editor.widget, "diff");
@@ -106,7 +108,7 @@ namespace GitView {
 
     private void apply_indent (string path) {
       var settings = file_settings?.settings_for (path) ?? new FileSettings.Values ();
-      code_editor.set_indent (settings.indent_size, settings.insert_spaces, settings.tab_width);
+      code_editor.set_indent (Indentation.resolve (settings, user_settings, Syntax.Languages.instance.detect_name (path)));
     }
 
     private void show_placeholder (string title, string body) {

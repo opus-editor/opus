@@ -379,6 +379,50 @@ private void test_indent_size_for_a_value_below_one_is_the_plain_key () {
     remove_temp_config_dir (config_dir);
 }
 
+private void test_auto_indent_for_defaults_to_on () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{}");
+    var settings = new UserSettings (config_dir);
+
+    bool on = settings.auto_indent_for (null);
+
+    assert_true (on);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_auto_indent_for_a_language_reads_its_block () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.auto_indent": true, "language.markdown": { "editor.auto_indent": false } }""");
+    var settings = new UserSettings (config_dir);
+
+    bool on = settings.auto_indent_for ("markdown");
+
+    assert_false (on);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_tab_width_for_is_nothing_by_default () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, "{}");
+    var settings = new UserSettings (config_dir);
+
+    int? width = settings.tab_width_for (null);
+
+    assert_true (width == null);
+    remove_temp_config_dir (config_dir);
+}
+
+private void test_tab_width_for_a_language_reads_its_block () {
+    string config_dir = make_temp_config_dir ();
+    write_settings (config_dir, """{ "editor.tab_width": 8, "language.go": { "editor.tab_width": 4 } }""");
+    var settings = new UserSettings (config_dir);
+
+    int? width = settings.tab_width_for ("go");
+
+    assert_cmpint (width, CompareOperator.EQ, 4);
+    remove_temp_config_dir (config_dir);
+}
+
 private void test_word_wrap_for_a_language_block_of_the_wrong_type_is_the_plain_key () {
     string config_dir = make_temp_config_dir ();
     write_settings (config_dir, """{ "editor.word_wrap": false, "language.markdown": { "editor.word_wrap": "yes" } }""");
@@ -682,6 +726,10 @@ int main (string[] args) {
     Test.add_func ("/models/user-settings/indent_size_for_reads_the_plain_key", test_indent_size_for_reads_the_plain_key);
     Test.add_func ("/models/user-settings/indent_size_for_a_language_reads_its_block", test_indent_size_for_a_language_reads_its_block);
     Test.add_func ("/models/user-settings/indent_size_for_a_value_below_one_is_the_plain_key", test_indent_size_for_a_value_below_one_is_the_plain_key);
+    Test.add_func ("/models/user-settings/auto_indent_for_defaults_to_on", test_auto_indent_for_defaults_to_on);
+    Test.add_func ("/models/user-settings/tab_width_for_is_nothing_by_default", test_tab_width_for_is_nothing_by_default);
+    Test.add_func ("/models/user-settings/tab_width_for_a_language_reads_its_block", test_tab_width_for_a_language_reads_its_block);
+    Test.add_func ("/models/user-settings/auto_indent_for_a_language_reads_its_block", test_auto_indent_for_a_language_reads_its_block);
     Test.add_func ("/models/user-settings/editorconfig_max_line_length_is_off_unless_asked", test_editorconfig_max_line_length_is_off_unless_asked);
     Test.add_func ("/models/user-settings/rulers_read_the_columns", test_rulers_read_the_columns);
     Test.add_func ("/models/user-settings/rulers_for_a_language_are_its_blocks_own", test_rulers_for_a_language_are_its_blocks_own);

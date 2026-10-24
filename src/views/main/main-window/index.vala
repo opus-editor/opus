@@ -133,6 +133,8 @@ public class MainWindow : Object {
   private CommandBar.Picker? previewing_picker = null;
   private CommandBar.CommandProvider command_provider;
   private CommandBar.LanguageProvider language_provider;
+  private CommandBar.NumberProvider indent_size_provider;
+  private CommandBar.NumberProvider tab_width_provider;
   // Whatever held keyboard focus right before Ctrl+P — title_stack
   // switching its page back away from the entry on close otherwise
   // leaves GTK to pick its own fallback (the view switcher button).
@@ -274,6 +276,10 @@ public class MainWindow : Object {
     );
     document_panel.language_change_requested.connect (open_language_list);
     document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.set_word_wrap (wrap));
+    document_panel.auto_indent_chosen.connect ((on) => editor_pane.active_document?.choose_auto_indent (on));
+    document_panel.insert_spaces_chosen.connect ((spaces) => editor_pane.active_document?.choose_insert_spaces (spaces));
+    document_panel.indent_size_change_requested.connect (() => open_picker (indent_size_provider));
+    document_panel.tab_width_change_requested.connect (() => open_picker (tab_width_provider));
     document_panel.line_ending_chosen.connect ((line_ending) => editor_pane.set_active_line_ending (line_ending));
     document_panel.charset_chosen.connect ((charset) => editor_pane.set_active_charset (charset));
     document_panel.location_activated.connect (open_containing_folder);
@@ -312,6 +318,9 @@ public class MainWindow : Object {
     command_registry.add (command_provider);
     // Not registered: no prefix leads to it, only "Set language...".
     language_provider = new CommandBar.LanguageProvider (Syntax.Languages.instance);
+    // Nor these: the Document Properties pane's own rows lead to them.
+    indent_size_provider = new CommandBar.NumberProvider (_("Indent size..."), 1, 16);
+    tab_width_provider = new CommandBar.NumberProvider (_("Tab width..."), 1, 16, _("None"), _("Use Indent Size"));
 
     find_bar = new EditorView.FindBar ();
     register_global_panel (find_bar);
@@ -1058,22 +1067,22 @@ public class MainWindow : Object {
     return input;
   }
 
-  /** The languages the active tab can be set to, in place of the commands: the bar stays open, only what it lists changes. */
-  private void show_language_list () {
+  /** The languages the active tab can be set to — where "Set language..." and the Document Properties pane's "Document Type" row lead. */
+  private void open_language_list () {
     language_provider.has_document = editor_pane.has_active_document;
     language_provider.offers_auto_detect = editor_pane.active_has_language_override;
-    command_router.open_with (language_provider);
+    open_picker (language_provider);
   }
 
-  /** The Document Properties panel's "Document Type" row: the Command Bar straight on the language list, where "Set language..." leads. */
-  private void open_language_list () {
+  /** The Command Bar on `provider`'s list: opened for it, or, already open on something else, switched to it in place. */
+  private void open_picker (CommandBar.IProvider provider) {
     if (command_router.is_open) {
-      show_language_list ();
+      command_router.open_with (provider);
       return;
     }
     focus_before_command_bar = window.get_focus ();
     title_stack.visible_child_name = "command-bar";
-    show_language_list ();
+    command_router.open_with (provider);
     command_bar.open ();
   }
 
@@ -1112,7 +1121,7 @@ public class MainWindow : Object {
     var filter = command_router.picker.filter;
     if (provider == command_provider && item.id == COMMAND_SET_LANGUAGE) {
       // The one accept that doesn't close the bar: its answer is another list.
-      show_language_list ();
+      open_language_list ();
       return;
     }
     // A symbol accepted is a preview followed: the view stays where the preview took it.
@@ -1123,6 +1132,10 @@ public class MainWindow : Object {
     } else if (provider == language_provider) {
       editor_pane.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
       editor_pane.code_editor?.grab_focus ();
+    } else if (provider == indent_size_provider) {
+      editor_pane.active_document?.choose_indent_size (int.parse (item.id));
+    } else if (provider == tab_width_provider) {
+      editor_pane.active_document?.choose_tab_width (item.id == CommandBar.NumberProvider.NONE ? 0 : int.parse (item.id));
     } else if (provider == file_provider) {
       int line;
       CommandBar.FileProvider.split_line_suffix (filter, out line);

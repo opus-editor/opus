@@ -1,7 +1,7 @@
 /**
  * The header's "Document Properties" pane, to the content's right —
- * GNOME Text Editor's own panel (editor-properties-panel.ui), its first
- * group: what the active document is, and how it is written out.
+ * GNOME Text Editor's own panel (editor-properties-panel.ui): what the
+ * active document is and how it is written out, then how it indents.
  * MainWindow hands it the Document (show()) and it reads everything
  * off that, following its changes; what the user picks here goes back
  * out as signals, for MainWindow to put on the active tab — the pane
@@ -15,6 +15,10 @@ public class DocumentPanel : Object {
   private Adw.SwitchRow word_wrap_row;
   private Adw.ComboRow encoding_row;
   private Adw.ComboRow line_ending_row;
+  private Adw.SwitchRow auto_indent_row;
+  private Adw.ComboRow indent_style_row;
+  private Adw.ActionRow indent_size_row;
+  private Adw.ActionRow tab_width_row;
 
   private UserSettings settings;
   private Document? document = null;
@@ -32,6 +36,12 @@ public class DocumentPanel : Object {
   public signal void charset_chosen (Document.Charset charset);
   /** The "Location" row: the file at `path` is to be shown in its folder. */
   public signal void location_activated (string path);
+  /** The indentation rows, each for this tab only — see Indentation.resolve. */
+  public signal void auto_indent_chosen (bool on);
+  public signal void insert_spaces_chosen (bool spaces);
+  /** The "Indent Size" and "Tab Width" rows: the user wants to pick a number. */
+  public signal void indent_size_change_requested ();
+  public signal void tab_width_change_requested ();
 
   public DocumentPanel (UserSettings settings) {
     this.settings = settings;
@@ -45,12 +55,18 @@ public class DocumentPanel : Object {
     word_wrap_row = (Adw.SwitchRow) builder.get_object ("word_wrap_row");
     encoding_row = (Adw.ComboRow) builder.get_object ("encoding_row");
     line_ending_row = (Adw.ComboRow) builder.get_object ("line_ending_row");
+    auto_indent_row = (Adw.SwitchRow) builder.get_object ("auto_indent_row");
+    indent_style_row = (Adw.ComboRow) builder.get_object ("indent_style_row");
+    indent_size_row = (Adw.ActionRow) builder.get_object ("indent_size_row");
+    tab_width_row = (Adw.ActionRow) builder.get_object ("tab_width_row");
 
     // In Document.Charset's and Document.LineEnding's own order: the selected index is the enum value.
     encoding_row.model = string_list ({ "UTF-8", _("UTF-8 with BOM"), _("Western (ISO-8859-1)"), "UTF-16 BE", "UTF-16 LE" });
     line_ending_row.model = string_list ({ _("Unix/Linux (LF)"), _("Windows (CR+LF)") });
     encoding_row.list_factory = popup_factory (encoding_row);
     line_ending_row.list_factory = popup_factory (line_ending_row);
+    indent_style_row.model = string_list ({ _("Space"), _("Tab") });
+    indent_style_row.list_factory = popup_factory (indent_style_row);
 
     location_row.activated.connect (() => {
       if (document != null && document.pathname != null) {
@@ -73,6 +89,18 @@ public class DocumentPanel : Object {
         line_ending_chosen ((Document.LineEnding) line_ending_row.selected);
       }
     });
+    auto_indent_row.notify["active"].connect (() => {
+      if (!refreshing && document != null) {
+        auto_indent_chosen (auto_indent_row.active);
+      }
+    });
+    indent_style_row.notify["selected"].connect (() => {
+      if (!refreshing && document != null) {
+        insert_spaces_chosen (indent_style_row.selected == 0);
+      }
+    });
+    indent_size_row.activated.connect (() => indent_size_change_requested ());
+    tab_width_row.activated.connect (() => tab_width_change_requested ());
     refresh ();
   }
 
@@ -84,7 +112,7 @@ public class DocumentPanel : Object {
     refresh ();
   }
 
-  /** Name, path and language change on a "Save As"; line ending and charset on a save that applies the folder's .editorconfig; language and word wrap when picked by hand. */
+  /** Name, path and language change on a "Save As"; line ending and charset on a save that applies the folder's .editorconfig; language and word wrap when picked by hand; the indentation whenever its tab resolves it again. */
   private void follow (Document? next) {
     foreach (var handler in document_handlers) {
       document.disconnect (handler);
@@ -94,7 +122,7 @@ public class DocumentPanel : Object {
     if (next == null) {
       return;
     }
-    foreach (var property in new string[] { "name", "pathname", "language", "word-wrap-override", "line-ending", "charset", "readable" }) {
+    foreach (var property in new string[] { "name", "pathname", "language", "word-wrap-override", "indentation", "line-ending", "charset", "readable" }) {
       document_handlers += next.notify[property].connect (() => refresh ());
     }
   }
@@ -141,16 +169,27 @@ public class DocumentPanel : Object {
     return factory;
   }
 
+  /** The width, and where it came from when nothing set it apart. */
+  private static string tab_width_subtitle (Indentation? indentation) {
+    if (indentation == null) {
+      return "";
+    }
+    if (indentation.tab_width_from_size) {
+      return _("Same as Indent Size");
+    }
+    return indentation.tab_width.to_string ();
+  }
+
   private string? language_title () {
     return document.language == null ? null : Syntax.Languages.instance.title_of (document.language);
   }
 
   /** The document's own override, else `editor.word_wrap` for its language — what its editor shows. */
   private bool word_wrap () {
-    if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+    if (document.word_wrap_override == Document.Override.NONE) {
       return settings.word_wrap_for (document.language);
     }
-    return document.word_wrap_override == Document.WordWrapOverride.ON;
+    return document.word_wrap_override == Document.Override.ON;
   }
 
   private void refresh () {
@@ -167,6 +206,11 @@ public class DocumentPanel : Object {
     line_ending_row.sensitive = writable;
     encoding_row.selected = document == null ? 0 : document.charset;
     line_ending_row.selected = document == null ? 0 : document.line_ending;
+    var indentation = document == null ? null : document.indentation;
+    auto_indent_row.active = indentation != null && indentation.auto_indent;
+    indent_style_row.selected = indentation == null || indentation.insert_spaces ? 0 : 1;
+    indent_size_row.subtitle = indentation == null ? "" : indentation.size.to_string ();
+    tab_width_row.subtitle = tab_width_subtitle (indentation);
     refreshing = false;
   }
 }

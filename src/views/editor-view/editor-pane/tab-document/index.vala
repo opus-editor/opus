@@ -25,6 +25,7 @@ namespace EditorView.EditorPane {
 
     private UserSettings user_settings;
     private ulong languages_handler;
+    private ulong settings_handler;
     private GtkSource.SearchSettings? search_settings;
     private Gtk.Box root;
     private TabDocumentChangeBanner change_banner;
@@ -71,7 +72,15 @@ namespace EditorView.EditorPane {
       root.append (change_banner.widget);
 
       change_banner.discard_clicked.connect (reload_document);
-      document.notify["language"].connect (() => editor?.set_language (document.language));
+      document.notify["language"].connect (() => {
+        editor?.set_language (document.language);
+        reapply_file_settings ();
+      });
+      foreach (var property in new string[] { "insert-spaces-override", "indent-size-override", "tab-width-override", "auto-indent-override" }) {
+        document.notify[property].connect (() => reapply_file_settings ());
+      }
+      document.notify["indentation"].connect (() => editor?.set_indent (document.indentation));
+      settings_handler = user_settings.changed.connect (reapply_file_settings);
       // A package installed or removed while the tab is open may change what claims the file.
       languages_handler = Syntax.Languages.instance.changed.connect (document.refresh_language);
       document.notify["word-wrap-override"].connect (() => editor?.set_word_wrap_override (word_wrap_override ()));
@@ -89,7 +98,7 @@ namespace EditorView.EditorPane {
       reapply_file_settings ();
     }
 
-    /** The settings changed under an open editor: its indentation follows now. The line ending and the save switches are read at save time anyway. */
+    /** A source of the indentation changed under an open editor — the folder's .editorconfig, settings.json, the language, a pick by hand: it is resolved again. The line ending and the save switches are read at save time anyway. */
     public void reapply_file_settings () {
       if (editor == null) {
         return;
@@ -97,10 +106,29 @@ namespace EditorView.EditorPane {
       apply_indent ();
     }
 
+    /** Onto the Document, where the editor and the Document Properties pane read it from. */
     private void apply_indent () {
       var settings = file_settings_for ();
-      editor.set_indent (settings.indent_size, settings.insert_spaces, settings.tab_width);
+      document.indentation = Indentation.resolve (settings, user_settings, document.language, document);
       editor.set_max_line_length (settings.max_line_length ?? 0);
+    }
+
+    /** Picks for this document only, over the folder's and settings.json's word — see Indentation.resolve. The editor follows the Document's resolved `indentation`. */
+    public void choose_insert_spaces (bool spaces) {
+      document.insert_spaces_override = spaces ? Document.Override.ON : Document.Override.OFF;
+    }
+
+    public void choose_indent_size (int size) {
+      document.indent_size_override = size;
+    }
+
+    /** 0 drops the pick: the folder's and settings.json's word again, else the indent size. */
+    public void choose_tab_width (int width) {
+      document.tab_width_override = width;
+    }
+
+    public void choose_auto_indent (bool on) {
+      document.auto_indent_override = on ? Document.Override.ON : Document.Override.OFF;
     }
 
     /** The settings for this file — or for `path`, when a Save As is about to write it there. An Untitled document counts as a file at the root, so the folder's general rules reach it too. */
@@ -281,10 +309,10 @@ namespace EditorView.EditorPane {
     /** Whether this tab's lines wrap: the document's own override, else `editor.word_wrap` for its language. */
     public bool word_wrap {
       get {
-        if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+        if (document.word_wrap_override == Document.Override.NONE) {
           return user_settings.word_wrap_for (document.language);
         }
-        return document.word_wrap_override == Document.WordWrapOverride.ON;
+        return document.word_wrap_override == Document.Override.ON;
       }
     }
 
@@ -295,15 +323,15 @@ namespace EditorView.EditorPane {
 
     /** Wrapping for this document only, the Document Properties panel's switch — the same override Alt+W sets. */
     public void set_word_wrap (bool wrap) {
-      document.word_wrap_override = wrap ? Document.WordWrapOverride.ON : Document.WordWrapOverride.OFF;
+      document.word_wrap_override = wrap ? Document.Override.ON : Document.Override.OFF;
     }
 
     /** Document.word_wrap_override as the editor takes it: null while nothing was picked. */
     private bool? word_wrap_override () {
-      if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+      if (document.word_wrap_override == Document.Override.NONE) {
         return null;
       }
-      return document.word_wrap_override == Document.WordWrapOverride.ON;
+      return document.word_wrap_override == Document.Override.ON;
     }
 
     // Picked by hand in the Document Properties panel: the folder's
@@ -400,6 +428,7 @@ namespace EditorView.EditorPane {
 
     public void dispose_tab () {
       Syntax.Languages.instance.disconnect (languages_handler);
+      user_settings.disconnect (settings_handler);
       file_watcher.close ();
       diff_tracker.set_document.begin (null, "", null);
       editor?.close ();

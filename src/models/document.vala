@@ -127,14 +127,25 @@ public class Document : Object {
   public string? language { get; private set; default = null; }
   private Syntax.Languages? languages = null;
 
-  /** Word wrap picked for this one document, over `editor.word_wrap` — VS Code's transient wordWrapOverride: nothing until set, gone with the document. */
-  public enum WordWrapOverride {
+  /** A setting picked for this one document, over whatever the folder or settings.json say — VS Code's transient per-model state: nothing until set, gone with the document. */
+  public enum Override {
     NONE,
     ON,
     OFF,
   }
 
-  public WordWrapOverride word_wrap_override { get; set; default = WordWrapOverride.NONE; }
+  /** Word wrap, over `editor.word_wrap`. */
+  public Override word_wrap_override { get; set; default = Override.NONE; }
+  /** Spaces or tabs, over the folder's `indent_style` and `editor.indent_style` — see Indentation.resolve. */
+  public Override insert_spaces_override { get; set; default = Override.NONE; }
+  /** Columns per level, over the folder's `indent_size` and `editor.indent_size`; 0 while nothing was picked. */
+  public int indent_size_override { get; set; default = 0; }
+  /** How wide a literal tab renders, over the folder's `tab_width` and `editor.tab_width`; 0 while nothing was picked. */
+  public int tab_width_override { get; set; default = 0; }
+  /** Whether Enter indents at all, over `editor.auto_indent`. */
+  public Override auto_indent_override { get; set; default = Override.NONE; }
+  /** How this document indents with every source weighed — resolved by its tab (Indentation.resolve), null until it has one. */
+  public Indentation? indentation { get; set; default = null; }
   public bool is_preview { get; set; default = false; }
   /** The first line showing while this document was last on screen, 1-based — where the editor scrolls back to when it comes back. */
   public int top_line { get; set; default = 1; }

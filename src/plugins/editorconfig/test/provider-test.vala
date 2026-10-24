@@ -15,7 +15,7 @@ private void test_the_values_say_what_the_files_do () {
         var values = provider.settings_for (Path.build_filename (root, "a.rb"));
 
         assert_true (values.indent_size == 2);
-        assert_true (values.tab_width == 2);
+        assert_true (values.tab_width == null);
         assert_true (values.insert_spaces == true);
         assert_true (values.line_ending == Document.LineEnding.CRLF);
         assert_true (values.trim_trailing_whitespace == true);

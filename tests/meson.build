@@ -57,6 +57,13 @@ command_bar_language_provider_test = executable(
 )
 test('command-bar-language-provider', command_bar_language_provider_test)
 
+command_bar_number_provider_test = executable(
+  'command-bar-number-provider-test',
+  ['models/command-bar/number-provider-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('command-bar-number-provider', command_bar_number_provider_test)
+
 command_bar_symbol_provider_test = executable(
   'command-bar-symbol-provider-test',
   ['models/command-bar/symbol-provider-test.vala'],
@@ -302,6 +309,13 @@ document_test = executable(
   dependencies: [opus_model_test_dep],
 )
 test('document', document_test)
+
+indentation_test = executable(
+  'indentation-test',
+  ['models/indentation-test.vala'],
+  dependencies: [opus_model_test_dep],
+)
+test('indentation', indentation_test)
 
 file_settings_test = executable(
   'file-settings-test',
