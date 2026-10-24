@@ -274,6 +274,14 @@ public class MainWindow : Object {
     properties_sheet.bind_property (
       "open", properties_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
     );
+    // Nothing to show without a tab: the pane closes with the last one and the button waits for the next.
+    properties_button.sensitive = false;
+    editor_pane.has_open_tabs_changed.connect ((has_tabs) => {
+      properties_button.sensitive = has_tabs;
+      if (!has_tabs) {
+        properties_button.active = false;
+      }
+    });
     document_panel.language_change_requested.connect (open_language_list);
     document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.set_word_wrap (wrap));
     document_panel.auto_indent_chosen.connect ((on) => editor_pane.active_document?.choose_auto_indent (on));
