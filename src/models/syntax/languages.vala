@@ -75,6 +75,16 @@ namespace Syntax {
       return styles.resolve (capture, language);
     }
 
+    /** The name of the package that claims the file at `path` — by its name, else by `first_line` (a shebang) — with nothing loaded for it. Null when none does. */
+    public string? detect_name (string path, string? first_line = null) {
+      return registry.detect (path, first_line)?.name;
+    }
+
+    /** The title of the package named `name` ("C++" for "cpp"), null for a name no package has. */
+    public string? title_of (string name) {
+      return registry.by_name (name)?.title;
+    }
+
     /** The language of the file at `path`, ready to use — null when no package claims the file or the one that does can't be loaded. */
     public LoadedLanguage? detect (string path, string? first_line = null) {
       var package = registry.detect (path, first_line);

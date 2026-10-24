@@ -2,10 +2,10 @@
  * The header's "Document Properties" pane, to the content's right —
  * GNOME Text Editor's own panel (editor-properties-panel.ui), its first
  * group: what the active document is, and how it is written out.
- * MainWindow hands it the document (show()) and it reads the rest off
- * that; what the user picks here goes back out as signals, for
- * MainWindow to put on the active tab — the pane never writes to the
- * document itself.
+ * MainWindow hands it the Document (show()) and it reads everything
+ * off that, following its changes; what the user picks here goes back
+ * out as signals, for MainWindow to put on the active tab — the pane
+ * never writes to the document itself.
  */
 public class DocumentPanel : Object {
   private Adw.PreferencesPage page;
@@ -16,9 +16,8 @@ public class DocumentPanel : Object {
   private Adw.ComboRow encoding_row;
   private Adw.ComboRow line_ending_row;
 
+  private UserSettings settings;
   private Document? document = null;
-  private string? language_title = null;
-  private bool word_wrap = false;
   private ulong[] document_handlers = {};
   // The combos are set from the document too; only the user's own picks go back out.
   private bool refreshing = false;
@@ -34,7 +33,10 @@ public class DocumentPanel : Object {
   /** The "Location" row: the file at `path` is to be shown in its folder. */
   public signal void location_activated (string path);
 
-  public DocumentPanel () {
+  public DocumentPanel (UserSettings settings) {
+    this.settings = settings;
+    // A document without a word wrap of its own follows `editor.word_wrap` when settings.json is rewritten.
+    settings.changed.connect (refresh);
     var builder = new Gtk.Builder.from_resource ("/io/github/opus_editor/Opus/main/document-panel/index.ui");
     page = (Adw.PreferencesPage) builder.get_object ("page");
     name_row = (Adw.ActionRow) builder.get_object ("name_row");
@@ -74,24 +76,15 @@ public class DocumentPanel : Object {
     refresh ();
   }
 
-  /**
-   * `document` is the active tab's, null with none (or with a tab that
-   * isn't a document). `language_title` is what it is highlighted as,
-   * null for plain text, and `word_wrap` whether its lines wrap right
-   * now — both resolved by the caller, since they live on the tab's
-   * editor: the language depends on the file's name and first line
-   * without an override, and the wrap on `editor.word_wrap` without one.
-   */
-  public void show (Document? document, string? language_title, bool word_wrap) {
+  /** `document` is the active tab's, null with none (or with a tab that isn't a document). */
+  public void show (Document? document) {
     if (this.document != document) {
       follow (document);
     }
-    this.language_title = language_title;
-    this.word_wrap = word_wrap;
     refresh ();
   }
 
-  /** Name and path change on a "Save As"; line ending and charset on a save that applies the folder's .editorconfig. */
+  /** Name, path and language change on a "Save As"; line ending and charset on a save that applies the folder's .editorconfig; language and word wrap when picked by hand. */
   private void follow (Document? next) {
     foreach (var handler in document_handlers) {
       document.disconnect (handler);
@@ -101,7 +94,7 @@ public class DocumentPanel : Object {
     if (next == null) {
       return;
     }
-    foreach (var property in new string[] { "name", "pathname", "line-ending", "charset", "readable" }) {
+    foreach (var property in new string[] { "name", "pathname", "language", "word-wrap-override", "line-ending", "charset", "readable" }) {
       document_handlers += next.notify[property].connect (() => refresh ());
     }
   }
@@ -148,6 +141,18 @@ public class DocumentPanel : Object {
     return factory;
   }
 
+  private string? language_title () {
+    return document.language == null ? null : Syntax.Languages.instance.title_of (document.language);
+  }
+
+  /** The document's own override, else `editor.word_wrap` for its language — what its editor shows. */
+  private bool word_wrap () {
+    if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+      return settings.word_wrap_for (document.language);
+    }
+    return document.word_wrap_override == Document.WordWrapOverride.ON;
+  }
+
   private void refresh () {
     refreshing = true;
     page.sensitive = document != null;
@@ -155,8 +160,8 @@ public class DocumentPanel : Object {
     string? folder = document == null || document.pathname == null ? null : Path.get_dirname (document.pathname);
     location_row.subtitle = folder ?? "";
     location_row.sensitive = folder != null;
-    language_row.subtitle = document == null ? "" : language_title ?? _("Plain Text");
-    word_wrap_row.active = document != null && word_wrap;
+    language_row.subtitle = document == null ? "" : language_title () ?? _("Plain Text");
+    word_wrap_row.active = document != null && word_wrap ();
     bool writable = document != null && document.readable;
     encoding_row.sensitive = writable;
     line_ending_row.sensitive = writable;

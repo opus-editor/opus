@@ -424,6 +424,140 @@ private void test_a_charset_picked_by_hand_makes_the_document_dirty () {
     }
 }
 
+/** Two packages that claim files by extension, and one by its first line — no grammar is ever loaded for a document's language. */
+private Syntax.Languages languages_fixture () {
+    string directory = Path.build_filename (Environment.get_tmp_dir (), "opus-document-test-languages-%u".printf (Random.next_int ()));
+    var manifests = new HashTable<string, string> (str_hash, str_equal);
+    manifests["ruby"] = """{ "name": "ruby", "file-types": ["rb"], "shebangs": ["ruby"], "grammar": { "repository": "r", "rev": "abc" } }""";
+    manifests["python"] = """{ "name": "python", "file-types": ["py"], "grammar": { "repository": "r", "rev": "abc" } }""";
+    foreach (var name in manifests.get_keys ()) {
+        string package = Path.build_filename (directory, name);
+        DirUtils.create_with_parents (package, 0700);
+        try {
+            FileUtils.set_contents (Path.build_filename (package, "language.json"), manifests[name]);
+        } catch (FileError e) {
+            error ("%s", e.message);
+        }
+    }
+    return new Syntax.Languages ({ directory }, {}, {});
+}
+
+private string make_temp_file_named (string suffix, string text) {
+    string path = Path.build_filename (Environment.get_tmp_dir (), "opus-document-test-%u%s".printf (Random.next_int (), suffix));
+    try {
+        FileUtils.set_contents (path, text);
+    } catch (Error e) {
+        error ("failed to create fixture file: %s", e.message);
+    }
+    return path;
+}
+
+private void test_the_language_is_the_one_the_file_name_says () {
+    string path = make_temp_file_named (".rb", "puts 1\n");
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+
+        assert_cmpstr (document.language, CompareOperator.EQ, "ruby");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_shebang_names_the_language_of_a_file_without_an_extension () {
+    string path = make_temp_file_named ("", "#!/usr/bin/env ruby\nputs 1\n");
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+
+        assert_cmpstr (document.language, CompareOperator.EQ, "ruby");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_file_no_package_claims_is_plain_text () {
+    string path = make_temp_file_named (".txt", "hello\n");
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+
+        assert_null (document.language);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_a_language_picked_by_hand_wins_over_the_file_name () {
+    string path = make_temp_file_named (".rb", "puts 1\n");
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+
+        document.language_override = "python";
+
+        assert_cmpstr (document.language, CompareOperator.EQ, "python");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_dropping_the_pick_goes_back_to_the_file_name () {
+    string path = make_temp_file_named (".rb", "puts 1\n");
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+        document.language_override = "python";
+
+        document.language_override = null;
+
+        assert_cmpstr (document.language, CompareOperator.EQ, "ruby");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_saving_as_another_name_resolves_the_language_again () {
+    string path = make_temp_file_named (".rb", "puts 1\n");
+    string new_path = path + ".py";
+    try {
+        var document = Document.load (path, null, languages_fixture ());
+
+        document.save_as (new_path);
+
+        assert_cmpstr (document.language, CompareOperator.EQ, "python");
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+        FileUtils.remove (new_path);
+    }
+}
+
+private void test_a_document_without_languages_has_no_language () {
+    string path = make_temp_file_named (".rb", "puts 1\n");
+    try {
+        var document = Document.load (path);
+
+        assert_null (document.language);
+    } catch (Error e) {
+        error ("unexpected error: %s", e.message);
+    } finally {
+        FileUtils.remove (path);
+    }
+}
+
+private void test_word_wrap_starts_with_no_override () {
+    var document = Document.untitled ("1", "Untitled-1");
+
+    assert_true (document.word_wrap_override == Document.WordWrapOverride.NONE);
+}
+
 private void test_is_deleted_does_not_affect_dirty_on_its_own () {
     // EditorController is the one deciding whether a deleted-outside-Opus
     // tab should even set is_deleted at all — only ever on an already-dirty
@@ -571,6 +705,14 @@ int main (string[] args) {
     Test.add_func ("/models/document/saving_a_picked_line_ending_leaves_the_document_clean", test_saving_a_picked_line_ending_leaves_the_document_clean);
     Test.add_func ("/models/document/a_line_ending_put_back_leaves_the_document_clean", test_a_line_ending_put_back_leaves_the_document_clean);
     Test.add_func ("/models/document/a_charset_picked_by_hand_makes_the_document_dirty", test_a_charset_picked_by_hand_makes_the_document_dirty);
+    Test.add_func ("/models/document/the_language_is_the_one_the_file_name_says", test_the_language_is_the_one_the_file_name_says);
+    Test.add_func ("/models/document/a_shebang_names_the_language_of_a_file_without_an_extension", test_a_shebang_names_the_language_of_a_file_without_an_extension);
+    Test.add_func ("/models/document/a_file_no_package_claims_is_plain_text", test_a_file_no_package_claims_is_plain_text);
+    Test.add_func ("/models/document/a_language_picked_by_hand_wins_over_the_file_name", test_a_language_picked_by_hand_wins_over_the_file_name);
+    Test.add_func ("/models/document/dropping_the_pick_goes_back_to_the_file_name", test_dropping_the_pick_goes_back_to_the_file_name);
+    Test.add_func ("/models/document/saving_as_another_name_resolves_the_language_again", test_saving_as_another_name_resolves_the_language_again);
+    Test.add_func ("/models/document/a_document_without_languages_has_no_language", test_a_document_without_languages_has_no_language);
+    Test.add_func ("/models/document/word_wrap_starts_with_no_override", test_word_wrap_starts_with_no_override);
     Test.add_func ("/models/document/a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same", test_a_latin1_file_reads_as_the_folder_says_and_writes_back_the_same);
     Test.add_func ("/models/document/a_utf8_bom_is_detected_dropped_and_written_back", test_a_utf8_bom_is_detected_dropped_and_written_back);
     Test.add_func ("/models/document/a_utf16_bom_wins_over_the_folders_charset", test_a_utf16_bom_wins_over_the_folders_charset);

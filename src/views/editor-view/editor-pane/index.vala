@@ -367,7 +367,7 @@ namespace EditorView {
         }
         activate (tab.uri);
       } else {
-        var document = Document.load (path, charset_for (path));
+        var document = Document.load (path, charset_for (path), Syntax.Languages.instance);
         document.is_preview = !as_permanent;
         var previous_preview = preview_tab;
         tab = add_document_tab (document);
@@ -412,7 +412,7 @@ namespace EditorView {
     /** Opens a brand-new, not-yet-saved-anywhere tab named "Untitled-N" — a permanent tab, focused immediately. Saving it goes through the Save As flow regardless of "Save" or "Save as…", since there's nowhere on disk yet for a plain Save to write to. */
     public void new_untitled () {
       untitled_counter++;
-      var document = Document.untitled (untitled_counter.to_string (), "Untitled-%d".printf (untitled_counter));
+      var document = Document.untitled (untitled_counter.to_string (), "Untitled-%d".printf (untitled_counter), Syntax.Languages.instance);
       var tab = add_document_tab (document);
       activate (tab.uri);
       tab.grab_focus ();
@@ -447,7 +447,7 @@ namespace EditorView {
     public void restore_session (SavedSession session) {
       foreach (var saved in session.tabs) {
         try {
-          var document = Document.load (saved.path, charset_for (saved.path));
+          var document = Document.load (saved.path, charset_for (saved.path), Syntax.Languages.instance);
           document.is_preview = saved.preview;
           document.cursors.set_cursors ({ new Cursor (EditorPane.TabDocument.char_offset_of_line_column (document.content, saved.line, saved.column)) });
           document.top_line = saved.top_line;

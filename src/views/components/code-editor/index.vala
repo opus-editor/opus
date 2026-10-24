@@ -53,9 +53,8 @@ public class CodeEditor : Object {
   private CodeEditorLinePreview line_preview;
   private CodeEditorConflicts conflicts;
   /** What set_text() last showed — "" for none. Kept so the language can be worked out again when the packages change. */
-  private string language_path = "";
-  /** The language package named by hand for what is showing, over whatever `language_path` says — null for none. */
-  private string? language_override = null;
+  /** The language package what is showing is highlighted as, by name — null for plain text. */
+  private string? language = null;
 
   // How many passes scroll_to_top_line() gives the layout to settle — see reveal_settled().
   private const int SCROLL_SETTLE_PASSES = 3;
@@ -266,7 +265,7 @@ public class CodeEditor : Object {
       }
       text.append (diff.lines[i].text);
     }
-    set_text (text.str, path);
+    set_text (text.str, Syntax.Languages.instance.detect_name (path, first_line_of (text.str)));
     diff_gutter.apply_word_tags ();
     paint_diff_rows ();
   }
@@ -316,7 +315,7 @@ public class CodeEditor : Object {
     text_view.set_row_bands ("diff", new GenericArray<CodeEditorSourceView.RowBand> ());
     scrollbar.set_hunks ({});
     show_line_numbers = true;
-    set_text (text, path);
+    set_text (text, Syntax.Languages.instance.detect_name (path, first_line_of (text)));
   }
 
   /** A theme change: the bands read their swatches when painted, so a repaint is all it takes; the word tags cache theirs. */
@@ -446,23 +445,16 @@ public class CodeEditor : Object {
     return settings.rulers_for (language_name);
   }
 
-  private bool has_word_wrap_override = false;
-  private bool word_wrap_override = false;
+  private bool? word_wrap_override = null;
 
-  /** Whether lines wrap right now: the document's own override when Alt+W set one, else `editor.word_wrap` for its language (UserSettings.word_wrap_for). */
+  /** Whether lines wrap right now: the override when one is set, else `editor.word_wrap` for the language (UserSettings.word_wrap_for). */
   public bool word_wrap {
-    get { return has_word_wrap_override ? word_wrap_override : settings.word_wrap_for (language_name); }
+    get { return word_wrap_override == null ? settings.word_wrap_for (language_name) : (bool) word_wrap_override; }
   }
 
-  /** Alt+W: flips wrapping for this document only, as an override that lives as long as the tab does. */
-  public void toggle_word_wrap () {
-    set_word_wrap (!word_wrap);
-  }
-
-  /** Wrapping for this document only, as the same override toggle_word_wrap() sets — the Document Properties panel's switch. */
-  public void set_word_wrap (bool wrap) {
+  /** Wrapping for what is showing, over the setting: the document's own Document.word_wrap_override, pushed here by its tab; null follows the setting again. */
+  public void set_word_wrap_override (bool? wrap) {
     word_wrap_override = wrap;
-    has_word_wrap_override = true;
     apply_word_wrap ();
   }
 
@@ -499,20 +491,14 @@ public class CodeEditor : Object {
     return css.str;
   }
 
-  /**
-   * Shows `text`, highlighted as the language package named
-   * `language_override` when one is given, and otherwise as whichever
-   * claims `path` — by its name, or failing that by `text`'s own first
-   * line (a shebang). None if no package does, or if `path` is "".
-   */
-  public void set_text (string text, string path, string? language_override = null) {
+  /** Shows `text`, highlighted as the language package named `language_name` — null for plain text. A document's tab passes its Document.language; a view with only a path resolves one with Syntax.Languages.detect_name. */
+  public void set_text (string text, string? language_name) {
     if (pending_reveal_id != 0) {
       Source.remove (pending_reveal_id);
       pending_reveal_id = 0;
     }
-    language_path = path;
-    this.language_override = language_override;
-    syntax_highlighter.set_language (language_for (text));
+    language = language_name;
+    apply_language ();
     apply_word_wrap ();
     apply_indent ();
     cursors.load_text (text);
@@ -527,25 +513,17 @@ public class CodeEditor : Object {
     conflicts.accept (index, side);
   }
 
-  /** Changes the language of the text already showing: a package's name, or null to go back to the one its path says. */
-  public void set_language_override (string? language_override) {
-    this.language_override = language_override;
+  /** Changes the language of the text already showing — a package's name, or null for plain text. Synchronous, like set_text(): the wrap and the rulers go with the language. */
+  public void set_language (string? language_name) {
+    language = language_name;
     apply_language ();
     apply_word_wrap ();
     apply_indent ();
   }
 
-  /** A package was installed, edited or finished building while this text was showing — or the language was just set by hand. */
+  /** Looked up again on every Syntax.Languages change too: a package installed, edited or finished building while this text was showing. A name no package has leaves the text plain. */
   private void apply_language () {
-    syntax_highlighter.set_language (language_for (text_view.buffer.text));
-  }
-
-  /** A language named by hand that no longer exists (its package was removed) leaves the text plain rather than falling back to a guess the user already overruled. */
-  private Syntax.LoadedLanguage? language_for (string text) {
-    if (language_override != null) {
-      return Syntax.Languages.instance.by_name (language_override);
-    }
-    return language_path == "" ? null : Syntax.Languages.instance.detect (language_path, first_line_of (text));
+    syntax_highlighter.set_language (language == null ? null : Syntax.Languages.instance.by_name (language));
   }
 
   private static string first_line_of (string text) {
@@ -629,10 +607,7 @@ public class CodeEditor : Object {
 
   /** The package name of the language the text is highlighted as, null for plain text. */
   public string? language_name {
-    owned get {
-      var language = language_for (text_view.buffer.text);
-      return language == null ? null : language.package.name;
-    }
+    get { return language; }
   }
 
   /** Renders `cursor_set` onto the real buffer's own selection/carets — pass-through to the cursors sub-component. EditorView.EditorPane.TabDocument's own SetActiveCursors (Opus.Dev.DevServer) mutates a document's own CursorCollection directly, then calls this to make it visible. */

@@ -24,6 +24,7 @@ namespace EditorView.EditorPane {
     public Document document { get; private set; }
 
     private UserSettings user_settings;
+    private ulong languages_handler;
     private GtkSource.SearchSettings? search_settings;
     private Gtk.Box root;
     private TabDocumentChangeBanner change_banner;
@@ -70,6 +71,10 @@ namespace EditorView.EditorPane {
       root.append (change_banner.widget);
 
       change_banner.discard_clicked.connect (reload_document);
+      document.notify["language"].connect (() => editor?.set_language (document.language));
+      // A package installed or removed while the tab is open may change what claims the file.
+      languages_handler = Syntax.Languages.instance.changed.connect (document.refresh_language);
+      document.notify["word-wrap-override"].connect (() => editor?.set_word_wrap_override (word_wrap_override ()));
       file_watcher.file_changed.connect (on_file_changed);
       diff_tracker.hunks_changed.connect (() => editor?.set_hunks (diff_tracker.hunks ()));
       if (document.pathname != null) {
@@ -161,6 +166,7 @@ namespace EditorView.EditorPane {
       editor.widget.vexpand = true;
       root.append (editor.widget);
 
+      editor.set_word_wrap_override (word_wrap_override ());
       load_into_editor ();
       apply_indent ();
       editor.bind (document.cursors, document.history);
@@ -175,22 +181,15 @@ namespace EditorView.EditorPane {
       recompute_hunks ();
     }
 
-    /** The document's content into the editor. An unreadable file shows a placeholder message instead, read-only and with no language (a "" path guesses none). */
+    /** The document's content into the editor. An unreadable file shows a placeholder message instead, read-only and plain. */
     private void load_into_editor () {
       editor.read_only = !document.readable;
-      editor.set_text (document.readable ? document.content : _("This file can't be displayed."),
-                       document.readable ? display_path () : "",
-                       document.readable ? document.language_override : null);
+      editor.set_text (document.readable ? document.content : _("This file can't be displayed."), document.readable ? document.language : null);
     }
 
     private void recompute_hunks () {
       hunks_stale = false;
       diff_tracker.set_document.begin (document.pathname, document.content, diff_base_provider);
-    }
-
-    /** An Untitled tab has no real path for language detection to key off of — its uri (no extension either way) stands in, never a raw file:// one for a real file. */
-    private string display_path () {
-      return document.pathname ?? document.uri;
     }
 
     /**
@@ -265,7 +264,7 @@ namespace EditorView.EditorPane {
       document.content = text;
       promote ();
       editor.read_only = false;
-      editor.set_text (text, display_path (), document.language_override);
+      editor.set_text (text, document.language);
       emit_marks ();
     }
 
@@ -274,10 +273,37 @@ namespace EditorView.EditorPane {
       get { return document.language_override != null; }
     }
 
-    /** Sets the language by hand: a language package's name, or null to go back to what the file's own name says. Kept on the Document, so it survives a "Save As". */
+    /** Sets the language by hand: a language package's name, or null to go back to what the file's own name says. Kept on the Document, so it survives a "Save As"; the editor follows the Document's own `language`. */
     public void set_language (string? language_name) {
       document.language_override = language_name;
-      editor?.set_language_override (language_name);
+    }
+
+    /** Whether this tab's lines wrap: the document's own override, else `editor.word_wrap` for its language. */
+    public bool word_wrap {
+      get {
+        if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+          return user_settings.word_wrap_for (document.language);
+        }
+        return document.word_wrap_override == Document.WordWrapOverride.ON;
+      }
+    }
+
+    /** Alt+W: flips wrapping for this document only — an override that lives as long as it does, over `editor.word_wrap`. */
+    public void toggle_word_wrap () {
+      set_word_wrap (!word_wrap);
+    }
+
+    /** Wrapping for this document only, the Document Properties panel's switch — the same override Alt+W sets. */
+    public void set_word_wrap (bool wrap) {
+      document.word_wrap_override = wrap ? Document.WordWrapOverride.ON : Document.WordWrapOverride.OFF;
+    }
+
+    /** Document.word_wrap_override as the editor takes it: null while nothing was picked. */
+    private bool? word_wrap_override () {
+      if (document.word_wrap_override == Document.WordWrapOverride.NONE) {
+        return null;
+      }
+      return document.word_wrap_override == Document.WordWrapOverride.ON;
     }
 
     // Picked by hand in the Document Properties panel: the folder's
@@ -373,6 +399,7 @@ namespace EditorView.EditorPane {
     }
 
     public void dispose_tab () {
+      Syntax.Languages.instance.disconnect (languages_handler);
       file_watcher.close ();
       diff_tracker.set_document.begin (null, "", null);
       editor?.close ();

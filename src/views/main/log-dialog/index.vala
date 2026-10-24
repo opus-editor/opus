@@ -26,7 +26,7 @@ public class LogDialog : Object {
       show_line_numbers = false,
       show_indent_guides = false,
     };
-    editor.set_text (text, "");
+    editor.set_text (text, null);
 
     var syntax_tags = new SyntaxTags (editor.buffer);
     paint_command_line (editor.buffer, syntax_tags);

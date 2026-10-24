@@ -257,15 +257,13 @@ public class MainWindow : Object {
     editor_pane.reveal_in_sidebar_requested.connect (on_reveal_in_sidebar_requested);
     editor_pane.tab_detach_requested.connect ((tab, unsaved_content) => tab_detach_requested (tab, unsaved_content));
     setup_inside_drop_target ();
-    document_panel = new DocumentPanel ();
+    document_panel = new DocumentPanel (user_settings);
     ((Adw.Bin) builder.get_object ("properties_bin")).child = document_panel.widget;
     properties_split_view.bind_property (
       "show-sidebar", properties_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
     );
     document_panel.language_change_requested.connect (open_language_list);
-    document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.code_editor?.set_word_wrap (wrap));
-    // A tab without an override of its own follows `editor.word_wrap` when settings.json is rewritten.
-    user_settings.changed.connect (refresh_document_panel);
+    document_panel.word_wrap_chosen.connect ((wrap) => editor_pane.active_document?.set_word_wrap (wrap));
     document_panel.line_ending_chosen.connect ((line_ending) => editor_pane.set_active_line_ending (line_ending));
     document_panel.charset_chosen.connect ((charset) => editor_pane.set_active_charset (charset));
     document_panel.location_activated.connect (open_containing_folder);
@@ -404,9 +402,9 @@ public class MainWindow : Object {
     // while collapsed, with no extra code needed for that part.
     split_view.bind_property (
       "show-sidebar", sidebar_toggle_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
-    split_view.notify["show-sidebar"].connect (update_folder_dependent_ui);
     );
     split_view.notify["collapsed"].connect (update_folder_dependent_ui);
+    split_view.notify["show-sidebar"].connect (update_folder_dependent_ui);
 
     // On the window itself, not a specific widget: these need to fire
     // no matter where focus currently is (sidebar, tab bar, or the
@@ -750,8 +748,7 @@ public class MainWindow : Object {
 
   /** Alt+W — flips wrapping for the active document only, as its own override over editor.word_wrap; settings.json stays the default for every other tab. Nothing happens without a document. */
   private void toggle_word_wrap () {
-    editor_pane.active_document?.code_editor?.toggle_word_wrap ();
-    refresh_document_panel ();
+    editor_pane.active_document?.toggle_word_wrap ();
   }
 
   /**
@@ -1070,11 +1067,9 @@ public class MainWindow : Object {
     command_bar.open ();
   }
 
-  /** What the Document Properties panel shows: the active document, the title of the language it is highlighted as, and whether its lines wrap. */
+  /** The Document Properties panel follows the active document — the tab's, or none. */
   private void refresh_document_panel () {
-    var editor = editor_pane.code_editor;
-    var language = editor?.language_name == null ? null : Syntax.Languages.instance.by_name (editor.language_name);
-    document_panel.show (editor_pane.active_document?.document, language?.package.title, editor != null && editor.word_wrap);
+    document_panel.show (editor_pane.active_document?.document);
   }
 
   /** The panel's "Location" row: the file manager on the file's folder, the file selected — GNOME Text Editor's own open-folder action. */
@@ -1117,7 +1112,6 @@ public class MainWindow : Object {
       on_command_accepted (item.id);
     } else if (provider == language_provider) {
       editor_pane.set_active_language (item.id == CommandBar.LanguageProvider.AUTO_DETECT ? null : item.id);
-      refresh_document_panel ();
       editor_pane.code_editor?.grab_focus ();
     } else if (provider == file_provider) {
       int line;
@@ -1535,6 +1529,12 @@ public class MainWindow : Object {
   }
 
   /** Pins the sidebar to exactly `width` px, clamped to the same range dragging allows — see setup_sidebar_resize(). */
+  private void set_sidebar_width (double width) {
+    sidebar_width = width.clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
+    split_view.min_sidebar_width = sidebar_width;
+    split_view.max_sidebar_width = sidebar_width;
+  }
+
   /** Ctrl+B — hides the sidebar, or shows it again; sidebar_toggle_button stays on while it is hidden, as the way back by mouse. Nothing without a folder: there is no sidebar to show. */
   private void toggle_sidebar () {
     if (has_linked_folder) {
@@ -1543,12 +1543,6 @@ public class MainWindow : Object {
   }
 
   /** The toggle button is only worth showing while there is a sidebar it can reveal: one hidden by Ctrl+B, or one collapsed behind the narrow-window breakpoint. */
-  private void set_sidebar_width (double width) {
-    sidebar_width = width.clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
-    split_view.min_sidebar_width = sidebar_width;
-    split_view.max_sidebar_width = sidebar_width;
-  }
-
   private void update_folder_dependent_ui () {
     sidebar_toggle_button.visible = has_linked_folder && (split_view.collapsed || !split_view.show_sidebar);
     close_folder_item.visible = has_linked_folder;
@@ -1625,14 +1619,14 @@ public class MainWindow : Object {
     // switch below check letters only, leaving Shift entirely to the
     // flag above.
     keyval = Gdk.keyval_to_lower (keyval);
-      case Gdk.Key.b:
-        toggle_sidebar ();
-        return true;
 
     var shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
     switch (keyval) {
       case Gdk.Key.w:
         editor_pane.close_active ();
+        return true;
+      case Gdk.Key.b:
+        toggle_sidebar ();
         return true;
       case Gdk.Key.s:
         if (shift) {

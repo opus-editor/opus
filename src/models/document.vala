@@ -107,7 +107,34 @@ public class Document : Object {
    * hasn't been. Lives and dies with the document: kept through a
    * rename or a "Save As", gone once it is closed.
    */
-  public string? language_override { get; set; default = null; }
+  public string? language_override {
+    get { return _language_override; }
+    set {
+      _language_override = value;
+      refresh_language ();
+    }
+  }
+  private string? _language_override = null;
+
+  /**
+   * The language package the document is highlighted as, by name:
+   * {@link language_override}, else the one that claims the file — by
+   * its name, or by its first line (a shebang) — else null, plain text.
+   * Resolved against the `languages` the document was created with:
+   * when it is loaded or reloaded, renamed, saved elsewhere, or set by
+   * hand; {@link refresh_language} for a package installed meanwhile.
+   */
+  public string? language { get; private set; default = null; }
+  private Syntax.Languages? languages = null;
+
+  /** Word wrap picked for this one document, over `editor.word_wrap` — VS Code's transient wordWrapOverride: nothing until set, gone with the document. */
+  public enum WordWrapOverride {
+    NONE,
+    ON,
+    OFF,
+  }
+
+  public WordWrapOverride word_wrap_override { get; set; default = WordWrapOverride.NONE; }
   public bool is_preview { get; set; default = false; }
   /** The first line showing while this document was last on screen, 1-based — where the editor scrolls back to when it comes back. */
   public int top_line { get; set; default = 1; }
@@ -168,15 +195,17 @@ public class Document : Object {
     return "file://" + path;
   }
 
-  /** `charset`, when given, is what the folder says the file is; a byte order mark in the file itself wins over it. */
-  public static Document load (string path, Charset? charset = null) throws Error {
+  /** `charset`, when given, is what the folder says the file is; a byte order mark in the file itself wins over it. `languages` is what {@link language} is resolved against, none for a document that is never highlighted. */
+  public static Document load (string path, Charset? charset = null, Syntax.Languages? languages = null) throws Error {
     var document = new Document (uri_for_path (path));
     document.pathname = path;
     document.name = Path.get_basename (path);
+    document.languages = languages;
     if (charset != null) {
       document.charset = charset;
     }
     document.read_from_disk ();
+    document.refresh_language ();
     return document;
   }
 
@@ -189,8 +218,23 @@ public class Document : Object {
    */
   public void reload () throws Error {
     read_from_disk ();
+    refresh_language ();
     is_externally_modified = false;
     is_deleted = false;
+  }
+
+  /** Resolves {@link language} again — see there for when that happens by itself; this is for a package installed or removed while the document is open. */
+  public void refresh_language () {
+    if (_language_override != null) {
+      language = _language_override;
+      return;
+    }
+    language = languages == null ? null : languages.detect_name (pathname ?? uri, first_line ());
+  }
+
+  private string first_line () {
+    int line_end = content.index_of_char ('\n');
+    return line_end < 0 ? content : content.substring (0, line_end);
   }
 
   private void read_from_disk () throws Error {
@@ -276,10 +320,12 @@ public class Document : Object {
    * exactly the kind of string that gets reworded/localized later, and
    * the uri can't follow it when it does.
    */
-  public static Document untitled (string uri_path, string name) {
+  public static Document untitled (string uri_path, string name, Syntax.Languages? languages = null) {
     var document = new Document ("untitled://" + uri_path);
     document.name = name;
     document.is_untitled = true;
+    document.languages = languages;
+    document.refresh_language ();
     return document;
   }
 
@@ -294,6 +340,7 @@ public class Document : Object {
     uri = uri_for_path (new_path);
     pathname = new_path;
     name = Path.get_basename (new_path);
+    refresh_language ();
   }
 
   /** Only ever valid for a document that already has a real path — an untitled one always goes through save_as() instead. A no-op on an unreadable document: there's no real content to write back. */
@@ -322,6 +369,7 @@ public class Document : Object {
     is_untitled = false;
     is_deleted = false;
     is_externally_modified = false;
+    refresh_language ();
   }
 
   /** The content, line ending and charset as they now stand are what the file on disk holds. */
