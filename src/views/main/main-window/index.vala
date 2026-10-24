@@ -136,14 +136,11 @@ public class MainWindow : Object {
   private Opus.Plugins.WorkspaceExtensions? command_providers = null;
   private Opus.Plugins.WorkspaceExtensions? command_sources = null;
 
-  // The Find menu's own three items — kept live via update_find_menu(),
-  // same push-on-change pattern as the primary menu's Save/Save as…
-  // group (save_item/save_as_item above) rather than rebuilt lazily on
-  // open.
-  private Gtk.MenuButton find_menu_button;
+  // The primary menu's Find group — kept live via update_find_menu(),
+  // same push-on-change pattern as its Save/Save as… group
+  // (save_item/save_as_item above) rather than rebuilt lazily on open.
   private Gtk.Widget find_item;
   private Gtk.Widget replace_item;
-  private Gtk.Widget find_in_files_separator;
   private Gtk.Widget find_in_files_item;
 
   // The first theme-selector button becomes the group's own leader
@@ -241,7 +238,6 @@ public class MainWindow : Object {
     content_bin = (Adw.Bin) builder.get_object ("content_bin");
     search_bar_bin = (Adw.Bin) builder.get_object ("search_bar_bin");
     menu_button = (Gtk.MenuButton) builder.get_object ("menu_button");
-    find_menu_button = (Gtk.MenuButton) builder.get_object ("find_menu_button");
     sidebar_toggle_button = (Gtk.ToggleButton) builder.get_object ("sidebar_toggle_button");
     title_stack = (Gtk.Stack) builder.get_object ("title_stack");
     view_switcher = (Adw.ViewSwitcher) builder.get_object ("view_switcher");
@@ -369,10 +365,6 @@ public class MainWindow : Object {
       settings_monitor?.cancel ();
       closed ();
     });
-    // build_find_menu() first: build_primary_menu() ends by calling
-    // update_folder_dependent_ui(), which (see its own doc comment) also
-    // updates find_in_files_item — needs to already exist by then.
-    build_find_menu ();
     build_primary_menu ();
 
     install_css ();
@@ -1664,7 +1656,7 @@ public class MainWindow : Object {
    * Ctrl+H: the tab's own inline replace if it has one, else FindBar's
    * replace mode for a writable editor, else nothing. Only the keybinding
    * routes through here — the Find menu's own "Replace…" item is
-   * FindBar-only by design (see build_find_menu()).
+   * FindBar-only by design (see build_primary_menu()).
    */
   private void on_replace_shortcut () {
     if (editor_pane.active_tab_supports (EditorView.EditorPane.TabCapability.INLINE_REPLACE)) {
@@ -1755,6 +1747,17 @@ public class MainWindow : Object {
     box.append (save_as_item);
 
     box.append (ContextMenu.separator ());
+    find_item = ContextMenu.item (_("Find…"), () => open_find (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK));
+    box.append (find_item);
+    replace_item = ContextMenu.item (_("Replace…"), () => {
+      set_active_bottom_panel (find_bar);
+      find_bar.show_replace ();
+    }, popover, Gtk.accelerator_get_label (Gdk.Key.h, Gdk.ModifierType.CONTROL_MASK));
+    box.append (replace_item);
+    find_in_files_item = ContextMenu.item (_("Find in Files"), () => open_find_in_files (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK));
+    box.append (find_in_files_item);
+
+    box.append (ContextMenu.separator ());
     box.append (ContextMenu.item (_("Settings"), () => open_settings (), popover, Gtk.accelerator_get_label (Gdk.Key.comma, Gdk.ModifierType.CONTROL_MASK)));
     box.append (ContextMenu.item (_("About Opus"), () => open_about (), popover));
 
@@ -1769,6 +1772,7 @@ public class MainWindow : Object {
     menu_button.set_popover (popover);
 
     update_save_group ();
+    update_find_menu ();
     // close_folder_item defaults to visible (a plain Gtk.Button's own
     // default) — this is what actually hides it until a folder is
     // linked; sidebar_toggle_button already starts hidden via the
@@ -1779,46 +1783,17 @@ public class MainWindow : Object {
   }
 
   /**
-   * Builds the Find menu once, at construction — kept in sync afterwards
-   * via update_find_menu() the same way build_primary_menu()'s own
-   * Save/Save as… group is, rather than rebuilt lazily on open.
-   */
-  private void build_find_menu () {
-    var popover = new Gtk.Popover ();
-    var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-
-    find_item = ContextMenu.item (_("Find…"), () => open_find (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK));
-    box.append (find_item);
-    replace_item = ContextMenu.item (_("Replace…"), () => {
-      set_active_bottom_panel (find_bar);
-      find_bar.show_replace ();
-    }, popover, Gtk.accelerator_get_label (Gdk.Key.h, Gdk.ModifierType.CONTROL_MASK));
-    box.append (replace_item);
-
-    find_in_files_separator = ContextMenu.separator ();
-    box.append (find_in_files_separator);
-    find_in_files_item = ContextMenu.item (_("Find in Files"), () => open_find_in_files (), popover, Gtk.accelerator_get_label (Gdk.Key.f, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK));
-    box.append (find_in_files_item);
-
-    popover.child = box;
-    find_menu_button.set_popover (popover);
-
-    update_find_menu ();
-  }
-
-  /**
    * Find…/Replace… both open FindBar, so both only make sense against an
    * editor FindBar can act on — disabled (not hidden, same sensitive-not-
    * visible split as Save's own "nothing to save yet") otherwise, no
    * open tab included; Replace… only against one that can be written to.
    * Find in Files only ever makes sense with
-   * something to search across, so its whole group (separator included)
-   * is hidden without a linked folder, not just disabled.
+   * something to search across, so it is hidden without a linked
+   * folder, not just disabled.
    */
   private void update_find_menu () {
     find_item.sensitive = search_editor != null;
     replace_item.sensitive = can_replace;
-    find_in_files_separator.visible = has_linked_folder;
     find_in_files_item.visible = has_linked_folder;
   }
 

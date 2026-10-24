@@ -7,7 +7,7 @@ namespace EditorView.EditorPane {
    */
   [Flags]
   public enum TabCapability {
-    /** FindBar applies: Ctrl+F, the Find menu's Find…/Replace… items, and Ctrl+H falling back to FindBar's replace mode. `search_editor` is non-null. */
+    /** FindBar applies: Ctrl+F, the primary menu's Find…/Replace… items, and Ctrl+H falling back to FindBar's replace mode. `search_editor` is non-null. */
     TEXT_SEARCH,
     /** Ctrl+H is handled inside the tab itself (open_replace()). */
     INLINE_REPLACE,
