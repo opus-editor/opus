@@ -404,6 +404,7 @@ public class MainWindow : Object {
     // while collapsed, with no extra code needed for that part.
     split_view.bind_property (
       "show-sidebar", sidebar_toggle_button, "active", BindingFlags.BIDIRECTIONAL | BindingFlags.SYNC_CREATE
+    split_view.notify["show-sidebar"].connect (update_folder_dependent_ui);
     );
     split_view.notify["collapsed"].connect (update_folder_dependent_ui);
 
@@ -1534,6 +1535,14 @@ public class MainWindow : Object {
   }
 
   /** Pins the sidebar to exactly `width` px, clamped to the same range dragging allows — see setup_sidebar_resize(). */
+  /** Ctrl+B — hides the sidebar, or shows it again; sidebar_toggle_button stays on while it is hidden, as the way back by mouse. Nothing without a folder: there is no sidebar to show. */
+  private void toggle_sidebar () {
+    if (has_linked_folder) {
+      split_view.show_sidebar = !split_view.show_sidebar;
+    }
+  }
+
+  /** The toggle button is only worth showing while there is a sidebar it can reveal: one hidden by Ctrl+B, or one collapsed behind the narrow-window breakpoint. */
   private void set_sidebar_width (double width) {
     sidebar_width = width.clamp (MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH);
     split_view.min_sidebar_width = sidebar_width;
@@ -1541,7 +1550,7 @@ public class MainWindow : Object {
   }
 
   private void update_folder_dependent_ui () {
-    sidebar_toggle_button.visible = has_linked_folder && split_view.collapsed;
+    sidebar_toggle_button.visible = has_linked_folder && (split_view.collapsed || !split_view.show_sidebar);
     close_folder_item.visible = has_linked_folder;
     update_find_menu ();
   }
@@ -1616,6 +1625,9 @@ public class MainWindow : Object {
     // switch below check letters only, leaving Shift entirely to the
     // flag above.
     keyval = Gdk.keyval_to_lower (keyval);
+      case Gdk.Key.b:
+        toggle_sidebar ();
+        return true;
 
     var shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
     switch (keyval) {

@@ -60,11 +60,11 @@ Adw.ApplicationWindow window {
         }
       };
 
-      // Only shown once the sidebar has actually collapsed AND a folder
-      // is linked (see MainWindow's own
-      // update_sidebar_toggle_visibility) — with the sidebar sitting
-      // permanently side-by-side, or none linked at all, there's nothing
-      // useful for it to reveal. Adw.OverlaySplitView already dismisses
+      // Only shown while a folder is linked and its sidebar is out of
+      // sight — hidden by Ctrl+B, or collapsed by the breakpoint below
+      // (see MainWindow's own update_folder_dependent_ui): with the
+      // sidebar sitting side-by-side, or no folder at all, there's
+      // nothing for it to reveal. Adw.OverlaySplitView already dismisses
       // the revealed sidebar on an outside click on its own (its own
       // "shield" widget — checked its source, not assumed); this button
       // only needs to handle showing it.
