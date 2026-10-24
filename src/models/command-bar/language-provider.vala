@@ -72,9 +72,18 @@ namespace CommandBar {
         var row = new Item (package.name, package.title);
         // The name is what a manifest and a Markdown fence call it; not worth repeating when the title already is it.
         row.description = package.title == package.name ? null : package.name;
+        row.icon_name = icon_file_name (package);
         listed.add (row);
       }
       return listed;
+    }
+
+    /** A file name the package would claim, for the row's icon — the icon theme knows files, not languages: "file.rb", or "COMMIT_EDITMSG" for one known by name only. */
+    private static string? icon_file_name (Syntax.LanguagePackage package) {
+      if (package.extensions.length > 0) {
+        return "file." + package.extensions[0];
+      }
+      return package.globs.length > 0 ? package.globs[0] : null;
     }
 
     private void update () {

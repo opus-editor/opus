@@ -72,6 +72,14 @@ int main (string[] args) {
         assert_cmpstr (scenario.picker.items[0].description, CompareOperator.EQ, "cpp");
     });
 
+    Test.add_func ("/command-bar/language-provider/a-row-carries-a-file-name-of-its-language-for-the-icon", () => {
+        var scenario = new Scenario ();
+
+        scenario.open ();
+
+        assert_cmpstr (scenario.picker.items[0].icon_name, CompareOperator.EQ, "file.cpp");
+    });
+
     Test.add_func ("/command-bar/language-provider/a-language-without-a-title-shows-its-name-once", () => {
         var scenario = new Scenario ();
 
