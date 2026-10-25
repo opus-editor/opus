@@ -465,7 +465,7 @@ namespace EditorView {
     }
 
     /** Right-click on one of several selected rows: what applies to all of them at once — Cut, Copy, Delete. Rename, New, Paste and the paths are one entry's own and stay on the single-row menu. */
-    private void show_selection_menu (Gtk.Widget anchor, double x, double y, FileNode[] nodes) {
+    private void show_selection_menu (Gtk.Widget anchor, double x, double y, owned FileNode[] nodes) {
       ContextMenu.popup_at (anchor, x, y, (popover, box) => {
         box.append (ContextMenu.item (_("Cut"), () => set_clipboard (nodes, true), popover));
         box.append (ContextMenu.item (_("Copy"), () => set_clipboard (nodes, false), popover));
