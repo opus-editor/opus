@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b id="app-version">0.5.0</b>
+  <b id="app-version">0.6.0</b>
 </p>
 
 A lightweight, capable source code editor for the GNOME desktop — built
