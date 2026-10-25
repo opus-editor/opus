@@ -155,17 +155,13 @@ public class AutoClose : Object {
   }
 
   private Syntax.PairSet pairs_at (int offset) {
-    if (scope_at == null) {
-      return no_language_pairs;
-    }
-    return scope_at (offset, false)?.package.pairs ?? no_language_pairs;
+    var scope = scope_at == null ? null : scope_at (offset, false);
+    return scope == null ? no_language_pairs : scope.package.pairs;
   }
 
   private string[] captures_at (int offset, bool of_character) {
-    if (scope_at == null) {
-      return {};
-    }
-    return scope_at (offset, of_character)?.captures ?? new string[0];
+    var scope = scope_at == null ? null : scope_at (offset, of_character);
+    return scope == null ? new string[0] : scope.captures;
   }
 
   private static TaggedTextEdit tagged (Cursor cursor, int start, int end, unichar[] chars, string new_text) {

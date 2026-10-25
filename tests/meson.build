@@ -1221,6 +1221,25 @@ foreach ability : ['pairs', 'cursors', 'memory', 'quotes', 'surround', 'language
   )
 endforeach
 
+input_method_test = executable(
+  'input-method-test',
+  ['system/editing/input-method-test.vala'],
+  dependencies: [opus_system_test_dep],
+)
+test(
+  'input-method',
+  input_method_test,
+  env: [
+    'OPUS_BINARY_PATH=' + opus_exe.full_path(),
+    'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+    'OPUS_LANGUAGES_DIR=' + meson.project_source_root() / 'languages',
+    'OPUS_GRAMMARS_DIR=' + opus_grammars_build_dir,
+    'OPUS_THEMES_DIR=' + opus_test_themes_dir,
+  ],
+  depends: opus_grammar_modules,
+  timeout: 60,
+)
+
 smart_indent_test = executable(
   'smart-indent-test',
   ['system/editing/smart-indent-test.vala'],

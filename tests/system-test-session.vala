@@ -283,6 +283,8 @@ public class SystemTestSession : Object {
     // --- SystemTestEditorText ---
     public void editor_write (string text) throws Error { editor_text.editor_write (text); }
     public void type (string text) throws Error { editor_text.type (text); }
+    public void commit (string text) throws Error { editor_text.commit (text); }
+    public void preedit (string text, int caret) throws Error { editor_text.preedit (text, caret); }
     public bool type_cmd (string name) throws Error { return editor_text.type_cmd (name); }
     public bool key_press (uint keyval, uint modifiers) throws Error { return editor_text.key_press (keyval, modifiers); }
     public void select_all () throws Error { editor_text.select_all (); }

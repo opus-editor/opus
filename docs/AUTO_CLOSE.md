@@ -151,6 +151,10 @@ guard from 3.
   character under the cursor as usual. Surround still works.
 - **Indentation**: typing a closer that auto-outdents (`}` on its own
   line) keeps doing so whether it was overtyped or inserted.
+- **Input method**: what is still being composed (a dead key's `~`, a
+  CJK candidate) shows at every cursor as marked text, outside the
+  history; what it commits is typed like any key, so `"` from a dead
+  key closes and wraps the same as `"` from a plain one.
 
 ## Out of scope
 

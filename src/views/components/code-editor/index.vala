@@ -42,6 +42,7 @@ public class CodeEditor : Object {
   private CodeEditorCursors cursors;
   private CodeEditorClipboard clipboard;
   private CodeEditorInput input;
+  private CodeEditorComposition composition;
   private CodeEditorSearch search;
   private CodeEditorChangeGutter change_gutter;
   private CodeEditorScrollbar scrollbar;
@@ -167,7 +168,8 @@ public class CodeEditor : Object {
     overlay.add_overlay (scrollbar);
     overlay.add_overlay (conflicts.widget);
     clipboard = new CodeEditorClipboard (text_view, cursors);
-    input = new CodeEditorInput (text_view, cursors, clipboard);
+    composition = new CodeEditorComposition (text_view, cursors);
+    input = new CodeEditorInput (text_view, cursors, clipboard, composition);
     input.link_click.connect ((offset) => link_click (offset));
 
     search = new CodeEditorSearch (text_view, search_settings);
@@ -510,6 +512,16 @@ public class CodeEditor : Object {
     apply_auto_close ();
     cursors.load_text (text);
     conflicts.schedule_scan ();
+  }
+
+  /** What the input method settled on, typed at every cursor — for Opus.Dev.DevServer's own CommitText: a dead key resolving into `ã` has no keyval a KeyPress could carry. */
+  public void commit_text (string text) {
+    cursors.commit_text (text);
+  }
+
+  /** What the input method is still composing, shown at every cursor — Opus.Dev.DevServer's own Preedit. */
+  public void preedit (string text, int caret) {
+    cursors.show_preedit (text, caret);
   }
 
   /** How many merge-conflict blocks the text holds right now (see CodeEditorConflicts). */

@@ -45,6 +45,12 @@ namespace Opus.Dev {
     /** Replaces the active tab's entire buffer content — simulates a real edit (dirty tracking and all), just not through a real keypress. */
     public abstract void set_active_text (string text) throws DBusError, IOError;
 
+    /** Hands `text` to the active editor as the input method would once a dead key or compose sequence resolves — what KeyPress can't carry, since such a character has no keyval. */
+    public abstract void commit_text (string text) throws DBusError, IOError;
+
+    /** Shows `text` as what the input method is composing, the caret `caret` characters into it — the `~` a dead key is waiting with. "" ends the composition. */
+    public abstract void preedit (string text, int caret) throws DBusError, IOError;
+
     /** Replaces the active tab's cursor set — `anchors[i]`/`positions[i]` pair up into one cursor each (collapsed when equal). Lets a system test seed a multi-cursor starting state directly, without typing/clicking it into place first. */
     public abstract void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError;
 

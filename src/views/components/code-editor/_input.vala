@@ -19,6 +19,7 @@ public class CodeEditorInput : Object {
   private GtkSource.Buffer source_buffer { get { return (GtkSource.Buffer) text_view.buffer; } }
   private CodeEditorCursors cursors;
   private CodeEditorClipboard clipboard;
+  private CodeEditorComposition composition;
   private CodeEditorDragSelection drag_selection;
 
   // Set by on_pressed() on a Shift+Alt+click (box-select) — -1 means
@@ -46,14 +47,18 @@ public class CodeEditorInput : Object {
   private int pending_link_offset = -1;
   private int pending_link_line = -1;
 
-  public CodeEditorInput (CodeEditorSourceView text_view, CodeEditorCursors cursors, CodeEditorClipboard clipboard) {
+  public CodeEditorInput (CodeEditorSourceView text_view, CodeEditorCursors cursors, CodeEditorClipboard clipboard, CodeEditorComposition composition) {
     this.text_view = text_view;
     this.cursors = cursors;
     this.clipboard = clipboard;
+    this.composition = composition;
 
     // CAPTURE: has to see the key before GtkTextView's own built-in bindings do.
     var key_controller = new Gtk.EventControllerKey ();
     key_controller.set_propagation_phase (Gtk.PropagationPhase.CAPTURE);
+    // And the input method sees it before key_pressed(): a dead key's
+    // letter is the composer's, not a character to type.
+    key_controller.set_im_context (composition.context);
     key_controller.key_pressed.connect ((keyval, keycode, state) => key_pressed (keyval, state));
     text_view.add_controller (key_controller);
 
@@ -82,6 +87,8 @@ public class CodeEditorInput : Object {
     // leak into a later, unrelated native mark change (e.g. a native
     // Ctrl+A after this same key falls through unclaimed below).
     cursors.keep_native_direction = false;
+    // A key the input method let through while composing ends the composition.
+    composition.cancel ();
 
     bool ctrl = (state & Gdk.ModifierType.CONTROL_MASK) != 0;
     bool alt = (state & Gdk.ModifierType.ALT_MASK) != 0;
@@ -214,6 +221,7 @@ public class CodeEditorInput : Object {
   }
 
   private void on_pressed (Gtk.GestureClick click_gesture, int n_press, double x, double y) {
+    composition.cancel ();
     var state = click_gesture.get_current_event_state ();
     bool alt = (state & Gdk.ModifierType.ALT_MASK) != 0;
     bool shift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;

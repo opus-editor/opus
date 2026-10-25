@@ -173,3 +173,22 @@ together, not either alone:
    (`[CCode (cname = "g_signal_handler_is_connected")]`). This is the
    actual load-bearing fix: it's the only way to tell whether GObject's
    own automatic cleanup already beat you to it.
+
+## GtkTextView's input-method handlers can be detached by their data
+
+GtkTextView connects `commit`, `preedit-start`, `preedit-changed`,
+`retrieve-surrounding` and `delete-surrounding` on its GtkIMContext with
+the view itself as the handler data (`gtk_text_view_init`,
+gtktextview.c), and exposes that context through its own key controller
+(`observe_controllers ()` → `GtkEventControllerKey.get_im_context ()`).
+`GLib.SignalHandler.disconnect_matched (context, ID | DATA, signal_id,
+0, null, null, view)` therefore removes exactly the view's handler for
+one signal and nothing else, while the view keeps doing the rest for
+that context: focus in and out, the caret's location for the candidate
+window, the text around the caret. `CodeEditorComposition` relies on
+this to take over `commit` and `preedit-changed` — confirmed by
+typing through a dead-key layout and by tests/system/editing/
+input-method-test. The same context set on CodeEditorInput's CAPTURE
+key controller filters keys before the view's own controller does, so
+an in-process composer (GtkIMContextSimple) sees a dead key's letter
+before key_pressed() would type it.

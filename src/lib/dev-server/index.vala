@@ -118,6 +118,14 @@ namespace Opus.Dev {
       current_editor_pane ().set_active_content (text);
     }
 
+    public void commit_text (string text) throws DBusError, IOError {
+      active_editor ().commit_text (text);
+    }
+
+    public void preedit (string text, int caret) throws DBusError, IOError {
+      active_editor ().preedit (text, caret);
+    }
+
     public void set_active_cursors (int[] anchors, int[] positions) throws DBusError, IOError {
       current_editor_pane ().set_active_cursors (anchors, positions);
     }
@@ -127,7 +135,10 @@ namespace Opus.Dev {
     }
 
     public string get_active_text () throws DBusError, IOError {
-      return current_editor_pane ().active_content;
+      // The buffer itself, not the document's content: a preedit being
+      // composed is in the one and not yet in the other.
+      var editor = current_editor_pane ().code_editor;
+      return editor == null ? current_editor_pane ().active_content : editor.get_text ();
     }
 
     public void get_active_cursors (out int[] anchors, out int[] positions) throws DBusError, IOError {

@@ -33,6 +33,16 @@ public class SystemTestEditorText : Object {
         return key_press (keyval, modifiers);
     }
 
+    /** What the input method hands the editor once a dead key or compose sequence resolves — `ã`, or a word from a CJK input method — which no key_press() can produce. */
+    public void commit (string text) throws Error {
+        call ("CommitText", new Variant ("(s)", text));
+    }
+
+    /** What the input method is still composing, shown at every cursor with the caret `caret` characters into it; "" ends it. */
+    public void preedit (string text, int caret) throws Error {
+        call ("Preedit", new Variant ("(si)", text, caret));
+    }
+
     /** Returns whether anything claimed the key — same as a real keypress's own dispatch result. */
     public bool key_press (uint keyval, uint modifiers) throws Error {
         bool claimed;

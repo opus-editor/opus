@@ -102,6 +102,7 @@ public class CodeEditorCursors : Object {
   /** Swaps in the cursor set and undo stack this editor works on — EditorView.EditorPane.TabDocument hands over its Document's own pair once, when it builds its editor. Renders `cursors` right away. Cancels any still-pending reveal_cursors(), which would otherwise scroll the buffer to a cursor of the pair just replaced. */
   public void bind (CursorCollection cursors, EditHistory history) {
     cancel_pending_reveal ();
+    before_preedit = null;
     this.cursors = cursors;
     this.history = history;
     native_edits.bind (cursors, history);
@@ -268,6 +269,114 @@ public class CodeEditorCursors : Object {
   /** The auto-close rules for the text showing (see docs/AUTO_CLOSE.md) — settings and syntax both resolved by CodeEditor, which owns them. */
   public void set_auto_close (AutoClose? auto_close) {
     this.auto_close = auto_close;
+  }
+
+  // ---- Composition — what the input method is still composing, and what it commits (see CodeEditorComposition). ----
+
+  // The cursors as they were before the preedit text went in, put back
+  // when it comes out: the preedit never moves a cursor for real.
+  private Cursor[]? before_preedit = null;
+  private int preedit_length = 0;
+
+  public bool has_preedit {
+    get { return before_preedit != null; }
+  }
+
+  /**
+   * Shows `text` as what is being composed, at every cursor, with each
+   * caret `caret_in_preedit` characters into its copy — the `~` a dead
+   * key is waiting to put on a letter, a CJK candidate. Marked text in
+   * the buffer rather than a drawing over it, so what follows the cursor
+   * moves aside as it will once the text is committed; outside the
+   * history, and without a text_changed: the document is not edited
+   * until the composition ends.
+   */
+  public void show_preedit (string text, int caret_in_preedit) {
+    remove_preedit ();
+    if (text != "") {
+      insert_preedit (text, caret_in_preedit);
+    }
+    render_cursors (cursors.snapshot ());
+    reveal_cursors ();
+  }
+
+  /** Takes the preedit text back out, cursors as they were. */
+  public void clear_preedit () {
+    if (!has_preedit) {
+      return;
+    }
+    remove_preedit ();
+    render ();
+  }
+
+  /** What the input method settled on: the preedit goes, and the text is typed like any key — one character with everything typing does, a word from a CJK input method as a paste would land. */
+  public void commit_text (string text) {
+    remove_preedit ();
+    if (text.char_count () == 1) {
+      type_char (text.get_char ());
+    } else {
+      insert_text (text);
+    }
+  }
+
+  private void insert_preedit (string text, int caret_in_preedit) {
+    before_preedit = cursors.snapshot ();
+    preedit_length = text.char_count ();
+    var positions = sorted_positions (before_preedit);
+
+    var edits = new TextEdit[positions.length];
+    for (int i = 0; i < positions.length; i++) {
+      edits[i] = new TextEdit () { start_offset = positions[i], end_offset = positions[i], old_text = "", new_text = text };
+    }
+    write_edits (edits);
+
+    int caret = caret_in_preedit.clamp (0, preedit_length);
+    var placed = new Cursor[positions.length];
+    for (int i = 0; i < positions.length; i++) {
+      int start = positions[i] + i * preedit_length;
+      mark_preedit (start, start + preedit_length);
+      placed[i] = new Cursor (start + caret);
+    }
+    cursors.set_cursors (placed);
+  }
+
+  private void remove_preedit () {
+    if (before_preedit == null) {
+      return;
+    }
+    var positions = sorted_positions (before_preedit);
+    var edits = new TextEdit[positions.length];
+    for (int i = 0; i < positions.length; i++) {
+      int start = positions[i] + i * preedit_length;
+      edits[i] = new TextEdit () { start_offset = start, end_offset = start + preedit_length, old_text = "", new_text = "" };
+    }
+    write_edits (edits);
+    cursors.set_cursors (before_preedit);
+    before_preedit = null;
+  }
+
+  private void mark_preedit (int start, int end) {
+    var tag = source_buffer.tag_table.lookup ("opus-preedit") ?? source_buffer.create_tag ("opus-preedit", "underline", Pango.Underline.SINGLE);
+    Gtk.TextIter start_iter;
+    Gtk.TextIter end_iter;
+    source_buffer.get_iter_at_offset (out start_iter, start);
+    source_buffer.get_iter_at_offset (out end_iter, end);
+    source_buffer.apply_tag (tag, start_iter, end_iter);
+  }
+
+  private static int[] sorted_positions (Cursor[] cursor_set) {
+    var positions = new int[cursor_set.length];
+    for (int i = 0; i < cursor_set.length; i++) {
+      positions[i] = cursor_set[i].position_offset;
+    }
+    for (int i = 1; i < positions.length; i++) {
+      for (int j = i; j > 0 && positions[j - 1] > positions[j]; j--) {
+        int swap = positions[j];
+        positions[j] = positions[j - 1];
+        positions[j - 1] = swap;
+      }
+    }
+    return positions;
   }
 
   /** A plain paste — the same text at every cursor, as one non-coalescing step. */
@@ -507,7 +616,12 @@ public class CodeEditorCursors : Object {
     if (edits.length == 0) {
       return;
     }
+    write_edits (edits);
+    text_changed (get_text ());
+  }
 
+  /** The buffer write alone — what the preedit needs, since composing is not yet an edit of the document. */
+  private void write_edits (TextEdit[] edits) {
     var sorted = new TextEdit[edits.length];
     for (int i = 0; i < edits.length; i++) {
       sorted[i] = edits[i];
@@ -526,8 +640,6 @@ public class CodeEditorCursors : Object {
     }
     native_edits.updating_programmatically = false;
     source_buffer.end_user_action ();
-
-    text_changed (get_text ());
   }
 
   private static void stable_sort_edits_descending (TextEdit[] edits) {

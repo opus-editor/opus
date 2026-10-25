@@ -144,6 +144,13 @@ private void test_the_quote_count_is_per_line () {
     assert_cmpstr (typed (all_on (), "\"open\n", 6, '"'), CompareOperator.EQ, "\"open\n\"|\"");
 }
 
+private void test_a_text_whose_syntax_answers_nothing_gets_the_default_pairs () {
+    var auto_close = new AutoClose (AutoCloseSettings.all_on (), (offset, of_character) => null);
+
+    assert_cmpstr (typed (auto_close, "x = ", 4, '('), CompareOperator.EQ, "x = (|)");
+    assert_cmpstr (typed (auto_close, "x = ", 4, '"'), CompareOperator.EQ, "x = \"|\"");
+}
+
 // ---- overtype ----
 
 private void test_typing_a_remembered_closer_moves_past_it () {
@@ -312,6 +319,7 @@ int main (string[] args) {
     Test.add_func ("/models/auto-close/a_quote_after_a_closed_string_closes", test_a_quote_after_a_closed_string_closes);
     Test.add_func ("/models/auto-close/a_quote_where_the_pair_is_inert_does_not_count_toward_an_open_string", test_a_quote_where_the_pair_is_inert_does_not_count_toward_an_open_string);
     Test.add_func ("/models/auto-close/the_quote_count_is_per_line", test_the_quote_count_is_per_line);
+    Test.add_func ("/models/auto-close/a_text_whose_syntax_answers_nothing_gets_the_default_pairs", test_a_text_whose_syntax_answers_nothing_gets_the_default_pairs);
     Test.add_func ("/models/auto-close/typing_a_remembered_closer_moves_past_it", test_typing_a_remembered_closer_moves_past_it);
     Test.add_func ("/models/auto-close/typing_a_closer_nobody_remembers_inserts_it", test_typing_a_closer_nobody_remembers_inserts_it);
     Test.add_func ("/models/auto-close/without_tracking_any_closer_under_the_caret_is_skipped", test_without_tracking_any_closer_under_the_caret_is_skipped);
