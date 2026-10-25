@@ -1199,8 +1199,8 @@ test(
 )
 
 # Auto-close brackets/quotes (docs/AUTO_CLOSE.md), one binary per
-# ability so a failure names what broke; each owns a display, 140 to 145.
-foreach ability : ['pairs', 'cursors', 'memory', 'quotes', 'surround', 'languages']
+# ability so a failure names what broke; each owns a display, 140 to 147.
+foreach ability : ['pairs', 'cursors', 'memory', 'quotes', 'surround', 'languages', 'enter']
   auto_close_ability_test = executable(
     'auto-close-' + ability + '-test',
     ['system/auto-close' / ability + '-test.vala'],

@@ -13,17 +13,20 @@ namespace Syntax {
     public bool auto_close { get; private set; }
     /** Whether typing `open` over a selection wraps it; false keeps the pair for auto-close alone. */
     public bool surround { get; private set; }
+    /** Whether Enter between the two halves opens a line between them, indented — `{|}` becoming three lines. Brackets by default; quotes, and whatever the manifest says otherwise, not. */
+    public bool newline { get; private set; }
 
     /** `open` and `close` as code points, for matching against a text's own characters. */
     public unichar[] open_chars;
     public unichar[] close_chars;
 
-    public BracketPair (string open, string close, string[] not_in, bool auto_close, bool surround) {
+    public BracketPair (string open, string close, string[] not_in, bool auto_close, bool surround, bool? newline = null) {
       this.open = open;
       this.close = close;
       this.not_in = not_in;
       this.auto_close = auto_close;
       this.surround = surround;
+      this.newline = newline ?? !is_quote;
       open_chars = chars_of (open);
       close_chars = chars_of (close);
     }

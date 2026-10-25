@@ -11,7 +11,7 @@
     { "open": "(", "close": ")" },
     { "open": "\"", "close": "\"", "not-in": ["string"] },
     { "open": "'", "close": "'", "not-in": ["string", "comment"] },
-    { "open": "/*", "close": " */", "not-in": ["string", "comment"] }
+    { "open": "/*", "close": " */", "not-in": ["string", "comment"], "newline": false }
   ],
   "grammar": {
     "repository": "https://github.com/tree-sitter/tree-sitter-go",

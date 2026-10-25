@@ -182,7 +182,8 @@ namespace Syntax {
         required_string (entry, "close"),
         string_array (entry, "not-in"),
         optional_bool (entry, "auto-close") ?? true,
-        optional_bool (entry, "surround") ?? true
+        optional_bool (entry, "surround") ?? true,
+        optional_bool (entry, "newline")
       );
     }
 

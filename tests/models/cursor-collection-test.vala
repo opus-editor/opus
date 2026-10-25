@@ -1463,6 +1463,64 @@ private void test_two_cursors_whose_edits_merely_touch_both_survive () {
     assert_cmpint (to_remove.length, CompareOperator.EQ, 0);
 }
 
+private string after_enter (string text, int offset, int indent_change_levels = 0) {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (offset) });
+    var auto_close = new AutoClose (AutoCloseSettings.all_on (), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 4, text, out to_remove, (at) => indent_change_levels, auto_close);
+    cc.apply_edit_results (edits, to_remove);
+
+    var edit = edits[0].edit;
+    var result = text.substring (0, text.index_of_nth_char (edit.start_offset)) + edit.new_text + text.substring (text.index_of_nth_char (edit.end_offset));
+    return result.substring (0, result.index_of_nth_char (cc.primary.position_offset)) + "|" + result.substring (result.index_of_nth_char (cc.primary.position_offset));
+}
+
+private void test_enter_between_a_pair_opens_an_indented_line_between_them () {
+    assert_cmpstr (after_enter ("{}", 1), CompareOperator.EQ, "{\n    |\n}");
+}
+
+private void test_enter_between_a_pair_keeps_the_line_s_own_indentation_for_the_closer () {
+    assert_cmpstr (after_enter ("    {}", 5), CompareOperator.EQ, "    {\n        |\n    }");
+}
+
+private void test_enter_between_a_pair_ignores_what_the_syntax_would_add () {
+    assert_cmpstr (after_enter ("{}", 1, 1), CompareOperator.EQ, "{\n    |\n}");
+}
+
+private void test_enter_between_a_pair_takes_the_blanks_between_them () {
+    assert_cmpstr (after_enter ("{  }", 2), CompareOperator.EQ, "{\n    |\n}");
+}
+
+private void test_enter_between_quotes_is_an_ordinary_line_break () {
+    assert_cmpstr (after_enter ("\"\"", 1), CompareOperator.EQ, "\"\n|\"");
+}
+
+private void test_enter_without_auto_close_is_an_ordinary_line_break () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1) });
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 4, "{}", out to_remove);
+
+    assert_cmpstr (edits[0].edit.new_text, CompareOperator.EQ, "\n");
+}
+
+private void test_enter_between_pairs_at_two_cursors_opens_both () {
+    var cc = new CursorCollection ();
+    cc.set_cursors ({ new Cursor (1), new Cursor (4) });
+    var auto_close = new AutoClose (AutoCloseSettings.all_on (), null);
+
+    Cursor[] to_remove;
+    var edits = cc.compute_enter_edits (true, 4, "{}\n{}", out to_remove, null, auto_close);
+    cc.apply_edit_results (edits, to_remove);
+
+    assert_cmpint (edits.length, CompareOperator.EQ, 2);
+    assert_cmpint (cc.at (0).position_offset, CompareOperator.EQ, 6);
+    assert_cmpint (cc.at (1).position_offset, CompareOperator.EQ, 15);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/cursor-collection/default_state_is_a_single_collapsed_cursor_at_start", test_default_state_is_a_single_collapsed_cursor_at_start);
@@ -1561,5 +1619,12 @@ int main (string[] args) {
     Test.add_func ("/models/cursor-collection/backspace_without_auto_close_keeps_its_indent_stops", test_backspace_without_auto_close_keeps_its_indent_stops);
     Test.add_func ("/models/cursor-collection/two_cursors_whose_pair_deletes_overlap_keep_only_the_first", test_two_cursors_whose_pair_deletes_overlap_keep_only_the_first);
     Test.add_func ("/models/cursor-collection/two_cursors_whose_edits_merely_touch_both_survive", test_two_cursors_whose_edits_merely_touch_both_survive);
+    Test.add_func ("/models/cursor-collection/enter_between_a_pair_opens_an_indented_line_between_them", test_enter_between_a_pair_opens_an_indented_line_between_them);
+    Test.add_func ("/models/cursor-collection/enter_between_a_pair_keeps_the_line_s_own_indentation_for_the_closer", test_enter_between_a_pair_keeps_the_line_s_own_indentation_for_the_closer);
+    Test.add_func ("/models/cursor-collection/enter_between_a_pair_ignores_what_the_syntax_would_add", test_enter_between_a_pair_ignores_what_the_syntax_would_add);
+    Test.add_func ("/models/cursor-collection/enter_between_a_pair_takes_the_blanks_between_them", test_enter_between_a_pair_takes_the_blanks_between_them);
+    Test.add_func ("/models/cursor-collection/enter_between_quotes_is_an_ordinary_line_break", test_enter_between_quotes_is_an_ordinary_line_break);
+    Test.add_func ("/models/cursor-collection/enter_without_auto_close_is_an_ordinary_line_break", test_enter_without_auto_close_is_an_ordinary_line_break);
+    Test.add_func ("/models/cursor-collection/enter_between_pairs_at_two_cursors_opens_both", test_enter_between_pairs_at_two_cursors_opens_both);
     return Test.run ();
 }

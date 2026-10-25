@@ -151,6 +151,55 @@ private void test_a_text_whose_syntax_answers_nothing_gets_the_default_pairs () 
     assert_cmpstr (typed (auto_close, "x = ", 4, '"'), CompareOperator.EQ, "x = \"|\"");
 }
 
+// ---- enter between a pair ----
+
+private void test_enter_between_a_bracket_pair_finds_it () {
+    int open_end;
+    int close_start;
+
+    var pair = all_on ().pair_for_newline (chars_of ("f() {}"), 5, 5, out open_end, out close_start);
+
+    assert_cmpstr (pair.open, CompareOperator.EQ, "{");
+    assert_cmpint (open_end, CompareOperator.EQ, 5);
+    assert_cmpint (close_start, CompareOperator.EQ, 5);
+}
+
+private void test_blanks_between_the_halves_are_reported_for_the_edit_to_take () {
+    int open_end;
+    int close_start;
+
+    var pair = all_on ().pair_for_newline (chars_of ("{  }"), 2, 2, out open_end, out close_start);
+
+    assert_nonnull (pair);
+    assert_cmpint (open_end, CompareOperator.EQ, 1);
+    assert_cmpint (close_start, CompareOperator.EQ, 3);
+}
+
+private void test_enter_between_quotes_or_mismatched_halves_finds_nothing () {
+    int open_end;
+    int close_start;
+
+    assert_null (all_on ().pair_for_newline (chars_of ("\"\""), 1, 1, out open_end, out close_start));
+    assert_null (all_on ().pair_for_newline (chars_of ("{]"), 1, 1, out open_end, out close_start));
+    assert_null (all_on ().pair_for_newline (chars_of ("{a}"), 1, 1, out open_end, out close_start));
+}
+
+private void test_a_pair_declared_without_newline_is_skipped () {
+    var auto_close = in_scope ("""[{ "open": "/*", "close": " */", "newline": false }, { "open": "(", "close": ")" }]""", {});
+    int open_end;
+    int close_start;
+
+    assert_null (auto_close.pair_for_newline (chars_of ("/* */"), 2, 2, out open_end, out close_start));
+    assert_nonnull (auto_close.pair_for_newline (chars_of ("()"), 1, 1, out open_end, out close_start));
+}
+
+private void test_a_selection_between_the_halves_counts_from_its_ends () {
+    int open_end;
+    int close_start;
+
+    assert_nonnull (all_on ().pair_for_newline (chars_of ("{ab}"), 1, 3, out open_end, out close_start));
+}
+
 // ---- overtype ----
 
 private void test_typing_a_remembered_closer_moves_past_it () {
@@ -320,6 +369,11 @@ int main (string[] args) {
     Test.add_func ("/models/auto-close/a_quote_where_the_pair_is_inert_does_not_count_toward_an_open_string", test_a_quote_where_the_pair_is_inert_does_not_count_toward_an_open_string);
     Test.add_func ("/models/auto-close/the_quote_count_is_per_line", test_the_quote_count_is_per_line);
     Test.add_func ("/models/auto-close/a_text_whose_syntax_answers_nothing_gets_the_default_pairs", test_a_text_whose_syntax_answers_nothing_gets_the_default_pairs);
+    Test.add_func ("/models/auto-close/enter_between_a_bracket_pair_finds_it", test_enter_between_a_bracket_pair_finds_it);
+    Test.add_func ("/models/auto-close/blanks_between_the_halves_are_reported_for_the_edit_to_take", test_blanks_between_the_halves_are_reported_for_the_edit_to_take);
+    Test.add_func ("/models/auto-close/enter_between_quotes_or_mismatched_halves_finds_nothing", test_enter_between_quotes_or_mismatched_halves_finds_nothing);
+    Test.add_func ("/models/auto-close/a_pair_declared_without_newline_is_skipped", test_a_pair_declared_without_newline_is_skipped);
+    Test.add_func ("/models/auto-close/a_selection_between_the_halves_counts_from_its_ends", test_a_selection_between_the_halves_counts_from_its_ends);
     Test.add_func ("/models/auto-close/typing_a_remembered_closer_moves_past_it", test_typing_a_remembered_closer_moves_past_it);
     Test.add_func ("/models/auto-close/typing_a_closer_nobody_remembers_inserts_it", test_typing_a_closer_nobody_remembers_inserts_it);
     Test.add_func ("/models/auto-close/without_tracking_any_closer_under_the_caret_is_skipped", test_without_tracking_any_closer_under_the_caret_is_skipped);

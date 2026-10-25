@@ -13,7 +13,7 @@
     { "open": "\"", "close": "\"", "not-in": ["string"] },
     { "open": "'", "close": "'", "not-in": ["string", "comment"] },
     { "open": "`", "close": "`", "not-in": ["string"] },
-    { "open": "/*", "close": " */", "not-in": ["string", "comment"] }
+    { "open": "/*", "close": " */", "not-in": ["string", "comment"], "newline": false }
   ],
   "grammar": {
     "name": "javascript",

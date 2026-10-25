@@ -62,6 +62,34 @@ public class AutoClose : Object {
     return tagged (cursor, offset - pair.open_chars.length, offset + pair.close_chars.length, chars, "");
   }
 
+  /**
+   * The pair Enter at `[start, end)` opens up — `{|}` into three lines
+   * (docs/AUTO_CLOSE.md §9): one with `newline`, its open ending right
+   * before `start` and its close starting right after `end`, blanks
+   * between allowed and reported back as `open_end`/`close_start` for
+   * the edit to swallow. Nothing to do with whether Opus inserted it.
+   */
+  public Syntax.BracketPair? pair_for_newline (unichar[] chars, int start, int end, out int open_end, out int close_start) {
+    open_end = start;
+    while (open_end > 0 && is_blank (chars[open_end - 1])) {
+      open_end--;
+    }
+    close_start = end;
+    while (close_start < chars.length && is_blank (chars[close_start])) {
+      close_start++;
+    }
+    foreach (var pair in pairs_at (start).pairs) {
+      if (pair.newline && pair.opens_before (chars, open_end) && pair.closes_at (chars, close_start)) {
+        return pair;
+      }
+    }
+    return null;
+  }
+
+  private static bool is_blank (unichar c) {
+    return c == ' ' || c == '\t';
+  }
+
   /** `foo` + `(` is `(foo)`, the selection still on `foo`. Any pair that surrounds, by its one-character open or close; no scope or quote guard. */
   private TaggedTextEdit? surround_edit (unichar[] chars, Cursor cursor, unichar typed, Syntax.PairSet pairs) {
     if (!settings.surround_selection) {

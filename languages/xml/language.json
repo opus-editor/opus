@@ -90,7 +90,7 @@
     { "open": "<", "close": ">", "not-in": ["string", "comment"], "auto-close": false },
     { "open": "\"", "close": "\"", "not-in": ["string"] },
     { "open": "'", "close": "'", "not-in": ["string"] },
-    { "open": "<!--", "close": "-->", "not-in": ["comment"] }
+    { "open": "<!--", "close": "-->", "not-in": ["comment"], "newline": false }
   ],
   "grammar": {
     "repository": "https://github.com/RenjiSann/tree-sitter-xml",

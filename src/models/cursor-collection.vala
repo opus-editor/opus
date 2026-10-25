@@ -632,7 +632,7 @@ public class CursorCollection : Object {
    * opens a block, say. It is what knows the language; without it
    * every new line simply keeps the indentation described above.
    */
-  public TaggedTextEdit[] compute_enter_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove, IndentChangeFunc? indent_change = null) {
+  public TaggedTextEdit[] compute_enter_edits (bool insert_spaces, int indent_size, string text, out Cursor[] cursors_to_remove, IndentChangeFunc? indent_change = null, AutoClose? auto_close = null) {
     var chars = to_chars (text);
     var attempted = new GenericArray<TaggedTextEdit> ();
 
@@ -654,23 +654,52 @@ public class CursorCollection : Object {
       }
       int captured_end = int.min (start, whitespace_end);
       int width = visible_column (chars, ls, captured_end, indent_size);
-      if (indent_change != null) {
-        width = int.max (0, width + indent_change (start) * indent_size);
+
+      var tagged = auto_close == null ? null : enter_between_pair (auto_close, cursor, chars, start, end, width, indent_size, insert_spaces);
+      if (tagged == null) {
+        if (indent_change != null) {
+          width = int.max (0, width + indent_change (start) * indent_size);
+        }
+        tagged = line_break (cursor, chars, start, end, "\n" + indentation_of_width (width, indent_size, insert_spaces));
       }
-
-      var edit = new TextEdit ();
-      edit.start_offset = start;
-      edit.end_offset = end;
-      edit.old_text = chars_to_string (chars, start, end);
-      edit.new_text = "\n" + indentation_of_width (width, indent_size, insert_spaces);
-
-      var tagged = new TaggedTextEdit ();
-      tagged.edit = edit;
-      tagged.cursor = cursor;
       attempted.add (tagged);
     }
 
     return finalize_edits (attempted, out cursors_to_remove);
+  }
+
+  /**
+   * Enter between the two halves of a pair — `{|}` — opens a line
+   * between them: the first one level in from the cursor's line, the
+   * closer on a third at that line's own level, caret on the middle one
+   * (docs/AUTO_CLOSE.md §9). The line's own indentation is the base, not
+   * what the syntax would add: the `{` already opened the block. Blanks
+   * between the halves go with the edit. Null when the cursor isn't
+   * between a pair that does this.
+   */
+  private TaggedTextEdit? enter_between_pair (AutoClose auto_close, Cursor cursor, unichar[] chars, int start, int end, int width, int indent_size, bool insert_spaces) {
+    int open_end;
+    int close_start;
+    if (auto_close.pair_for_newline (chars, start, end, out open_end, out close_start) == null) {
+      return null;
+    }
+    var inner = "\n" + indentation_of_width (width + indent_size, indent_size, insert_spaces);
+    var tagged = line_break (cursor, chars, open_end, close_start, inner + "\n" + indentation_of_width (width, indent_size, insert_spaces));
+    tagged.caret_in_new_text = inner.char_count ();
+    return tagged;
+  }
+
+  private static TaggedTextEdit line_break (Cursor cursor, unichar[] chars, int start, int end, string new_text) {
+    var edit = new TextEdit ();
+    edit.start_offset = start;
+    edit.end_offset = end;
+    edit.old_text = chars_to_string (chars, start, end);
+    edit.new_text = new_text;
+
+    var tagged = new TaggedTextEdit ();
+    tagged.edit = edit;
+    tagged.cursor = cursor;
+    return tagged;
   }
 
   /**

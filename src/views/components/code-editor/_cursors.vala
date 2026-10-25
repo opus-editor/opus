@@ -420,7 +420,7 @@ public class CodeEditorCursors : Object {
     }
     previous_typed_was_space = false;
     Cursor[] cursors_to_remove;
-    var tagged_edits = cursors.compute_enter_edits (insert_spaces, indent_size, get_text (), out cursors_to_remove, indent_change);
+    var tagged_edits = cursors.compute_enter_edits (insert_spaces, indent_size, get_text (), out cursors_to_remove, indent_change, auto_close);
     apply_tagged_edits (tagged_edits, cursors_to_remove, EditKind.OTHER);
   }
 

@@ -84,7 +84,7 @@ only install packages you trust.
 | `grammar.rev` | The full commit to build. Always a commit, never a branch: the queries are written against one exact grammar. |
 | `grammar.path` | The grammar's folder inside the repository, when it isn't the root. |
 | `grammar.name` | The grammar's own name, when it differs from the language's. It names the function the grammar exports: `tree_sitter_<name>`, with `-` and `.` turned into `_`. |
-| `pairs` | What typing an `open` closes with, and what wraps a selection (see [AUTO_CLOSE.md](AUTO_CLOSE.md)). `not-in` names highlight captures the pair is inert inside, by prefix: `string` covers `string.special`. `"auto-close": false` keeps a pair for surround alone, `"surround": false` for auto-close alone. Any length: a block comment's delimiters are a pair. Left out, the language gets `() [] {} "" ''`. |
+| `pairs` | What typing an `open` closes with, and what wraps a selection (see [AUTO_CLOSE.md](AUTO_CLOSE.md)). `not-in` names highlight captures the pair is inert inside, by prefix: `string` covers `string.special`. `"auto-close": false` keeps a pair for surround alone, `"surround": false` for auto-close alone, `"newline": false` keeps Enter between the halves from opening a line between them (on by default for brackets, off for quotes). Any length: a block comment's delimiters are a pair. Left out, the language gets `() [] {} "" ''`. |
 | `auto-close-before` | Besides whitespace and the end of a line, the characters a closer may be inserted in front of. Defaults to `;:.,=}])>`. |
 
 When two languages claim a file, a glob beats an extension, the longer

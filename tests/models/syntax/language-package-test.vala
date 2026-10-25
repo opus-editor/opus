@@ -226,6 +226,19 @@ private void test_auto_close_before_must_be_a_string () {
     assert_invalid ("""{ "name": "ruby", "auto-close-before": [";"] }""");
 }
 
+private void test_a_pair_s_newline_is_read_and_defaults_by_kind () {
+    var package = parse ("""{ "name": "c", "pairs": [
+      { "open": "{", "close": "}" },
+      { "open": "\"", "close": "\"" },
+      { "open": "/*", "close": " */", "newline": false }
+    ] }""");
+
+    var pairs = package.pairs.pairs;
+    assert_true (pairs[0].newline);
+    assert_false (pairs[1].newline);
+    assert_false (pairs[2].newline);
+}
+
 void main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/language-package/a_minimal_manifest_only_needs_a_name", test_a_minimal_manifest_only_needs_a_name);
@@ -259,5 +272,6 @@ void main (string[] args) {
     Test.add_func ("/models/syntax/language-package/a_pair_must_be_an_object", test_a_pair_must_be_an_object);
     Test.add_func ("/models/syntax/language-package/a_pair_s_flags_must_be_booleans", test_a_pair_s_flags_must_be_booleans);
     Test.add_func ("/models/syntax/language-package/auto_close_before_must_be_a_string", test_auto_close_before_must_be_a_string);
+    Test.add_func ("/models/syntax/language-package/a_pair_s_newline_is_read_and_defaults_by_kind", test_a_pair_s_newline_is_read_and_defaults_by_kind);
     Test.run ();
 }

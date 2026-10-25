@@ -1,6 +1,6 @@
 # Auto-close Brackets/Quotes
 
-Typing `(` gives `(|)`. That one sentence hides eight abilities, each
+Typing `(` gives `(|)`. That one sentence hides nine abilities, each
 of which exists because the sentence alone gets in the way somewhere.
 This document names them, says what each one does, and which setting,
 if any, controls it. `|` marks the cursor.
@@ -40,6 +40,7 @@ package declares its pairs in `language.json`:
 | `not-in` | Highlight captures (`string`, `comment`, …) inside which this pair is inert. Matched by prefix: `string` covers `string.special`. |
 | `auto-close` | `false` keeps the pair for surround only. Default `true`. |
 | `surround` | `false` keeps the pair for auto-close only. Default `true`. |
+| `newline` | Whether Enter between the two halves opens a line between them (9). Default `true` for brackets, `false` for quotes. |
 | `auto-close-before` | Characters a closer may be inserted in front of, besides whitespace and end of line. Default shown above. |
 
 A **quote** is a pair whose `open` equals its `close`. Everything else is
@@ -156,6 +157,21 @@ guard from 3.
   history; what it commits is typed like any key, so `"` from a dead
   key closes and wraps the same as `"` from a plain one.
 
+## 9. Enter between a pair
+
+`{|}` + Enter gives three lines: the `{`, a line one level in with the
+caret on it, and the `}` at the line's own level. The block is ready
+to type into, whether Opus inserted the pair or the file already had
+it: nothing here reads the memory (4).
+
+Only for pairs with `newline` on, which brackets have by default and
+quotes don't; a language turns it off where a pair isn't a block (`/*`,
+`<!--`). Blanks between the two halves go with the edit: `{ | }` opens
+the same three lines. The indentation is the cursor's line plus one
+level, not what the syntax would add for the line: the `{` already
+opened the block. Off with `editor.auto_indent` off, like the rest of
+Enter's indenting.
+
 ## Out of scope
 
 Named here so they are not rediscovered as gaps.
@@ -163,9 +179,6 @@ Named here so they are not rediscovered as gaps.
 - **Tags**: `<div>` + `>` giving `<div>|</div>`. Different trigger,
   needs the syntax tree to know what an opening tag is. Its own
   feature, "Auto-close Tags".
-- **Enter between a pair**: `{|}` + Enter opening three lines with the
-  cursor indented in the middle. Belongs to indentation
-  (`indents.scm`), not to pairs.
 - **Space padding**: `(|)` + Space giving `( | )` and Backspace undoing
   both (Helix). Low value, surprising; not planned.
 - **Separate switch for block comments** (VS Code's

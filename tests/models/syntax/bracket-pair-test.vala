@@ -134,6 +134,13 @@ private void test_an_empty_pair_is_found_around_the_offset_between_its_halves ()
     assert_null (set.around (chars_of ("x[)"), 2));
 }
 
+private void test_brackets_open_a_line_on_enter_and_quotes_do_not_unless_told () {
+    assert_true (pair ("(", ")").newline);
+    assert_false (pair ("\"", "\"").newline);
+    assert_false (new Syntax.BracketPair ("/*", " */", {}, true, true, false).newline);
+    assert_true (new Syntax.BracketPair ("`", "`", {}, true, true, true).newline);
+}
+
 int main (string[] args) {
     Test.init (ref args);
     Test.add_func ("/models/syntax/bracket-pair/a_pair_whose_open_is_its_close_is_a_quote", test_a_pair_whose_open_is_its_close_is_a_quote);
@@ -154,5 +161,6 @@ int main (string[] args) {
     Test.add_func ("/models/syntax/bracket-pair/a_closer_may_go_before_a_bracket_s_close_but_not_a_quote", test_a_closer_may_go_before_a_bracket_s_close_but_not_a_quote);
     Test.add_func ("/models/syntax/bracket-pair/a_single_character_closer_names_its_pair", test_a_single_character_closer_names_its_pair);
     Test.add_func ("/models/syntax/bracket-pair/an_empty_pair_is_found_around_the_offset_between_its_halves", test_an_empty_pair_is_found_around_the_offset_between_its_halves);
+    Test.add_func ("/models/syntax/bracket-pair/brackets_open_a_line_on_enter_and_quotes_do_not_unless_told", test_brackets_open_a_line_on_enter_and_quotes_do_not_unless_told);
     return Test.run ();
 }
